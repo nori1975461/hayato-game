@@ -72,15 +72,16 @@ const SPRITES = {
     'G.G..G.G',
     'GG.GG.GG',
   ],
-  // ボス: 紫の巨大ドラゴン（24x20・翼と角と赤い目と牙としっぽ）
+  // ボス: 紫の巨大ドラゴン（24x20・大きな翼[爪付き]・鋭い角・赤い目・牙・しっぽ）
+  // boss / boss2 の2フレームで羽ばたきアニメーション
   boss: [
     '..YY................YY..',
-    '..YYY..............YYY..',
-    '...YY...PPPPPPPP...YY...',
-    '...PPP..PPPPPPPP..PPP...',
-    '..pPPPP.PPPPPPPP.PPPPp..',
-    '.ppPPPP.PRKPPKRP.PPPPpp.',
-    '.pppPPP.PRRPPRRP.PPPppp.',
+    '.YYYY..............YYYY.',
+    '..YYY...PPPPPPPP...YYY..',
+    '...PPP.PPPPPPPPPP.PPP...',
+    'Y.pPPPPPPPPPPPPPPPPPPp.Y',
+    'YppPPPP.PRKPPKRP.PPPPppY',
+    'pppPPPP.PRRPPRRP.PPPPppp',
     'ppppPPPPPPPPPPPPPPPPpppp',
     'pppPPPPPPPPPPPPPPPPPPppp',
     'ppPPPPPPKKKKKKKKPPPPPPpp',
@@ -92,8 +93,53 @@ const SPRITES = {
     '...PPP..PPPPPPPP..PPP...',
     '...YY...PPPPPPPP...YY...',
     '........PPPPPP..........',
-    '..........PPPP..........',
-    '...........PP...........',
+    '..........PPPPP.........',
+    '............PPP.........',
+  ],
+  boss2: [
+    '..YY................YY..',
+    '.YYYY..............YYYY.',
+    '..YYY...PPPPPPPP...YYY..',
+    'Y..PPP.PPPPPPPPPP.PPP..Y',
+    'Yp.PPPPPPPPPPPPPPPPPP.pY',
+    'pppPPPP.PRKPPKRP.PPPPppp',
+    'ppPPPPP.PRRPPRRP.PPPPPpp',
+    'ppPPPPPPPPPPPPPPPPPPPPpp',
+    '.pPPPPPPPPPPPPPPPPPPPPp.',
+    '.pPPPPPPKKKKKKKKPPPPPPp.',
+    'pPPPPPPKOOOOOOOOKPPPPPPp',
+    '.PPPPPPKOYYWWYYOKPPPPPP.',
+    '.PPPPPPPKKKKKKKKPPPPPPP.',
+    '..PPPPPPPPPPPPPPPPPPPP..',
+    '..PPPP..PPPPPPPP..PPPP..',
+    '...PPP..PPPPPPPP..PPP...',
+    '...YY...PPPPPPPP...YY...',
+    '........PPPPPP..........',
+    '.........PPPPP..........',
+    '.........PPP............',
+  ],
+  // 神様ボス用の人型スプライト（24x20・王冠・赤い目・白ひげ・ローブ・両手）
+  god: [
+    '.........YYYYYY.........',
+    '........YYYYYYYY........',
+    '........PPPPPPPP........',
+    '.......PPPPPPPPPP.......',
+    '.......PRKPPPPKRP.......',
+    '.......PPPPPPPPPP.......',
+    '.......PWWWWWWWWP.......',
+    '........WWWWWWWW........',
+    '.....ppPPPPPPPPPPpp.....',
+    '....pppPPPPPPPPPPppp....',
+    '...ppppPPPPPPPPPPpppp...',
+    '...pppPPPPPPPPPPPPppp...',
+    '..YpppPPPPPPPPPPPPpppY..',
+    '..YppPPPPPPPPPPPPPPppY..',
+    '...ppPPPPPPPPPPPPPPpp...',
+    '...pPPPPPPPPPPPPPPPPp...',
+    '....PPPPPPPPPPPPPPPP....',
+    '....PPPP..PPPP..PPPP....',
+    '....PPP....PP....PPP....',
+    '....PP.....PP.....PP....',
   ],
   heart: [
     '.MM.MM.',
@@ -141,20 +187,20 @@ function playerRemap() {
 // rainbow: 刃が虹色に光る
 const WEAPONS = [
   { name: 'ナイフ',         score: 0,     len: 34, width: 3,  spin: 0.090, blades: 1, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
-  { name: '剣',             score: 400,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
-  { name: '槍',             score: 900,   len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57' },
-  { name: 'ダブルナイフ',   score: 1500,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
-  { name: '大剣',           score: 2200,  len: 52, width: 10, spin: 0.120, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
-  { name: '大槍',           score: 3000,  len: 74, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75' },
-  { name: '炎の剣',         score: 4000,  len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
-  { name: 'ダブル炎の剣',   score: 5200,  len: 56, width: 8,  spin: 0.130, blades: 2, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
-  { name: '雷の槍',         score: 6500,  len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true },
-  { name: '氷の大剣',       score: 8000,  len: 64, width: 11, spin: 0.130, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
-  { name: 'トリプルソード', score: 10000, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
-  { name: 'ゴールデンソード', score: 12000, len: 70, width: 12, spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4' },
-  { name: '虹の剣',         score: 14500, len: 72, width: 9,  spin: 0.150, blades: 2, dmg: 2, rainbow: true, color: '#f4f4f4', edge: '#f4f4f4' },
-  { name: 'ドラゴンキラー', score: 17000, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 3, color: '#b13e53', edge: '#ef7d57', flame: true },
-  { name: 'エクスカリバー', score: 20000, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 3, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75' },
+  { name: '剣',             score: 300,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
+  { name: '槍',             score: 700,   len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57' },
+  { name: 'ダブルナイフ',   score: 1200,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
+  { name: '大剣',           score: 1800,  len: 52, width: 10, spin: 0.120, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
+  { name: '大槍',           score: 2500,  len: 74, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75' },
+  { name: '炎の剣',         score: 3300,  len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
+  { name: 'ダブル炎の剣',   score: 4200,  len: 56, width: 8,  spin: 0.130, blades: 2, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
+  { name: '雷の槍',         score: 5200,  len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true },
+  { name: '氷の大剣',       score: 6300,  len: 64, width: 11, spin: 0.130, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
+  { name: 'トリプルソード', score: 7500,  len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
+  { name: 'ゴールデンソード', score: 9000, len: 70, width: 12, spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4' },
+  { name: '虹の剣',         score: 10500, len: 72, width: 9,  spin: 0.150, blades: 2, dmg: 2, rainbow: true, color: '#f4f4f4', edge: '#f4f4f4' },
+  { name: 'ドラゴンキラー', score: 12000, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 3, color: '#b13e53', edge: '#ef7d57', flame: true },
+  { name: 'エクスカリバー', score: 13500, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 3, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75' },
 ];
 
 function weaponForScore(s) {
@@ -163,6 +209,21 @@ function weaponForScore(s) {
     if (s >= WEAPONS[i].score) idx = i;
   }
   return idx;
+}
+
+// ---------- ステージごとのボス（神話の神々がモチーフ） ----------
+// pattern: aim=狙い撃ち / wide=広範囲狙い撃ち / ring=全方向リング /
+//          mix=狙い撃ちとリングを交互 / spiral=回転しながら螺旋発射
+const BOSS_TYPES = [
+  { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'boss', remap: { P: '#38b764', p: '#257179' }, pattern: 'aim' },
+  { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'god',  remap: { P: '#b13e53', p: '#5d275d', Y: '#ef7d57' }, pattern: 'wide' },
+  { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'god',  remap: { P: '#41a6f6', p: '#3b5dc9' }, pattern: 'ring', ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
+  { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'god',  remap: { P: '#38b764', p: '#5d275d', Y: '#38b764' }, pattern: 'mix', ballColors: ['#5d275d', '#8b4f8b', '#38b764'] },
+  { name: 'オーディン',     origin: 'ほくおうしんわ', sprite: 'god',  remap: { P: '#ffcd75', p: '#94b0c2' }, pattern: 'spiral', hpBonus: 10 },
+];
+
+function currentBossType() {
+  return BOSS_TYPES[(stage - 1) % BOSS_TYPES.length];
 }
 
 // ---------- ステージ（ボスを倒すと進む） ----------
@@ -235,19 +296,31 @@ const SFX = {
 // 明るいチップチューンBGM（ステージが進むとキーが上がる）
 const BGM_BASS = [48, 48, 55, 48, 45, 45, 52, 45, 41, 41, 48, 41, 43, 43, 50, 43];
 const BGM_MELODY = [72, 0, 76, 0, 79, 0, 76, 0, 72, 0, 74, 0, 79, 0, 83, 0];
+// ボス戦専用BGM（低音が迫ってくる短調・テンポ速め）
+const BOSS_BASS = [45, 45, 57, 45, 44, 44, 56, 44, 43, 43, 55, 43, 44, 44, 56, 47];
+const BOSS_MELODY = [0, 69, 0, 0, 0, 68, 0, 0, 0, 67, 0, 71, 0, 72, 0, 71];
 let musicFrame = 0;
 let musicStep = 0;
 const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
 function tickMusic() {
   if (!audioCtx || !musicOn || state !== 'playing') return;
+  if (warningTimer > 0) return; // WARNING中はサイレンだけ響かせる
   musicFrame++;
-  if (musicFrame % 9 !== 0) return;
-  const tr = Math.min((stage - 1) * 2, 8);
-  const bass = BGM_BASS[musicStep];
-  if (bass) beep(midi2f(bass + tr), 0.13, 'square', 0.018);
-  const mel = BGM_MELODY[musicStep];
-  if (mel) beep(midi2f(mel + tr), 0.1, 'triangle', 0.02);
+  if (bossActive) {
+    if (musicFrame % 7 !== 0) return; // ボス戦はテンポアップ
+    const bass = BOSS_BASS[musicStep];
+    if (bass) beep(midi2f(bass), 0.12, 'sawtooth', 0.02);
+    const mel = BOSS_MELODY[musicStep];
+    if (mel) beep(midi2f(mel), 0.1, 'square', 0.022);
+  } else {
+    if (musicFrame % 9 !== 0) return;
+    const tr = Math.min((stage - 1) * 2, 8);
+    const bass = BGM_BASS[musicStep];
+    if (bass) beep(midi2f(bass + tr), 0.13, 'square', 0.018);
+    const mel = BGM_MELODY[musicStep];
+    if (mel) beep(midi2f(mel + tr), 0.1, 'triangle', 0.02);
+  }
   musicStep = (musicStep + 1) % 16;
 }
 
@@ -359,19 +432,24 @@ function spawnEnemy() {
 
 function spawnBoss() {
   bossCount++;
+  const type = currentBossType();
+  const hp = 20 + bossCount * 8 + (type.hpBonus || 0);
   enemies.push({
     x: W / 2 - BOSS_SIZE / 2,
     y: -BOSS_SIZE - 10,
     speed: 0.25,
     sprite: 'boss',
     size: BOSS_SIZE,
-    hp: 20 + bossCount * 8,
-    maxHp: 20 + bossCount * 8,
+    hp,
+    maxHp: hp,
     points: 2000,
     hitTimer: 0,
     slowTimer: 0,
     boss: true,
-    fireTimer: 160,
+    fireTimer: type.pattern === 'spiral' ? 100 : 160,
+    type,
+    altRing: false,
+    spiralAngle: 0,
   });
   bossActive = true;
   shakeTimer = 15;
@@ -604,12 +682,11 @@ function update() {
     if (warningTimer === 1) spawnBoss();
   }
 
-  // 敵の出現ペース
+  // 敵の出現ペース（ボス戦中は新しい雑魚を増やさない）
   spawnTimer--;
-  if (spawnTimer <= 0 && enemies.length < 40) {
+  if (spawnTimer <= 0 && enemies.length < 40 && !bossActive && warningTimer === 0) {
     spawnEnemy();
-    const base = Math.max(16, 55 - Math.floor(score / 300) * 3);
-    spawnTimer = bossActive ? Math.max(base, 34) : base;
+    spawnTimer = Math.max(16, 55 - Math.floor(score / 300) * 3);
   }
 
   // 敵の移動＋ボスの炎ブレス
@@ -638,37 +715,68 @@ function update() {
     e.y += Math.sin(angle) * spd;
 
     if (e.boss) {
+      const type = e.type;
+      // 神様のオーラ（体の周りから立ちのぼる光）
+      if (frame % 3 === 0) {
+        const auraColor = (type.remap && type.remap.P) || PALETTE.p;
+        particles.push({
+          x: e.x + Math.random() * e.size,
+          y: e.y + e.size - Math.random() * 20,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: -0.6 - Math.random() * 0.6,
+          life: 20 + Math.random() * 15,
+          color: auraColor,
+        });
+      }
       e.fireTimer--;
+      const mouthX = ecx;
+      const mouthY = e.y + e.size * 0.55;
       if (e.fireTimer < 40 && e.fireTimer > 0) {
-        // チャージ演出: 口に火の粉が集まる
-        const mouthX = ecx;
-        const mouthY = e.y + e.size * 0.55;
+        // チャージ演出: 口元に力が集まる
         const a = Math.random() * Math.PI * 2;
         const d = 30 + Math.random() * 30;
+        const cc = type.ballColors ? type.ballColors[Math.floor(Math.random() * 3)] : (Math.random() < 0.5 ? PALETTE.O : PALETTE.Y);
         particles.push({
           x: mouthX + Math.cos(a) * d,
           y: mouthY + Math.sin(a) * d,
           vx: -Math.cos(a) * 2.5,
           vy: -Math.sin(a) * 2.5,
           life: 12,
-          color: Math.random() < 0.5 ? PALETTE.O : PALETTE.Y,
+          color: cc,
         });
       }
       if (e.fireTimer <= 0) {
-        const mouthX = ecx;
-        const mouthY = e.y + e.size * 0.55;
-        const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
-        const n = Math.min(3 + bossCount, 7);
-        for (let i = 0; i < n; i++) {
-          const spread = (i - (n - 1) / 2) * 0.28;
+        const shoot = (ang) => {
           fireballs.push({
             x: mouthX, y: mouthY,
-            vx: Math.cos(aim + spread) * 1.15,
-            vy: Math.sin(aim + spread) * 1.15,
+            vx: Math.cos(ang) * 1.15,
+            vy: Math.sin(ang) * 1.15,
             life: 380,
+            colors: type.ballColors || null,
           });
+        };
+        const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
+        if (type.pattern === 'aim') {
+          const n = Math.min(3 + bossCount, 7);
+          for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.28);
+        } else if (type.pattern === 'wide') {
+          const n = Math.min(5 + bossCount, 9);
+          for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.32);
+        } else if (type.pattern === 'ring') {
+          for (let i = 0; i < 10; i++) shoot((Math.PI * 2 * i) / 10);
+        } else if (type.pattern === 'mix') {
+          e.altRing = !e.altRing;
+          if (e.altRing) {
+            for (let i = 0; i < 8; i++) shoot((Math.PI * 2 * i) / 8);
+          } else {
+            const n = Math.min(3 + bossCount, 7);
+            for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.28);
+          }
+        } else if (type.pattern === 'spiral') {
+          for (let i = 0; i < 3; i++) shoot(e.spiralAngle + (Math.PI * 2 * i) / 3);
+          e.spiralAngle += 0.5;
         }
-        e.fireTimer = Math.max(90, 160 - bossCount * 10);
+        e.fireTimer = type.pattern === 'spiral' ? 55 : Math.max(90, 160 - bossCount * 10);
         shakeTimer = 8;
         SFX.bossFire();
       }
@@ -904,7 +1012,8 @@ function drawBackground() {
 
 function render() {
   ctx.save();
-  if (shakeTimer > 0) {
+  // 画面シェイクはプレイ中のみ（ゲームオーバー画面では揺らさない）
+  if (shakeTimer > 0 && state === 'playing') {
     const s = Math.min(shakeTimer, 8);
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
@@ -969,25 +1078,32 @@ function render() {
     ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
   }
 
-  // ボスの炎（敵弾）
+  // ボスの弾（神様ごとに色が違う: 炎・雷球・闇の球など）
   for (const f of fireballs) {
-    ctx.fillStyle = PALETTE.R;
+    const cols = f.colors || ['#b13e53', '#ef7d57', '#ffcd75'];
+    ctx.fillStyle = cols[0];
     ctx.fillRect(Math.round(f.x) - 5, Math.round(f.y) - 5, 10, 10);
-    ctx.fillStyle = PALETTE.O;
+    ctx.fillStyle = cols[1];
     ctx.fillRect(Math.round(f.x) - 3, Math.round(f.y) - 3, 6, 6);
-    ctx.fillStyle = PALETTE.Y;
+    ctx.fillStyle = cols[2];
     ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
   }
 
-  // 敵（ボスは横幅が広いので中央合わせ＋ふわふわ浮遊）
+  // 敵（ボスは羽ばたき/浮遊アニメ＋神様ごとの色＋中央合わせ）
   for (const e of enemies) {
     if (!e.boss && e.hitTimer > 0 && Math.floor(frame / 3) % 2 === 0) continue;
-    const remap = e.slowTimer > 0 ? { P: '#41a6f6', R: '#41a6f6', G: '#41a6f6' } : null;
-    const spr = SPRITES[e.sprite];
+    let sname = e.sprite;
+    let remap = null;
+    if (e.boss) {
+      sname = e.type.sprite === 'god' ? 'god' : (Math.floor(gframe / 18) % 2 === 0 ? 'boss' : 'boss2');
+      remap = e.type.remap;
+    }
+    if (e.slowTimer > 0) remap = { P: '#41a6f6', R: '#41a6f6', G: '#41a6f6', p: '#3b5dc9' };
+    const spr = SPRITES[sname];
     const scale = e.size / spr.length;
     const offX = (e.size - spr[0].length * scale) / 2;
     const bob = e.boss ? Math.sin(gframe * 0.08) * 3 : 0;
-    drawSprite(e.sprite, e.x + offX, e.y + bob, scale, remap);
+    drawSprite(sname, e.x + offX, e.y + bob, scale, remap);
   }
 
   drawWeapon();
@@ -1044,15 +1160,17 @@ function render() {
     ctx.fillRect(W / 2 - barW / 2, H - 24, barW, 10);
     ctx.fillStyle = ratio > 0.4 ? '#b13e53' : '#ef7d57';
     ctx.fillRect(W / 2 - barW / 2, H - 24, barW * ratio, 10);
-    drawCenteredText('ボス', H - 40, '#b13e53', 12);
+    drawCenteredText(boss.type.name, H - 40, '#b13e53', 12);
   }
 
-  // WARNING演出
+  // WARNING演出（神様の名前と神話の出典つき）
   if (warningTimer > 0 && Math.floor(warningTimer / 15) % 2 === 0) {
+    const bt = currentBossType();
     ctx.fillStyle = 'rgba(177,62,83,0.25)';
-    ctx.fillRect(-8, H / 2 - 40, W + 16, 80);
-    drawCenteredText('！！ WARNING ！！', H / 2 - 28, '#b13e53', 26);
-    drawCenteredText('きょだいボス しゅつげん！', H / 2 + 6, '#ffcd75', 15);
+    ctx.fillRect(-8, H / 2 - 48, W + 16, 96);
+    drawCenteredText('！！ WARNING ！！', H / 2 - 36, '#b13e53', 26);
+    drawCenteredText(`${bt.origin}のかみ`, H / 2 - 2, '#94b0c2', 12);
+    drawCenteredText(`${bt.name} しゅつげん！`, H / 2 + 14, '#ffcd75', 17);
   }
 
   // バナー
