@@ -143,28 +143,28 @@ const SPRITES = {
     '....PKKK.....KK.....KKKP........',
     '....PK.......K........KP........',
   ],
-  // ゼウス: 逆立つ銀髪＋白髭＋金の鎧＋青いマント＋手にした稲妻
+  // ゼウス: 黄金の月桂冠＋長い白髭＋胸に紋章の黄金鎧＋掲げた大きな稲妻
   zeus: [
-    '.....S...S...S..S...............',
-    '.....SS..SS..SS.SS.......Y......',
-    '......SSSSSSSSSSSS......YY......',
-    '.....SSSSSSSSSSSSSS....YY.......',
-    '.....SSYYYYYYYYYYSS....YYY......',
-    '.....SYYYYYYYYYYYYS.....YY......',
-    '.....SYKCYYYYYYCKYS....YY.......',
-    '.....SYYYYYYYYYYYYS....YYY......',
-    '.....SYYWWWWWWWWYYS.....YY......',
-    '......WWWWWWWWWWWW.....YY.......',
-    '......WWWWWWWWWWWW......Y.......',
-    '.......WWWWWWWWWW...............',
-    '....bbYYYYYYYYYYYYbb....Y.......',
-    '...bbbYYYYYYYYYYYYbbb..YYY......',
-    '..bbbbYYYYYYYYYYYYbbbb..Y.......',
-    '..bbbYYYYYYYYYYYYYYbbbYYY.......',
-    '..bbbYYYYbYYYYbYYYYbbb..........',
-    '..bbYYYYYbbYYbbYYYYYbb..........',
-    '..bbYYYYYYbbbbYYYYYYbb..........',
-    '..bbYYYYYYYbbYYYYYYYbb..........',
+    '....Y...Y...Y...Y...Y.....YY....',
+    '....YYYYYYYYYYYYYYYYY....YY.....',
+    '.....SSSSSSSSSSSSSS.....YYY.....',
+    '....SSSSSSSSSSSSSSSS.....YY.....',
+    '....SSYYYYYYYYYYYYSS....YY......',
+    '....SYYYYYYYYYYYYYYS...YYY......',
+    '....SYYKCYYYYYYCKYYS....YY......',
+    '....SYYYYYYYYYYYYYYS...YY.......',
+    '....SYYYWWWWWWWWYYYS..YYY.......',
+    '.....WWWWWWWWWWWWWW...YY........',
+    '.....WWWWWWWWWWWWWW..YY.........',
+    '......WWWWWWWWWWWW...YYY........',
+    '......WWWWWWWWWWWW....YY........',
+    '.......WWWWWWWWWW....YY.........',
+    '...bbbYYYYYYYYYYYYbbbYY.........',
+    '..bbbbYYYWWWWWWYYYbbbb..........',
+    '..bbbYYYYYWWWWYYYYYbbb..........',
+    '..bbYYYYYYYCCYYYYYYYbb..........',
+    '..bbYYYYYYCCCCYYYYYYbb..........',
+    '..bbYYYYYYYCCYYYYYYYbb..........',
     '..bbbYYYYYYYYYYYYYYbbb..........',
     '...bbYYYYYYYYYYYYYYbb...........',
     '...bbbYYYYYYYYYYYYbbb...........',
@@ -321,12 +321,13 @@ function weaponForScore(s) {
 // ---------- ステージごとのボス（神話の神々がモチーフ） ----------
 // pattern: aim=狙い撃ち / wide=広範囲狙い撃ち / ring=全方向リング /
 //          mix=狙い撃ちとリングを交互 / spiral=回転しながら螺旋発射
+// shot: ボスが投げるもの（ball=炎の球 / bolt=稲妻 / sword=回転する剣 / spear=槍グングニル）
 const BOSS_TYPES = [
-  { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi', aura: '#38b764', pattern: 'aim' },
-  { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',  aura: '#ef7d57', pattern: 'wide' },
-  { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',   aura: '#ffcd75', pattern: 'ring', ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
-  { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',   aura: '#8b4f8b', pattern: 'mix', ballColors: ['#5d275d', '#8b4f8b', '#38b764'] },
-  { name: 'オーディン',     origin: 'ほくおうしんわ', sprite: 'odin',   aura: '#ffcd75', pattern: 'spiral', hpBonus: 10 },
+  { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi', aura: '#38b764', pattern: 'aim',    shot: 'ball' },
+  { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',  aura: '#ef7d57', pattern: 'wide',   shot: 'ball' },
+  { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',   aura: '#ffcd75', pattern: 'ring',   shot: 'bolt',  ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
+  { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',   aura: '#8b4f8b', pattern: 'mix',    shot: 'sword', ballColors: ['#94b0c2', '#f4f4f4', '#94b0c2'] },
+  { name: 'オーディン',     origin: 'ほくおうしんわ', sprite: 'odin',   aura: '#ffcd75', pattern: 'spiral', shot: 'spear', hpBonus: 20, points: 3000, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
 ];
 
 function currentBossType() {
@@ -569,7 +570,7 @@ function spawnBoss() {
     size: BOSS_SIZE,
     hp,
     maxHp: hp,
-    points: 2000,
+    points: type.points || 2000,
     hitTimer: 0,
     slowTimer: 0,
     boss: true,
@@ -875,13 +876,18 @@ function update() {
         });
       }
       if (e.fireTimer <= 0) {
+        // 投げるものごとの速度（稲妻は速く、炎はゆっくり）
+        const shotSpeed = { ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5 }[type.shot] || 1.15;
         const shoot = (ang) => {
           fireballs.push({
             x: mouthX, y: mouthY,
-            vx: Math.cos(ang) * 1.15,
-            vy: Math.sin(ang) * 1.15,
+            vx: Math.cos(ang) * shotSpeed,
+            vy: Math.sin(ang) * shotSpeed,
             life: 380,
             colors: type.ballColors || null,
+            kind: type.shot,
+            ang,
+            rot: 0,
           });
         };
         const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
@@ -913,11 +919,12 @@ function update() {
   }
   enemies = enemies.filter((e) => e.hp > 0);
 
-  // ボスの炎の移動＋火の粉の軌跡
+  // ボスの弾の移動＋軌跡（剣は回転しながら飛ぶ）
   fireballs = fireballs.filter((f) => {
     f.x += f.vx;
     f.y += f.vy;
     f.life--;
+    if (f.kind === 'sword') f.rot += 0.3;
     if (Math.random() < 0.6) {
       particles.push({
         x: f.x + (Math.random() - 0.5) * 6,
@@ -925,7 +932,7 @@ function update() {
         vx: (Math.random() - 0.5) * 0.5,
         vy: -0.5 - Math.random() * 0.5,
         life: 10 + Math.random() * 8,
-        color: Math.random() < 0.5 ? PALETTE.O : PALETTE.Y,
+        color: f.colors ? f.colors[Math.floor(Math.random() * f.colors.length)] : (Math.random() < 0.5 ? PALETTE.O : PALETTE.Y),
       });
     }
     return f.life > 0 && f.x > -20 && f.x < W + 20 && f.y > -20 && f.y < H + 20;
@@ -1207,15 +1214,57 @@ function render() {
     ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
   }
 
-  // ボスの弾（神様ごとに色が違う: 炎・雷球・闇の球など）
+  // ボスの弾（神様ごとに違う: 炎の球・稲妻・回転する剣・槍グングニル）
   for (const f of fireballs) {
-    const cols = f.colors || ['#b13e53', '#ef7d57', '#ffcd75'];
-    ctx.fillStyle = cols[0];
-    ctx.fillRect(Math.round(f.x) - 5, Math.round(f.y) - 5, 10, 10);
-    ctx.fillStyle = cols[1];
-    ctx.fillRect(Math.round(f.x) - 3, Math.round(f.y) - 3, 6, 6);
-    ctx.fillStyle = cols[2];
-    ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
+    if (f.kind === 'bolt') {
+      // ゼウスの稲妻: 進行方向へ走るジグザグ
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.ang);
+      ctx.strokeStyle = Math.random() < 0.4 ? '#f4f4f4' : '#ffcd75';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-10, 0);
+      ctx.lineTo(-3, -4);
+      ctx.lineTo(3, 4);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+      ctx.restore();
+    } else if (f.kind === 'sword') {
+      // ロキの剣: くるくる回転しながら飛ぶ
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.ang + f.rot);
+      ctx.fillStyle = '#94b0c2';
+      ctx.fillRect(-8, -2, 13, 4);   // 刃
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(-8, -2, 13, 1);   // 刃のハイライト
+      ctx.fillStyle = '#ffcd75';
+      ctx.fillRect(3, -4, 2, 8);     // つば
+      ctx.fillStyle = '#743f39';
+      ctx.fillRect(5, -1, 4, 2);     // 柄
+      ctx.restore();
+    } else if (f.kind === 'spear') {
+      // オーディンの槍グングニル: 進行方向を向く長い黄金の槍
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.ang);
+      ctx.fillStyle = '#ffcd75';
+      ctx.fillRect(-12, -1, 20, 3);  // 柄
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(8, -3, 6, 6);     // 穂先
+      ctx.fillStyle = '#94b0c2';
+      ctx.fillRect(12, -1, 4, 3);    // 穂先の先端
+      ctx.restore();
+    } else {
+      const cols = f.colors || ['#b13e53', '#ef7d57', '#ffcd75'];
+      ctx.fillStyle = cols[0];
+      ctx.fillRect(Math.round(f.x) - 5, Math.round(f.y) - 5, 10, 10);
+      ctx.fillStyle = cols[1];
+      ctx.fillRect(Math.round(f.x) - 3, Math.round(f.y) - 3, 6, 6);
+      ctx.fillStyle = cols[2];
+      ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
+    }
   }
 
   // 敵（ボスは神様ごとの専用スプライト＋ふわふわ浮遊、凍結中は青いオーバーレイ）
