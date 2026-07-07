@@ -72,74 +72,181 @@ const SPRITES = {
     'G.G..G.G',
     'GG.GG.GG',
   ],
-  // ボス: 紫の巨大ドラゴン（24x20・大きな翼[爪付き]・鋭い角・赤い目・牙・しっぽ）
-  // boss / boss2 の2フレームで羽ばたきアニメーション
-  boss: [
-    '..YY................YY..',
-    '.YYYY..............YYYY.',
-    '..YYY...PPPPPPPP...YYY..',
-    '...PPP.PPPPPPPPPP.PPP...',
-    'Y.pPPPPPPPPPPPPPPPPPPp.Y',
-    'YppPPPP.PRKPPKRP.PPPPppY',
-    'pppPPPP.PRRPPRRP.PPPPppp',
-    'ppppPPPPPPPPPPPPPPPPpppp',
-    'pppPPPPPPPPPPPPPPPPPPppp',
-    'ppPPPPPPKKKKKKKKPPPPPPpp',
-    'pPPPPPPKOOOOOOOOKPPPPPPp',
-    '.PPPPPPKOYYWWYYOKPPPPPP.',
-    '.PPPPPPPKKKKKKKKPPPPPPP.',
-    '..PPPPPPPPPPPPPPPPPPPP..',
-    '..PPPP..PPPPPPPP..PPPP..',
-    '...PPP..PPPPPPPP..PPP...',
-    '...YY...PPPPPPPP...YY...',
-    '........PPPPPP..........',
-    '..........PPPPP.........',
-    '............PPP.........',
+  // ===== 神話ボス（32x32・漫画風キャラデザ） =====
+  // ヤマタノオロチ: 3つの蛇頭＋とぐろを巻いた胴体
+  orochi: [
+    '..gGGg....................gGGg..',
+    '.gGGGGg..................gGGGGg.',
+    '.GRKGGG....gGGGGg........GGGKRG.',
+    '.GGGGGG...gGGGGGGg......GGGGGG..',
+    '.GWGGG...gGGGGGGGGg.....GGGGWG..',
+    '..GGG....GGRKGGKRGG......GGGG...',
+    '..gGG....GGGGGGGGGG......GGg....',
+    '...gGG...GWGGGGGGWG.....GGg.....',
+    '....gGG..GGGGGGGGGG....GGg......',
+    '.....gGG..GGGGGGGG....GGg.......',
+    '......gGG..gGGGGg....GGg........',
+    '.......gGG..GGGG....GGg.........',
+    '........gGG.GGGG...GGg..........',
+    '.........gGGGGGG..GGg...........',
+    '..........gGGGGGGGGg............',
+    '...........GGGGGGGG.............',
+    '..........GGGGGGGGGG............',
+    '.........GGGGGGGGGGGG...........',
+    '........GGGGgggGGGGGGG..........',
+    '.......GGGGgggggGGGGGGG.........',
+    '......GGGGgggggggGGGGGGG........',
+    '.....GGGGgggggggggGGGGGG........',
+    '....GGGGgggggggggggGGGGGG.......',
+    '....GGGGgggggggggggGGGGGGG......',
+    '....GGGGGgggggggggGGGGGGGG......',
+    '.....GGGGGgggggggGGGGGGGG.......',
+    '......GGGGGgggggGGGGGGGG........',
+    '.......GGGGGGGGGGGGGGG..........',
+    '........GGGGGGGGGGGGGGG.........',
+    '..........GGGGGGGGGGGGGG........',
+    '.............GGGGGGGGGGGG.......',
+    '................GGGGGGGgg.......',
   ],
-  boss2: [
-    '..YY................YY..',
-    '.YYYY..............YYYY.',
-    '..YYY...PPPPPPPP...YYY..',
-    'Y..PPP.PPPPPPPPPP.PPP..Y',
-    'Yp.PPPPPPPPPPPPPPPPPP.pY',
-    'pppPPPP.PRKPPKRP.PPPPppp',
-    'ppPPPPP.PRRPPRRP.PPPPPpp',
-    'ppPPPPPPPPPPPPPPPPPPPPpp',
-    '.pPPPPPPPPPPPPPPPPPPPPp.',
-    '.pPPPPPPKKKKKKKKPPPPPPp.',
-    'pPPPPPPKOOOOOOOOKPPPPPPp',
-    '.PPPPPPKOYYWWYYOKPPPPPP.',
-    '.PPPPPPPKKKKKKKKPPPPPPP.',
-    '..PPPPPPPPPPPPPPPPPPPP..',
-    '..PPPP..PPPPPPPP..PPPP..',
-    '...PPP..PPPPPPPP..PPP...',
-    '...YY...PPPPPPPP...YY...',
-    '........PPPPPP..........',
-    '.........PPPPP..........',
-    '.........PPP............',
+  // ハデス: 燃える炎の髪＋影の落ちた顔＋赤く光る目＋ボロボロの黒マント
+  hades: [
+    '..........O..Y....O.............',
+    '.......Y..OO.YY..OO..Y..........',
+    '......OO.OOOOYYOOOO.OO..........',
+    '.....OOOOOYYYYYYYYOOOOO.........',
+    '......OOYYYYYYYYYYYYOO..........',
+    '.......OYYYYYYYYYYYYO...........',
+    '.......SSSSSSSSSSSSSS...........',
+    '.......SSKKKKKKKKKKSS...........',
+    '.......SKKRRKKKKRRKKS...........',
+    '.......SSKKKKKKKKKKSS...........',
+    '.......SSSSSSSSSSSSSS...........',
+    '.......SSSSKKKKKKSSSS...........',
+    '......PPSSSSSSSSSSSSPP..........',
+    '.....PPPPSSSSSSSSSSPPPP.........',
+    '....PPPPPPPPPPPPPPPPPPPP........',
+    '...PPKKKKKKKKKKKKKKKKKKPP.......',
+    '...PKKKKKKKKKKKKKKKKKKKKP.......',
+    '..PPKKKKKKKOOOOKKKKKKKKKPP......',
+    '..PKKKKKKKOOYYOOKKKKKKKKKP......',
+    '..PKKKKKKKOYYYYOKKKKKKKKKP......',
+    '..PKKKKKKKOOYYOOKKKKKKKKKP......',
+    '..PKKKKKKKKOOOOKKKKKKKKKKP......',
+    '..PKKKKKKKKKKKKKKKKKKKKKKP......',
+    '..PKKKKKKKKKKKKKKKKKKKKKKP......',
+    '..PPKKKKKKKKKKKKKKKKKKKKPP......',
+    '...PKKKKKKKKKKKKKKKKKKKKP.......',
+    '...PPKKKKKKKKKKKKKKKKKKPP.......',
+    '....PKKKKKKKKKKKKKKKKKKP........',
+    '....PPKKKKKKKKKKKKKKKKPP........',
+    '....PKKKKK..KKKK..KKKKKP........',
+    '....PKKK.....KK.....KKKP........',
+    '....PK.......K........KP........',
   ],
-  // 神様ボス用の人型スプライト（24x20・王冠・赤い目・白ひげ・ローブ・両手）
-  god: [
-    '.........YYYYYY.........',
-    '........YYYYYYYY........',
-    '........PPPPPPPP........',
-    '.......PPPPPPPPPP.......',
-    '.......PRKPPPPKRP.......',
-    '.......PPPPPPPPPP.......',
-    '.......PWWWWWWWWP.......',
-    '........WWWWWWWW........',
-    '.....ppPPPPPPPPPPpp.....',
-    '....pppPPPPPPPPPPppp....',
-    '...ppppPPPPPPPPPPpppp...',
-    '...pppPPPPPPPPPPPPppp...',
-    '..YpppPPPPPPPPPPPPpppY..',
-    '..YppPPPPPPPPPPPPPPppY..',
-    '...ppPPPPPPPPPPPPPPpp...',
-    '...pPPPPPPPPPPPPPPPPp...',
-    '....PPPPPPPPPPPPPPPP....',
-    '....PPPP..PPPP..PPPP....',
-    '....PPP....PP....PPP....',
-    '....PP.....PP.....PP....',
+  // ゼウス: 逆立つ銀髪＋白髭＋金の鎧＋青いマント＋手にした稲妻
+  zeus: [
+    '.....S...S...S..S...............',
+    '.....SS..SS..SS.SS.......Y......',
+    '......SSSSSSSSSSSS......YY......',
+    '.....SSSSSSSSSSSSSS....YY.......',
+    '.....SSYYYYYYYYYYSS....YYY......',
+    '.....SYYYYYYYYYYYYS.....YY......',
+    '.....SYKCYYYYYYCKYS....YY.......',
+    '.....SYYYYYYYYYYYYS....YYY......',
+    '.....SYYWWWWWWWWYYS.....YY......',
+    '......WWWWWWWWWWWW.....YY.......',
+    '......WWWWWWWWWWWW......Y.......',
+    '.......WWWWWWWWWW...............',
+    '....bbYYYYYYYYYYYYbb....Y.......',
+    '...bbbYYYYYYYYYYYYbbb..YYY......',
+    '..bbbbYYYYYYYYYYYYbbbb..Y.......',
+    '..bbbYYYYYYYYYYYYYYbbbYYY.......',
+    '..bbbYYYYbYYYYbYYYYbbb..........',
+    '..bbYYYYYbbYYbbYYYYYbb..........',
+    '..bbYYYYYYbbbbYYYYYYbb..........',
+    '..bbYYYYYYYbbYYYYYYYbb..........',
+    '..bbbYYYYYYYYYYYYYYbbb..........',
+    '...bbYYYYYYYYYYYYYYbb...........',
+    '...bbbYYYYYYYYYYYYbbb...........',
+    '....bbYYYYYYYYYYYYbb............',
+    '....bbbWWWWWWWWWWbbb............',
+    '.....bbWWWWWWWWWWbb.............',
+    '.....bWWWWWWWWWWWWb.............',
+    '.....WWWWWWWWWWWWWW.............',
+    '.....WWWWW....WWWWW.............',
+    '.....WWWW......WWWW.............',
+    '.....WWW........WWW.............',
+    '.....WW..........WW.............',
+  ],
+  // ロキ: 大きく曲がった金の角＋ニヤリと笑う口元＋緑の鎧×紫のマント
+  loki: [
+    '...YY..................YY.......',
+    '..YYY..................YYY......',
+    '..YY....................YY......',
+    '..YY..GGGGGGGGGGGG......YY......',
+    '..YYY.GGGGGGGGGGGG.....YYY......',
+    '...YYGGGGGGGGGGGGGG...YYY.......',
+    '....YGGGGGGGGGGGGGGY..YY........',
+    '.....GGYYYYYYYYYYGG.............',
+    '.....GYYKKYYYYKKYYG.............',
+    '.....GYYYYYYYYYYYYG.............',
+    '.....GYYYYKKKKKYYYG.............',
+    '......YYYYYYKKYYYY..............',
+    '....ppGGGGGGGGGGGGpp............',
+    '...pppGGGGGGGGGGGGppp...........',
+    '..ppppGGGYYGGYYGGGpppp..........',
+    '..pppGGGGGGGGGGGGGGppp..........',
+    '..pppGGGGGGGGGGGGGGppp..........',
+    '..ppGGGGGYYYYYYGGGGGpp..........',
+    '..ppGGGGGGGGGGGGGGGGpp..........',
+    '..ppGGGGGGGGGGGGGGGGpp..........',
+    '..pppGGGGGGGGGGGGGGppp..........',
+    '...ppGGGGGGGGGGGGGGpp...........',
+    '...pppGGGGGGGGGGGGppp...........',
+    '....ppGGGGGGGGGGGGpp............',
+    '....ppgGGGGGGGGGGgpp............',
+    '.....pgggGGGGGGgggp.............',
+    '.....pggg..gg..gggp.............',
+    '.....pgg...gg...ggp.............',
+    '.....pg....gg....gp.............',
+    '......p....gg....p..............',
+    '...........gg...................',
+    '................................',
+  ],
+  // オーディン: 翼付き兜＋隻眼（右目に眼帯）＋長い白髭＋槍グングニル
+  odin: [
+    '...........SSSSSS..........Y....',
+    '..........SSSSSSSS.........YY...',
+    '..WW......SSSSSSSS.........S....',
+    '..WWW....SSSSSSSSSS........S....',
+    '..WWWW...SSSSSSSSSS........S....',
+    '...WWWW..SSSSSSSSSS........S....',
+    '....WWW...SSSSSSSS.........S....',
+    '..........YYYYYYYY.........S....',
+    '..........YCKYYKKY.........S....',
+    '..........YYYYYYYY.........S....',
+    '.........WWYYYYYYWW........S....',
+    '.........WWWWWWWWWW........S....',
+    '........WWWWWWWWWWWW.......S....',
+    '........WWWWWWWWWWWW.......S....',
+    '.......WWWWWWWWWWWWWW......S....',
+    '.......WWWWWWWWWWWWWW......S....',
+    '........WWWWWWWWWWWW.......S....',
+    '......YYYYWWWWWWWWYYYY.....S....',
+    '.....YYYYYWWWWWWWWYYYYY....S....',
+    '....YYYYYYWWWWWWWWYYYYYY...SY...',
+    '....YYYYYYYWWWWWWYYYYYYY...SY...',
+    '....YYYYYYYYWWWWYYYYYYYY...S....',
+    '....YYYYYYYYYYYYYYYYYYYY...S....',
+    '....YYYYYYYYYYYYYYYYYYYY...S....',
+    '.....WWWWYYYYYYYYYYWWWW....S....',
+    '.....WWWWWYYYYYYYYWWWWW....S....',
+    '......WWWWWWWWWWWWWWWW.....S....',
+    '......WWWWWWWWWWWWWWWW.....S....',
+    '......WWWWW......WWWWW.....S....',
+    '......WWWW........WWWW..........',
+    '......WWW..........WWW..........',
+    '......WW............WW..........',
   ],
   heart: [
     '.MM.MM.',
@@ -215,11 +322,11 @@ function weaponForScore(s) {
 // pattern: aim=狙い撃ち / wide=広範囲狙い撃ち / ring=全方向リング /
 //          mix=狙い撃ちとリングを交互 / spiral=回転しながら螺旋発射
 const BOSS_TYPES = [
-  { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'boss', remap: { P: '#38b764', p: '#257179' }, pattern: 'aim' },
-  { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'god',  remap: { P: '#b13e53', p: '#5d275d', Y: '#ef7d57' }, pattern: 'wide' },
-  { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'god',  remap: { P: '#41a6f6', p: '#3b5dc9' }, pattern: 'ring', ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
-  { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'god',  remap: { P: '#38b764', p: '#5d275d', Y: '#38b764' }, pattern: 'mix', ballColors: ['#5d275d', '#8b4f8b', '#38b764'] },
-  { name: 'オーディン',     origin: 'ほくおうしんわ', sprite: 'god',  remap: { P: '#ffcd75', p: '#94b0c2' }, pattern: 'spiral', hpBonus: 10 },
+  { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi', aura: '#38b764', pattern: 'aim' },
+  { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',  aura: '#ef7d57', pattern: 'wide' },
+  { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',   aura: '#ffcd75', pattern: 'ring', ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'] },
+  { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',   aura: '#8b4f8b', pattern: 'mix', ballColors: ['#5d275d', '#8b4f8b', '#38b764'] },
+  { name: 'オーディン',     origin: 'ほくおうしんわ', sprite: 'odin',   aura: '#ffcd75', pattern: 'spiral', hpBonus: 10 },
 ];
 
 function currentBossType() {
@@ -296,9 +403,15 @@ const SFX = {
 // 明るいチップチューンBGM（ステージが進むとキーが上がる）
 const BGM_BASS = [48, 48, 55, 48, 45, 45, 52, 45, 41, 41, 48, 41, 43, 43, 50, 43];
 const BGM_MELODY = [72, 0, 76, 0, 79, 0, 76, 0, 72, 0, 74, 0, 79, 0, 83, 0];
-// ボス戦専用BGM（低音が迫ってくる短調・テンポ速め）
-const BOSS_BASS = [45, 45, 57, 45, 44, 44, 56, 44, 43, 43, 55, 43, 44, 44, 56, 47];
-const BOSS_MELODY = [0, 69, 0, 0, 0, 68, 0, 0, 0, 67, 0, 71, 0, 72, 0, 71];
+// ボス戦専用BGM: 荘厳なオルガン風。短調の和音進行（Am→F→Dm→Em）を
+// 低音オクターブ重ね＋鐘の音＋太鼓の鼓動で重厚に鳴らす
+const BOSS_CHORDS = [
+  [57, 60, 64], // Am
+  [53, 57, 60], // F
+  [50, 53, 57], // Dm
+  [52, 55, 59], // Em
+];
+let bossChordIdx = 0;
 let musicFrame = 0;
 let musicStep = 0;
 const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
@@ -308,11 +421,25 @@ function tickMusic() {
   if (warningTimer > 0) return; // WARNING中はサイレンだけ響かせる
   musicFrame++;
   if (bossActive) {
-    if (musicFrame % 7 !== 0) return; // ボス戦はテンポアップ
-    const bass = BOSS_BASS[musicStep];
-    if (bass) beep(midi2f(bass), 0.12, 'sawtooth', 0.02);
-    const mel = BOSS_MELODY[musicStep];
-    if (mel) beep(midi2f(mel), 0.1, 'square', 0.022);
+    if (musicFrame % 10 !== 0) return; // ゆったりした重い拍
+    const chord = BOSS_CHORDS[bossChordIdx % BOSS_CHORDS.length];
+    if (musicStep === 0 || musicStep === 8) {
+      // オルガン和音（2オクターブ重ね）＋地を這うベース
+      for (const n of chord) {
+        beep(midi2f(n), 1.7, 'triangle', 0.02);
+        beep(midi2f(n - 12), 1.7, 'sine', 0.02);
+      }
+      beep(midi2f(chord[0] - 24), 1.7, 'sawtooth', 0.03);
+      bossChordIdx++;
+    }
+    if (musicStep % 4 === 2) {
+      // 太鼓の鼓動
+      beep(midi2f(chord[0] - 24), 0.18, 'square', 0.035, midi2f(chord[0] - 26));
+    }
+    if (musicStep === 4 || musicStep === 12) {
+      // 高く響く鐘
+      beep(midi2f(chord[(musicStep / 4) % 3] + 24), 1.0, 'sine', 0.03);
+    }
   } else {
     if (musicFrame % 9 !== 0) return;
     const tr = Math.min((stage - 1) * 2, 8);
@@ -452,6 +579,8 @@ function spawnBoss() {
     spiralAngle: 0,
   });
   bossActive = true;
+  bossChordIdx = 0;
+  musicStep = 0;
   shakeTimer = 15;
   burst(W / 2, 40, PALETTE.p, 30, 3);
   SFX.roar();
@@ -718,7 +847,7 @@ function update() {
       const type = e.type;
       // 神様のオーラ（体の周りから立ちのぼる光）
       if (frame % 3 === 0) {
-        const auraColor = (type.remap && type.remap.P) || PALETTE.p;
+        const auraColor = type.aura || PALETTE.p;
         particles.push({
           x: e.x + Math.random() * e.size,
           y: e.y + e.size - Math.random() * 20,
@@ -1089,21 +1218,19 @@ function render() {
     ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
   }
 
-  // 敵（ボスは羽ばたき/浮遊アニメ＋神様ごとの色＋中央合わせ）
+  // 敵（ボスは神様ごとの専用スプライト＋ふわふわ浮遊、凍結中は青いオーバーレイ）
   for (const e of enemies) {
     if (!e.boss && e.hitTimer > 0 && Math.floor(frame / 3) % 2 === 0) continue;
-    let sname = e.sprite;
-    let remap = null;
-    if (e.boss) {
-      sname = e.type.sprite === 'god' ? 'god' : (Math.floor(gframe / 18) % 2 === 0 ? 'boss' : 'boss2');
-      remap = e.type.remap;
-    }
-    if (e.slowTimer > 0) remap = { P: '#41a6f6', R: '#41a6f6', G: '#41a6f6', p: '#3b5dc9' };
+    const sname = e.boss ? e.type.sprite : e.sprite;
     const spr = SPRITES[sname];
     const scale = e.size / spr.length;
     const offX = (e.size - spr[0].length * scale) / 2;
     const bob = e.boss ? Math.sin(gframe * 0.08) * 3 : 0;
-    drawSprite(sname, e.x + offX, e.y + bob, scale, remap);
+    drawSprite(sname, e.x + offX, e.y + bob, scale);
+    if (e.slowTimer > 0) {
+      ctx.fillStyle = 'rgba(65, 166, 246, 0.35)';
+      ctx.fillRect(e.x + offX, e.y + bob, spr[0].length * scale, spr.length * scale);
+    }
   }
 
   drawWeapon();
