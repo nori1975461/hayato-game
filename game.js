@@ -696,7 +696,7 @@ const WEAPONS = [
     shoot: { kind: 'arrow', interval: 22, speed: 6.0, dmg: 1, pierce: true, aim: true } },
   { name: 'ダブルナイフ',       score: 5500,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
   { name: '大剣',               score: 6600,  len: 52, width: 10, spin: 0.120, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
-  { name: 'モーニングスター',   score: 7800,  len: 52, width: 5,  spin: 0.110, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 8 },
+  { name: 'モーニングスター',   score: 7800,  len: 56, width: 5,  spin: 0.135, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 11, knock: 22 },
   { name: '大槍',               score: 9100,  len: 74, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
   { name: 'みつまたのほこ',     score: 10500, len: 66, width: 6,  spin: 0.120, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
   { name: '炎の剣',             score: 12000, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
@@ -705,7 +705,7 @@ const WEAPONS = [
   { name: 'クロスボウ',         score: 15300, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
     shoot: { kind: 'arrow', interval: 13, speed: 7.0, dmg: 1, aim: true } },
   { name: '雷の槍',             score: 17100, len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'spear' },
-  { name: 'てっきゅう',         score: 19000, len: 56, width: 6,  spin: 0.105, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 11 },
+  { name: 'てっきゅう',         score: 19000, len: 60, width: 6,  spin: 0.125, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 14, knock: 26 },
   { name: '氷の大剣',           score: 21000, len: 64, width: 11, spin: 0.130, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
   { name: 'トリプルソード',     score: 23100, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
   { name: 'マシンガン',         score: 25300, len: 34, width: 5,  spin: 0.130, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'gun',
@@ -874,8 +874,18 @@ const SFX = {
   buzz: () => beep(160, 0.18, 'sawtooth', 0.05, 120),
   tick: (p) => beep(500 + p * 700, 0.03, 'square', 0.04),
   stomp: () => { beep(70, 0.35, 'sawtooth', 0.1, 30); beep(50, 0.3, 'square', 0.07, 25, 60); },
-  giantCharge: () => beep(120, 0.8, 'sawtooth', 0.06, 700),
-  giantShot: () => { beep(60, 0.7, 'sawtooth', 0.1, 30); beep(300, 0.5, 'square', 0.06, 80, 60); },
+  giantCharge: () => {
+    beep(120, 0.8, 'sawtooth', 0.06, 700);
+    beep(80, 0.8, 'square', 0.05, 500, 100);
+    beep(1800, 0.5, 'sine', 0.03, 2600, 300);
+  },
+  giantShot: () => {
+    beep(45, 1.1, 'sine', 0.13, 22);          // 地を揺らす重低音
+    beep(60, 0.8, 'sawtooth', 0.1, 30);       // うなり
+    beep(300, 0.6, 'square', 0.07, 70, 60);   // 炸裂
+    beep(1400, 0.45, 'sawtooth', 0.05, 90, 80); // 高音の衝撃
+    beep(700, 0.3, 'triangle', 0.05, 120, 150);
+  },
   split: () => { beep(800, 0.12, 'triangle', 0.06, 300); beep(600, 0.12, 'triangle', 0.05, 200, 100); },
   summon: () => beep(300, 0.3, 'sine', 0.05, 900),
   rage: () => { beep(80, 0.9, 'sawtooth', 0.1, 45); beep(160, 0.6, 'square', 0.06, 70, 150); },
@@ -921,7 +931,7 @@ let musicStep = 0;
 const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
 function tickMusic() {
-  if (!audioCtx || !musicOn) return;
+  if (!audioCtx || !musicOn || paused) return;
   if (state !== 'playing' && state !== 'shop' && state !== 'tally') return;
   if (warningTimer > 0) return; // WARNING中はサイレンだけ響かせる
   musicFrame++;
@@ -980,7 +990,8 @@ window.addEventListener('keydown', (e) => {
       }
     }
   } else if (state === 'playing') {
-    if (e.key === ' ' && specialGauge >= 100) specialAttack();
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
+    if (!paused && e.key === ' ' && specialGauge >= 100) trySpecial();
   } else if (state === 'tally') {
     if (e.key === 'Enter' || e.key === ' ') {
       if (tally.t < TALLY_COUNT_FRAMES) {
@@ -999,6 +1010,34 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
+// 一時停止ボタン（画面右上）のクリック判定。一時停止中は画面のどこをクリックしても再開
+canvas.addEventListener('click', (e) => {
+  initAudio();
+  if (state !== 'playing') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  if (paused) { togglePause(); return; }
+  if (mx >= W - 30 && mx <= W - 6 && my >= 26 && my <= 50) togglePause();
+});
+
+function togglePause() {
+  if (state !== 'playing') return;
+  paused = !paused;
+  beep(paused ? 400 : 700, 0.08, 'triangle', 0.05);
+}
+
+// 必殺技の発動（ボス戦中は同じボス戦で2回まで）
+function trySpecial() {
+  if (bossActive && bossSpecialsUsed >= 2) {
+    const pc = playerCenter();
+    addPopup(pc.x, pc.y - 24, 'ひっさつは 1ボスせんに 2かいまで！', '#94b0c2', 12);
+    SFX.buzz();
+    return;
+  }
+  specialAttack();
+}
+
 // ---------- ゲーム状態 ----------
 const PLAYER_SIZE = 24;
 const ENEMY_SIZE = 24;
@@ -1016,6 +1055,8 @@ let bannerText, bannerTimer, shakeTimer, flameTimer, shootTimer, flashTimer;
 let combo, comboTimer, maxCombo;
 let bossActive, nextBossScore, bossCount, warningTimer;
 let stage, specialGauge, playerSlowT;
+let paused = false;
+let bossSpecialsUsed = 0; // 同じボス戦の中で必殺技を使った回数（最大2回）
 let gold, gear, lastTallyScore, pendingTally, finalClear;
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
@@ -1056,6 +1097,8 @@ function startGame() {
   stage = 1;
   specialGauge = 0;
   playerSlowT = 0;
+  paused = false;
+  bossSpecialsUsed = 0;
   gold = 0;
   gear = {};
   lastTallyScore = 0;
@@ -1090,15 +1133,16 @@ function spawnEnemy() {
   else if (side === 2) { x = -TANK_SIZE; y = Math.random() * H; }
   else { x = W; y = Math.random() * H; }
 
-  const spdMul = 1 + (stage - 1) * 0.03;
+  // 敵の速さには上限を設ける（プレイヤーの移動速度2.3を超えて理不尽にならないように）
+  const spdMul = Math.min(1 + (stage - 1) * 0.03, 1.45);
   const roll = Math.random();
   if (score >= 1500 && roll < 0.12) {
     const hp = 3 + Math.floor(stage / 5);
     enemies.push({ x, y, speed: 0.35 * spdMul, sprite: 'enemyTank', size: TANK_SIZE, hp, maxHp: hp, points: 300, hitTimer: 0, slowTimer: 0 });
   } else if (score >= 800 && roll < 0.35) {
-    enemies.push({ x, y, speed: (1.0 + score / 12000) * spdMul, sprite: 'enemyFast', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 150, hitTimer: 0, slowTimer: 0 });
+    enemies.push({ x, y, speed: Math.min(1.0 + score / 12000, 1.8) * spdMul, sprite: 'enemyFast', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 150, hitTimer: 0, slowTimer: 0 });
   } else {
-    enemies.push({ x, y, speed: (0.55 + score / 15000) * spdMul, sprite: 'enemy', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 100, hitTimer: 0, slowTimer: 0 });
+    enemies.push({ x, y, speed: Math.min(0.55 + score / 15000, 1.3) * spdMul, sprite: 'enemy', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 100, hitTimer: 0, slowTimer: 0 });
   }
 }
 
@@ -1161,6 +1205,7 @@ function spawnBoss() {
   });
   enemies.push(b);
   bossActive = true;
+  bossSpecialsUsed = 0; // 新しいボス戦では必殺技をまた2回使える
   bossChordIdx = 0;
   musicStep = 0;
   shakeTimer = 15;
@@ -1337,7 +1382,8 @@ function killEnemy(e, lightningDepth = 2) {
           if (cleared % 5 === 0) pendingTally = 110; // 5ステージごとにけっさん
         }
         bannerTimer = 180;
-        for (const m of enemies) m.flee = false; // 逃げていた雑魚は戻ってくる
+        // 逃げた雑魚はそのまま画面外へ去り、新しい雑魚も3秒間は出ない（撃破後の休けい）
+        spawnTimer = 180;
         SFX.bossDie();
       } else {
         SFX.bossDie();
@@ -1384,6 +1430,7 @@ function killEnemy(e, lightningDepth = 2) {
 
 // ---------- 必殺技: 画面全体の大爆発（防御無視） ----------
 function specialAttack() {
+  if (bossActive) bossSpecialsUsed++;
   specialGauge = 0;
   flashTimer = 25;
   shakeTimer = 20;
@@ -1520,6 +1567,7 @@ function shopInput(key) {
 function update() {
   gframe++;
   tickMusic();
+  if (paused && state === 'playing') return; // 一時停止中はゲーム世界を完全に止める
 
   // パーティクル・ポップアップはどの画面でも動かす
   particles = particles.filter((p) => {
@@ -1644,6 +1692,9 @@ function update() {
     return f.life > 0 && f.x > -30 && f.x < W + 30 && f.y > -30 && f.y < H + 30;
   });
 
+  // ボス戦中は必殺技ゲージが自動でたまっていく（使えるのは1ボス戦に2回まで）
+  if (bossActive) specialGauge = Math.min(100, specialGauge + 0.12);
+
   // ボス出現の警告
   if (!bossActive && warningTimer === 0 && score >= nextBossScore && pendingTally === 0 && !finalClear) {
     warningTimer = 120;
@@ -1655,10 +1706,11 @@ function update() {
   }
 
   // 敵の出現ペース（ボス戦中は新しい雑魚を増やさない）
+  // スコアが伸びても出現間隔は26フレームより短くならない＋画面上は26体まで（ラッシュ防止）
   spawnTimer--;
-  if (spawnTimer <= 0 && enemies.length < 40 && !bossActive && warningTimer === 0) {
+  if (spawnTimer <= 0 && enemies.length < 26 && !bossActive && warningTimer === 0) {
     spawnEnemy();
-    spawnTimer = Math.max(14, 55 - Math.floor(score / 400) * 3 - stage);
+    spawnTimer = Math.max(26, 58 - Math.floor(score / 800) * 3 - stage);
   }
 
   updateEnemies(pc);
@@ -1692,9 +1744,11 @@ function updateEnemies(pc) {
     const ecx = e.x + e.size / 2;
     const ecy = e.y + e.size / 2;
 
-    if (e.flee && bossRef) {
-      // ボスから逃げる（画面外に出たら消える）
-      const away = Math.atan2(ecy - (bossRef.y + bossRef.size / 2), ecx - (bossRef.x + bossRef.size / 2));
+    if (e.flee) {
+      // ボスから逃げる（ボスがもういなければプレイヤーから離れて画面外へ去り、消える）
+      const refX = bossRef ? bossRef.x + bossRef.size / 2 : pc.x;
+      const refY = bossRef ? bossRef.y + bossRef.size / 2 : pc.y;
+      const away = Math.atan2(ecy - refY, ecx - refX);
       e.x += Math.cos(away) * 2.2;
       e.y += Math.sin(away) * 2.2;
       if (e.x < -60 || e.x > W + 60 || e.y < -60 || e.y > H + 60) e.hp = 0;
@@ -1808,12 +1862,14 @@ function updateBoss(e, pc, ecx, ecy) {
       const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
       fireballs.push({
         x: mouthX, y: mouthY,
-        vx: Math.cos(aim) * 0.85, vy: Math.sin(aim) * 0.85,
+        vx: Math.cos(aim) * 1.7, vy: Math.sin(aim) * 1.7,
         life: 600, colors: type.ballColors || null, kind: type.shot,
         ang: aim, rot: 0, giant: true,
       });
-      flashTimer = 12;
-      shakeTimer = 18;
+      burst(mouthX, mouthY, '#f4f4f4', 24, 4);
+      burst(mouthX, mouthY, type.aura, 20, 3);
+      flashTimer = 14;
+      shakeTimer = 22;
       SFX.giantShot();
     }
     return;
@@ -1969,10 +2025,25 @@ function updateBossShots(pc) {
     f.y += f.vy;
     f.life--;
     if (f.kind === 'sword' || f.kind === 'hammer' || f.kind === 'scythe') f.rot += 0.3;
+    if (f.giant) {
+      f.rot += 0.09;
+      // 飛んでいる間は地響きがして、まわりをエネルギーの火花が回る
+      if (gframe % 5 === 0) shakeTimer = Math.max(shakeTimer, 3);
+      const sa = f.rot * 3;
+      particles.push({ x: f.x + Math.cos(sa) * 48, y: f.y + Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#f4f4f4' });
+      particles.push({ x: f.x - Math.cos(sa) * 48, y: f.y - Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#ffcd75' });
+      // 通ったあとに衝撃波のなごりを残す
+      particles.push({
+        x: f.x - f.vx * 8 + (Math.random() - 0.5) * 40,
+        y: f.y - f.vy * 8 + (Math.random() - 0.5) * 40,
+        vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2,
+        life: 16, color: f.colors ? f.colors[Math.floor(Math.random() * f.colors.length)] : PALETTE.O,
+      });
+    }
     const trailN = f.giant ? 3 : 1;
     for (let i = 0; i < trailN; i++) {
       if (Math.random() < 0.6) {
-        const spread = f.giant ? 30 : 6;
+        const spread = f.giant ? 40 : 6;
         particles.push({
           x: f.x + (Math.random() - 0.5) * spread,
           y: f.y + (Math.random() - 0.5) * spread,
@@ -1984,7 +2055,15 @@ function updateBossShots(pc) {
       }
     }
     const m = f.giant ? 60 : 20;
-    return f.life > 0 && f.x > -m && f.x < W + m && f.y > -m && f.y < H + m;
+    const alive = f.life > 0 && f.x > -m && f.x < W + m && f.y > -m && f.y < H + m;
+    // 巨大弾は消えるときも大爆発する
+    if (!alive && f.giant) {
+      burst(f.x, f.y, PALETTE.O, 26, 4);
+      burst(f.x, f.y, PALETTE.Y, 18, 3);
+      shakeTimer = Math.max(shakeTimer, 12);
+      SFX.boom();
+    }
+    return alive;
   });
 }
 
@@ -2546,8 +2625,40 @@ function drawBackground() {
 }
 
 // ---------- ボスの弾の描画 ----------
+// 巨大弾のオーラ: 回転する衝撃波リング＋発光コア＋まとわりつく稲妻
+function drawGiantAura(f) {
+  const pulse = Math.sin(gframe * 0.3) * 5;
+  const ringColors = ['rgba(255,205,117,0.75)', 'rgba(239,125,87,0.55)', 'rgba(244,244,244,0.35)'];
+  for (let r = 0; r < 3; r++) {
+    ctx.strokeStyle = ringColors[r];
+    ctx.lineWidth = 4 - r;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 46 + r * 8 + pulse, f.rot * (r % 2 === 0 ? 1.5 : -1.5), f.rot * (r % 2 === 0 ? 1.5 : -1.5) + Math.PI * 1.6);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255, 205, 117, 0.14)';
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, 54 + pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 250, 210, 0.28)';
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, 32, 0, Math.PI * 2);
+  ctx.fill();
+  if (Math.random() < 0.6) {
+    ctx.strokeStyle = Math.random() < 0.5 ? '#f4f4f4' : '#ffcd75';
+    ctx.lineWidth = 2;
+    const a0 = Math.random() * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(f.x + Math.cos(a0) * 18, f.y + Math.sin(a0) * 18);
+    ctx.lineTo(f.x + Math.cos(a0 + 0.5) * 38, f.y + Math.sin(a0 + 0.5) * 38);
+    ctx.lineTo(f.x + Math.cos(a0 + 0.9) * 54, f.y + Math.sin(a0 + 0.9) * 54);
+    ctx.stroke();
+  }
+}
+
 function drawFireball(f) {
   const scale = f.giant ? 4 : 1; // 巨大な一撃は10倍サイズ（面積比）
+  if (f.giant) drawGiantAura(f);
   if (f.kind === 'bolt') {
     ctx.save();
     ctx.translate(f.x, f.y);
@@ -2829,6 +2940,16 @@ function render() {
     if (e.boss) {
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
+      // 巨大弾チャージ中は赤い照準ラインがプレイヤーへのびる（にげろ！のサイン）
+      if (e.giantCharge > 0) {
+        const pcg = playerCenter();
+        ctx.strokeStyle = `rgba(177, 62, 83, ${0.35 + Math.sin(gframe * 0.5) * 0.25})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(ecx, e.y + e.size * 0.55);
+        ctx.lineTo(pcg.x, pcg.y);
+        ctx.stroke();
+      }
       // 激怒中は赤いオーラで包まれる
       if (e.raged) {
         ctx.strokeStyle = `rgba(177, 62, 83, ${0.4 + Math.sin(gframe * 0.2) * 0.2})`;
@@ -2908,6 +3029,14 @@ function render() {
     ctx.fillRect(-8, -8, W + 16, H + 16);
   }
 
+  // 一時停止中の画面
+  if (paused && state === 'playing') {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+    drawCenteredText('いちじていし', 140, '#ffcd75', 28);
+    drawCenteredText('Pキー か がめんクリックで さいかい', 185, '#f4f4f4', 13);
+  }
+
   if (state === 'gameover') renderGameover();
 
   ctx.restore();
@@ -2930,6 +3059,16 @@ function renderHUD() {
   drawText(`${gold}`, 20, 82, '#ffcd75', 12);
   for (let i = 0; i < lives; i++) drawSprite('heart', W - 18 - i * 17, 6, 2);
 
+  // 一時停止ボタン（クリック or Pキー）
+  ctx.fillStyle = 'rgba(26, 28, 44, 0.7)';
+  ctx.fillRect(W - 30, 26, 24, 24);
+  ctx.strokeStyle = '#94b0c2';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W - 30, 26, 24, 24);
+  ctx.fillStyle = '#f4f4f4';
+  ctx.fillRect(W - 24, 32, 4, 12);
+  ctx.fillRect(W - 17, 32, 4, 12);
+
   // 必殺技ゲージ
   const gaugeW = 90;
   ctx.fillStyle = '#1a1c2c';
@@ -2938,7 +3077,11 @@ function renderHUD() {
   ctx.fillRect(6, 59, gaugeW, 7);
   ctx.fillStyle = specialGauge >= 100 ? RAINBOW[Math.floor(gframe / 4) % RAINBOW.length] : '#ff77a8';
   ctx.fillRect(6, 59, gaugeW * (specialGauge / 100), 7);
-  if (specialGauge >= 100 && Math.floor(gframe / 20) % 2 === 0) {
+  if (bossActive) {
+    const left = Math.max(0, 2 - bossSpecialsUsed);
+    drawText(`ひっさつ のこり${left}かい`, 6, 70, left === 0 ? '#566c86' : '#ff77a8', 10);
+  }
+  if (specialGauge >= 100 && Math.floor(gframe / 20) % 2 === 0 && !(bossActive && bossSpecialsUsed >= 2)) {
     drawText('スペースキーで ひっさつわざ！', 6, 96, '#ffcd75', 11);
   }
 
