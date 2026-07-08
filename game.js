@@ -1008,7 +1008,9 @@ const TALLY_COUNT_FRAMES = 150;
 
 let state = 'title'; // title / playing / tally / shop / clear / gameover
 let gframe = 0;
-let player, enemies, particles, pshots, fireballs, items, popups, bolts;
+// 配列はタイトル画面の時点でも参照されるため、必ず初期化しておく
+let player;
+let enemies = [], particles = [], pshots = [], fireballs = [], items = [], popups = [], bolts = [];
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
 let bannerText, bannerTimer, shakeTimer, flameTimer, shootTimer, flashTimer;
 let combo, comboTimer, maxCombo;
