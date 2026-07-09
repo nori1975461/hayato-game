@@ -1066,7 +1066,7 @@ let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
 let highScore = Number(localStorage.getItem('hayato-highscore') || 0);
 
-function maxLives() { return 5 + (gear.helm ? 1 : 0); }
+function maxLives() { return 8 + (gear.helm ? 1 : 0); }
 
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
