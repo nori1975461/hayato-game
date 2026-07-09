@@ -1027,11 +1027,11 @@ function togglePause() {
   beep(paused ? 400 : 700, 0.08, 'triangle', 0.05);
 }
 
-// 必殺技の発動（ボス戦中は同じボス戦で2回まで）
+// 必殺技の発動（ボス戦中は同じボス戦で BOSS_SPECIAL_LIMIT 回まで）
 function trySpecial() {
-  if (bossActive && bossSpecialsUsed >= 2) {
+  if (bossActive && bossSpecialsUsed >= BOSS_SPECIAL_LIMIT) {
     const pc = playerCenter();
-    addPopup(pc.x, pc.y - 24, 'ひっさつは 1ボスせんに 2かいまで！', '#94b0c2', 12);
+    addPopup(pc.x, pc.y - 24, `ひっさつは 1ボスせんに ${BOSS_SPECIAL_LIMIT}かいまで！`, '#94b0c2', 12);
     SFX.buzz();
     return;
   }
@@ -1056,7 +1056,8 @@ let combo, comboTimer, maxCombo;
 let bossActive, nextBossScore, bossCount, warningTimer;
 let stage, specialGauge, playerSlowT;
 let paused = false;
-let bossSpecialsUsed = 0; // 同じボス戦の中で必殺技を使った回数（最大2回）
+const BOSS_SPECIAL_LIMIT = 3; // 同じボス戦の中で必殺技を使える回数
+let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
@@ -1205,7 +1206,7 @@ function spawnBoss() {
   });
   enemies.push(b);
   bossActive = true;
-  bossSpecialsUsed = 0; // 新しいボス戦では必殺技をまた2回使える
+  bossSpecialsUsed = 0; // 新しいボス戦では必殺技の使用回数がリセットされる
   bossChordIdx = 0;
   musicStep = 0;
   shakeTimer = 15;
@@ -1692,7 +1693,7 @@ function update() {
     return f.life > 0 && f.x > -30 && f.x < W + 30 && f.y > -30 && f.y < H + 30;
   });
 
-  // ボス戦中は必殺技ゲージが自動でたまっていく（使えるのは1ボス戦に2回まで）
+  // ボス戦中は必殺技ゲージが自動でたまっていく（使えるのは1ボス戦にBOSS_SPECIAL_LIMIT回まで）
   if (bossActive) specialGauge = Math.min(100, specialGauge + 0.12);
 
   // ボス出現の警告
@@ -3078,10 +3079,10 @@ function renderHUD() {
   ctx.fillStyle = specialGauge >= 100 ? RAINBOW[Math.floor(gframe / 4) % RAINBOW.length] : '#ff77a8';
   ctx.fillRect(6, 59, gaugeW * (specialGauge / 100), 7);
   if (bossActive) {
-    const left = Math.max(0, 2 - bossSpecialsUsed);
+    const left = Math.max(0, BOSS_SPECIAL_LIMIT - bossSpecialsUsed);
     drawText(`ひっさつ のこり${left}かい`, 6, 70, left === 0 ? '#566c86' : '#ff77a8', 10);
   }
-  if (specialGauge >= 100 && Math.floor(gframe / 20) % 2 === 0 && !(bossActive && bossSpecialsUsed >= 2)) {
+  if (specialGauge >= 100 && Math.floor(gframe / 20) % 2 === 0 && !(bossActive && bossSpecialsUsed >= BOSS_SPECIAL_LIMIT)) {
     drawText('スペースキーで ひっさつわざ！', 6, 96, '#ffcd75', 11);
   }
 
