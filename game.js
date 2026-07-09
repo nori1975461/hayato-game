@@ -1007,9 +1007,31 @@ window.addEventListener('keydown', (e) => {
   } else if (state === 'clear') {
     if (e.key === 'Enter') state = 'title';
   } else if (state === 'gameover') {
-    if (e.key === 'Enter' || e.key === ' ') state = 'title';
+    // スペース＝コンティニュー（死んだ直後にスペース連打していても進行が消えない配置）
+    if ((e.key === ' ' || e.key === 'c' || e.key === 'C') && continuesLeft > 0) continueGame();
+    else if (e.key === 'Enter') state = 'title';
   }
 });
+
+// ゲームオーバーした場所からコンティニュー（スコア・武器・ステージ・ゴールド・装備は維持）
+function continueGame() {
+  continuesLeft--;
+  lives = 5;
+  player.x = W / 2 - PLAYER_SIZE / 2;
+  player.y = H / 2 - PLAYER_SIZE / 2;
+  fireballs = [];      // 弾は全部消える
+  enemies = enemies.filter((en) => en.boss); // 雑魚は消え、ボスは残りHPそのままで続行
+  invincibleTimer = 240;
+  combo = 0;
+  comboTimer = 0;
+  playerSlowT = 0;
+  bannerText = `コンティニュー！（のこり${continuesLeft}かい）`;
+  bannerTimer = 150;
+  flashTimer = 20;
+  rainbowBurst(W / 2, H / 2, 50, 4);
+  SFX.fanfare();
+  state = 'playing';
+}
 window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
 // 一時停止ボタン（画面右上）のクリック判定。一時停止中は画面のどこをクリックしても再開
@@ -1062,6 +1084,7 @@ let paused = false;
 const BOSS_SPECIAL_LIMIT = 5; // 同じボス戦の中で必殺技を使える回数
 let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
+let continuesLeft = 3; // ゲームオーバーからのコンティニュー残り回数（1プレイ3回まで）
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
 let highScore = Number(localStorage.getItem('hayato-highscore') || 0);
@@ -1104,6 +1127,7 @@ function startGame() {
   playerSlowT = 0;
   paused = false;
   bossSpecialsUsed = 0;
+  continuesLeft = 3;
   gold = 0;
   gear = {};
   lastTallyScore = 0;
@@ -3434,7 +3458,15 @@ function renderGameover() {
   } else {
     drawCenteredText(`ハイスコア: ${highScore}`, 226, '#ff77a8', 13);
   }
-  drawCenteredText('ENTERキーでタイトルにもどる', 270, '#41a6f6', 13);
+  if (continuesLeft > 0) {
+    if (Math.floor(gframe / 25) % 2 === 0) {
+      drawCenteredText(`スペースキーで コンティニュー！（のこり${continuesLeft}かい）`, 254, '#ffcd75', 15);
+    }
+    drawCenteredText('ENTERキーでタイトルにもどる', 288, '#41a6f6', 12);
+  } else {
+    drawCenteredText('コンティニューは もうつかえない…', 254, '#566c86', 12);
+    drawCenteredText('ENTERキーでタイトルにもどる', 282, '#41a6f6', 13);
+  }
 }
 
 // ---------- メインループ ----------
