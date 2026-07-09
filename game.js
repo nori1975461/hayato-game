@@ -1205,7 +1205,10 @@ function makeBoss(type, x, y, size, hp, opts = {}) {
 function spawnBoss() {
   bossCount++;
   const type = currentBossType();
-  const hp = Math.round((26 + stage * 16 + bossCount * 4) * (type.hpMul || 1));
+  let hp = Math.round((26 + stage * 16 + bossCount * 4) * (type.hpMul || 1));
+  // 分裂ボスは子と合わせると合計HPが通常の1.7〜2倍になってしまうため、
+  // 最初の（親の）HPを半分にして合計をほぼ通常ボス並みにそろえる
+  if (type.gimmicks.includes('split')) hp = Math.round(hp * 0.5);
   const b = makeBoss(type, W / 2 - BOSS_SIZE / 2, -BOSS_SIZE - 10, BOSS_SIZE, hp, {
     splitsLeft: type.gimmicks.includes('split') ? 1 : 0,
   });
