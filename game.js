@@ -874,6 +874,8 @@ const SFX = {
   buzz: () => beep(160, 0.18, 'sawtooth', 0.05, 120),
   tick: (p) => beep(500 + p * 700, 0.03, 'square', 0.04),
   stomp: () => { beep(70, 0.35, 'sawtooth', 0.1, 30); beep(50, 0.3, 'square', 0.07, 25, 60); },
+  dash: () => { beep(1000, 0.22, 'sawtooth', 0.05, 150); beep(500, 0.18, 'square', 0.04, 90, 40); },
+  takeoff: () => beep(220, 0.35, 'sine', 0.07, 950),
   giantCharge: () => {
     beep(120, 0.8, 'sawtooth', 0.06, 700);
     beep(80, 0.8, 'square', 0.05, 500, 100);
@@ -1050,6 +1052,7 @@ let gframe = 0;
 // 配列はタイトル画面の時点でも参照されるため、必ず初期化しておく
 let player;
 let enemies = [], particles = [], pshots = [], fireballs = [], items = [], popups = [], bolts = [];
+let shockwaves = []; // 広がる衝撃波リング（近接攻撃・巨大弾の演出用）
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
 let bannerText, bannerTimer, shakeTimer, flameTimer, shootTimer, flashTimer;
 let combo, comboTimer, maxCombo;
@@ -1074,6 +1077,7 @@ function startGame() {
   items = [];
   popups = [];
   bolts = [];
+  shockwaves = [];
   score = 0;
   lives = 3;
   weaponIdx = 0;
@@ -1194,6 +1198,7 @@ function makeBoss(type, x, y, size, hp, opts = {}) {
     act: null,
     meleeTimer: 300 + Math.random() * 120,
     airborne: false,
+    speedCharge: 0,
   };
 }
 
@@ -1248,6 +1253,11 @@ function rainbowBurst(x, y, count = 30, speed = 2.5) {
 
 function addPopup(x, y, text, color = '#ffcd75', size = 11) {
   popups.push({ x, y, text, color, size, life: 45 });
+}
+
+// 広がる衝撃波リング（攻撃のインパクト演出）
+function addShockwave(x, y, color, r = 12, vr = 5, life = 18, lw = 4) {
+  shockwaves.push({ x, y, r, vr, life, maxLife: life, color, lw });
 }
 
 // ---------- 雷の連鎖（雷属性の武器で敵を倒したとき） ----------
@@ -1583,6 +1593,7 @@ function update() {
     return p.life > 0;
   });
   bolts = bolts.filter((b) => --b.life > 0);
+  shockwaves = shockwaves.filter((s) => { s.r += s.vr; return --s.life > 0; });
 
   if (state === 'tally') {
     tally.t++;
@@ -1811,15 +1822,39 @@ function updateBoss(e, pc, ecx, ecy) {
       e.summonT = e.raged ? 260 : 400;
     }
   }
-  // 高速化ギミック: ときどき急にスピードアップ
+  // 高速化ギミック: 「かまえ…！」のためモーション（45フレーム）のあとに加速する
+  // いきなり加速すると避けられないため、必ず予備動作を見せる
   if (gm.includes('speed')) {
-    e.speedBurstT--;
-    if (e.speedBurstT <= 0) {
-      e.speedBurst = 60;
-      e.speedBurstT = 240;
-      addPopup(ecx, e.y - 10, 'かそく！！', '#73eff7', 13);
-    }
     if (e.speedBurst > 0) e.speedBurst--;
+    if (e.speedCharge === 0 && !e.act) {
+      e.speedBurstT--;
+      if (e.speedBurstT <= 0) {
+        e.speedCharge = 45;
+        e.speedBurstT = 240;
+        addPopup(ecx, e.y - 10, 'かまえ…！！', '#73eff7', 14);
+        SFX.warn();
+      }
+    }
+  }
+  if (e.speedCharge > 0) {
+    e.speedCharge--;
+    // ため: その場で震えながら（描画側でジッター）オーラが体に集まっていく
+    for (let i = 0; i < 2; i++) {
+      const ca = Math.random() * Math.PI * 2;
+      const cd = 60 + Math.random() * 40;
+      particles.push({
+        x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
+        vx: -Math.cos(ca) * 3.5, vy: -Math.sin(ca) * 3.5,
+        life: 14, color: '#73eff7',
+      });
+    }
+    if (e.speedCharge === 0) {
+      e.speedBurst = 70;
+      addShockwave(ecx, ecy, '#73eff7', 14, 5, 20, 4);
+      addPopup(ecx, e.y - 10, 'かそく！！', '#73eff7', 16);
+      SFX.dash();
+    }
+    return; // ため中は動かない・撃たない（ここが逃げるチャンス）
   }
 
   // ---- 近接攻撃の状態機械 ----
@@ -1869,6 +1904,8 @@ function updateBoss(e, pc, ecx, ecy) {
       });
       burst(mouthX, mouthY, '#f4f4f4', 24, 4);
       burst(mouthX, mouthY, type.aura, 20, 3);
+      addShockwave(mouthX, mouthY, '#ffcd75', 20, 9, 20, 6);
+      addShockwave(mouthX, mouthY, '#f4f4f4', 12, 7, 16, 3);
       flashTimer = 14;
       shakeTimer = 22;
       SFX.giantShot();
@@ -1944,24 +1981,46 @@ function runBossAct(e, pc, ecx, ecy) {
   a.t++;
   if (a.kind === 'punch' || a.kind === 'dive') {
     const dash = a.kind === 'dive';
-    const tel = dash ? 30 : 35;         // ため（予備動作）
+    const tel = dash ? 30 : 35;         // ため（予備動作。描画側で大きくのけぞる）
     const dur = dash ? 42 : 26;         // 突進時間
     const spd = dash ? 8.5 : 6.5;
     if (a.t === 1) { addPopup(ecx, e.y - 12, dash ? 'たいあたり！！' : 'パンチ！！', '#ef7d57', 15); SFX.warn(); }
     if (a.t < tel) {
       e.hitTimer = 2; // 白く点滅して予告
       if (a.t % 6 === 0) burst(ecx, ecy, '#f4f4f4', 4, 1);
+      // 力をためる: オーラが体に吸い込まれていく
+      if (a.t % 2 === 0) {
+        const ca = Math.random() * Math.PI * 2;
+        const cd = 50 + Math.random() * 40;
+        particles.push({
+          x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
+          vx: -Math.cos(ca) * 3, vy: -Math.sin(ca) * 3,
+          life: 14, color: e.type.aura,
+        });
+      }
     } else if (a.t === tel) {
       const ang = Math.atan2(pc.y - ecy, pc.x - ecx);
       a.vx = Math.cos(ang) * spd;
       a.vy = Math.sin(ang) * spd;
-      shakeTimer = 10;
+      a.trail = [];
+      addShockwave(ecx, ecy, e.type.aura, 12, 6, 18, 5);
+      addShockwave(ecx, ecy, '#f4f4f4', 8, 8, 12, 3);
+      burst(ecx, ecy, '#f4f4f4', 14, 3);
+      shakeTimer = 12;
+      SFX.dash();
       SFX.roar();
     } else if (a.t < tel + dur) {
+      // 残像を残しながら突進（描画側で半透明の残像を描く）
+      a.trail.push({ x: e.x, y: e.y });
+      if (a.trail.length > 4) a.trail.shift();
       e.x = Math.max(-e.size / 2, Math.min(W - e.size / 2, e.x + a.vx));
       e.y = Math.max(-e.size / 2, Math.min(H - e.size / 2, e.y + a.vy));
-      // 突進の残像
-      particles.push({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.2, vy: -a.vy * 0.2, life: 12, color: e.type.aura });
+      particles.push({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.3, vy: -a.vy * 0.3, life: 12, color: e.type.aura });
+      particles.push({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.2, vy: -a.vy * 0.2, life: 10, color: '#f4f4f4' });
+    } else if (a.t === tel + dur) {
+      // 急ブレーキの土けむり
+      burst(ecx, e.y + e.size * 0.9, '#94b0c2', 10, 2);
+      a.trail = null;
     } else if (a.t > tel + dur + 30) {
       e.act = null;
     }
@@ -1987,33 +2046,55 @@ function runBossAct(e, pc, ecx, ecy) {
       e.act = null;
     }
   } else if (a.kind === 'stomp') {
+    const crouch = 22;  // しゃがみこみ（描画側で体がつぶれる）
     const rise = 30;    // 飛び上がり
     const hover = 55;   // 影がプレイヤーを追う時間
-    const lockT = rise + hover - 12; // 着地点が確定する瞬間
+    const landT = crouch + rise + hover;
+    const lockT = landT - 12; // 着地点が確定する瞬間
     if (a.t === 1) {
       addPopup(ecx, e.y - 12, 'ふみつけ！！', '#ef7d57', 15);
       SFX.warn();
       a.tx = pc.x; a.ty = pc.y;
     }
-    if (a.t < rise) {
+    if (a.t < crouch) {
+      // しゃがんで力をためる。足元から土けむり
+      if (a.t % 4 === 0) burst(ecx + (Math.random() - 0.5) * e.size * 0.6, e.y + e.size * 0.95, '#94b0c2', 3, 1.5);
+    } else if (a.t === crouch) {
+      // だっ！と飛び上がる
       e.airborne = true;
-      e.y -= 7; // 画面の上へ飛び上がる
-    } else if (a.t < rise + hover) {
+      addShockwave(ecx, e.y + e.size * 0.9, '#f4f4f4', 10, 4, 14, 3);
+      burst(ecx, e.y + e.size * 0.95, '#94b0c2', 14, 2.5);
+      SFX.takeoff();
+    } else if (a.t < crouch + rise) {
+      e.y -= 9; // 画面の上へ飛び上がる
+    } else if (a.t < landT) {
       if (a.t < lockT) { a.tx = pc.x; a.ty = pc.y; } // 影がプレイヤーを追いかける
-    } else if (a.t === rise + hover) {
-      // ドスン！と着地
+    } else if (a.t === landT) {
+      // ドッスーン！！と着地。二重の衝撃波＋土けむりの柱＋画面フラッシュ
       e.x = a.tx - e.size / 2;
       e.y = a.ty - e.size / 2;
       e.airborne = false;
-      shakeTimer = 22;
-      flashTimer = 8;
+      shakeTimer = 26;
+      flashTimer = 10;
       SFX.stomp();
+      addShockwave(a.tx, a.ty, '#f4f4f4', 16, 7, 22, 6);
+      addShockwave(a.tx, a.ty, e.type.aura, 10, 5, 26, 4);
       burst(a.tx, a.ty, '#f4f4f4', 24, 3.5);
       burst(a.tx, a.ty, e.type.aura, 24, 2.5);
-      a.shock = 1;
+      for (let i = 0; i < 14; i++) {
+        // 土けむりが柱のように吹き上がる
+        particles.push({
+          x: a.tx + (Math.random() - 0.5) * 90,
+          y: a.ty + (Math.random() - 0.5) * 20,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: -2 - Math.random() * 2.5,
+          life: 24 + Math.random() * 14,
+          color: Math.random() < 0.5 ? '#94b0c2' : '#f4f4f4',
+        });
+      }
       const d2 = (pc.x - a.tx) ** 2 + (pc.y - a.ty) ** 2;
       if (invincibleTimer === 0 && d2 < 80 ** 2) hurtPlayer();
-    } else if (a.t > rise + hover + 40) {
+    } else if (a.t > landT + 40) {
       e.act = null;
     }
   }
@@ -2891,6 +2972,17 @@ function render() {
     ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
   }
 
+  // 衝撃波リング
+  for (const s of shockwaves) {
+    ctx.globalAlpha = Math.max(0, s.life / s.maxLife);
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.lw;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
   // 雷の連鎖ボルト
   for (const b of bolts) {
     ctx.strokeStyle = Math.random() < 0.5 ? '#ffcd75' : '#f4f4f4';
@@ -2933,7 +3025,53 @@ function render() {
     const scale = e.size / spr.length;
     const offX = (e.size - spr[0].length * scale) / 2;
     const bob = e.boss ? Math.sin(gframe * 0.08) * 3 : 0;
-    drawSprite(sname, e.x + offX, e.y + bob, scale, e.boss ? e.type.remap : null);
+    // ボスのアクション演出: のけぞり・しゃがみこみ・震え・残像
+    let dxv = 0, dyv = bob, sxv = 1, syv = 1;
+    if (e.boss) {
+      if (e.speedCharge > 0) {
+        // 加速のため中はブルブル震える
+        dxv += (Math.random() - 0.5) * 5;
+        dyv += (Math.random() - 0.5) * 4;
+      }
+      if (e.act) {
+        const a = e.act;
+        const tel = a.kind === 'dive' ? 30 : 35;
+        if ((a.kind === 'punch' || a.kind === 'dive') && a.t < tel) {
+          // 大きくのけぞって力をためる（突進の反対方向へ体が下がる）
+          const pcr = playerCenter();
+          const ang = Math.atan2(pcr.y - (e.y + e.size / 2), pcr.x - (e.x + e.size / 2));
+          const k = (a.t / tel) * 16;
+          dxv -= Math.cos(ang) * k;
+          dyv -= Math.sin(ang) * k;
+          sxv = syv = 1 + (a.t / tel) * 0.06;
+        } else if (a.kind === 'stomp' && a.t < 22) {
+          // ぐっとしゃがみこむ（体がつぶれる）
+          syv = 1 - 0.2 * (a.t / 22);
+          sxv = 1 + 0.14 * (a.t / 22);
+          dyv += e.size * 0.1 * (a.t / 22);
+        }
+        // 突進中の残像
+        if (a.trail) {
+          for (let ti = 0; ti < a.trail.length; ti++) {
+            ctx.globalAlpha = 0.1 + ti * 0.07;
+            drawSprite(sname, a.trail[ti].x + offX, a.trail[ti].y + bob, scale, e.type.remap);
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+    if (sxv !== 1 || syv !== 1) {
+      const cx0 = e.x + e.size / 2 + dxv;
+      const cy0 = e.y + e.size / 2 + dyv;
+      ctx.save();
+      ctx.translate(cx0, cy0);
+      ctx.scale(sxv, syv);
+      ctx.translate(-cx0, -cy0);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null);
+      ctx.restore();
+    } else {
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null);
+    }
     if (e.slowTimer > 0) {
       ctx.fillStyle = 'rgba(65, 166, 246, 0.35)';
       ctx.fillRect(e.x + offX, e.y + bob, spr[0].length * scale, spr.length * scale);
@@ -2950,6 +3088,30 @@ function render() {
         ctx.moveTo(ecx, e.y + e.size * 0.55);
         ctx.lineTo(pcg.x, pcg.y);
         ctx.stroke();
+      }
+      // なぎはらい: 予告の点線リング → 回転する斬撃アーク
+      if (e.act && e.act.kind === 'tail') {
+        const r = e.size * 0.72;
+        if (e.act.t < 30) {
+          ctx.strokeStyle = `rgba(177, 62, 83, ${0.4 + Math.sin(gframe * 0.5) * 0.3})`;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([8, 8]);
+          ctx.beginPath();
+          ctx.arc(ecx, ecy + bob, r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else if (e.act.t < 75) {
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = e.type.aura;
+          ctx.beginPath();
+          ctx.arc(ecx, ecy + bob, r, e.act.sweep - 1.3, e.act.sweep);
+          ctx.stroke();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#f4f4f4';
+          ctx.beginPath();
+          ctx.arc(ecx, ecy + bob, r, e.act.sweep - 0.7, e.act.sweep);
+          ctx.stroke();
+        }
       }
       // 激怒中は赤いオーラで包まれる
       if (e.raged) {
