@@ -1059,7 +1059,7 @@ let combo, comboTimer, maxCombo;
 let bossActive, nextBossScore, bossCount, warningTimer;
 let stage, specialGauge, playerSlowT;
 let paused = false;
-const BOSS_SPECIAL_LIMIT = 3; // 同じボス戦の中で必殺技を使える回数
+const BOSS_SPECIAL_LIMIT = 5; // 同じボス戦の中で必殺技を使える回数
 let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
@@ -1314,6 +1314,11 @@ function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
     }
   }
   e.hp -= dmg;
+  // ボスに攻撃を当てるたびにポイントが入る → ボス戦中も武器が育っていく
+  score += dmg * 10;
+  e.hitCount = (e.hitCount || 0) + 1;
+  if (e.hitCount % 4 === 0) addPopup(hitX, hitY - 8, `+${dmg * 10}`, '#ffcd75', 9);
+  checkWeaponEvolve();
   return dmg;
 }
 
@@ -1351,6 +1356,30 @@ function splitBoss(e) {
   bannerTimer = 130;
   shakeTimer = 15;
   SFX.split();
+}
+
+// ---------- 武器の進化チェック（雑魚撃破でもボスへの攻撃ヒットでも呼ばれる） ----------
+// 進化したら true を返す
+function checkWeaponEvolve() {
+  const newIdx = weaponForScore(score);
+  if (newIdx <= weaponIdx) return false;
+  bannerText = `ぶきしんか！ ${WEAPONS[weaponIdx].name} → ${WEAPONS[newIdx].name}`;
+  bannerTimer = 150;
+  weaponIdx = newIdx;
+  flashTimer = 15;
+  const pc = playerCenter();
+  rainbowBurst(pc.x, pc.y, 40, 3);
+  SFX.fanfare();
+  // 5レベルごとにキャラの見た目も進化！
+  const nf = Math.min(FORMS.length - 1, Math.floor(newIdx / 5));
+  if (nf > formIdx) {
+    formIdx = nf;
+    bannerText = `すがたしんか！ ${FORMS[nf].name}に なった！`;
+    bannerTimer = 180;
+    rainbowBurst(pc.x, pc.y, 70, 4);
+    flashTimer = 22;
+  }
+  return true;
 }
 
 // ---------- 敵を倒したときの共通処理 ----------
@@ -1408,25 +1437,7 @@ function killEnemy(e, lightningDepth = 2) {
   }
 
   // 武器の進化チェック
-  const newIdx = weaponForScore(score);
-  if (newIdx > weaponIdx) {
-    bannerText = `ぶきしんか！ ${WEAPONS[weaponIdx].name} → ${WEAPONS[newIdx].name}`;
-    bannerTimer = 150;
-    weaponIdx = newIdx;
-    flashTimer = 15;
-    const pc = playerCenter();
-    rainbowBurst(pc.x, pc.y, 40, 3);
-    SFX.fanfare();
-    // 5レベルごとにキャラの見た目も進化！
-    const nf = Math.min(FORMS.length - 1, Math.floor(newIdx / 5));
-    if (nf > formIdx) {
-      formIdx = nf;
-      bannerText = `すがたしんか！ ${FORMS[nf].name}に なった！`;
-      bannerTimer = 180;
-      rainbowBurst(pc.x, pc.y, 70, 4);
-      flashTimer = 22;
-    }
-  } else if (!e.boss) {
+  if (!checkWeaponEvolve() && !e.boss) {
     SFX.kill(combo);
   }
 
@@ -1461,6 +1472,7 @@ function specialAttack() {
     if (e.hp <= 0) continue;
     if (e.boss) {
       e.hp -= 5;
+      score += 50; // 必殺技のボスヒットにもポイント
       e.hitTimer = 24;
       burst(e.x + e.size / 2, e.y + e.size / 2, PALETTE.Y, 20, 3);
       if (e.hp <= 0) killEnemy(e);
@@ -1469,6 +1481,7 @@ function specialAttack() {
     }
   }
   quietKills = false;
+  checkWeaponEvolve();
   enemies = enemies.filter((e) => e.hp > 0);
   addPopup(pc.x, pc.y - 24, 'ひっさつわざ！！', '#ffcd75', 18);
   SFX.special();
