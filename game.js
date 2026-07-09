@@ -1079,7 +1079,7 @@ function startGame() {
   bolts = [];
   shockwaves = [];
   score = 0;
-  lives = 3;
+  lives = 5;
   weaponIdx = 0;
   formIdx = 0;
   weaponAngle = 0;
