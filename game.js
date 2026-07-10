@@ -37,66 +37,90 @@ const PALETTE = {
 const RAINBOW = ['#ffcd75', '#ff77a8', '#41a6f6', '#38b764', '#ef7d57', '#f4f4f4'];
 
 const SPRITES = {
-  // ===== プレイヤー（武器レベルで見た目が6段階進化） =====
-  player: [
-    '..KKKK..',
-    '.KYYYYK.',
-    '.KYKYKY.',
-    '.KYYYYK.',
-    '..CCCC..',
-    '.CCCCCC.',
-    '.KC..CK.',
-    '.KK..KK.',
+  // ===== プレイヤー（12x12・武器レベルで装備が6段階進化） =====
+  player0: [ // ぼうけんしゃ: ふつうの服
+    '...KKKKKK...',
+    '..KKKKKKKK..',
+    '..KYYYYYYK..',
+    '..KYKYYKYK..',
+    '..KYYYYYYK..',
+    '...YYYYYY...',
+    '...CCCCCC...',
+    '..YCCCCCCY..',
+    '..CCCCCCCC..',
+    '...CCCCCC...',
+    '...KK..KK...',
+    '...KK..KK...',
   ],
-  player1: [ // せんし: 赤いバンダナ
-    '..RRRR..',
-    '.KYYYYK.',
-    '.KYKYKY.',
-    '.KYYYYK.',
-    '..CCCC..',
-    '.CCCCCC.',
-    '.KC..CK.',
-    '.KK..KK.',
+  player1: [ // せんし: 赤いバンダナ＋革のベルト
+    '...RRRRRR...',
+    '..RRRRRRRR..',
+    '..KYYYYYYKR.',
+    '..KYKYYKYK..',
+    '..KYYYYYYK..',
+    '...YYYYYY...',
+    '...CCCCCC...',
+    '..YCCCCCCY..',
+    '..CCTTTTCC..',
+    '...CCCCCC...',
+    '...KK..KK...',
+    '...KK..KK...',
   ],
-  player2: [ // ナイト: 銀のかぶと
-    '..SSSS..',
-    '.SSSSSS.',
-    '.SKYYKS.',
-    '.SYYYYS.',
-    '..CCCC..',
-    '.SCCCCS.',
-    '.KC..CK.',
-    '.KK..KK.',
+  player2: [ // ナイト: 銀のかぶと＋よろい＋左手に盾
+    '...SSSSSS...',
+    '..SSSSSSSS..',
+    '..SSSSSSSS..',
+    '..SYKYYKYS..',
+    '..SSSSSSSS..',
+    '...SSSSSS...',
+    '..SCCCCCCS..',
+    '.LLSCCCCCCS.',
+    '.LLSCCCCCCS.',
+    '...SSSSSS...',
+    '...SS..SS...',
+    '...KK..KK...',
   ],
-  player3: [ // ゴールドナイト: 金のよろい
-    '..YYYY..',
-    '.YYYYYY.',
-    '.YKYYKY.',
-    '.YYYYYY.',
-    '..CCCC..',
-    '.YCCCCY.',
-    '.KC..CK.',
-    '.YY..YY.',
+  player3: [ // ゴールドナイト: 赤い前立ての金かぶと＋金の盾＋赤いマント
+    '....RRRR....',
+    '...YYYYYY...',
+    '..YYYYYYYY..',
+    '..YYKYYKYY..',
+    '..YYYYYYYY..',
+    '...YYYYYY...',
+    '.RYCCCCCCYR.',
+    '.YYCCCCCCYR.',
+    '.YYCCCCCCYR.',
+    '...YYYYYY.R.',
+    '...YY..YY...',
+    '...KK..KK...',
   ],
-  player4: [ // ひかりのせんし: 白銀に光る
-    '..WWWW..',
-    '.WWWWWW.',
-    '.WKYYKW.',
-    '.WYYYYW.',
-    '.WCCCCW.',
-    'WCCCCCCW',
-    '.KC..CK.',
-    '.WW..WW.',
+  player4: [ // ひかりのせんし: 白銀のよろいが青白く発光
+    '..D.WWWW.D..',
+    '...WWWWWW...',
+    '..WWWWWWWW..',
+    '..WYKYYKYW..',
+    '..WWWWWWWW..',
+    '...WWWWWW...',
+    '.DWCCCCCCWD.',
+    '.WWCCCCCCWW.',
+    '.WWCCCCCCWW.',
+    '...WWWWWW...',
+    '...WW..WW...',
+    '...DD..DD...',
   ],
-  player5: [ // でんせつのゆうしゃ: 金＋白のつばさ
-    '..YYYY..',
-    'WYYYYYYW',
-    'WYKYYKYW',
-    '.YYYYYY.',
-    'W.CCCC.W',
-    'WCCCCCCW',
-    '.KC..CK.',
-    '.YY..YY.',
+  player5: [ // でんせつのゆうしゃ: 宝石つきの王冠＋白いつばさ＋金のよろい
+    '...Y.YY.Y...',
+    '...YYMMYY...',
+    '..YYYYYYYY..',
+    '..YYKYYKYY..',
+    '..YYYYYYYY..',
+    'W..YYYYYY..W',
+    'WW.CCCCCC.WW',
+    'WWYCCCCCCYWW',
+    'WW.CCCCCC.WW',
+    'W..YYYYYY..W',
+    '...YY..YY...',
+    '...YY..YY...',
   ],
   enemy: [
     '........',
@@ -637,17 +661,54 @@ const SPRITES = {
   ],
 };
 
+// 色を明るく/暗くする（高精細シェーディング用。結果はキャッシュ）
+const shadeCache = {};
+function shade(hex, f) {
+  const key = hex + f;
+  if (!shadeCache[key]) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, Math.min(255, Math.round(((n >> 16) & 255) * f)));
+    const g = Math.max(0, Math.min(255, Math.round(((n >> 8) & 255) * f)));
+    const b = Math.max(0, Math.min(255, Math.round((n & 255) * f)));
+    shadeCache[key] = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  return shadeCache[key];
+}
+
 // remap: 特定パレット文字の色を差し替える（服の色・ボスの色ちがい用）
-function drawSprite(name, x, y, scale = 3, remap = null) {
+// hd: 大きく拡大されるボス用。各ドットに上ハイライト＋下シャドウを入れて立体感を出す
+function drawSprite(name, x, y, scale = 3, remap = null, hd = false) {
   const sprite = SPRITES[name];
   const px = Math.round(x);
   const py = Math.round(y);
+  const useHd = hd && scale >= 3;
   for (let row = 0; row < sprite.length; row++) {
     for (let col = 0; col < sprite[row].length; col++) {
       const ch = sprite[row][col];
       if (ch === '.') continue;
-      ctx.fillStyle = (remap && remap[ch]) || PALETTE[ch];
-      ctx.fillRect(px + col * scale, py + row * scale, scale, scale);
+      const c = (remap && remap[ch]) || PALETTE[ch];
+      const cx2 = px + col * scale;
+      const cy2 = py + row * scale;
+      ctx.fillStyle = c;
+      ctx.fillRect(cx2, cy2, scale, scale);
+      if (useHd) {
+        const t = Math.max(1, Math.floor(scale * 0.28));
+        // 上（または上が透明）のふちはハイライト
+        if (row === 0 || sprite[row - 1][col] === '.' || sprite[row - 1][col] !== ch) {
+          ctx.fillStyle = shade(c, 1.3);
+          ctx.fillRect(cx2, cy2, scale, t);
+        }
+        // 下（または下が透明）のふちはシャドウ
+        if (row === sprite.length - 1 || sprite[row + 1][col] === '.' || sprite[row + 1][col] !== ch) {
+          ctx.fillStyle = shade(c, 0.72);
+          ctx.fillRect(cx2, cy2 + scale - t, scale, t);
+        }
+        // 左のふちにも細いハイライトで輪郭を立てる
+        if (col === 0 || sprite[row][col - 1] === '.') {
+          ctx.fillStyle = shade(c, 1.18);
+          ctx.fillRect(cx2, cy2, Math.max(1, Math.floor(t / 2) + 1), scale);
+        }
+      }
     }
   }
 }
@@ -669,7 +730,7 @@ function playerRemap() {
 
 // 武器レベルで見た目が進化（5レベルごと）
 const FORMS = [
-  { sprite: 'player',  name: 'ぼうけんしゃ' },
+  { sprite: 'player0', name: 'ぼうけんしゃ' },
   { sprite: 'player1', name: 'せんし' },
   { sprite: 'player2', name: 'ナイト' },
   { sprite: 'player3', name: 'ゴールドナイト' },
@@ -677,50 +738,72 @@ const FORMS = [
   { sprite: 'player5', name: 'でんせつのゆうしゃ' },
 ];
 
-// ---------- 武器の進化テーブル（30段階） ----------
+// ---------- 武器の進化テーブル（40段階） ----------
 // blades: 刃の本数 / dmg: 1振りのダメージ / kind: 見た目の種類
-// flame: 火の玉 / lightning: 雷連鎖 / ice: 凍らせる / rainbow: 虹色 / saber: 光る刃
-// shoot: 飛び道具 {kind, interval, speed, dmg, count, pierce, aoe, aim}
+// flame: 火の玉 / lightning: 雷連鎖 / ice: 凍らせる / rainbow: 虹色
+// saber: ライトセーバー（saberColorで刃の色、rainbowSaberで虹色に変化）
+// yoyo: 刃の長さが伸び縮み / tesla: 近くの敵へ自動で電撃
+// shoot: 飛び道具 {kind, interval, speed, dmg, count, pierce, aoe, aim, life, homing}
 const WEAPONS = [
-  { name: 'ナイフ',             score: 0,     len: 34, width: 3,  spin: 0.090, blades: 1, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
-  { name: 'こんぼう',           score: 250,   len: 40, width: 9,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#8a5c3b', kind: 'club', knock: 24 },
-  { name: '剣',                 score: 600,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
-  { name: 'パチンコ',           score: 1000,  len: 30, width: 4,  spin: 0.100, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'sling',
+  { name: 'ナイフ',               score: 0,     len: 34, width: 3,  spin: 0.090, blades: 1, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
+  { name: 'こんぼう',             score: 250,   len: 40, width: 9,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#8a5c3b', kind: 'club', knock: 24 },
+  { name: '剣',                   score: 600,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
+  { name: 'パチンコ',             score: 1000,  len: 30, width: 4,  spin: 0.100, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'sling',
     shoot: { kind: 'pellet', interval: 26, speed: 4.0, dmg: 1, count: 3 } },
-  { name: '槍',                 score: 1500,  len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57', kind: 'spear' },
-  { name: 'はんげつとう',       score: 2100,  len: 46, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#ffcd75', kind: 'scimitar' },
-  { name: 'ブーメラン',         score: 2800,  len: 36, width: 5,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#a77b5b', kind: 'boomer',
-    shoot: { kind: 'boomerang', interval: 40, speed: 4.5, dmg: 1, pierce: true } },
-  { name: 'てつぼう',           score: 3600,  len: 70, width: 7,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#94b0c2', kind: 'club', knock: 24 },
-  { name: 'ゆみ',               score: 4500,  len: 34, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'bow',
-    shoot: { kind: 'arrow', interval: 22, speed: 6.0, dmg: 1, pierce: true, aim: true } },
-  { name: 'ダブルナイフ',       score: 5500,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
-  { name: '大剣',               score: 6600,  len: 52, width: 10, spin: 0.140, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
-  { name: 'モーニングスター',   score: 7800,  len: 56, width: 5,  spin: 0.160, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 11, knock: 22 },
-  { name: '大槍',               score: 9100,  len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
-  { name: 'みつまたのほこ',     score: 10500, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
-  { name: '炎の剣',             score: 12000, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
-  { name: 'ジャベリン',         score: 13600, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear',
-    shoot: { kind: 'javelin', interval: 42, speed: 5.0, dmg: 2 } },
-  { name: 'クロスボウ',         score: 15300, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
-    shoot: { kind: 'arrow', interval: 13, speed: 7.0, dmg: 1, aim: true } },
-  { name: '雷の槍',             score: 17100, len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'spear' },
-  { name: 'てっきゅう',         score: 19000, len: 60, width: 6,  spin: 0.150, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 14, knock: 26 },
-  { name: '氷の大剣',           score: 21000, len: 64, width: 11, spin: 0.145, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
-  { name: 'トリプルソード',     score: 23100, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
-  { name: 'マシンガン',         score: 25300, len: 34, width: 5,  spin: 0.130, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'gun',
+  { name: 'ブーメラン',           score: 1800,  len: 36, width: 5,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#a77b5b', kind: 'boomer',
+    shoot: { kind: 'boomerang', interval: 38, speed: 4.5, dmg: 1, pierce: true } },
+  { name: '槍',                   score: 2600,  len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57', kind: 'spear' },
+  { name: 'はんげつとう',         score: 3300,  len: 46, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#ffcd75', kind: 'scimitar' },
+  { name: 'しゅりけん',           score: 4000,  len: 30, width: 3,  spin: 0.120, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'ninja',
+    shoot: { kind: 'shuriken', interval: 16, speed: 6.0, dmg: 1, count: 2 } },
+  { name: 'てつぼう',             score: 5000,  len: 70, width: 7,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#94b0c2', kind: 'club', knock: 24 },
+  { name: 'ゆみ',                 score: 6000,  len: 34, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'bow',
+    shoot: { kind: 'arrow', interval: 20, speed: 6.0, dmg: 1, pierce: true, aim: true } },
+  { name: 'ダブルナイフ',         score: 7200,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
+  { name: '大剣',                 score: 8200,  len: 52, width: 10, spin: 0.140, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
+  { name: 'モーニングスター',     score: 9300,  len: 56, width: 5,  spin: 0.160, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 11, knock: 22 },
+  { name: 'ばくだん',             score: 10400, len: 32, width: 6,  spin: 0.110, blades: 1, dmg: 1, color: '#1a1c2c', edge: '#ef7d57', kind: 'bombH',
+    shoot: { kind: 'bomb', interval: 50, speed: 2.6, dmg: 2, aoe: 45, life: 55, aim: true } },
+  { name: '大槍',                 score: 11800, len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
+  { name: 'みつまたのほこ',       score: 13000, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
+  { name: 'ムチ',                 score: 14200, len: 80, width: 4,  spin: 0.150, blades: 1, dmg: 1, color: '#a77b5b', edge: '#ffcd75', kind: 'whip' },
+  { name: '炎の剣',               score: 15500, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
+  { name: 'ジャベリン',           score: 16800, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear',
+    shoot: { kind: 'javelin', interval: 40, speed: 5.0, dmg: 2 } },
+  { name: 'クロスボウ',           score: 18200, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
+    shoot: { kind: 'arrow', interval: 12, speed: 7.0, dmg: 1, aim: true } },
+  { name: 'バトルアックス',       score: 19800, len: 54, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#94b0c2', edge: '#f4f4f4', kind: 'axe', knock: 20 },
+  { name: '雷の槍',               score: 21400, len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'spear' },
+  { name: 'ハイパーヨーヨー',     score: 23000, len: 78, width: 5,  spin: 0.150, blades: 1, dmg: 2, color: '#b13e53', edge: '#f4f4f4', kind: 'yoyo', yoyo: true },
+  { name: 'てっきゅう',           score: 24700, len: 60, width: 6,  spin: 0.150, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 14, knock: 26 },
+  { name: 'マシンガン',           score: 26400, len: 34, width: 5,  spin: 0.130, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'gun',
     shoot: { kind: 'bullet', interval: 7, speed: 6.5, dmg: 1, aim: true } },
-  { name: 'ゴールデンソード',   score: 27600, len: 70, width: 12, spin: 0.155, blades: 1, dmg: 3, color: '#ffcd75', edge: '#f4f4f4' },
-  { name: 'たいほう',           score: 30000, len: 38, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#333c57', edge: '#566c86', kind: 'cannon',
-    shoot: { kind: 'cannonball', interval: 55, speed: 3.2, dmg: 3, aoe: 42, aim: true } },
-  { name: '虹の剣',             score: 32500, len: 72, width: 9,  spin: 0.150, blades: 2, dmg: 3, rainbow: true, color: '#f4f4f4', edge: '#f4f4f4' },
-  { name: 'カイザーブレード',   score: 35100, len: 76, width: 13, spin: 0.160, blades: 1, dmg: 4, color: '#ffcd75', edge: '#8b4f8b' },
-  { name: 'レーザーブラスター', score: 37800, len: 36, width: 5,  spin: 0.140, blades: 1, dmg: 1, color: '#566c86', edge: '#73eff7', kind: 'gun',
-    shoot: { kind: 'laser', interval: 9, speed: 8.0, dmg: 2, pierce: true, aim: true } },
-  { name: 'ドラゴンキラー',     score: 40600, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true },
-  { name: 'エクスカリバー',     score: 43500, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75' },
-  { name: 'ライトセーバー',     score: 46500, len: 82, width: 7,  spin: 0.170, blades: 2, dmg: 5, saber: true, color: '#73eff7', edge: '#f4f4f4' },
+  { name: '氷の大剣',             score: 28200, len: 64, width: 11, spin: 0.145, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
+  { name: 'かえんほうしゃき',     score: 30000, len: 36, width: 6,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#ef7d57', kind: 'flamer',
+    shoot: { kind: 'flame', interval: 4, speed: 3.6, dmg: 1, life: 26, aim: true } },
+  { name: 'トリプルソード',       score: 31800, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
+  { name: 'まほうのつえ',         score: 33600, len: 40, width: 4,  spin: 0.130, blades: 1, dmg: 2, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
+    shoot: { kind: 'orb', interval: 30, speed: 3.2, dmg: 2, count: 2, homing: 0.06 } },
+  { name: 'ゴールデンソード',     score: 35500, len: 70, width: 12, spin: 0.155, blades: 1, dmg: 3, color: '#ffcd75', edge: '#f4f4f4' },
+  { name: 'しにがみのカマ',       score: 37400, len: 68, width: 6,  spin: 0.140, blades: 1, dmg: 3, color: '#566c86', edge: '#f4f4f4', kind: 'scytheW' },
+  { name: 'たいほう',             score: 39400, len: 38, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#333c57', edge: '#566c86', kind: 'cannon',
+    shoot: { kind: 'cannonball', interval: 50, speed: 3.2, dmg: 3, aoe: 42, aim: true } },
+  { name: 'ホーミングミサイル',   score: 41500, len: 36, width: 6,  spin: 0.130, blades: 1, dmg: 1, color: '#566c86', edge: '#b13e53', kind: 'launcher',
+    shoot: { kind: 'missile', interval: 38, speed: 4.5, dmg: 3, aoe: 34, homing: 0.09, aim: true } },
+  { name: 'ライトセーバー',       score: 43700, len: 80, width: 7,  spin: 0.170, blades: 2, dmg: 4, saber: true, saberColor: '#73eff7', color: '#73eff7', edge: '#f4f4f4' },
+  { name: 'ドリルランス',         score: 45900, len: 72, width: 8,  spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#a77b5b', kind: 'drill' },
+  { name: 'ダブルライトセーバー', score: 48100, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
+  { name: 'テスラコイル',         score: 50400, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 2, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true },
+  { name: 'ドラゴンキラー',       score: 52800, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true },
+  { name: 'エクスカリバー',       score: 55300, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75' },
+  { name: 'インフィニティセーバー', score: 58000, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4',
+    shoot: { kind: 'laser', interval: 10, speed: 8.0, dmg: 2, pierce: true, aim: true } },
 ];
+
+// ヨーヨーは刃の長さがリズミカルに伸び縮みする
+function weaponLen(w) {
+  return w.yoyo ? w.len * (0.55 + 0.45 * Math.sin(frame * 0.09)) : w.len;
+}
 
 function weaponForScore(s) {
   let idx = 0;
@@ -1679,11 +1762,12 @@ function update() {
   if (weapon.flame) {
     flameTimer--;
     if (flameTimer <= 0) {
+      const fl = weaponLen(weapon);
       for (let b = 0; b < weapon.blades; b++) {
         const a = weaponAngle + (b * Math.PI * 2) / weapon.blades;
         pshots.push({
-          x: pc.x + Math.cos(a) * weapon.len,
-          y: pc.y + Math.sin(a) * weapon.len,
+          x: pc.x + Math.cos(a) * fl,
+          y: pc.y + Math.sin(a) * fl,
           vx: Math.cos(a) * 3,
           vy: Math.sin(a) * 3,
           life: 50, kind: 'flame', dmg: 1,
@@ -1694,14 +1778,15 @@ function update() {
     }
   }
 
-  // 飛び道具武器（弓・銃・大砲・ブーメラン・パチンコ・ジャベリン・レーザー）
+  // 飛び道具武器（弓・銃・大砲・爆弾・手裏剣・ミサイル・魔法の杖・レーザー等）
   if (weapon.shoot) {
     shootTimer--;
     if (shootTimer <= 0) {
       const sh = weapon.shoot;
       const tipA = weaponAngle;
-      const tipX = pc.x + Math.cos(tipA) * weapon.len;
-      const tipY = pc.y + Math.sin(tipA) * weapon.len;
+      const tipL = weaponLen(weapon);
+      const tipX = pc.x + Math.cos(tipA) * tipL;
+      const tipY = pc.y + Math.sin(tipA) * tipL;
       let baseAng = tipA;
       if (sh.aim) {
         const target = nearestEnemyTo(pc.x, pc.y);
@@ -1714,14 +1799,44 @@ function update() {
           x: tipX, y: tipY,
           vx: Math.cos(ang) * sh.speed,
           vy: Math.sin(ang) * sh.speed,
-          life: sh.kind === 'boomerang' ? 999 : 90,
+          life: sh.kind === 'boomerang' ? 999 : (sh.life || 90),
           kind: sh.kind, dmg: sh.dmg, pierce: !!sh.pierce, aoe: sh.aoe || 0,
+          turn: sh.homing || 0,
           ang, rot: 0, t: 0, returning: false,
           hitSet: sh.pierce ? new Set() : null,
         });
       }
       shootTimer = sh.interval;
       SFX.shoot();
+    }
+  }
+
+  // テスラコイル: 近くの敵へ自動で電撃がとぶ
+  if (weapon.tesla && frame % 38 === 0) {
+    const t = nearestEnemyTo(pc.x, pc.y);
+    if (t) {
+      const tcx = t.x + t.size / 2;
+      const tcy = t.y + t.size / 2;
+      if ((tcx - pc.x) ** 2 + (tcy - pc.y) ** 2 < 130 ** 2) {
+        bolts.push({ x1: pc.x, y1: pc.y, x2: tcx, y2: tcy, life: 8 });
+        SFX.zap();
+        const dealt = t.boss ? damageBoss(t, 2, tcx, tcy) : (t.hp -= 2, 2);
+        if (t.hp <= 0) killEnemy(t);
+        else if (dealt > 0) { t.hitTimer = 12; burst(tcx, tcy, PALETTE.Y, 5); }
+      }
+    }
+  }
+
+  // インフィニティセーバー: 刃の先から虹色の火花が舞う
+  if (weapon.rainbowSaber && frame % 3 === 0) {
+    const L = weaponLen(weapon);
+    for (let b = 0; b < weapon.blades; b++) {
+      const a = weaponAngle + (b * Math.PI * 2) / weapon.blades;
+      particles.push({
+        x: pc.x + Math.cos(a) * L, y: pc.y + Math.sin(a) * L,
+        vx: (Math.random() - 0.5) * 0.9, vy: (Math.random() - 0.5) * 0.9,
+        life: 13, color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
+      });
     }
   }
 
@@ -1738,9 +1853,34 @@ function update() {
         if ((f.x - pc.x) ** 2 + (f.y - pc.y) ** 2 < 14 ** 2) return false;
       }
     }
+    if (f.kind === 'shuriken') f.rot += 0.4;
+    if (f.kind === 'bomb') f.vx *= 0.97, f.vy *= 0.97; // だんだん減速して…
+    // ホーミング: いちばん近い敵へ曲がっていく
+    if (f.turn > 0) {
+      const tgt = nearestEnemyTo(f.x, f.y);
+      if (tgt) {
+        const ta = Math.atan2(tgt.y + tgt.size / 2 - f.y, tgt.x + tgt.size / 2 - f.x);
+        const cur = Math.atan2(f.vy, f.vx);
+        let diff = ta - cur;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const na = cur + Math.max(-f.turn, Math.min(f.turn, diff));
+        const sp = Math.hypot(f.vx, f.vy);
+        f.vx = Math.cos(na) * sp;
+        f.vy = Math.sin(na) * sp;
+      }
+      if (f.kind === 'missile' && Math.random() < 0.7) {
+        particles.push({ x: f.x - f.vx * 2, y: f.y - f.vy * 2, vx: 0, vy: 0, life: 10, color: Math.random() < 0.5 ? PALETTE.O : PALETTE.S });
+      }
+    }
     f.x += f.vx;
     f.y += f.vy;
     f.life--;
+    // 爆弾は寿命が切れたところでドカン！
+    if (f.kind === 'bomb' && f.life <= 0) {
+      explodeAt(f.x, f.y, f.aoe, f.dmg);
+      return false;
+    }
     return f.life > 0 && f.x > -30 && f.x < W + 30 && f.y > -30 && f.y < H + 30;
   });
 
@@ -2191,6 +2331,7 @@ function updateBossShots(pc) {
 
 // ---------- 回転武器と敵の当たり判定 ----------
 function updateWeaponHits(pc, weapon) {
+  const wl = weaponLen(weapon); // ヨーヨーは伸び縮みする
   for (const e of enemies) {
     if (e.hp <= 0 || e.hitTimer > 0 || e.airborne) continue;
     const ecx = e.x + e.size / 2;
@@ -2201,15 +2342,15 @@ function updateWeaponHits(pc, weapon) {
       const a = weaponAngle + (b * Math.PI * 2) / weapon.blades;
       if (weapon.kind === 'chain') {
         // 鎖武器は先端の鉄球だけで判定（そのぶん強い）
-        const bx = pc.x + Math.cos(a) * weapon.len;
-        const by = pc.y + Math.sin(a) * weapon.len;
+        const bx = pc.x + Math.cos(a) * wl;
+        const by = pc.y + Math.sin(a) * wl;
         const r = e.size / 2 + weapon.ballR;
         if ((bx - ecx) ** 2 + (by - ecy) ** 2 < r * r) { hit = true; hitX = bx; hitY = by; }
       } else {
         const eRadius = e.size / 2 + weapon.width / 2;
         for (const t of [0.35, 0.55, 0.75, 0.9, 1.0]) {
-          const bx = pc.x + Math.cos(a) * weapon.len * t;
-          const by = pc.y + Math.sin(a) * weapon.len * t;
+          const bx = pc.x + Math.cos(a) * wl * t;
+          const by = pc.y + Math.sin(a) * wl * t;
           if ((bx - ecx) ** 2 + (by - ecy) ** 2 < eRadius ** 2) { hit = true; hitX = bx; hitY = by; break; }
         }
       }
@@ -2252,7 +2393,7 @@ function updatePShotHits() {
       if (f.hitSet && f.hitSet.has(e)) continue;
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
-      const r = e.size / 2 + (f.kind === 'cannonball' ? 8 : 5);
+      const r = e.size / 2 + (f.aoe > 0 ? 8 : 5);
       if ((f.x - ecx) ** 2 + (f.y - ecy) ** 2 < r * r) {
         let dealt;
         if (e.boss) {
@@ -2261,8 +2402,8 @@ function updatePShotHits() {
           e.hp -= f.dmg;
           dealt = f.dmg;
         }
-        // 大砲は着弾で大爆発（まわりの敵にもダメージ）
-        if (f.kind === 'cannonball') {
+        // 大砲・爆弾・ミサイルは着弾で大爆発（まわりの敵にもダメージ）
+        if (f.aoe > 0) {
           explodeAt(f.x, f.y, f.aoe, f.dmg);
           f.life = 0;
         } else if (f.pierce) {
@@ -2454,6 +2595,7 @@ function drawCenteredText(text, y, color = '#f4f4f4', size = 10) {
 
 function drawWeapon() {
   const weapon = WEAPONS[weaponIdx];
+  const wlen = weaponLen(weapon);
   const pc = playerCenter();
   for (let b = 0; b < weapon.blades; b++) {
     const a = weaponAngle + (b * Math.PI * 2) / weapon.blades;
@@ -2463,51 +2605,75 @@ function drawWeapon() {
     ctx.translate(pc.x, pc.y);
     ctx.rotate(a);
     const kind = weapon.kind || 'blade';
-    if (kind === 'club') {
+    if (weapon.saber) {
+      // ライトセーバー: 柄＋4層のグロー＋白いコア＋ちらつき＋先端スパーク
+      const scol = weapon.rainbowSaber ? RAINBOW[Math.floor(gframe / 3 + b * 2) % RAINBOW.length] : weapon.saberColor;
+      ctx.fillStyle = '#94b0c2';
+      ctx.fillRect(8, -3, 10, 6);
+      ctx.fillStyle = '#566c86';
+      ctx.fillRect(12, -3, 2, 6);
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(16, -2, 2, 4);
+      const flick = 1 + Math.sin(gframe * 0.9 + b * 2) * 0.15;
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = scol;
+      ctx.fillRect(18, (-weapon.width / 2 - 6) * flick, wlen - 18, (weapon.width + 12) * flick);
+      ctx.globalAlpha = 0.45;
+      ctx.fillRect(18, -weapon.width / 2 - 2, wlen - 16, weapon.width + 4);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = scol;
+      ctx.fillRect(18, -weapon.width / 2, wlen - 14, weapon.width);
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(18, -1, wlen - 15, 2);
+      if (Math.random() < 0.6) {
+        ctx.fillStyle = '#f4f4f4';
+        ctx.fillRect(wlen + Math.random() * 5, -2 + Math.random() * 4, 2, 2);
+      }
+    } else if (kind === 'club') {
       // こん棒・鉄棒: 太い棒＋先が丸い
       ctx.fillStyle = '#743f39';
       ctx.fillRect(8, -2, 8, 4);
       ctx.fillStyle = color;
-      ctx.fillRect(14, -weapon.width / 2, weapon.len - 18, weapon.width);
-      ctx.fillRect(weapon.len - 8, -weapon.width / 2 - 2, 8, weapon.width + 4);
+      ctx.fillRect(14, -weapon.width / 2, wlen - 18, weapon.width);
+      ctx.fillRect(wlen - 8, -weapon.width / 2 - 2, 8, weapon.width + 4);
       ctx.fillStyle = edge;
-      ctx.fillRect(weapon.len - 6, -weapon.width / 2 - 1, 4, 2);
+      ctx.fillRect(wlen - 6, -weapon.width / 2 - 1, 4, 2);
     } else if (kind === 'chain') {
       // モーニングスター・鉄球: 鎖＋トゲつき鉄球
       ctx.fillStyle = '#94b0c2';
-      for (let d = 12; d < weapon.len - weapon.ballR; d += 7) ctx.fillRect(d, -1, 4, 3);
+      for (let d = 12; d < wlen - weapon.ballR; d += 7) ctx.fillRect(d, -1, 4, 3);
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(weapon.len, 0, weapon.ballR, 0, Math.PI * 2);
+      ctx.arc(wlen, 0, weapon.ballR, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = edge;
       for (let s = 0; s < 6; s++) {
         const sa = (Math.PI * 2 * s) / 6 + gframe * 0.1;
-        ctx.fillRect(weapon.len + Math.cos(sa) * weapon.ballR - 1, Math.sin(sa) * weapon.ballR - 1, 3, 3);
+        ctx.fillRect(wlen + Math.cos(sa) * weapon.ballR - 1, Math.sin(sa) * weapon.ballR - 1, 3, 3);
       }
     } else if (kind === 'trident') {
       // 三又の鉾: 柄＋3本の穂先
       ctx.fillStyle = '#743f39';
-      ctx.fillRect(8, -2, weapon.len - 22, 4);
+      ctx.fillRect(8, -2, wlen - 22, 4);
       ctx.fillStyle = color;
-      ctx.fillRect(weapon.len - 16, -6, 4, 12);
-      ctx.fillRect(weapon.len - 12, -7, 12, 3);
-      ctx.fillRect(weapon.len - 12, -1, 14, 3);
-      ctx.fillRect(weapon.len - 12, 5, 12, 3);
+      ctx.fillRect(wlen - 16, -6, 4, 12);
+      ctx.fillRect(wlen - 12, -7, 12, 3);
+      ctx.fillRect(wlen - 12, -1, 14, 3);
+      ctx.fillRect(wlen - 12, 5, 12, 3);
       ctx.fillStyle = edge;
-      ctx.fillRect(weapon.len - 2, -1, 4, 3);
+      ctx.fillRect(wlen - 2, -1, 4, 3);
     } else if (kind === 'scimitar') {
       // 半月刀: 曲がった刃
       ctx.fillStyle = '#743f39';
       ctx.fillRect(8, -2, 8, 4);
       ctx.fillStyle = color;
-      for (let d = 0; d < weapon.len - 16; d += 3) {
-        const curve = Math.sin((d / (weapon.len - 16)) * Math.PI) * 7;
+      for (let d = 0; d < wlen - 16; d += 3) {
+        const curve = Math.sin((d / (wlen - 16)) * Math.PI) * 7;
         ctx.fillRect(14 + d, -weapon.width / 2 - curve, 4, weapon.width);
       }
       ctx.fillStyle = edge;
-      for (let d = 0; d < weapon.len - 16; d += 3) {
-        const curve = Math.sin((d / (weapon.len - 16)) * Math.PI) * 7;
+      for (let d = 0; d < wlen - 16; d += 3) {
+        const curve = Math.sin((d / (wlen - 16)) * Math.PI) * 7;
         ctx.fillRect(14 + d, -weapon.width / 2 - curve, 4, 2);
       }
     } else if (kind === 'bow') {
@@ -2515,96 +2681,225 @@ function drawWeapon() {
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(weapon.len - 14, 0, 12, -Math.PI / 2.2, Math.PI / 2.2);
+      ctx.arc(wlen - 14, 0, 12, -Math.PI / 2.2, Math.PI / 2.2);
       ctx.stroke();
       ctx.strokeStyle = edge;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(weapon.len - 14 + Math.cos(-Math.PI / 2.2) * 12, Math.sin(-Math.PI / 2.2) * 12);
-      ctx.lineTo(weapon.len - 14 + Math.cos(Math.PI / 2.2) * 12, Math.sin(Math.PI / 2.2) * 12);
+      ctx.moveTo(wlen - 14 + Math.cos(-Math.PI / 2.2) * 12, Math.sin(-Math.PI / 2.2) * 12);
+      ctx.lineTo(wlen - 14 + Math.cos(Math.PI / 2.2) * 12, Math.sin(Math.PI / 2.2) * 12);
       ctx.stroke();
       ctx.fillStyle = '#743f39';
-      ctx.fillRect(8, -2, weapon.len - 20, 4);
+      ctx.fillRect(8, -2, wlen - 20, 4);
     } else if (kind === 'sling') {
       // パチンコ: Y字の棒
       ctx.fillStyle = color;
-      ctx.fillRect(8, -2, weapon.len - 18, 4);
-      ctx.fillRect(weapon.len - 12, -8, 4, 8);
-      ctx.fillRect(weapon.len - 12, 0, 4, 8);
+      ctx.fillRect(8, -2, wlen - 18, 4);
+      ctx.fillRect(wlen - 12, -8, 4, 8);
+      ctx.fillRect(wlen - 12, 0, 4, 8);
       ctx.strokeStyle = edge;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(weapon.len - 10, -7);
-      ctx.lineTo(weapon.len - 4, 0);
-      ctx.lineTo(weapon.len - 10, 7);
+      ctx.moveTo(wlen - 10, -7);
+      ctx.lineTo(wlen - 4, 0);
+      ctx.lineTo(wlen - 10, 7);
       ctx.stroke();
     } else if (kind === 'gun') {
       // マシンガン・レーザー: 銃身＋マズルフラッシュ
       ctx.fillStyle = color;
-      ctx.fillRect(10, -3, weapon.len - 14, 6);
+      ctx.fillRect(10, -3, wlen - 14, 6);
       ctx.fillStyle = edge;
-      ctx.fillRect(weapon.len - 8, -2, 8, 4);
+      ctx.fillRect(wlen - 8, -2, 8, 4);
       ctx.fillStyle = '#743f39';
       ctx.fillRect(14, 3, 5, 7);
       if (shootTimer > (weapon.shoot.interval - 3)) {
         ctx.fillStyle = '#ffcd75';
-        ctx.fillRect(weapon.len, -4, 6, 8);
+        ctx.fillRect(wlen, -4, 6, 8);
       }
     } else if (kind === 'cannon') {
       // 大砲: 太い砲身
       ctx.fillStyle = color;
-      ctx.fillRect(8, -weapon.width / 2, weapon.len - 10, weapon.width);
+      ctx.fillRect(8, -weapon.width / 2, wlen - 10, weapon.width);
       ctx.fillStyle = edge;
-      ctx.fillRect(weapon.len - 6, -weapon.width / 2 - 2, 6, weapon.width + 4);
+      ctx.fillRect(wlen - 6, -weapon.width / 2 - 2, 6, weapon.width + 4);
       if (shootTimer > (weapon.shoot.interval - 4)) {
         ctx.fillStyle = '#ef7d57';
-        ctx.fillRect(weapon.len, -5, 8, 10);
+        ctx.fillRect(wlen, -5, 8, 10);
       }
     } else if (kind === 'boomer') {
       // ブーメラン: くの字
       ctx.fillStyle = color;
-      ctx.fillRect(weapon.len - 18, -2, 16, 4);
-      ctx.fillRect(weapon.len - 6, -14, 4, 16);
+      ctx.fillRect(wlen - 18, -2, 16, 4);
+      ctx.fillRect(wlen - 6, -14, 4, 16);
       ctx.fillStyle = edge;
-      ctx.fillRect(weapon.len - 18, -2, 16, 1);
-    } else if (weapon.saber) {
-      // ライトセーバー: 光る刃（3層の光）
-      ctx.fillStyle = '#94b0c2';
-      ctx.fillRect(8, -3, 10, 6);
-      ctx.fillStyle = 'rgba(115, 239, 247, 0.25)';
-      ctx.fillRect(18, -weapon.width / 2 - 4, weapon.len - 18, weapon.width + 8);
-      ctx.fillStyle = 'rgba(115, 239, 247, 0.6)';
-      ctx.fillRect(18, -weapon.width / 2 - 1, weapon.len - 18, weapon.width + 2);
+      ctx.fillRect(wlen - 18, -2, 16, 1);
+    } else if (kind === 'whip') {
+      // ムチ: 波打つ革ひも＋光る先端
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      for (let d = 12; d <= wlen; d += 6) ctx.lineTo(d, Math.sin(d * 0.22 + gframe * 0.45) * 5);
+      ctx.stroke();
+      ctx.fillStyle = edge;
+      const ty = Math.sin(wlen * 0.22 + gframe * 0.45) * 5;
+      ctx.fillRect(wlen - 2, ty - 2, 5, 5);
+    } else if (kind === 'axe') {
+      // バトルアックス: 長い柄＋両側に大きな刃
+      ctx.fillStyle = '#743f39';
+      ctx.fillRect(8, -2, wlen - 12, 4);
+      ctx.fillStyle = color;
+      ctx.fillRect(wlen - 20, -13, 12, 26);
+      ctx.fillStyle = edge;
+      ctx.fillRect(wlen - 9, -13, 3, 26);
+      ctx.fillStyle = '#566c86';
+      ctx.fillRect(wlen - 20, -2, 12, 4);
+    } else if (kind === 'scytheW') {
+      // しにがみのカマ: 長い柄＋大きく曲がった刃
+      ctx.fillStyle = '#743f39';
+      ctx.fillRect(8, -2, wlen - 14, 4);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(wlen - 14, -8, 15, -Math.PI * 0.45, Math.PI * 0.55);
+      ctx.stroke();
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(wlen - 14, -8, 17, -Math.PI * 0.45, Math.PI * 0.55);
+      ctx.stroke();
+    } else if (kind === 'drill') {
+      // ドリルランス: 回転して見えるしましま＋とがった先端
+      ctx.fillStyle = '#566c86';
+      ctx.fillRect(8, -4, 10, 8);
+      for (let d = 18; d < wlen; d += 5) {
+        const wdt = Math.max(1, (weapon.width + 4) * (1 - (d - 18) / (wlen - 18)));
+        ctx.fillStyle = (Math.floor(d / 5 + gframe / 3) % 2 === 0) ? color : edge;
+        ctx.fillRect(d, -wdt / 2, 5, wdt);
+      }
+    } else if (kind === 'wand') {
+      // まほうのつえ: ほそい杖＋回る星＋キラキラ
+      ctx.fillStyle = color;
+      ctx.fillRect(8, -2, wlen - 12, 4);
+      ctx.save();
+      ctx.translate(wlen - 2, 0);
+      ctx.rotate(gframe * 0.15);
+      ctx.fillStyle = '#ffcd75';
+      ctx.fillRect(-6, -2, 12, 4);
+      ctx.fillRect(-2, -6, 4, 12);
+      ctx.restore();
+      if (Math.random() < 0.5) {
+        ctx.fillStyle = RAINBOW[Math.floor(Math.random() * RAINBOW.length)];
+        ctx.fillRect(wlen - 8 + Math.random() * 12, -8 + Math.random() * 16, 2, 2);
+      }
+    } else if (kind === 'tesla') {
+      // テスラコイル: 棒の先の電気玉からバチバチ
+      ctx.fillStyle = color;
+      ctx.fillRect(8, -2, wlen - 14, 4);
+      ctx.fillStyle = '#73eff7';
+      ctx.beginPath();
+      ctx.arc(wlen - 5, 0, 7, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = '#f4f4f4';
-      ctx.fillRect(18, -weapon.width / 2 + 1, weapon.len - 18, Math.max(2, weapon.width - 2));
+      ctx.beginPath();
+      ctx.arc(wlen - 5, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+      if (Math.random() < 0.7) {
+        ctx.strokeStyle = '#73eff7';
+        ctx.lineWidth = 1;
+        const za = Math.random() * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(wlen - 5 + Math.cos(za) * 7, Math.sin(za) * 7);
+        ctx.lineTo(wlen - 5 + Math.cos(za) * 14, Math.sin(za) * 14);
+        ctx.stroke();
+      }
+    } else if (kind === 'ninja') {
+      // 忍者刀: 短くて黒い刃
+      ctx.fillStyle = '#743f39';
+      ctx.fillRect(8, -2, 8, 4);
+      ctx.fillStyle = color;
+      ctx.fillRect(14, -weapon.width / 2, wlen - 14, weapon.width);
+      ctx.fillStyle = edge;
+      ctx.fillRect(14, -weapon.width / 2, wlen - 14, 1);
+    } else if (kind === 'bombH') {
+      // ばくだん: 棒の先の黒玉＋バチバチ光る導火線
+      ctx.fillStyle = '#a77b5b';
+      ctx.fillRect(8, -2, wlen - 18, 4);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(wlen - 6, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(wlen - 8, -3, 3, 3);
+      ctx.fillStyle = Math.random() < 0.5 ? '#ffcd75' : '#ef7d57';
+      ctx.fillRect(wlen - 4 + Math.random() * 3, -12 + Math.random() * 3, 3, 3);
+    } else if (kind === 'launcher') {
+      // ミサイルランチャー: 2連チューブ＋のぞくミサイル
+      ctx.fillStyle = color;
+      ctx.fillRect(10, -6, wlen - 14, 12);
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(wlen - 6, -5, 4, 4);
+      ctx.fillRect(wlen - 6, 1, 4, 4);
+      ctx.fillStyle = edge;
+      ctx.fillRect(wlen - 4, -4, 3, 2);
+      ctx.fillRect(wlen - 4, 2, 3, 2);
+    } else if (kind === 'flamer') {
+      // かえんほうしゃき: ノズル＋タンク＋ゆらめく火
+      ctx.fillStyle = color;
+      ctx.fillRect(10, -3, wlen - 16, 6);
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(wlen - 6, -2, 6, 4);
+      ctx.fillStyle = '#b13e53';
+      ctx.fillRect(12, 4, 8, 6);
+      ctx.fillStyle = Math.random() < 0.5 ? PALETTE.O : PALETTE.Y;
+      ctx.fillRect(wlen, -3 + Math.random() * 4, 4 + Math.random() * 4, 3);
+    } else if (kind === 'yoyo') {
+      // ハイパーヨーヨー: ひも＋回転する円盤
+      ctx.strokeStyle = '#f4f4f4';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(8, 0);
+      ctx.lineTo(wlen - 6, 0);
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(wlen, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(wlen, 0, 5, gframe * 0.4, gframe * 0.4 + Math.PI);
+      ctx.stroke();
+      ctx.fillStyle = edge;
+      ctx.fillRect(wlen - 1, -1, 3, 3);
     } else {
       // 通常の刃（剣・槍など）
       ctx.fillStyle = '#743f39';
       ctx.fillRect(8, -2, 8, 4);
       ctx.fillStyle = color;
-      ctx.fillRect(14, -weapon.width / 2, weapon.len - 14, weapon.width);
+      ctx.fillRect(14, -weapon.width / 2, wlen - 14, weapon.width);
       ctx.fillStyle = edge;
-      ctx.fillRect(14, -weapon.width / 2, weapon.len - 14, Math.max(1, weapon.width / 4));
-      ctx.fillRect(weapon.len - 3, -weapon.width / 2 - 1, 4, weapon.width + 2);
+      ctx.fillRect(14, -weapon.width / 2, wlen - 14, Math.max(1, weapon.width / 4));
+      ctx.fillRect(wlen - 3, -weapon.width / 2 - 1, 4, weapon.width + 2);
       if (kind === 'spear') {
         ctx.fillStyle = edge;
-        ctx.fillRect(weapon.len - 8, -weapon.width / 2 - 3, 8, weapon.width + 6);
+        ctx.fillRect(wlen - 8, -weapon.width / 2 - 3, 8, weapon.width + 6);
       }
     }
     if (weapon.flame && state === 'playing') {
       for (let i = 0; i < 4; i++) {
-        const fx2 = 18 + Math.random() * (weapon.len - 22);
+        const fx2 = 18 + Math.random() * (wlen - 22);
         ctx.fillStyle = Math.random() < 0.5 ? PALETTE.O : PALETTE.Y;
         ctx.fillRect(fx2, -weapon.width / 2 - 3 - Math.random() * 3, 2, 3);
       }
     }
     if (weapon.lightning && state === 'playing' && Math.random() < 0.5) {
-      const fx2 = 18 + Math.random() * (weapon.len - 22);
+      const fx2 = 18 + Math.random() * (wlen - 22);
       ctx.fillStyle = '#ffcd75';
       ctx.fillRect(fx2, weapon.width / 2 + Math.random() * 4, 2, 2);
     }
     if (weapon.ice && state === 'playing' && Math.random() < 0.4) {
-      const fx2 = 18 + Math.random() * (weapon.len - 22);
+      const fx2 = 18 + Math.random() * (wlen - 22);
       ctx.fillStyle = '#f4f4f4';
       ctx.fillRect(fx2, -weapon.width / 2 - 2 - Math.random() * 3, 1, 1);
     }
@@ -2981,6 +3276,52 @@ function drawPShot(f) {
     ctx.fillRect(-7, -2, 12, 4);
     ctx.fillRect(1, -10, 4, 12);
     ctx.restore();
+  } else if (f.kind === 'shuriken') {
+    // 手裏剣: 回転する十字の刃
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rot);
+    ctx.fillStyle = '#94b0c2';
+    ctx.fillRect(-7, -2, 14, 4);
+    ctx.fillRect(-2, -7, 4, 14);
+    ctx.fillStyle = '#333c57';
+    ctx.fillRect(-2, -2, 4, 4);
+    ctx.restore();
+  } else if (f.kind === 'bomb') {
+    // 爆弾: 黒玉＋点滅する導火線（消える直前は赤く点滅）
+    const danger = f.life < 15 && Math.floor(gframe / 3) % 2 === 0;
+    ctx.fillStyle = danger ? '#b13e53' : '#1a1c2c';
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4f4f4';
+    ctx.fillRect(f.x - 3, f.y - 4, 3, 3);
+    ctx.fillStyle = Math.random() < 0.5 ? '#ffcd75' : '#ef7d57';
+    ctx.fillRect(f.x + 2 + Math.random() * 3, f.y - 12 + Math.random() * 3, 3, 3);
+  } else if (f.kind === 'orb') {
+    // まほうの弾: ピンクに光る玉
+    ctx.fillStyle = 'rgba(255, 119, 168, 0.35)';
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ff77a8';
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4f4f4';
+    ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
+  } else if (f.kind === 'missile') {
+    // ホーミングミサイル: 進行方向を向く弾体＋うしろに炎
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(Math.atan2(f.vy, f.vx));
+    ctx.fillStyle = '#94b0c2';
+    ctx.fillRect(-7, -3, 12, 6);
+    ctx.fillStyle = '#b13e53';
+    ctx.fillRect(5, -2, 4, 4);
+    ctx.fillStyle = Math.random() < 0.5 ? PALETTE.O : PALETTE.Y;
+    ctx.fillRect(-11, -2, 4, 4);
+    ctx.restore();
   }
 }
 
@@ -3107,10 +3448,10 @@ function render() {
       ctx.translate(cx0, cy0);
       ctx.scale(sxv, syv);
       ctx.translate(-cx0, -cy0);
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, e.boss);
       ctx.restore();
     } else {
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, e.boss);
     }
     if (e.slowTimer > 0) {
       ctx.fillStyle = 'rgba(65, 166, 246, 0.35)';
@@ -3196,7 +3537,7 @@ function render() {
   // プレイヤー（武器レベルで見た目が進化）
   if (invincibleTimer === 0 || Math.floor(frame / 4) % 2 === 0) {
     const form = FORMS[formIdx];
-    drawSprite(form.sprite, player.x, player.y, 3, playerRemap());
+    drawSprite(form.sprite, player.x, player.y, 2, playerRemap());
     // 上位フォームはキラキラのオーラをまとう
     if (formIdx >= 4 && frame % 4 === 0) {
       particles.push({
@@ -3248,7 +3589,7 @@ function render() {
 function renderHUD() {
   drawText(`スコア ${score}`, 6, 6, '#f4f4f4', 13);
   const wp = WEAPONS[weaponIdx];
-  drawText(`ぶき: ${wp.name} (${weaponIdx + 1}/30)`, 6, 24, wp.rainbow || wp.saber ? RAINBOW[Math.floor(gframe / 6) % RAINBOW.length] : wp.color, 13);
+  drawText(`ぶき: ${wp.name} (${weaponIdx + 1}/${WEAPONS.length})`, 6, 24, wp.rainbow || wp.rainbowSaber ? RAINBOW[Math.floor(gframe / 6) % RAINBOW.length] : wp.color, 13);
   drawText(`ステージ${stage}/${LAST_STAGE} ${currentStage().name}`, 6, 42, '#94b0c2', 11);
   // ゴールド
   ctx.fillStyle = '#ffcd75';
@@ -3337,13 +3678,13 @@ function renderTitle() {
   const bob = Math.sin(gframe * 0.05) * 5;
   drawCenteredText('HAYATO GAME', 56 + bob, c, 38);
   drawCenteredText('やじるしキー：いどう / スペース：ひっさつわざ', 122, '#f4f4f4', 12);
-  drawCenteredText('ぶきは 30だんかい しんか！ さいごは…ライトセーバー！？', 142, '#ef7d57', 12);
+  drawCenteredText('ぶきは 40だんかい しんか！ さいごは…インフィニティセーバー！？', 142, '#ef7d57', 12);
   drawCenteredText('ステージ20 × かみさまボス20たい！ 5ステージごとに おみせ！', 162, '#ff77a8', 12);
   if (Math.floor(gframe / 30) % 2 === 0) {
     drawCenteredText('ENTERキーでスタート！', 200, '#41a6f6', 18);
   }
   // カスタマイズ
-  drawSprite('player', W / 2 - 60, 240, 3, playerRemap());
+  drawSprite('player0', W / 2 - 60, 240, 2, playerRemap());
   drawText(`Cキー：いろかえ（${OUTFITS[outfitIdx].name}）`, W / 2 - 24, 246, '#94b0c2', 11);
   drawText(`Nキー：なまえ（${playerName || 'なし'}）`, W / 2 - 24, 262, '#94b0c2', 11);
   drawCenteredText('Mキー：おんがくON/OFF', 292, '#94b0c2', 10);
