@@ -1172,14 +1172,14 @@ function beep(freq, dur, type = 'square', vol = 0.04, slideTo = null, delayMs = 
 
 // ホワイトノイズ（風切り音・斬撃のシュパッという質感用）
 let noiseBuf = null;
-function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass') {
+function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass', delayMs = 0) {
   if (!audioCtx) return;
   if (!noiseBuf) {
     noiseBuf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.3), audioCtx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
-  const t0 = audioCtx.currentTime;
+  const t0 = audioCtx.currentTime + delayMs / 1000;
   const src = audioCtx.createBufferSource();
   src.buffer = noiseBuf;
   const filter = audioCtx.createBiquadFilter();
@@ -1262,9 +1262,25 @@ const SFX = {
     beep(60, 0.9, 'square', 0.06, 30, 100);
   },
   clear: () => {
+    // 豪華な勝利ファンファーレ: かけ上がり→和音3連発→シンバル→大伸ばし
     const seq = [523, 659, 784, 1047, 784, 1047, 1319, 1568];
-    seq.forEach((f, i) => beep(f, 0.16, 'square', 0.055, null, i * 110));
-    [1047, 1319, 1568, 2093].forEach((f) => beep(f, 0.9, 'triangle', 0.05, null, seq.length * 110));
+    seq.forEach((f, i) => beep(f, 0.16, 'square', 0.055, null, i * 100));
+    const chords = [[523, 659, 784], [587, 740, 880], [659, 831, 988]];
+    chords.forEach((chord, i) => {
+      chord.forEach((f) => {
+        beep(f, 0.45, 'sawtooth', 0.03, null, 850 + i * 360);
+        beep(f * 2, 0.45, 'triangle', 0.03, null, 850 + i * 360);
+      });
+      noise(0.3, 0.05, 5000, 'highpass', 850 + i * 360); // シンバル
+    });
+    [1047, 1319, 1568, 2093].forEach((f, i) => beep(f, 1.4, 'triangle', 0.05, null, 1950 + i * 70));
+    noise(0.8, 0.06, 4000, 'highpass', 1950);
+  },
+  // 花火の音
+  fireworkLaunch: () => beep(500 + Math.random() * 300, 0.5, 'sine', 0.03, 1500),
+  fireworkPop: () => {
+    noise(0.22, 0.07, 1400, 'bandpass');
+    beep(180 + Math.random() * 250, 0.3, 'triangle', 0.045, 55);
   },
 };
 
@@ -1439,7 +1455,7 @@ function trySpecial() {
 // ---------- ゲーム状態 ----------
 const PLAYER_SIZE = 24;
 const ENEMY_SIZE = 24;
-const TANK_SIZE = 32;
+const TANK_SIZE = 64; // ストーンゴーレムは特大サイズ
 const BOSS_SIZE = 160;   // ボスは緑の敵の5倍
 const TALLY_COUNT_FRAMES = 150;
 
@@ -1616,8 +1632,8 @@ function spawnBoss() {
   // 分裂ボスは子と合わせると合計HPが通常の1.7〜2倍になってしまうため、
   // 最初の（親の）HPを半分にして合計をほぼ通常ボス並みにそろえる
   if (type.gimmicks.includes('split')) hp = Math.round(hp * 0.5);
-  // 最終ボスのドラゴンは体が1.5倍
-  const size = type.big ? Math.round(BOSS_SIZE * 1.5) : BOSS_SIZE;
+  // 最終ボスのドラゴンは体が通常ボスの2倍（画面をおおう巨体）
+  const size = type.big ? BOSS_SIZE * 2 : BOSS_SIZE;
   const b = makeBoss(type, W / 2 - size / 2, -size - 10, size, hp, {
     splitsLeft: type.gimmicks.includes('split') ? 1 : 0,
   });
@@ -2080,7 +2096,15 @@ function update() {
     return;
   }
   if (state === 'clear') {
-    if (gframe % 20 === 0) rainbowBurst(40 + Math.random() * (W - 80), 30 + Math.random() * (H - 100), 16, 3);
+    // 豪華な花火ショー（増量＋効果音つき）
+    if (gframe % 10 === 0) {
+      const fx = 40 + Math.random() * (W - 80);
+      const fy = 25 + Math.random() * (H * 0.55);
+      rainbowBurst(fx, fy, 24, 3.8);
+      addShockwave(fx, fy, RAINBOW[Math.floor(Math.random() * RAINBOW.length)], 4, 3.5, 13, 2);
+      if (gframe % 20 === 0) SFX.fireworkPop();
+    }
+    if (gframe % 80 === 0) SFX.fireworkLaunch(); // ヒュ〜っと打ち上がる音
     return;
   }
   if (state !== 'playing') return;
@@ -4507,20 +4531,31 @@ function renderClear() {
   }
   ctx.globalAlpha = 1;
 
+  // 花火の衝撃波リング
+  for (const s of shockwaves) {
+    ctx.globalAlpha = Math.max(0, s.life / s.maxLife);
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.lw;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
   // 大見出し
   drawGlowTitle('GAME CLEAR!', 36, 42, '#ffcd75', '#ef7d57', '#ffcd75');
-  drawCenteredText(`${playerName ? playerName + 'は' : 'きみは'} ほんものの でんせつのゆうしゃだ！`, 92, '#f4f4f4', 14);
+  drawCenteredText(`${playerName ? playerName + 'は' : 'きみは'} ほんものの でんせつのゆうしゃだ！`, 90, '#f4f4f4', 14);
 
   // 勇者の立ち姿（光の円座つき）
   const hx = W / 2;
-  const rg = ctx.createRadialGradient(hx, 158, 2, hx, 158, 50);
+  const rg = ctx.createRadialGradient(hx, 150, 2, hx, 150, 50);
   rg.addColorStop(0, 'rgba(255, 205, 117, 0.45)');
   rg.addColorStop(1, 'rgba(255, 205, 117, 0)');
   ctx.fillStyle = rg;
   ctx.beginPath();
-  ctx.ellipse(hx, 158, 50, 15, 0, 0, Math.PI * 2);
+  ctx.ellipse(hx, 150, 50, 15, 0, 0, Math.PI * 2);
   ctx.fill();
-  drawSprite('player5', hx - 18, 112 + Math.sin(gframe * 0.05) * 3, 3, playerRemap());
+  drawSprite('player5', hx - 18, 106 + Math.sin(gframe * 0.05) * 3, 3, playerRemap());
 
   // せいせきカード（ガラス風パネル3枚）
   const cards = [
@@ -4531,19 +4566,31 @@ function renderClear() {
   for (let i = 0; i < 3; i++) {
     const cw = 136;
     const cx3 = W / 2 + (i - 1) * (cw + 12) - cw / 2;
-    drawGlassCard(cx3, 190, cw, 52, 'rgba(255, 205, 117, 0.35)');
+    drawGlassCard(cx3, 166, cw, 50, 'rgba(255, 205, 117, 0.35)');
     ctx.font = '10px "MS Gothic", monospace';
     const lw = ctx.measureText(cards[i][0]).width;
-    drawText(cards[i][0], cx3 + (cw - lw) / 2, 198, '#94b0c2', 10);
+    drawText(cards[i][0], cx3 + (cw - lw) / 2, 174, '#94b0c2', 10);
     ctx.font = 'bold 17px "MS Gothic", monospace';
     const vw = ctx.measureText(cards[i][1]).width;
-    drawText(cards[i][1], cx3 + (cw - vw) / 2, 214, '#ffcd75', 17);
+    drawText(cards[i][1], cx3 + (cw - vw) / 2, 189, '#ffcd75', 17);
   }
-  drawCenteredText(`とうたつぶき: ${WEAPONS[weaponIdx].name}`, 252, '#94b0c2', 11);
+  drawCenteredText(`とうたつぶき: ${WEAPONS[weaponIdx].name}`, 224, '#94b0c2', 11);
 
   // ハイスコアバッジ
   if (score >= highScore && score > 0) {
-    drawCenteredText('★ NEW RECORD ★', 272, RAINBOW[Math.floor(gframe / 8) % RAINBOW.length], 15);
+    drawCenteredText('★ NEW RECORD ★', 240, RAINBOW[Math.floor(gframe / 8) % RAINBOW.length], 14);
+  }
+
+  // たおしたボスたちの行進（プレビュー・右から左へ流れるパレード）
+  const paradeW = BOSS_TYPES.length * 46;
+  for (let i = 0; i < BOSS_TYPES.length; i++) {
+    const bt = BOSS_TYPES[i];
+    const px2 = ((i * 46 - gframe * 0.7) % paradeW + paradeW) % paradeW - 46;
+    if (px2 > W + 10) continue;
+    const bob2 = Math.sin(gframe * 0.1 + i) * 2;
+    ctx.globalAlpha = 0.9;
+    drawSprite(bt.sprite, px2, 258 + bob2, 1, bt.remap || null);
+    ctx.globalAlpha = 1;
   }
 
   // ENTERピル
