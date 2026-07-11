@@ -927,6 +927,11 @@ const OUTFITS = [
   { name: 'みどり',   hex: '#38b764' },
   { name: 'ピンク',   hex: '#ff77a8' },
   { name: 'ゴールド', hex: '#ffcd75' },
+  { name: 'あお',     hex: '#3b5dc9' },
+  { name: 'むらさき', hex: '#8b4f8b' },
+  { name: 'オレンジ', hex: '#ef7d57' },
+  { name: 'そらいろ', hex: '#73eff7' },
+  { name: 'しろ',     hex: '#f4f4f4' },
 ];
 let outfitIdx = Number(localStorage.getItem('hayato-outfit') || 0) % OUTFITS.length;
 let playerName = localStorage.getItem('hayato-name') || '';
