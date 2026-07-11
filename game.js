@@ -1871,6 +1871,11 @@ function killEnemy(e, lightningDepth = 2) {
       e.hp = 1;        // 演出が終わるまで消えない
       e.act = null;
       e.giantCharge = 0;
+      // ふみつけ（空中）の最中に必殺技でトドメを刺されたケース:
+      // act=nullで着地処理が来なくなるため、ここで降ろさないと透明のまま画面外で崩壊してしまう
+      e.airborne = false;
+      e.x = Math.max(-e.size * 0.1, Math.min(W - e.size * 0.9, e.x));
+      e.y = Math.max(-e.size * 0.15, Math.min(H - e.size * 0.85, e.y));
       fireballs = [];  // 弾は全部消える
       // 取り巻きは静かに消滅
       for (const m of enemies) {
