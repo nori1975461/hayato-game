@@ -926,7 +926,7 @@ const OUTFITS = [
   { name: 'あか',     hex: '#b13e53' },
   { name: 'みどり',   hex: '#38b764' },
   { name: 'ピンク',   hex: '#ff77a8' },
-  { name: 'ゴールド', hex: '#ffcd75' },
+  { name: 'シルバー', hex: '#c0c0c0' },
   { name: 'あお',     hex: '#3b5dc9' },
   { name: 'むらさき', hex: '#8b4f8b' },
   { name: 'オレンジ', hex: '#ef7d57' },
