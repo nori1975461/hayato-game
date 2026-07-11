@@ -989,8 +989,11 @@ const WEAPONS = [
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
+// ジギムント戦ではインフィニティセーバーの刃が1.3倍にのびる（勇者の力の解放）
 function weaponLen(w) {
-  return w.yoyo ? w.len * (0.55 + 0.45 * Math.sin(frame * 0.09)) : w.len;
+  let L = w.len;
+  if (w.rainbowSaber && sigmundFight) L *= 1.3;
+  return w.yoyo ? L * (0.55 + 0.45 * Math.sin(frame * 0.09)) : L;
 }
 
 function weaponForScore(s) {
@@ -1406,6 +1409,8 @@ let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
 let continuesLeft = 3; // ゲームオーバーからのコンティニュー残り回数（1プレイ3回まで）
 let serifuTimer = 0, serifuName = '', serifuText = '', serifuReply = ''; // ボス出現セリフ（ドラクエ風ウィンドウ）
+let sigmundFight = false;        // ジギムント戦中か（勇者スピードUP・セーバー延長）
+let sigmundPowerPending = false; // セリフのあとに「ちからが かいほうされた！」を出す予約
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
 let highScore = Number(localStorage.getItem('hayato-highscore') || 0);
@@ -1451,6 +1456,8 @@ function startGame() {
   paused = false;
   bossSpecialsUsed = 0;
   continuesLeft = 3;
+  sigmundFight = false;
+  sigmundPowerPending = false;
   gold = 0;
   gear = {};
   lastTallyScore = 0;
@@ -1566,6 +1573,7 @@ function spawnBoss() {
   serifuText = type.serifu || '';
   serifuReply = type.big ? 'ジギムント、かくごしろ！' : '';
   serifuTimer = type.big ? 260 : 200;
+  if (type.big) sigmundPowerPending = true;
   if (type.big) addPopup(player.x + PLAYER_SIZE / 2, player.y - 16, 'ちからが みなぎる！ スピードUP！', '#73eff7', 12);
   enemies.push(b);
   bossActive = true;
@@ -2019,8 +2027,20 @@ function update() {
   if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
   if (playerSlowT > 0) playerSlowT--;
   // ジギムント戦では勇者の力がみなぎってスピード10%アップ
-  const sigmundBoost = bossActive && enemies.some((en) => en.boss && en.type.big) ? 1.1 : 1;
-  const pspeed = player.speed * (gear.boots ? 1.2 : 1) * (playerSlowT > 0 ? 0.5 : 1) * sigmundBoost;
+  sigmundFight = bossActive && enemies.some((en) => en.boss && en.type.big);
+  const pspeed = player.speed * (gear.boots ? 1.2 : 1) * (playerSlowT > 0 ? 0.5 : 1) * (sigmundFight ? 1.1 : 1);
+
+  // セリフのやりとりが終わった瞬間、勇者の力が解放される！
+  if (sigmundPowerPending && sigmundFight && serifuTimer <= 1) {
+    sigmundPowerPending = false;
+    bannerText = 'でんせつのゆうしゃの ちからが かいほうされた！';
+    bannerTimer = 200;
+    flashTimer = 20;
+    const pcx = playerCenter();
+    rainbowBurst(pcx.x, pcx.y, 60, 4);
+    addShockwave(pcx.x, pcx.y, '#73eff7', 12, 7, 24, 5);
+    SFX.fanfare();
+  }
   player.x = Math.max(0, Math.min(W - PLAYER_SIZE, player.x + dx * pspeed));
   player.y = Math.max(0, Math.min(H - PLAYER_SIZE, player.y + dy * pspeed));
 
