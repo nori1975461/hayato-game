@@ -122,35 +122,54 @@ const SPRITES = {
     '...WW..WW...',
     '...DD..DD...',
   ],
+  // かげのインプ: ツノ＋ピンクに光る目＋ゆらめく影の下半身（神話世界の小悪魔）
   enemy: [
-    '........',
-    '..PPPP..',
-    '.PPPPPP.',
-    'PPWKWKPP',
-    'PPPPPPPP',
-    'P.PPPP.P',
-    '..P..P..',
-    '.PP..PP.',
+    '..P......P..',
+    '..PP....PP..',
+    '...PPPPPP...',
+    '..PPPPPPPP..',
+    '..PMMPPMMP..',
+    '..PPPPPPPP..',
+    '.PPPPPPPPPP.',
+    '.PPPPPPPPPP.',
+    '..PPPPPPPP..',
+    '..PP.PP.PP..',
+    '...P..P..P..',
+    '....P..P....',
   ],
+  // ヘルハウンド: 炎をまとって走る魔犬（すばやい敵）
   enemyFast: [
-    '........',
-    '..RRRR..',
-    '.RRRRRR.',
-    'RRWKWKRR',
-    'RRRRRRRR',
-    'R.RRRR.R',
-    '..R..R..',
-    '.RR..RR.',
+    '...RR.......',
+    '...RRR...O..',
+    '..RRRRR.O...',
+    '..RRRRRRRRR.',
+    '.RRRRRRRRRR.',
+    '.RYRRRRRRRR.',
+    '.RWRRRRRRRR.',
+    '..RRRRRRRR..',
+    '..RRRRRRRR..',
+    '..RR.RR.RR..',
+    '.RR...RR....',
+    '.OO....OO...',
   ],
+  // ストーンゴーレム: 岩のひび＋緑に光るコア（かたい敵）
   enemyTank: [
-    '.GGGGGG.',
-    'GGGGGGGG',
-    'GWKGGWKG',
-    'GGGGGGGG',
-    'GGgggggG',
-    'GGGGGGGG',
-    'G.G..G.G',
-    'GG.GG.GG',
+    '....GGGGGGGG....',
+    '...GGGGGGGGGG...',
+    '...GGYYGGYYGG...',
+    '...GGGGGGGGGG...',
+    '..GGGGGGGGGGGG..',
+    '.GGgGGGGGGGGgGG.',
+    '.GGGGGDDGGGGGG..',
+    '.GGGGDDDDGGGGG..',
+    '.GGGGGDDGGGGGG..',
+    '..GGGGGGGGGGGG..',
+    '..GGgGGGGGGgGG..',
+    '..GGGGGGGGGGGG..',
+    '..GGGG....GGGG..',
+    '..GGG......GGG..',
+    '.GGGG......GGGG.',
+    '.gggg......gggg.',
   ],
   heart: [
     '.MM.MM.',
@@ -869,7 +888,7 @@ function drawSprite(name, x, y, scale = 3, remap = null, hd = false) {
   const sprite = SPRITES[name];
   const px = Math.round(x);
   const py = Math.round(y);
-  const useHd = hd && scale >= 3;
+  const useHd = hd && scale >= 2;
   for (let row = 0; row < sprite.length; row++) {
     for (let col = 0; col < sprite[row].length; col++) {
       const ch = sprite[row][col];
@@ -1154,7 +1173,11 @@ function beep(freq, dur, type = 'square', vol = 0.04, slideTo = null, delayMs = 
 let quietKills = false; // 必殺技の全滅処理中は個別の撃破音を鳴らさない
 
 const SFX = {
-  kill: (combo) => { if (!quietKills) beep(520 + Math.min(combo, 12) * 45, 0.09, 'triangle', 0.055, 950 + combo * 45); },
+  kill: (combo) => {
+    if (quietKills) return;
+    beep(520 + Math.min(combo, 12) * 45, 0.09, 'triangle', 0.055, 950 + combo * 45);
+    beep(110, 0.07, 'sawtooth', 0.05, 50); // 低音の「ザシュッ」で斬った重みを出す
+  },
   // ズバッ！と切った感触の音（高い切れ味＋低い手ごたえの2層）
   slash: () => { beep(1300, 0.045, 'square', 0.05, 250); beep(160, 0.07, 'sawtooth', 0.055, 55, 10); },
   hurt: () => beep(140, 0.25, 'sawtooth', 0.06, 50),
@@ -1626,9 +1649,9 @@ function addShockwave(x, y, color, r = 12, vr = 5, life = 18, lw = 4) {
   shockwaves.push({ x, y, r, vr, life, maxLife: life, color, lw });
 }
 
-// 白い斬撃のきらめき（武器が当たった場所に走る）
-function addSlash(x, y, ang) {
-  slashes.push({ x, y, ang, life: 7, maxLife: 7 });
+// 白い斬撃のきらめき（武器が当たった場所に走る）。scaleでトドメの大斬線にもなる
+function addSlash(x, y, ang, scale = 1) {
+  slashes.push({ x, y, ang, life: 7, maxLife: 7, scale });
 }
 
 // ---------- 雷の連鎖（雷属性の武器で敵を倒したとき） ----------
@@ -1802,7 +1825,28 @@ function killEnemy(e, lightningDepth = 2) {
       }
     }
   } else {
-    burst(e.x + e.size / 2, e.y + e.size / 2, e.sprite === 'enemyFast' ? PALETTE.R : e.sprite === 'enemyTank' ? PALETTE.G : PALETTE.P, 10);
+    // ズバッ！と斬りとばす爽快演出:
+    // 破片がプレイヤーと反対方向へ勢いよく吹き飛ぶ＋大きな斬線＋ポップリング
+    const ecx = e.x + e.size / 2;
+    const ecy = e.y + e.size / 2;
+    const bodyColor = e.sprite === 'enemyFast' ? PALETTE.R : e.sprite === 'enemyTank' ? PALETTE.G : PALETTE.P;
+    const pcz = playerCenter();
+    const away = Math.atan2(ecy - pcz.y, ecx - pcz.x);
+    for (let i = 0; i < 12; i++) {
+      const a = away + (Math.random() - 0.5) * 1.1;
+      const sp = 1.6 + Math.random() * 3.2;
+      particles.push({
+        x: ecx, y: ecy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 16 + Math.random() * 14,
+        color: i % 3 === 0 ? '#f4f4f4' : bodyColor,
+      });
+    }
+    if (!quietKills) {
+      addSlash(ecx, ecy, away + Math.PI / 2 + (Math.random() - 0.5) * 0.4, 1.7); // トドメの大斬線
+      addShockwave(ecx, ecy, '#f4f4f4', 5, 4, 9, 2);                             // 小さなポップリング
+      hitstopT = Math.min(6, hitstopT + 1);                                       // トドメの一瞬のタメ
+    }
   }
 
   // 武器の進化チェック
@@ -3858,7 +3902,7 @@ function render() {
     ctx.translate(s.x, s.y);
     ctx.rotate(s.ang);
     ctx.globalAlpha = s.life / s.maxLife;
-    const len = 10 + (s.maxLife - s.life) * 4; // 一瞬で伸びる
+    const len = (10 + (s.maxLife - s.life) * 4) * (s.scale || 1); // 一瞬で伸びる
     ctx.fillStyle = '#f4f4f4';
     ctx.fillRect(-len, -2, len * 2, 4);
     ctx.fillStyle = '#ffcd75';
@@ -3966,10 +4010,10 @@ function render() {
       ctx.translate(cx0, cy0);
       ctx.scale(sxv, syv);
       ctx.translate(-cx0, -cy0);
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, e.boss);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, true);
       ctx.restore();
     } else {
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, e.boss);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, true);
     }
     // 当たった直後は白くフラッシュ（ズバッ！の視認性）
     if (e.hitTimer > 14) {
