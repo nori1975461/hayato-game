@@ -4271,10 +4271,10 @@ function renderTitle() {
   }
   ctx.globalAlpha = 1;
 
-  // ロゴ（グラデーション＋ネオングロー＋ゆったり浮遊）
+  // ロゴ（金色グラデーション＋ゴールドグロー＋ゆったり浮遊）
   const bob = Math.sin(gframe * 0.04) * 3;
-  drawGlowTitle('HAYATO GAME', 46 + bob, 46, '#73eff7', '#ff77a8', '#73eff7');
-  ctx.fillStyle = 'rgba(115, 239, 247, 0.5)';
+  drawGlowTitle('HAYATO GAME', 46 + bob, 46, '#fff3c4', '#ffcd75', '#ffcd75');
+  ctx.fillStyle = 'rgba(255, 205, 117, 0.55)';
   ctx.fillRect(W / 2 - 130, 102 + bob, 260, 1);
   drawCenteredText('― でんせつのゆうしゃと 20のせかい ―', 112 + bob, '#94b0c2', 12);
 
