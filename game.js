@@ -1635,8 +1635,8 @@ function spawnBoss() {
   // 分裂ボスは子と合わせると合計HPが通常の1.7〜2倍になってしまうため、
   // 最初の（親の）HPを半分にして合計をほぼ通常ボス並みにそろえる
   if (type.gimmicks.includes('split')) hp = Math.round(hp * 0.5);
-  // 最終ボスのドラゴンは体が通常ボスの2倍（画面をおおう巨体）
-  const size = type.big ? BOSS_SIZE * 2 : BOSS_SIZE;
+  // 最終ボスのドラゴンは体が通常ボスの1.8倍（画面に迫る巨体）
+  const size = type.big ? Math.round(BOSS_SIZE * 1.8) : BOSS_SIZE;
   const b = makeBoss(type, W / 2 - size / 2, -size - 10, size, hp, {
     splitsLeft: type.gimmicks.includes('split') ? 1 : 0,
   });
