@@ -80,11 +80,11 @@ const SPRITES = {
     '...SS..SS...',
     '...KK..KK...',
   ],
-  player3: [ // ゴールドナイト: 赤い前立ての金かぶと＋金の盾＋赤いマント
+  player3: [ // ゴールドナイト: 赤い前立てのバイザー付き金かぶと＋金の盾＋赤いマント
     '....RRRR....',
     '...YYYYYY...',
     '..YYYYYYYY..',
-    '..YYKYYKYY..',
+    '..YKKYYKKY..',
     '..YYYYYYYY..',
     '...YYYYYY...',
     '.RYCCCCCCYR.',
@@ -108,19 +108,19 @@ const SPRITES = {
     '...WW..WW...',
     '...DD..DD...',
   ],
-  player5: [ // でんせつのゆうしゃ: 宝石つきの王冠＋白いつばさ＋金のよろい
-    '...Y.YY.Y...',
-    '...YYMMYY...',
-    '..YYYYYYYY..',
-    '..YYKYYKYY..',
-    '..YYYYYYYY..',
-    'W..YYYYYY..W',
-    'WW.CCCCCC.WW',
-    'WWYCCCCCCYWW',
-    'WW.CCCCCC.WW',
-    'W..YYYYYY..W',
-    '...YY..YY...',
-    '...YY..YY...',
+  player5: [ // でんせつのゆうしゃ: 黒の兜＋赤のよろい＋黒の盾＋大きな白銀のつばさ
+    'W...KKKK...W',
+    'WW.KKKKKK.WW',
+    'WW.KKYYKK.WW',
+    'WW.KKKKKK.WW',
+    'WWW.RRRR.WWW',
+    'WWWRRRRRRWWW',
+    'WWKKRRRRRWWW',
+    'WWKKRRRRRWWW',
+    'WW.RRRRRR.WW',
+    'W..RRRRRR..W',
+    '...KK..KK...',
+    '...KK..KK...',
   ],
   enemy: [
     '........',
@@ -754,28 +754,28 @@ const SPRITES = {
     '.......................KKKKKKYY.',
     '.........................KKKYY..',
   ],
-  // ワイバーン: 邪竜の側近。横向きに飛ぶ青い飛竜（ジギムントとは別シルエット）
-  wyvern: [
-    '............bbbb................',
-    '..........bbbbbbbb..............',
-    '........bbbbbbbbbbbb............',
-    '.......bbCCCCCCCCbbbb...........',
-    '......bbCCCCCCCCCCbbbb..........',
-    '..BBBB..bbCCCCCCCCbb............',
-    '.BBBBBB..bbbbbbbbbb.............',
-    '.BDDBBBB..bbbbbbbb..............',
-    '.BWKWKBBBBBBbbbb................',
-    '....BBBBBBBBBBBBbb..............',
-    '.....BBBBBBBBBBBBBB.............',
-    '.....BCCCCCCCCBBBBBB............',
-    '.....BCCCCCCCCCBBBBBB...........',
-    '......BCCCCCCCBBBBBBB...........',
-    '......BBBBBBBBBBBBBBBB..........',
-    '......BBBB..BBBB...BBBBBB.......',
-    '......BBB....BBB.....BBBBBB.....',
-    '.....YYY....YYY........BBBBBB...',
-    '..........................BBBBB.',
-    '............................BBB.',
+  // ベヒーモス: 邪竜の側近。巨大な湾曲角＋牙＋どっしりした紫の巨獣
+  behemoth: [
+    'YY......................YY......',
+    'YYY....................YYY......',
+    '.YYY..................YYY.......',
+    '..YYY......PPPP......YYY........',
+    '...YYY...PPPPPPPP...YYY.........',
+    '....YYYPPPPPPPPPPPPYYY..........',
+    '......PPRRPPPPPPRRPP............',
+    '......PPPPPPPPPPPPPP............',
+    '.....PWWPPPPPPPPPPWWP...........',
+    '.....PPKKKKKKKKKKKKPP...........',
+    '....PPPPPPPPPPPPPPPPPP..........',
+    '...PPPPPPPPPPPPPPPPPPPP.........',
+    '..PPPPPPPPPPPPPPPPPPPPPP........',
+    '..PPPppppppppppppppPPPP.........',
+    '..PPPppppppppppppppPPPP.........',
+    '..PPPPPPPPPPPPPPPPPPPPPP........',
+    '...PPPPPPPPPPPPPPPPPPPP.........',
+    '...PPPPP..PPPP..PPPPPP..........',
+    '...PPPP....PP....PPPPP..........',
+    '...YYYY....YY....YYYYY..........',
   ],
   // デスサイザー: 骸骨の死神。ドクロの顔＋あばら骨＋黒フード＋大鎌
   reaper: [
@@ -955,8 +955,8 @@ const WEAPONS = [
   { name: '大槍',                 score: 11800, len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
   { name: 'みつまたのほこ',       score: 13000, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
   { name: 'ムチ',                 score: 14200, len: 80, width: 4,  spin: 0.150, blades: 1, dmg: 1, color: '#a77b5b', edge: '#ffcd75', kind: 'whip' },
-  { name: '炎の剣',               score: 15500, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true },
-  { name: 'ジャベリン',           score: 16800, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear',
+  { name: '炎の剣',               score: 15500, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true, hybrid: true },
+  { name: 'ジャベリン',           score: 16800, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear', hybrid: true,
     shoot: { kind: 'javelin', interval: 40, speed: 5.0, dmg: 2 } },
   { name: 'クロスボウ',           score: 18200, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
     shoot: { kind: 'arrow', interval: 12, speed: 7.0, dmg: 1, aim: true } },
@@ -982,9 +982,9 @@ const WEAPONS = [
   { name: 'ドリルランス',         score: 45900, len: 72, width: 8,  spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#a77b5b', kind: 'drill' },
   { name: 'ダブルライトセーバー', score: 48100, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
   { name: 'テスラコイル',         score: 50400, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 2, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true },
-  { name: 'ドラゴンキラー',       score: 52800, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true },
-  { name: 'エクスカリバー',       score: 55300, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75' },
-  { name: 'インフィニティセーバー', score: 58000, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4',
+  { name: 'ドラゴンキラー',       score: 52800, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true, hybrid: true },
+  { name: 'エクスカリバー',       score: 55300, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75', hybrid: true },
+  { name: 'インフィニティセーバー', score: 58000, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4', hybrid: true,
     shoot: { kind: 'laser', interval: 10, speed: 8.0, dmg: 2, pierce: true, aim: true } },
 ];
 
@@ -1090,14 +1090,14 @@ const BOSS_TYPES = [
   { name: 'アマテラス',     origin: 'にほんしんわ',   sprite: 'amaterasu', aura: '#ffcd75', pattern: 'ring',   shot: 'light',
     gimmicks: ['weakpoint'],         melee: ['stomp'], hpMul: 1.2, mods: { burst: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ef7d57'],
     serifu: 'ひかりのまえに ひれふしなさい' },
-  { name: 'ワイバーン',     origin: 'じゃりゅうのそっきん', sprite: 'wyvern', aura: '#41a6f6', pattern: 'mix', shot: 'ball',
-    gimmicks: ['speed', 'rage'],     melee: ['dive', 'punch', 'tail'], hpMul: 1.5, ballColors: ['#41a6f6', '#73eff7', '#f4f4f4'],
+  { name: 'ベヒーモス',     origin: 'じゃりゅうのそっきん', sprite: 'behemoth', aura: '#8b4f8b', pattern: 'mix', shot: 'ball',
+    gimmicks: ['speed', 'rage'],     melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'],
     serifu: 'ジギムントさまのもとへは いかせん！' },
   { name: 'デスサイザー',   origin: 'じゃりゅうのそっきん', sprite: 'reaper', aura: '#8b4f8b', pattern: 'spiral', shot: 'scythe',
     gimmicks: ['teleport', 'summon'], melee: ['tail', 'stomp'], hpMul: 1.65, mods: { dart: true }, ballColors: ['#94b0c2', '#73eff7', '#94b0c2'],
     serifu: 'ここから さきは しのせかい…' },
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
-    gimmicks: ['rage', 'summon'],    melee: ['breath', 'punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
+    gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
     serifu: 'わがほのおで もえつきるがいい！！' },
 ];
 
@@ -1815,12 +1815,21 @@ function killEnemy(e, lightningDepth = 2) {
 function specialAttack() {
   if (bossActive) bossSpecialsUsed++;
   specialGauge = 0;
-  flashTimer = 25;
-  shakeTimer = 20;
+  flashTimer = 30;
+  shakeTimer = 26;
+  hitstopT = Math.min(8, hitstopT + 6); // ドン！と世界が止まってから爆発
   const pc = playerCenter();
-  rainbowBurst(pc.x, pc.y, 80, 5);
-  for (let i = 0; i < 6; i++) {
-    rainbowBurst(Math.random() * W, Math.random() * H, 15, 3);
+  rainbowBurst(pc.x, pc.y, 100, 5.5);
+  // 三重の衝撃波リングが画面いっぱいに広がる
+  addShockwave(pc.x, pc.y, '#f4f4f4', 10, 10, 30, 7);
+  addShockwave(pc.x, pc.y, '#ffcd75', 10, 8, 34, 5);
+  addShockwave(pc.x, pc.y, '#ff77a8', 10, 6, 38, 4);
+  // 画面のあちこちに斬撃の光と爆発
+  for (let i = 0; i < 10; i++) {
+    addSlash(Math.random() * W, Math.random() * H, Math.random() * Math.PI * 2);
+  }
+  for (let i = 0; i < 8; i++) {
+    rainbowBurst(Math.random() * W, Math.random() * H, 18, 3.5);
   }
   // ボスの弾は全部消える
   fireballs = [];
@@ -2024,6 +2033,7 @@ function update() {
           vx: Math.cos(a) * 3,
           vy: Math.sin(a) * 3,
           life: 50, kind: 'flame', dmg: 1,
+          half: !!weapon.hybrid, // ダブル攻撃武器の弾はボスに半減
         });
       }
       flameTimer = 18;
@@ -2054,6 +2064,7 @@ function update() {
           vy: Math.sin(ang) * sh.speed,
           life: sh.kind === 'boomerang' ? 999 : (sh.life || 90),
           kind: sh.kind, dmg: sh.dmg, pierce: !!sh.pierce, aoe: sh.aoe || 0,
+          half: !!weapon.hybrid, // 純遠距離武器の弾は通常ダメージ、ダブル攻撃武器の弾のみ半減
           turn: sh.homing || 0,
           ang, rot: 0, t: 0, returning: false,
           hitSet: sh.pierce ? new Set() : null,
@@ -2131,7 +2142,7 @@ function update() {
     f.life--;
     // 爆弾は寿命が切れたところでドカン！
     if (f.kind === 'bomb' && f.life <= 0) {
-      explodeAt(f.x, f.y, f.aoe, f.dmg);
+      explodeAt(f.x, f.y, f.aoe, f.dmg, f.half);
       return false;
     }
     return f.life > 0 && f.x > -30 && f.x < W + 30 && f.y > -30 && f.y < H + 30;
@@ -2304,6 +2315,15 @@ function updateBoss(e, pc, ecx, ecy) {
       SFX.dash();
     }
     return; // ため中は動かない・撃たない（ここが逃げるチャンス）
+  }
+
+  // ジギムントの炎ブレスは激怒前からのレギュラー攻撃（定期的にゴオオッと吐く）
+  if (type.big && !e.act && e.y > 0) {
+    e.breathT = (e.breathT == null ? 180 : e.breathT) - (e.raged ? 1.6 : 1);
+    if (e.breathT <= 0) {
+      e.act = { kind: 'breath', t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
+      e.breathT = 250 + Math.random() * 90;
+    }
   }
 
   // ---- 近接攻撃の状態機械 ----
@@ -2770,9 +2790,9 @@ function updatePShotHits() {
       if ((f.x - ecx) ** 2 + (f.y - ecy) ** 2 < r * r) {
         let dealt;
         if (e.boss) {
-          // 遠距離攻撃はボスにはダメージ半分（接近して斬りこむのが基本！）
-          // ただし弱点コア持ちのボスは「コアを狙い撃つ」のが本領なので半減なし
-          const rangedMul = e.type.gimmicks.includes('weakpoint') ? 1 : 0.5;
+          // ダブル攻撃武器（回転刃＋弾）の弾だけボスに半減。純遠距離武器は通常ダメージ
+          // 弱点コア持ちのボスは「コアを狙い撃つ」のが本領なので常に半減なし
+          const rangedMul = (f.half && !e.type.gimmicks.includes('weakpoint')) ? 0.5 : 1;
           dealt = damageBoss(e, f.dmg * rangedMul, f.x, f.y);
         } else {
           e.hp -= f.dmg;
@@ -2780,7 +2800,7 @@ function updatePShotHits() {
         }
         // 大砲・爆弾・ミサイルは着弾で大爆発（まわりの敵にもダメージ）
         if (f.aoe > 0) {
-          explodeAt(f.x, f.y, f.aoe, f.dmg);
+          explodeAt(f.x, f.y, f.aoe, f.dmg, f.half);
           f.life = 0;
         } else if (f.pierce) {
           if (f.hitSet) f.hitSet.add(e);
@@ -2797,7 +2817,7 @@ function updatePShotHits() {
   enemies = enemies.filter((e) => e.hp > 0);
 }
 
-function explodeAt(x, y, radius, dmg) {
+function explodeAt(x, y, radius, dmg, half = false) {
   burst(x, y, PALETTE.O, 20, 3);
   burst(x, y, PALETTE.Y, 16, 2);
   shakeTimer = Math.max(shakeTimer, 10);
@@ -2807,8 +2827,9 @@ function explodeAt(x, y, radius, dmg) {
     const ecx = e.x + e.size / 2;
     const ecy = e.y + e.size / 2;
     if ((x - ecx) ** 2 + (y - ecy) ** 2 < (radius + e.size / 2) ** 2) {
-      // 爆発も遠距離あつかい: ボスへは半分（弱点コア持ちは半減なし）
-      const dealt = e.boss ? damageBoss(e, dmg * (e.type.gimmicks.includes('weakpoint') ? 1 : 0.5), ecx, ecy) : (e.hp -= dmg, dmg);
+      // ダブル攻撃武器の爆発のみボスへ半分（弱点コア持ちは常に半減なし）
+      const mul = (half && !e.type.gimmicks.includes('weakpoint')) ? 0.5 : 1;
+      const dealt = e.boss ? damageBoss(e, dmg * mul, ecx, ecy) : (e.hp -= dmg, dmg);
       if (e.hp <= 0) killEnemy(e);
       else if (dealt > 0) e.hitTimer = 12;
     }
