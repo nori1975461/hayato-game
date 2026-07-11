@@ -1008,10 +1008,10 @@ const WEAPONS = [
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
-// ジギムント戦ではインフィニティセーバーの刃が1.3倍にのびる（勇者の力の解放）
+// ジギムント戦ではインフィニティセーバーの刃が1.5倍にのびる（勇者の力の解放）
 function weaponLen(w) {
   let L = w.len;
-  if (w.rainbowSaber && sigmundFight) L *= 1.3;
+  if (w.rainbowSaber && sigmundFight) L *= 1.5;
   return w.yoyo ? L * (0.55 + 0.45 * Math.sin(frame * 0.09)) : L;
 }
 
@@ -1408,7 +1408,8 @@ window.addEventListener('keydown', (e) => {
 // ゲームオーバーした場所からコンティニュー（スコア・武器・ステージ・ゴールド・装備は維持）
 function continueGame() {
   continuesLeft--;
-  lives = 5;
+  // ジギムント戦（最終決戦）でのコンティニューは特別にハート8つで復帰
+  lives = enemies.some((en) => en.boss && en.type.big) ? 8 : 5;
   player.x = W / 2 - PLAYER_SIZE / 2;
   player.y = H / 2 - PLAYER_SIZE / 2;
   fireballs = [];      // 弾は全部消える
