@@ -1108,6 +1108,7 @@ function currentBossType() {
 // ---------- おみせ（5ステージごとのけっさん後に開く） ----------
 const SHOP_ITEMS = [
   { id: 'heal',     name: 'ライフぜんかいふく',   desc: 'ハートが まんたんに もどる',            price: 200,  repeat: true },
+  { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 900,  repeat: true },
   { id: 'armor',    name: 'てつのよろい',         desc: '20%で こうげきを ガードする',           price: 800 },
   { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが +1 ふえる',            price: 600 },
   { id: 'gauntlet', name: 'ちからのこて',         desc: 'ぶきの かいてんが 15% はやくなる',      price: 500 },
@@ -1942,11 +1943,14 @@ function shopInput(key) {
     const item = SHOP_ITEMS[shopIdx];
     const owned = !item.repeat && gear[item.id];
     if (owned) { SFX.buzz(); return; }
-    if (item.repeat && item.id === 'heal' && lives >= maxLives()) { SFX.buzz(); return; }
+    if (item.id === 'heal' && lives >= maxLives()) { SFX.buzz(); return; }
+    if (item.id === 'contUp' && continuesLeft >= 9) { SFX.buzz(); return; }
     if (gold < item.price) { SFX.buzz(); return; }
     gold -= item.price;
     if (item.id === 'heal') {
       lives = maxLives();
+    } else if (item.id === 'contUp') {
+      continuesLeft++;
     } else {
       gear[item.id] = true;
       if (item.id === 'helm') lives = Math.min(lives + 1, maxLives());
@@ -4209,6 +4213,7 @@ function renderShop() {
   ctx.arc(W / 2 - 40, 52, 6, 0, Math.PI * 2);
   ctx.fill();
   drawText(`もっているゴールド: ${gold}`, W / 2 - 28, 46, '#ffcd75', 13);
+  drawText(`コンティニュー:${continuesLeft}かい`, W - 130, 46, '#94b0c2', 11);
 
   const startY = 70;
   const rowH = 17;
