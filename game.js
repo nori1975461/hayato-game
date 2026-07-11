@@ -4377,7 +4377,7 @@ function renderTitle() {
   drawGlowTitle('HAYATO', 42 + bob, 54, '#fff3c4', '#ffcd75', '#ffcd75');
   ctx.fillStyle = 'rgba(255, 205, 117, 0.55)';
   ctx.fillRect(W / 2 - 130, 102 + bob, 260, 1);
-  drawCenteredText('― でんせつのゆうしゃと 20のせかい ―', 112 + bob, '#94b0c2', 12);
+  drawCenteredText('― 邪竜と20の世界 ―', 112 + bob, '#94b0c2', 13);
 
   // PRESS ENTER（呼吸するピルボタン）
   const pulse = 0.55 + Math.sin(gframe * 0.08) * 0.45;
