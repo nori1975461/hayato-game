@@ -108,11 +108,11 @@ const SPRITES = {
     '...WW..WW...',
     '...DD..DD...',
   ],
-  player5: [ // でんせつのゆうしゃ: 黒の兜＋赤のよろい＋黒の盾＋大きな白銀のつばさ
-    'W...KKKK...W',
+  player5: [ // でんせつのゆうしゃ: 金髪＋黒のバイザー＋赤のよろい＋黒の盾＋白銀のつばさ
+    'W...YYYY...W',
+    'WW.YYYYYY.WW',
     'WW.KKKKKK.WW',
-    'WW.KKYYKK.WW',
-    'WW.KKKKKK.WW',
+    'WW.YYYYYY.WW',
     'WWW.RRRR.WWW',
     'WWWRRRRRRWWW',
     'WWKKRRRRRWWW',
@@ -2418,7 +2418,7 @@ function updateBoss(e, pc, ecx, ecy) {
         wave: mods.wave || false,
         dart: mods.dart || false, dartT: 0,
         bounce: mods.bounce ? 2 : 0,
-        burst: mods.burst || false,
+        burst: !!(mods.burst && Math.random() < 0.5), // 破裂するのは半分だけ（弾幕が多すぎ防止）
       });
     };
     const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
@@ -2704,10 +2704,10 @@ function updateBossShots(pc) {
       shakeTimer = Math.max(shakeTimer, 12);
       SFX.boom();
     }
-    // 破裂する弾: 寿命が切れると6方向に小さな弾が飛び散る！
+    // 破裂する弾: 寿命が切れると3方向に小さな弾が飛び散る！
     if (!alive && f.burst && f.life <= 0) {
-      for (let i = 0; i < 6; i++) {
-        const a2 = (Math.PI * 2 * i) / 6 + Math.random() * 0.4;
+      for (let i = 0; i < 3; i++) {
+        const a2 = (Math.PI * 2 * i) / 3 + Math.random() * 0.6;
         newShots.push({ x: f.x, y: f.y, vx: Math.cos(a2) * 1.3, vy: Math.sin(a2) * 1.3, life: 200, colors: f.colors, kind: 'ball', ang: a2, rot: 0 });
       }
       burst(f.x, f.y, '#f4f4f4', 10, 2);
