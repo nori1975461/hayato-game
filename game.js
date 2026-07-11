@@ -1187,6 +1187,7 @@ function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass', delayMs =
   const t0 = audioCtx.currentTime + delayMs / 1000;
   const src = audioCtx.createBufferSource();
   src.buffer = noiseBuf;
+  src.loop = true; // バッファは0.3秒しかないので、それより長いdurでも鳴り続くようにループ
   const filter = audioCtx.createBiquadFilter();
   filter.type = type;
   filter.frequency.setValueAtTime(freq, t0);
@@ -2677,30 +2678,49 @@ function updateBoss(e, pc, ecx, ecy) {
 // フェーズ1(0〜140f): 地鳴りがして地面がゆれる
 // フェーズ2(140〜320f): 体にひびが走り、かけらがくずれ落ちていく
 // フェーズ3(320f): 大爆発とともに粉々に砕け散る → 本来の撃破処理へ
+// ジギムント撃破シネマティックのフェーズ長（描画側の透け・亀裂の開始判定にも使う）
+const SIGMUND_RUMBLE = 220;   // 地鳴り 約3.7秒
+const SIGMUND_CRUMBLE = 320;  // 崩壊 約5.3秒
+
 function updateSigmundDeath(e, ecx, ecy) {
   e.dying++;
-  const RUMBLE = 140;
-  const CRUMBLE = 180;
+  const RUMBLE = SIGMUND_RUMBLE;
+  const CRUMBLE = SIGMUND_CRUMBLE;
   const bodyColors = ['#1a1c2c', '#5d275d', '#8b4f8b', '#b13e53', '#ffcd75'];
   if (e.dying < RUMBLE) {
-    // 地鳴り
-    shakeTimer = Math.max(shakeTimer, 6);
-    if (e.dying % 24 === 0) {
-      beep(45, 0.5, 'sine', 0.1, 30);
-      noise(0.35, 0.07, 300, 'lowpass');
+    // 地鳴り: だんだん揺れと音が大きくなっていく
+    const prog = e.dying / RUMBLE;
+    shakeTimer = Math.max(shakeTimer, 4 + Math.floor(prog * 6));
+    if (e.dying % 20 === 0) {
+      // ゴゴゴ…という重低音（進行とともに音量が上がる）
+      beep(38, 0.62, 'sine', 0.07 + prog * 0.07, 26);
+      noise(0.55, 0.05 + prog * 0.06, 180 + prog * 140, 'lowpass');
     }
-    if (e.dying % 4 === 0) {
-      // 地面から土けむりが立ちのぼる
+    if (e.dying % 50 === 0) {
+      // 地の底から響く「ドン…」という衝撃
+      beep(60, 0.35, 'triangle', 0.07, 30);
+    }
+    if (e.dying % 3 === 0) {
+      // 地面から土けむりが立ちのぼる（進行とともに増える）
       particles.push({
         x: Math.random() * W, y: H + 4,
         vx: (Math.random() - 0.5) * 0.5, vy: -0.8 - Math.random(),
         life: 30, color: '#94b0c2',
       });
+      if (prog > 0.5) {
+        particles.push({
+          x: Math.random() * W, y: H + 4,
+          vx: (Math.random() - 0.5) * 0.7, vy: -1 - Math.random() * 1.4,
+          life: 34, color: '#566c86',
+        });
+      }
     }
   } else if (e.dying < RUMBLE + CRUMBLE) {
-    // 崩壊: かけらがボロボロとくずれ落ちる
+    // 崩壊: かけらがボロボロとくずれ落ちる（終盤ほど激しく）
+    const cprog = (e.dying - RUMBLE) / CRUMBLE;
     shakeTimer = Math.max(shakeTimer, 4);
-    for (let i = 0; i < 2; i++) {
+    const n = 2 + Math.floor(cprog * 3);
+    for (let i = 0; i < n; i++) {
       particles.push({
         x: e.x + Math.random() * e.size,
         y: e.y + Math.random() * e.size,
@@ -2710,14 +2730,24 @@ function updateSigmundDeath(e, ecx, ecy) {
         color: bodyColors[Math.floor(Math.random() * bodyColors.length)],
       });
     }
-    if (e.dying % 30 === 0) {
-      noise(0.25, 0.08, 500, 'lowpass');
-      beep(60, 0.3, 'sawtooth', 0.06, 35);
+    if (e.dying % 26 === 0) {
+      // ピシッ！と亀裂が走る音
+      noise(0.09, 0.12, 2600, 'bandpass', 0, 600);
+      beep(110, 0.18, 'sawtooth', 0.05, 50);
       addSlash(e.x + Math.random() * e.size, e.y + Math.random() * e.size, Math.random() * Math.PI * 2, 1.5);
+    }
+    if (e.dying % 40 === 20) {
+      // ガラガラ…と崩れ落ちる音
+      noise(0.32, 0.09, 750, 'lowpass', 0, 280);
+    }
+    if (e.dying % 80 === 0) {
+      // 断末魔のような低いうめき
+      beep(75, 0.6, 'sawtooth', 0.075, 26);
+      noise(0.55, 0.06, 300, 'lowpass');
     }
   } else {
     // 粉々に砕け散る！！
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 240; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1 + Math.random() * 5.5;
       particles.push({
@@ -2729,12 +2759,30 @@ function updateSigmundDeath(e, ecx, ecy) {
         color: bodyColors[Math.floor(Math.random() * bodyColors.length)],
       });
     }
-    addShockwave(ecx, ecy, '#f4f4f4', 20, 10, 30, 8);
-    addShockwave(ecx, ecy, '#b13e53', 12, 8, 34, 6);
-    addShockwave(ecx, ecy, '#ffcd75', 8, 6, 38, 4);
-    flashTimer = 30;
-    shakeTimer = 30;
-    noise(0.6, 0.11, 800, 'lowpass');
+    // 金色の残り火がゆっくり舞う（余韻）
+    for (let i = 0; i < 36; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 0.3 + Math.random() * 1.2;
+      particles.push({
+        x: ecx + (Math.random() - 0.5) * e.size * 0.6,
+        y: ecy + (Math.random() - 0.5) * e.size * 0.6,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 0.4,
+        life: 70 + Math.random() * 60,
+        color: '#ffcd75',
+      });
+    }
+    addShockwave(ecx, ecy, '#f4f4f4', 24, 12, 34, 9);
+    addShockwave(ecx, ecy, '#b13e53', 14, 9, 40, 7);
+    addShockwave(ecx, ecy, '#ffcd75', 10, 7, 46, 5);
+    flashTimer = 36;
+    shakeTimer = 40;
+    // 三段階の破裂音: ドゴォッ！→ ズウン…→ 崩れる余韻
+    noise(0.5, 0.17, 1400, 'lowpass', 0, 150);
+    beep(30, 1.2, 'sine', 0.13, 18);
+    noise(0.45, 0.11, 900, 'lowpass', 160, 120);
+    noise(0.4, 0.08, 650, 'lowpass', 360, 100);
+    beep(52, 0.45, 'triangle', 0.07, 30, 500);
     SFX.giantShot();
     SFX.bossDie();
     e.dyingDone = true;
@@ -4177,7 +4225,7 @@ function render() {
       }
       // 崩壊演出中: だんだん激しく震える
       if (e.dying) {
-        const q = Math.min(8, 2 + e.dying / 40);
+        const q = Math.min(10, 2 + e.dying / 55);
         dxv += (Math.random() - 0.5) * q;
         dyv += (Math.random() - 0.5) * q * 0.7;
       }
@@ -4209,8 +4257,8 @@ function render() {
       }
     }
     // 崩壊フェーズでは体が透けはじめ、チラチラと明滅する
-    if (e.boss && e.dying > 140) {
-      ctx.globalAlpha = Math.max(0.35, 1 - (e.dying - 140) / 300) * (Math.floor(gframe / 3) % 2 === 0 ? 1 : 0.8);
+    if (e.boss && e.dying > SIGMUND_RUMBLE) {
+      ctx.globalAlpha = Math.max(0.35, 1 - (e.dying - SIGMUND_RUMBLE) / 520) * (Math.floor(gframe / 3) % 2 === 0 ? 1 : 0.8);
     }
     if (sxv !== 1 || syv !== 1) {
       const cx0 = e.x + e.size / 2 + dxv;
@@ -4226,7 +4274,7 @@ function render() {
     }
     ctx.globalAlpha = 1;
     // 崩壊中は体に赤白の亀裂が走る
-    if (e.boss && e.dying > 140) {
+    if (e.boss && e.dying > SIGMUND_RUMBLE) {
       for (let ci = 0; ci < 3; ci++) {
         const cxr = e.x + e.size * (0.2 + Math.random() * 0.6);
         const cyr = e.y + e.size * (0.15 + Math.random() * 0.6);
