@@ -1198,37 +1198,70 @@ function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass', delayMs =
 
 let quietKills = false; // 必殺技の全滅処理中は個別の撃破音を鳴らさない
 
-// ---------- 斬撃音テストモード（1〜5キーで切り替え・localStorageに保存） ----------
-let slashType = Math.min(5, Math.max(1, Number(localStorage.getItem('hayato-slashsfx') || 1)));
+// ---------- 斬撃音テストモード（1〜9・0キーで10種を切り替え・localStorageに保存） ----------
+// 方向性: 昔のPCゲーム（イース）の「ズシャッ」。低音の体＋肉厚な中域ノイズ＋振り抜きの余韻で重厚に
+let slashType = Math.min(10, Math.max(1, Number(localStorage.getItem('hayato-slashsfx') || 1)));
 const SLASH_PATTERNS = {
-  // 1: シャープ（超短の高域アタック＋高域スイープ）
+  // 1: ズシャッA（イース風の基本形。肉厚ノイズ＋刃のうなり＋低音の体）
   1: () => {
-    noise(0.03, 0.17, 6000, 'highpass');
-    noise(0.08, 0.12, 5500, 'bandpass', 8, 2300);
-    beep(3200, 0.05, 'square', 0.028, 1500);
+    noise(0.14, 0.15, 2800, 'bandpass', 0, 500);
+    beep(320, 0.1, 'sawtooth', 0.05, 70);
+    beep(100, 0.12, 'sine', 0.06, 50);
   },
-  // 2: ズバッ王道（下降スイープが主役のアニメ風）
+  // 2: ズシャッB（さらに太く。低域ノイズを重ねる）
   2: () => {
-    noise(0.12, 0.16, 5000, 'bandpass', 0, 900);
-    beep(2200, 0.07, 'sawtooth', 0.03, 400);
+    noise(0.18, 0.16, 2200, 'bandpass', 0, 350);
+    noise(0.1, 0.08, 500, 'lowpass');
+    beep(260, 0.12, 'sawtooth', 0.055, 60);
   },
-  // 3: ザクッ重め（肉厚な中域＋低音の体重）
+  // 3: ズバーン（余韻が長く残る大振り）
   3: () => {
-    noise(0.05, 0.15, 3000, 'bandpass', 0, 1200);
-    noise(0.1, 0.11, 1500, 'bandpass', 20, 500);
-    beep(120, 0.07, 'sawtooth', 0.04, 55);
+    noise(0.22, 0.15, 3000, 'bandpass', 0, 300);
+    beep(400, 0.16, 'sawtooth', 0.05, 80);
+    beep(80, 0.18, 'sine', 0.07, 45);
   },
-  // 4: メタリック（シャキーン！と金属の鳴りが残る）
+  // 4: ガシュッ（食い込みの強い激重2段）
   4: () => {
-    noise(0.03, 0.15, 6500, 'highpass');
-    beep(3400, 0.07, 'square', 0.035, 2000);
-    beep(5200, 0.09, 'sine', 0.032, 4200, 15);
+    noise(0.06, 0.17, 1800, 'bandpass');
+    noise(0.16, 0.13, 1200, 'bandpass', 20, 250);
+    beep(180, 0.12, 'sawtooth', 0.06, 50);
   },
-  // 5: パワフル（大きく振り抜く2段ノイズ＋うなる刃）
+  // 5: ズドバッ（打撃の重みを乗せた斬り）
   5: () => {
-    noise(0.03, 0.16, 6000, 'highpass');
-    noise(0.15, 0.13, 4000, 'bandpass', 10, 500);
-    beep(1800, 0.1, 'sawtooth', 0.04, 300);
+    beep(130, 0.14, 'sine', 0.09, 40);
+    noise(0.12, 0.13, 2000, 'bandpass', 0, 400);
+    beep(90, 0.08, 'sawtooth', 0.05, 45);
+  },
+  // 6: 斬鉄（金属に食い込む重み。デチューンした二重の刃鳴り）
+  6: () => {
+    beep(700, 0.06, 'sawtooth', 0.05, 150);
+    beep(707, 0.06, 'sawtooth', 0.045, 151);
+    noise(0.12, 0.1, 4000, 'bandpass', 0, 1500);
+    beep(110, 0.1, 'sine', 0.07, 55);
+  },
+  // 7: 大剣（ブォン…ズシャッ！振りかぶりの風→着弾）
+  7: () => {
+    noise(0.1, 0.1, 900, 'bandpass', 0, 300);
+    noise(0.14, 0.15, 2500, 'bandpass', 60, 450);
+    beep(240, 0.1, 'sawtooth', 0.06, 65, 60);
+  },
+  // 8: 二段斬り（ザッ・ズシャッと2回刻む）
+  8: () => {
+    noise(0.08, 0.13, 3000, 'bandpass', 0, 800);
+    noise(0.12, 0.15, 2200, 'bandpass', 70, 400);
+    beep(95, 0.1, 'sine', 0.07, 48, 70);
+  },
+  // 9: 荒々しい（ノイズの塊で豪快に引き裂く）
+  9: () => {
+    noise(0.2, 0.16, 1200, 'lowpass');
+    beep(300, 0.14, 'sawtooth', 0.06, 70);
+    beep(150, 0.08, 'square', 0.035, 75);
+  },
+  // 10: 超重量（ボス級の一撃。地響きの低音つき）
+  10: () => {
+    beep(70, 0.2, 'sine', 0.1, 35);
+    noise(0.2, 0.16, 1600, 'bandpass', 0, 250);
+    beep(220, 0.15, 'sawtooth', 0.06, 55);
   },
 };
 
@@ -1398,9 +1431,9 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
   if (e.key === 'm' || e.key === 'M') musicOn = !musicOn;
-  // 斬撃音テストモード: 1〜5キーで切り替えて、その場で試聴
-  if (['1', '2', '3', '4', '5'].includes(e.key) && (state === 'title' || state === 'playing')) {
-    slashType = Number(e.key);
+  // 斬撃音テストモード: 1〜9キーと0キー（=タイプ10）で切り替えて、その場で試聴
+  if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].includes(e.key) && (state === 'title' || state === 'playing')) {
+    slashType = e.key === '0' ? 10 : Number(e.key);
     localStorage.setItem('hayato-slashsfx', String(slashType));
     SFX.slash();
     if (state === 'playing' && player) {
@@ -4467,7 +4500,7 @@ function renderTitle() {
   // 下部のコントロールバー
   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.fillRect(-8, H - 26, W + 16, 34);
-  drawCenteredText(`やじるし: いどう　スペース: ひっさつ　M: おんがく　1〜5: ざんげきおん[${slashType}]`, H - 19, '#566c86', 11);
+  drawCenteredText(`やじるし: いどう　スペース: ひっさつ　M: おんがく　1〜0: ざんげきおん[${slashType}]`, H - 19, '#566c86', 11);
 }
 
 // ---------- けっさん画面（5ステージごとの点数大カウント） ----------
