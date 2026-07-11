@@ -1198,6 +1198,40 @@ function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass', delayMs =
 
 let quietKills = false; // 必殺技の全滅処理中は個別の撃破音を鳴らさない
 
+// ---------- 斬撃音テストモード（1〜5キーで切り替え・localStorageに保存） ----------
+let slashType = Math.min(5, Math.max(1, Number(localStorage.getItem('hayato-slashsfx') || 1)));
+const SLASH_PATTERNS = {
+  // 1: シャープ（超短の高域アタック＋高域スイープ）
+  1: () => {
+    noise(0.03, 0.17, 6000, 'highpass');
+    noise(0.08, 0.12, 5500, 'bandpass', 8, 2300);
+    beep(3200, 0.05, 'square', 0.028, 1500);
+  },
+  // 2: ズバッ王道（下降スイープが主役のアニメ風）
+  2: () => {
+    noise(0.12, 0.16, 5000, 'bandpass', 0, 900);
+    beep(2200, 0.07, 'sawtooth', 0.03, 400);
+  },
+  // 3: ザクッ重め（肉厚な中域＋低音の体重）
+  3: () => {
+    noise(0.05, 0.15, 3000, 'bandpass', 0, 1200);
+    noise(0.1, 0.11, 1500, 'bandpass', 20, 500);
+    beep(120, 0.07, 'sawtooth', 0.04, 55);
+  },
+  // 4: メタリック（シャキーン！と金属の鳴りが残る）
+  4: () => {
+    noise(0.03, 0.15, 6500, 'highpass');
+    beep(3400, 0.07, 'square', 0.035, 2000);
+    beep(5200, 0.09, 'sine', 0.032, 4200, 15);
+  },
+  // 5: パワフル（大きく振り抜く2段ノイズ＋うなる刃）
+  5: () => {
+    noise(0.03, 0.16, 6000, 'highpass');
+    noise(0.15, 0.13, 4000, 'bandpass', 10, 500);
+    beep(1800, 0.1, 'sawtooth', 0.04, 300);
+  },
+};
+
 const SFX = {
   kill: (combo) => {
     if (quietKills) return;
@@ -1205,12 +1239,8 @@ const SFX = {
     noise(0.11, 0.13, 5200, 'bandpass', 10, 1700);  // ザシュッ（シャープに切り上げる）
     beep(520 + Math.min(combo, 12) * 45, 0.08, 'triangle', 0.05, 950 + combo * 45);
   },
-  // シャープな斬撃音: 超短い高域アタック＋高域のまま短く切るスイープ（低音・長い尾は全廃）
-  slash: () => {
-    noise(0.03, 0.17, 6000, 'highpass');           // カッ（刃のエッジの超短アタック）
-    noise(0.08, 0.12, 5500, 'bandpass', 8, 2300);  // シュッ（高域だけで短く切る）
-    beep(3200, 0.05, 'square', 0.028, 1500);       // 金属のシャリン（ごく控えめ）
-  },
+  // 斬撃音（1〜5キーでいつでも切り替えて試聴できるテストモード）
+  slash: () => (SLASH_PATTERNS[slashType] || SLASH_PATTERNS[1])(),
   hurt: () => beep(140, 0.25, 'sawtooth', 0.06, 50),
   heart: () => { beep(660, 0.08, 'sine', 0.06); beep(990, 0.12, 'sine', 0.06, null, 70); },
   fire: () => beep(300, 0.06, 'triangle', 0.02, 500),
@@ -1368,6 +1398,15 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
   if (e.key === 'm' || e.key === 'M') musicOn = !musicOn;
+  // 斬撃音テストモード: 1〜5キーで切り替えて、その場で試聴
+  if (['1', '2', '3', '4', '5'].includes(e.key) && (state === 'title' || state === 'playing')) {
+    slashType = Number(e.key);
+    localStorage.setItem('hayato-slashsfx', String(slashType));
+    SFX.slash();
+    if (state === 'playing' && player) {
+      addPopup(player.x + PLAYER_SIZE / 2, player.y - 16, `ざんげきおん タイプ${slashType}`, '#ffcd75', 12);
+    }
+  }
   if (state === 'title') {
     if (e.key === 'Enter') startGame();
     if (e.key === 'c' || e.key === 'C') {
@@ -4428,7 +4467,7 @@ function renderTitle() {
   // 下部のコントロールバー
   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.fillRect(-8, H - 26, W + 16, 34);
-  drawCenteredText('やじるし: いどう　スペース: ひっさつ　M: おんがく　P: ポーズ', H - 19, '#566c86', 11);
+  drawCenteredText(`やじるし: いどう　スペース: ひっさつ　M: おんがく　1〜5: ざんげきおん[${slashType}]`, H - 19, '#566c86', 11);
 }
 
 // ---------- けっさん画面（5ステージごとの点数大カウント） ----------
