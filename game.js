@@ -1008,10 +1008,10 @@ const WEAPONS = [
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
-// ジギムント戦ではインフィニティセーバーの刃が1.5倍にのびる（勇者の力の解放）
+// ジギムント戦ではインフィニティセーバーの刃が2.2倍にのびる（勇者の力の解放）
 function weaponLen(w) {
   let L = w.len;
-  if (w.rainbowSaber && sigmundFight) L *= 1.5;
+  if (w.rainbowSaber && sigmundFight) L *= 2.2;
   return w.yoyo ? L * (0.55 + 0.45 * Math.sin(frame * 0.09)) : L;
 }
 
@@ -1071,7 +1071,7 @@ const BOSS_TYPES = [
     gimmicks: ['split'],             melee: ['tail'], mods: { wave: true }, remap: { G: '#8b4f8b', g: '#5d275d', R: '#ffcd75' }, ballColors: ['#38b764', '#8b4f8b', '#38b764'],
     serifu: 'くびは いくらでも はえてくるぞ…' },
   { name: 'グリフォン',     origin: 'でんせつのまじゅう', sprite: 'griffin', aura: '#f4f4f4', pattern: 'rain', shot: 'wind',
-    gimmicks: ['speed'],             melee: ['dive'], hpMul: 1.05, ballColors: ['#73eff7', '#f4f4f4', '#73eff7'],
+    gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, summonHearts: true, ballColors: ['#73eff7', '#f4f4f4', '#73eff7'],
     serifu: 'あらしの そらは わたしのものだ！' },
   { name: 'クラーケン',     origin: 'うみのまもの',   sprite: 'kraken',    aura: '#8b4f8b', pattern: 'wide',   shot: 'ball',
     gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true }, ballColors: ['#5d275d', '#8b4f8b', '#1a1c2c'],
@@ -1130,7 +1130,7 @@ function currentBossType() {
 // ---------- おみせ（5ステージごとのけっさん後に開く） ----------
 const SHOP_ITEMS = [
   { id: 'heal',     name: 'ライフぜんかいふく',   desc: 'ハートが まんたんに もどる',            price: 200,  repeat: true },
-  { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 900,  repeat: true },
+  { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 1500, repeat: true },
   { id: 'armor',    name: 'てつのよろい',         desc: '20%で こうげきを ガードする',           price: 800 },
   { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが +1 ふえる',            price: 600 },
   { id: 'gauntlet', name: 'ちからのこて',         desc: 'ぶきの かいてんが 15% はやくなる',      price: 500 },
@@ -1304,6 +1304,16 @@ const DRAGON_CHORDS = [
   [48, 52, 55], // C
   [47, 50, 53], // B dim
 ];
+// エンディングBGM: 荘厳な勝利のテーマ（ロマサガ「決戦！サルーイン」風の
+// ハーモニックマイナー進行 Am→G→F→E。オルガンの和音＋駆動ベース＋ティンパニ＋鐘）
+const CLEAR_CHORDS = [
+  [57, 60, 64], // Am
+  [55, 59, 62], // G
+  [53, 57, 60], // F
+  [52, 56, 59], // E（G#入り＝ハーモニックマイナーの緊張感）
+];
+const CLEAR_BASS = [45, 52, 45, 57, 43, 50, 43, 55, 41, 48, 41, 53, 40, 47, 40, 52];
+const CLEAR_MELODY = [69, 0, 72, 74, 76, 0, 74, 72, 77, 0, 76, 74, 76, 0, 71, 68];
 let bossChordIdx = 0;
 let musicFrame = 0;
 let musicStep = 0;
@@ -1311,9 +1321,31 @@ const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
 function tickMusic() {
   if (!audioCtx || !musicOn || paused) return;
-  if (state !== 'playing' && state !== 'shop' && state !== 'tally') return;
-  if (warningTimer > 0) return; // WARNING中はサイレンだけ響かせる
+  if (state !== 'playing' && state !== 'shop' && state !== 'tally' && state !== 'clear') return;
+  if (warningTimer > 0 && state === 'playing') return; // WARNING中はサイレンだけ響かせる
   musicFrame++;
+  // エンディング: 荘厳な勝利のテーマ
+  if (state === 'clear') {
+    if (musicFrame % 8 !== 0) return;
+    const chord = CLEAR_CHORDS[Math.floor(musicStep / 4) % 4];
+    if (musicStep % 4 === 0) {
+      for (const n of chord) {
+        beep(midi2f(n), 1.5, 'triangle', 0.02);
+        beep(midi2f(n - 12), 1.5, 'sine', 0.018);
+      }
+    }
+    const b = CLEAR_BASS[musicStep];
+    if (b) beep(midi2f(b - 12), 0.16, 'sawtooth', 0.03);
+    const m = CLEAR_MELODY[musicStep];
+    if (m) {
+      beep(midi2f(m), 0.3, 'square', 0.035);
+      beep(midi2f(m + 12), 0.3, 'triangle', 0.02);
+    }
+    if (musicStep % 8 === 0) beep(midi2f(33), 0.25, 'sine', 0.06, midi2f(31)); // ティンパニ
+    if (musicStep % 8 === 4) beep(midi2f(chord[0] + 24), 1.2, 'sine', 0.025);  // 高く響く鐘
+    musicStep = (musicStep + 1) % 16;
+    return;
+  }
   if (bossActive && state === 'playing') {
     // 最終ボスのドラゴンは専用BGM（速い鼓動＋うなる低音）
     if (enemies.some((en) => en.boss && en.type.big)) {
@@ -1590,6 +1622,7 @@ function summonMinions(boss) {
       y: Math.max(0, Math.min(H - ENEMY_SIZE, y)),
       speed: 0.9, sprite: 'enemyFast', size: ENEMY_SIZE,
       hp: 1, maxHp: 1, points: 150, hitTimer: 0, slowTimer: 0,
+      heartUp: !!boss.type.summonHearts, // グリフォンの仲間はハートを2倍おとす
     });
     burst(x, y, PALETTE.p, 8, 2);
   }
@@ -1731,6 +1764,7 @@ function chainLightning(fromX, fromY, depth) {
 // hitX/hitY: 攻撃が当たった座標。ignoreDefense: 必殺技は防御無視
 // 戻り値: 実際に与えたダメージ
 function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
+  if (e.dying) return 0; // 崩壊演出中は無敵
   const ecx = e.x + e.size / 2;
   const ecy = e.y + e.size / 2;
   if (!ignoreDefense) {
@@ -1741,10 +1775,10 @@ function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
       burst(hitX, hitY, PALETTE.C, 4, 1.2);
       return 0;
     }
-    // 弱点ギミック: 光るコアの近く以外はダメージなし
+    // 弱点ギミック: 光るコアの近く以外はダメージなし（判定はやや甘め）
     if (e.type.gimmicks.includes('weakpoint')) {
       const core = bossCorePos(e);
-      if ((hitX - core.x) ** 2 + (hitY - core.y) ** 2 > 26 ** 2) {
+      if ((hitX - core.x) ** 2 + (hitY - core.y) ** 2 > 36 ** 2) {
         addPopup(hitX, hitY, 'カキン！', '#94b0c2', 11);
         SFX.plink();
         return 0;
@@ -1825,6 +1859,25 @@ function checkWeaponEvolve() {
 
 // ---------- 敵を倒したときの共通処理 ----------
 function killEnemy(e, lightningDepth = 2) {
+  // ジギムントは倒しても即消えず、「地鳴り→崩壊→粉砕」のシネマティック演出に入る
+  if (e.boss && e.type && e.type.big && !e.dyingDone) {
+    if (!e.dying) {
+      e.dying = 1;
+      e.hp = 1;        // 演出が終わるまで消えない
+      e.act = null;
+      e.giantCharge = 0;
+      fireballs = [];  // 弾は全部消える
+      // 取り巻きは静かに消滅
+      for (const m of enemies) {
+        if (!m.boss && m.hp > 0) {
+          m.hp = 0;
+          burst(m.x + m.size / 2, m.y + m.size / 2, PALETTE.p, 6);
+        }
+      }
+      SFX.roar();
+    }
+    return;
+  }
   e.hp = 0;
 
   combo++;
@@ -1908,8 +1961,8 @@ function killEnemy(e, lightningDepth = 2) {
     chainLightning(e.x + e.size / 2, e.y + e.size / 2, lightningDepth);
   }
 
-  // ライフが減っていたらハートを落とす（おまもりで2倍）
-  const dropRate = 0.1 * (gear.charm ? 2 : 1);
+  // ライフが減っていたらハートを落とす（おまもりで2倍・グリフォンの仲間も2倍）
+  const dropRate = 0.1 * (gear.charm ? 2 : 1) * (e.heartUp ? 2 : 1);
   if (lives < maxLives() && Math.random() < dropRate) {
     items.push({ x: e.x + e.size / 2, y: e.y + e.size / 2, life: 420 });
   }
@@ -1942,6 +1995,7 @@ function specialAttack() {
   for (const e of [...enemies]) {
     if (e.hp <= 0) continue;
     if (e.boss) {
+      if (e.dying) continue; // 崩壊演出中は必殺技も無効
       e.hp -= 5;
       score += 50; // 必殺技のボスヒットにもポイント
       e.hitTimer = 24;
@@ -2023,6 +2077,8 @@ function openShop() {
 function closeShop() {
   if (finalClear) {
     state = 'clear';
+    musicFrame = 0;
+    musicStep = 0;
     SFX.clear();
     if (score > highScore) {
       highScore = score;
@@ -2146,7 +2202,8 @@ function update() {
   player.y = Math.max(0, Math.min(H - PLAYER_SIZE, player.y + dy * pspeed));
 
   const weapon = WEAPONS[weaponIdx];
-  weaponAngle += weapon.spin * (gear.gauntlet ? 1.15 : 1);
+  // ジギムント戦のインフィニティセーバーは回転も1.3倍
+  weaponAngle += weapon.spin * (gear.gauntlet ? 1.15 : 1) * (weapon.rainbowSaber && sigmundFight ? 1.3 : 1);
   const pc = playerCenter();
 
   // 炎属性: 各刃の先から火の玉を発射
@@ -2357,6 +2414,12 @@ function updateEnemies(pc) {
 function updateBoss(e, pc, ecx, ecy) {
   const type = e.type;
   const gm = type.gimmicks;
+
+  // ジギムントの最期: 地鳴り→崩壊→粉々に砕け散る
+  if (e.dying) {
+    updateSigmundDeath(e, ecx, ecy);
+    return;
+  }
 
   // 神様のオーラ（体の周りから立ちのぼる光。激怒中は赤くなる）
   if (frame % 3 === 0) {
@@ -2597,6 +2660,75 @@ function updateBoss(e, pc, ecx, ecy) {
     if (type.pattern === 'wall') e.fireTimer += 60; // かべは強いので間隔ながめ
     shakeTimer = 8;
     SFX.bossFire();
+  }
+}
+
+// ---- ジギムント撃破のシネマティック演出 ----
+// フェーズ1(0〜140f): 地鳴りがして地面がゆれる
+// フェーズ2(140〜320f): 体にひびが走り、かけらがくずれ落ちていく
+// フェーズ3(320f): 大爆発とともに粉々に砕け散る → 本来の撃破処理へ
+function updateSigmundDeath(e, ecx, ecy) {
+  e.dying++;
+  const RUMBLE = 140;
+  const CRUMBLE = 180;
+  const bodyColors = ['#1a1c2c', '#5d275d', '#8b4f8b', '#b13e53', '#ffcd75'];
+  if (e.dying < RUMBLE) {
+    // 地鳴り
+    shakeTimer = Math.max(shakeTimer, 6);
+    if (e.dying % 24 === 0) {
+      beep(45, 0.5, 'sine', 0.1, 30);
+      noise(0.35, 0.07, 300, 'lowpass');
+    }
+    if (e.dying % 4 === 0) {
+      // 地面から土けむりが立ちのぼる
+      particles.push({
+        x: Math.random() * W, y: H + 4,
+        vx: (Math.random() - 0.5) * 0.5, vy: -0.8 - Math.random(),
+        life: 30, color: '#94b0c2',
+      });
+    }
+  } else if (e.dying < RUMBLE + CRUMBLE) {
+    // 崩壊: かけらがボロボロとくずれ落ちる
+    shakeTimer = Math.max(shakeTimer, 4);
+    for (let i = 0; i < 2; i++) {
+      particles.push({
+        x: e.x + Math.random() * e.size,
+        y: e.y + Math.random() * e.size,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: 1 + Math.random() * 1.8,
+        life: 28 + Math.random() * 16,
+        color: bodyColors[Math.floor(Math.random() * bodyColors.length)],
+      });
+    }
+    if (e.dying % 30 === 0) {
+      noise(0.25, 0.08, 500, 'lowpass');
+      beep(60, 0.3, 'sawtooth', 0.06, 35);
+      addSlash(e.x + Math.random() * e.size, e.y + Math.random() * e.size, Math.random() * Math.PI * 2, 1.5);
+    }
+  } else {
+    // 粉々に砕け散る！！
+    for (let i = 0; i < 180; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1 + Math.random() * 5.5;
+      particles.push({
+        x: ecx + (Math.random() - 0.5) * e.size * 0.8,
+        y: ecy + (Math.random() - 0.5) * e.size * 0.8,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 30 + Math.random() * 45,
+        color: bodyColors[Math.floor(Math.random() * bodyColors.length)],
+      });
+    }
+    addShockwave(ecx, ecy, '#f4f4f4', 20, 10, 30, 8);
+    addShockwave(ecx, ecy, '#b13e53', 12, 8, 34, 6);
+    addShockwave(ecx, ecy, '#ffcd75', 8, 6, 38, 4);
+    flashTimer = 30;
+    shakeTimer = 30;
+    noise(0.6, 0.11, 800, 'lowpass');
+    SFX.giantShot();
+    SFX.bossDie();
+    e.dyingDone = true;
+    killEnemy(e); // 本来の撃破処理（スコア加算・クリア進行）へ
   }
 }
 
@@ -2851,7 +2983,7 @@ function updateBossShots(pc) {
 function updateWeaponHits(pc, weapon) {
   const wl = weaponLen(weapon); // ヨーヨーは伸び縮みする
   for (const e of enemies) {
-    if (e.hp <= 0 || e.hitTimer > 0 || e.airborne) continue;
+    if (e.hp <= 0 || e.hitTimer > 0 || e.airborne || e.dying) continue;
     const ecx = e.x + e.size / 2;
     const ecy = e.y + e.size / 2;
     let hit = false;
@@ -2911,7 +3043,7 @@ function updateWeaponHits(pc, weapon) {
 function updatePShotHits() {
   for (const f of pshots) {
     for (const e of enemies) {
-      if (e.hp <= 0 || e.airborne) continue;
+      if (e.hp <= 0 || e.airborne || e.dying) continue;
       if (f.hitSet && f.hitSet.has(e)) continue;
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
@@ -2985,7 +3117,7 @@ function updatePlayerHits(pc) {
   if (invincibleTimer > 0) invincibleTimer--;
   if (invincibleTimer === 0) {
     for (const e of enemies) {
-      if (e.airborne) continue; // 空中のボスには当たらない
+      if (e.airborne || e.dying) continue; // 空中・崩壊演出中のボスには当たらない
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
       const hitR = e.boss ? e.size / 2 - 14 : PLAYER_SIZE / 2 + e.size / 2 - 4;
@@ -4033,6 +4165,12 @@ function render() {
         dxv += (Math.random() - 0.5) * 5;
         dyv += (Math.random() - 0.5) * 4;
       }
+      // 崩壊演出中: だんだん激しく震える
+      if (e.dying) {
+        const q = Math.min(8, 2 + e.dying / 40);
+        dxv += (Math.random() - 0.5) * q;
+        dyv += (Math.random() - 0.5) * q * 0.7;
+      }
       if (e.act) {
         const a = e.act;
         const tel = a.kind === 'dive' ? 30 : 35;
@@ -4060,6 +4198,10 @@ function render() {
         }
       }
     }
+    // 崩壊フェーズでは体が透けはじめ、チラチラと明滅する
+    if (e.boss && e.dying > 140) {
+      ctx.globalAlpha = Math.max(0.35, 1 - (e.dying - 140) / 300) * (Math.floor(gframe / 3) % 2 === 0 ? 1 : 0.8);
+    }
     if (sxv !== 1 || syv !== 1) {
       const cx0 = e.x + e.size / 2 + dxv;
       const cy0 = e.y + e.size / 2 + dyv;
@@ -4071,6 +4213,21 @@ function render() {
       ctx.restore();
     } else {
       drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, true);
+    }
+    ctx.globalAlpha = 1;
+    // 崩壊中は体に赤白の亀裂が走る
+    if (e.boss && e.dying > 140) {
+      for (let ci = 0; ci < 3; ci++) {
+        const cxr = e.x + e.size * (0.2 + Math.random() * 0.6);
+        const cyr = e.y + e.size * (0.15 + Math.random() * 0.6);
+        ctx.strokeStyle = Math.random() < 0.5 ? 'rgba(244,244,244,0.75)' : 'rgba(239,125,87,0.75)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cxr, cyr);
+        ctx.lineTo(cxr + (Math.random() - 0.5) * 24, cyr + Math.random() * 20);
+        ctx.lineTo(cxr + (Math.random() - 0.5) * 30, cyr + 20 + Math.random() * 20);
+        ctx.stroke();
+      }
     }
     // 当たった直後は白くフラッシュ（ズバッ！の視認性）
     if (e.hitTimer > 14) {
@@ -4136,8 +4293,8 @@ function render() {
         ctx.fillStyle = 'rgba(65, 166, 246, 0.08)';
         ctx.fill();
       }
-      // 弱点コア（虹色に光る球。ここをねらえ！）
-      if (e.type.gimmicks.includes('weakpoint')) {
+      // 弱点コア（虹色に光る球。ここをねらえ！）※崩壊演出中は消える
+      if (e.type.gimmicks.includes('weakpoint') && !e.dying) {
         const core = bossCorePos(e);
         const pulse = 8 + Math.sin(gframe * 0.25) * 3;
         ctx.fillStyle = 'rgba(255, 205, 117, 0.3)';
