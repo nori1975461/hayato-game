@@ -3023,6 +3023,47 @@ function drawCenteredText(text, y, color = '#f4f4f4', size = 10) {
   drawText(text, (W - w) / 2, y, color, size);
 }
 
+// モダンUI用: グラデーション＋グローの大見出し
+function drawGlowTitle(text, y, size, c1, c2, glowColor) {
+  ctx.save();
+  ctx.font = `bold ${size}px "MS Gothic", monospace`;
+  ctx.textBaseline = 'top';
+  const w = ctx.measureText(text).width;
+  const x = (W - w) / 2;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillText(text, x + 3, y + 4);
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = 18;
+  const g = ctx.createLinearGradient(0, y, 0, y + size);
+  g.addColorStop(0, c1);
+  g.addColorStop(1, c2);
+  ctx.fillStyle = g;
+  ctx.fillText(text, x, y);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// モダンUI用: 角丸パネルのパス
+function pathRoundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// モダンUI用: ガラス風の半透明カード
+function drawGlassCard(x, y, w, h, strokeColor = 'rgba(255,255,255,0.28)') {
+  pathRoundRect(x, y, w, h, 8);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
+  ctx.fill();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
 function drawWeapon() {
   const weapon = WEAPONS[weaponIdx];
   const wlen = weaponLen(weapon);
@@ -4174,29 +4215,121 @@ function renderHUD() {
 }
 
 function renderTitle() {
-  const c = RAINBOW[Math.floor(gframe / 8) % RAINBOW.length];
-  const bob = Math.sin(gframe * 0.05) * 5;
-  drawCenteredText('HAYATO GAME', 56 + bob, c, 38);
-  drawCenteredText('やじるしキー：いどう / スペース：ひっさつわざ', 122, '#f4f4f4', 12);
-  drawCenteredText('ぶきは 40だんかい しんか！ さいごは…インフィニティセーバー！？', 142, '#ef7d57', 12);
-  drawCenteredText('ボス20たい！ さいごにまつのは…きょうふの じゃりゅう！？', 162, '#ff77a8', 12);
-  if (Math.floor(gframe / 30) % 2 === 0) {
-    drawCenteredText('ENTERキーでスタート！', 200, '#41a6f6', 18);
+  // 夜空のグラデーション
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#07070f');
+  sky.addColorStop(0.55, '#141530');
+  sky.addColorStop(1, '#2a1548');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // きらめく星
+  for (let i = 0; i < 70; i++) {
+    const tw = Math.floor(gframe / 10 + i) % 4;
+    ctx.fillStyle = tw === 0 ? '#f4f4f4' : 'rgba(148, 176, 194, 0.45)';
+    ctx.fillRect((i * 53) % W, (i * 97) % 250, tw === 0 ? 2 : 1, tw === 0 ? 2 : 1);
   }
-  // カスタマイズ
-  drawSprite('player0', W / 2 - 60, 240, 2, playerRemap());
-  drawText(`Cキー：いろかえ（${OUTFITS[outfitIdx].name}）`, W / 2 - 24, 246, '#94b0c2', 11);
-  drawText(`Nキー：なまえ（${playerName || 'なし'}）`, W / 2 - 24, 262, '#94b0c2', 11);
-  drawCenteredText('Mキー：おんがくON/OFF', 292, '#94b0c2', 10);
-  if (highScore > 0) drawCenteredText(`ハイスコア: ${highScore}`, 310, '#ffcd75', 12);
-  for (let i = 0; i < 4; i++) {
-    const ex = ((gframe * 0.6 + i * 130) % (W + 60)) - 30;
-    drawSprite(i === 3 ? 'enemyTank' : i % 2 === 0 ? 'enemy' : 'enemyFast', ex, 332, 3);
+
+  // 奥へ流れるネオングリッド（シンセウェーブ風の床）
+  const horizon = 296;
+  ctx.strokeStyle = 'rgba(115, 239, 247, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-8, horizon);
+  ctx.lineTo(W + 8, horizon);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  for (let i = -10; i <= 10; i++) {
+    ctx.strokeStyle = 'rgba(115, 239, 247, 0.18)';
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + i * 16, horizon);
+    ctx.lineTo(W / 2 + i * 110, H + 8);
+    ctx.stroke();
+  }
+  for (let k = 0; k < 7; k++) {
+    const p = ((gframe / 50 + k / 7) % 1);
+    const y = horizon + p * p * (H - horizon + 8);
+    ctx.strokeStyle = `rgba(255, 119, 168, ${0.35 * (1 - p) + 0.1})`;
+    ctx.beginPath();
+    ctx.moveTo(-8, y);
+    ctx.lineTo(W + 8, y);
+    ctx.stroke();
+  }
+
+  // ただよう光の粒
+  if (gframe % 6 === 0) {
+    particles.push({
+      x: Math.random() * W, y: H + 4,
+      vx: (Math.random() - 0.5) * 0.3, vy: -0.4 - Math.random() * 0.5,
+      life: 90, color: Math.random() < 0.5 ? '#73eff7' : '#ff77a8',
+    });
   }
   for (const p of particles) {
+    ctx.globalAlpha = Math.min(1, p.life / 40);
     ctx.fillStyle = p.color;
     ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
   }
+  ctx.globalAlpha = 1;
+
+  // ロゴ（グラデーション＋ネオングロー＋ゆったり浮遊）
+  const bob = Math.sin(gframe * 0.04) * 3;
+  drawGlowTitle('HAYATO GAME', 46 + bob, 46, '#73eff7', '#ff77a8', '#73eff7');
+  ctx.fillStyle = 'rgba(115, 239, 247, 0.5)';
+  ctx.fillRect(W / 2 - 130, 102 + bob, 260, 1);
+  drawCenteredText('― でんせつのゆうしゃと 20のせかい ―', 112 + bob, '#94b0c2', 12);
+
+  // PRESS ENTER（呼吸するピルボタン）
+  const pulse = 0.55 + Math.sin(gframe * 0.08) * 0.45;
+  const bw = 216;
+  pathRoundRect(W / 2 - bw / 2, 146, bw, 32, 16);
+  ctx.fillStyle = 'rgba(115, 239, 247, 0.08)';
+  ctx.fill();
+  ctx.strokeStyle = `rgba(115, 239, 247, ${0.35 + pulse * 0.6})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.globalAlpha = 0.5 + pulse * 0.5;
+  drawCenteredText('PRESS ENTER ▶ スタート', 155, '#f4f4f4', 14);
+  ctx.globalAlpha = 1;
+
+  // 主人公のショーケース（光の円座＋波紋リング）
+  const hx = W / 2;
+  const hy = 236;
+  const rg = ctx.createRadialGradient(hx, hy + 26, 2, hx, hy + 26, 46);
+  rg.addColorStop(0, 'rgba(115, 239, 247, 0.4)');
+  rg.addColorStop(1, 'rgba(115, 239, 247, 0)');
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.ellipse(hx, hy + 26, 46, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const ringR = 20 + ((gframe / 2) % 26);
+  ctx.strokeStyle = `rgba(115, 239, 247, ${Math.max(0, 0.5 - ringR / 60)})`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(hx, hy + 26, ringR, ringR * 0.3, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  drawSprite('player0', hx - 12, hy + Math.sin(gframe * 0.06) * 3, 2, playerRemap());
+
+  // カスタマイズ情報（ミニカード2枚）
+  drawGlassCard(W / 2 - 150, 278, 145, 24);
+  drawGlassCard(W / 2 + 5, 278, 145, 24);
+  drawText(`C  いろ: ${OUTFITS[outfitIdx].name}`, W / 2 - 138, 285, '#94b0c2', 11);
+  drawText(`N  なまえ: ${playerName || 'なし'}`, W / 2 + 17, 285, '#94b0c2', 11);
+
+  // ハイスコアのピル（右上）
+  if (highScore > 0) {
+    pathRoundRect(W - 132, 10, 122, 22, 11);
+    ctx.fillStyle = 'rgba(255, 205, 117, 0.1)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 205, 117, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    drawText(`BEST ${highScore}`, W - 120, 16, '#ffcd75', 12);
+  }
+
+  // 下部のコントロールバー
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillRect(-8, H - 26, W + 16, 34);
+  drawCenteredText('やじるし: いどう　スペース: ひっさつ　M: おんがく　P: ポーズ', H - 19, '#566c86', 11);
 }
 
 // ---------- けっさん画面（5ステージごとの点数大カウント） ----------
@@ -4270,22 +4403,86 @@ function renderShop() {
 
 // ---------- ぜんクリア画面 ----------
 function renderClear() {
+  // 勝利の夜明けグラデーション
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#0a0817');
+  sky.addColorStop(0.5, '#241535');
+  sky.addColorStop(1, '#4a2a1a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // 天からさす光の帯
+  for (let i = 0; i < 5; i++) {
+    const a = -0.5 + i * 0.25 + Math.sin(gframe * 0.01 + i) * 0.05;
+    ctx.save();
+    ctx.translate(W / 2, -20);
+    ctx.rotate(a);
+    const ray = ctx.createLinearGradient(0, 0, 0, 320);
+    ray.addColorStop(0, 'rgba(255, 205, 117, 0.16)');
+    ray.addColorStop(1, 'rgba(255, 205, 117, 0)');
+    ctx.fillStyle = ray;
+    ctx.fillRect(-16, 0, 32, 340);
+    ctx.restore();
+  }
+
+  // 花火・紙ふぶき
   for (const p of particles) {
+    ctx.globalAlpha = Math.min(1, p.life / 30);
     ctx.fillStyle = p.color;
     ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
   }
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-  ctx.fillRect(-8, -8, W + 16, H + 16);
-  const bc = RAINBOW[Math.floor(gframe / 6) % RAINBOW.length];
-  drawCenteredText('☆★☆ ぜんステージクリア！！ ☆★☆', 70, bc, 24);
-  drawCenteredText(`${playerName ? playerName + 'は' : 'きみは'} でんせつのゆうしゃだ！`, 118, '#ffcd75', 17);
-  drawCenteredText(`さいしゅうスコア: ${score}`, 160, '#f4f4f4', 16);
-  drawCenteredText(`さいだいコンボ: ${maxCombo} / とうたつぶき: ${WEAPONS[weaponIdx].name}`, 188, '#94b0c2', 12);
-  drawCenteredText(`たおしたボス: ${bossCount}たい`, 208, '#94b0c2', 12);
-  if (score >= highScore && score > 0) {
-    drawCenteredText('★ハイスコアこうしん！★', 240, RAINBOW[Math.floor(gframe / 8) % RAINBOW.length], 16);
+  ctx.globalAlpha = 1;
+
+  // 大見出し
+  drawGlowTitle('GAME CLEAR!', 36, 42, '#ffcd75', '#ef7d57', '#ffcd75');
+  drawCenteredText(`${playerName ? playerName + 'は' : 'きみは'} ほんものの でんせつのゆうしゃだ！`, 92, '#f4f4f4', 14);
+
+  // 勇者の立ち姿（光の円座つき）
+  const hx = W / 2;
+  const rg = ctx.createRadialGradient(hx, 158, 2, hx, 158, 50);
+  rg.addColorStop(0, 'rgba(255, 205, 117, 0.45)');
+  rg.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.ellipse(hx, 158, 50, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  drawSprite('player5', hx - 18, 112 + Math.sin(gframe * 0.05) * 3, 3, playerRemap());
+
+  // せいせきカード（ガラス風パネル3枚）
+  const cards = [
+    ['スコア', String(score)],
+    ['さいだいコンボ', String(maxCombo)],
+    ['たおしたボス', `${bossCount}たい`],
+  ];
+  for (let i = 0; i < 3; i++) {
+    const cw = 136;
+    const cx3 = W / 2 + (i - 1) * (cw + 12) - cw / 2;
+    drawGlassCard(cx3, 190, cw, 52, 'rgba(255, 205, 117, 0.35)');
+    ctx.font = '10px "MS Gothic", monospace';
+    const lw = ctx.measureText(cards[i][0]).width;
+    drawText(cards[i][0], cx3 + (cw - lw) / 2, 198, '#94b0c2', 10);
+    ctx.font = 'bold 17px "MS Gothic", monospace';
+    const vw = ctx.measureText(cards[i][1]).width;
+    drawText(cards[i][1], cx3 + (cw - vw) / 2, 214, '#ffcd75', 17);
   }
-  drawCenteredText('ENTERキーでタイトルにもどる', 280, '#41a6f6', 13);
+  drawCenteredText(`とうたつぶき: ${WEAPONS[weaponIdx].name}`, 252, '#94b0c2', 11);
+
+  // ハイスコアバッジ
+  if (score >= highScore && score > 0) {
+    drawCenteredText('★ NEW RECORD ★', 272, RAINBOW[Math.floor(gframe / 8) % RAINBOW.length], 15);
+  }
+
+  // ENTERピル
+  const pulse = 0.55 + Math.sin(gframe * 0.08) * 0.45;
+  pathRoundRect(W / 2 - 118, 296, 236, 30, 15);
+  ctx.fillStyle = 'rgba(255, 205, 117, 0.08)';
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255, 205, 117, ${0.35 + pulse * 0.6})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.globalAlpha = 0.5 + pulse * 0.5;
+  drawCenteredText('PRESS ENTER ▶ タイトルへ', 304, '#f4f4f4', 13);
+  ctx.globalAlpha = 1;
 }
 
 function renderGameover() {
