@@ -1170,16 +1170,46 @@ function beep(freq, dur, type = 'square', vol = 0.04, slideTo = null, delayMs = 
   osc.stop(t0 + dur);
 }
 
+// ホワイトノイズ（風切り音・斬撃のシュパッという質感用）
+let noiseBuf = null;
+function noise(dur = 0.08, vol = 0.08, freq = 3000, type = 'highpass') {
+  if (!audioCtx) return;
+  if (!noiseBuf) {
+    noiseBuf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.3), audioCtx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const t0 = audioCtx.currentTime;
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.setValueAtTime(freq, t0);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(vol, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  src.start(t0);
+  src.stop(t0 + dur);
+}
+
 let quietKills = false; // 必殺技の全滅処理中は個別の撃破音を鳴らさない
 
 const SFX = {
   kill: (combo) => {
     if (quietKills) return;
+    noise(0.09, 0.09, 1100, 'bandpass'); // ザシュッという肉厚な斬り音
     beep(520 + Math.min(combo, 12) * 45, 0.09, 'triangle', 0.055, 950 + combo * 45);
-    beep(110, 0.07, 'sawtooth', 0.05, 50); // 低音の「ザシュッ」で斬った重みを出す
+    beep(110, 0.08, 'sawtooth', 0.055, 45); // 低音の重み
   },
-  // ズバッ！と切った感触の音（高い切れ味＋低い手ごたえの2層）
-  slash: () => { beep(1300, 0.045, 'square', 0.05, 250); beep(160, 0.07, 'sawtooth', 0.055, 55, 10); },
+  // ズバッ！と切った感触の音（風切りノイズ＋刃鳴りの急降下＋低音の手ごたえの3層）
+  slash: () => {
+    noise(0.07, 0.1, 3200, 'highpass');       // シュパッという風切り
+    beep(1900, 0.05, 'sawtooth', 0.05, 320);  // 刃鳴り（高音から急降下）
+    beep(150, 0.06, 'square', 0.05, 60, 8);   // ザクッという低音
+  },
   hurt: () => beep(140, 0.25, 'sawtooth', 0.06, 50),
   heart: () => { beep(660, 0.08, 'sine', 0.06); beep(990, 0.12, 'sine', 0.06, null, 70); },
   fire: () => beep(300, 0.06, 'triangle', 0.02, 500),
