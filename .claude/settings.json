@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node dev/smoke-test.js:*)",
+      "Bash(node dev/validate-sprites.js:*)",
+      "Bash(node dev/sigmund-death-test.js:*)"
+    ]
+  }
+}
