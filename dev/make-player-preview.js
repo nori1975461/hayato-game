@@ -1,4 +1,4 @@
-// game.jsからPALETTEとSPRITES定義を抽出して、クラスチェンジ6形態のプレビューHTMLを生成
+// game.jsからPALETTEとSPRITES定義を抽出して、クラスチェンジ8形態のプレビューHTMLを生成
 const fs = require('fs');
 const path = require('path');
 const src = fs.readFileSync(process.argv[2], 'utf8');
@@ -20,18 +20,20 @@ const html = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>クラスチェンジ（ぶき5レベルごとに進化）</h1>
+<h1>クラスチェンジ（ぶき8レベルごとに進化）</h1>
 <div class="row" id="row"></div>
 <script>
 ${palette}
 ${sprites}
 const forms = [
   ['player0', 'ぼうけんしゃ', 'ぶきLv1〜'],
-  ['player1', 'せんし', 'ぶきLv6〜（バンダナ＋ベルト）'],
-  ['player2', 'ナイト', 'ぶきLv11〜（銀のかぶと＋盾）'],
-  ['player3', 'ゴールドナイト', 'ぶきLv16〜（白銀の兜＋金鎧＋マント）'],
-  ['player4', 'ひかりのせんし', 'ぶきLv21〜（赤の兜＋赤の盾のナイト）'],
-  ['player5', 'でんせつのゆうしゃ', 'ぶきLv26〜（発光する白銀＋白銀のつばさ）'],
+  ['player1', 'せんし', 'ぶきLv9〜（バンダナ＋ベルト）'],
+  ['player2', 'ナイト', 'ぶきLv17〜（銀のかぶと＋盾）'],
+  ['player3', 'ゴールドナイト', 'ぶきLv25〜（白銀の兜＋金鎧＋マント）'],
+  ['player4', 'ひかりのせんし', 'ぶきLv33〜（赤の兜＋赤の盾のナイト）'],
+  ['player5', 'でんせつのゆうしゃ', 'ぶきLv41〜（発光する白銀＋白銀のつばさ）'],
+  ['player6', 'せいなるゆうしゃ', 'ぶきLv49〜（黄金の光輪＋白いつばさ）'],
+  ['player7', 'しんわのゆうしゃ', 'ぶきLv57〜（虹色の星のかがやき）'],
 ];
 const row = document.getElementById('row');
 for (const [key, name, desc] of forms) {

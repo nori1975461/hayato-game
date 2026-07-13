@@ -65,9 +65,9 @@ step('移動キー入力しながら300フレーム', () => {
 });
 
 // 全武器を順に装備して回す（飛び道具・鎖・セーバー・ホーミング等の描画/発射コードを全部通す）
-step('全40武器で各120フレーム', () => {
+step('全60武器で各120フレーム', () => {
   const n = run('WEAPONS.length');
-  if (n !== 40) throw new Error('武器数が40でない: ' + n);
+  if (n !== 60) throw new Error('武器数が60でない: ' + n);
   run('score = 0;');
   for (let i = 0; i < n; i++) {
     run(`score = WEAPONS[${i}].score; weaponIdx = ${i}; shootTimer = 0; flameTimer = 0;`);
@@ -185,7 +185,7 @@ step('分裂ボスの初期HPは通常の半分', () => {
 
 step('ボスへの攻撃ヒットでポイント加算＆武器進化', () => {
   run('stage = 9; bossActive = false; warningTimer = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();'); // ハデス（盾・弱点なし）
-  run('score = 590; weaponIdx = weaponForScore(590);'); // 剣(600)の直前
+  run('score = 540; weaponIdx = weaponForScore(540);'); // 剣(550)の直前
   const before = run('score');
   run('(function(){ const b = enemies.find(e => e.boss); damageBoss(b, 1, b.x + b.size / 2, b.y + b.size / 2); })();');
   if (run('score') !== before + 10) throw new Error('ボスヒットで+10されない: ' + run('score'));

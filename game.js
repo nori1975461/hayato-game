@@ -122,6 +122,34 @@ const SPRITES = {
     '...WW..WW...',
     '...DD..DD...',
   ],
+  player6: [ // せいなるゆうしゃ: 黄金の光輪＋金の縁取りの白銀よろい＋白いつばさ
+    '...YYYYYY...',
+    '..Y.WWWW.Y..',
+    '...WWWWWW...',
+    '..WYKYYKYW..',
+    '..WWWWWWWW..',
+    'W..WWWWWW..W',
+    'WWYCCCCCCYWW',
+    'WWYCCCCCCYWW',
+    'W.YCCCCCCY.W',
+    '...YYYYYY...',
+    '...YY..YY...',
+    '...KK..KK...',
+  ],
+  player7: [ // しんわのゆうしゃ: 虹色にきらめく星のかがやき＋伝説の白銀よろい
+    '.M.D.YY.D.M.',
+    '...WWWWWW...',
+    '..WWWWWWWW..',
+    '..WYKYYKYW..',
+    '..WWWWWWWW..',
+    'D..WWWWWW..D',
+    'MMDCCCCCCDMM',
+    'MMDCCCCCCDMM',
+    'M.DCCCCCCD.M',
+    '...WWWWWW...',
+    '...MM..MM...',
+    '...DD..DD...',
+  ],
   // かげのインプ: ツノ＋ピンクに光る目＋ゆらめく影の下半身（神話世界の小悪魔）
   enemy: [
     '..P......P..',
@@ -940,7 +968,7 @@ function playerRemap() {
   return { C: OUTFITS[outfitIdx].hex };
 }
 
-// 武器レベルで見た目が進化（5レベルごと）
+// 武器レベルで見た目が進化（8レベルごと。最終形態は武器idx56付近＝約97,000点で到達）
 const FORMS = [
   { sprite: 'player0', name: 'ぼうけんしゃ' },
   { sprite: 'player1', name: 'せんし' },
@@ -948,74 +976,132 @@ const FORMS = [
   { sprite: 'player3', name: 'ゴールドナイト' },
   { sprite: 'player4', name: 'ひかりのせんし' },
   { sprite: 'player5', name: 'でんせつのゆうしゃ' },
+  { sprite: 'player6', name: 'せいなるゆうしゃ' },
+  { sprite: 'player7', name: 'しんわのゆうしゃ' },
 ];
 
-// ---------- 武器の進化テーブル（40段階） ----------
+// ---------- ゆうしゃレベル（Lv1〜12）----------
+// スコアがしきい値を超えるたびにレベルアップし、決まったボーナスが積み重なる（カード選択ではない）。
+// 武器やクラスチェンジとは別軸の「じわじわ強くなる」成長で、レベルアップ演出も派手に出す。
+// apply は hero へ効果を積む（乗算ボーナスは重ねがけされる）。
+const HERO_LV = [
+  { score: 1500,  label: 'すばやさ +8%',       color: '#41a6f6', apply: h => h.speedMul *= 1.08 }, // Lv2
+  { score: 4000,  label: 'ひっさつゲージ +20%', color: '#ff77a8', apply: h => h.gaugeMul *= 1.20 }, // Lv3
+  { score: 8000,  label: 'むてきじかん +30%',   color: '#ffcd75', apply: h => h.invMul *= 1.30 },   // Lv4
+  { score: 13000, label: 'リーチ +6%',          color: '#38b764', apply: h => h.reachMul *= 1.06 }, // Lv5
+  { score: 19500, label: 'すばやさ +8%',        color: '#41a6f6', apply: h => h.speedMul *= 1.08 }, // Lv6
+  { score: 27500, label: 'れんしゃ +12%',       color: '#73eff7', apply: h => h.fireMul *= 1.12 },  // Lv7
+  { score: 37000, label: 'ふきとばし +30%',     color: '#ef7d57', apply: h => h.knockMul *= 1.30 }, // Lv8
+  { score: 48000, label: 'かいしんの一撃！',     color: '#ff004d', apply: h => h.critChance = 0.10 }, // Lv9
+  { score: 60500, label: 'ひっさつゲージ +20%', color: '#ff77a8', apply: h => h.gaugeMul *= 1.20 }, // Lv10
+  { score: 74500, label: 'リーチ +6%',          color: '#38b764', apply: h => h.reachMul *= 1.06 }, // Lv11
+  { score: 90000, label: 'ゆうしゃのオーラ！',   color: '#ffcd75', apply: h => h.auraChance = 0.20 }, // Lv12
+];
+
+function defaultHero() {
+  return { level: 1, speedMul: 1, gaugeMul: 1, invMul: 1, reachMul: 1, fireMul: 1, knockMul: 1, critChance: 0, auraChance: 0 };
+}
+let hero = defaultHero();
+
+// ---------- 武器の進化テーブル（60段階） ----------
 // blades: 刃の本数 / dmg: 1振りのダメージ / kind: 見た目の種類
 // flame: 火の玉 / lightning: 雷連鎖 / ice: 凍らせる / rainbow: 虹色
 // saber: ライトセーバー（saberColorで刃の色、rainbowSaberで虹色に変化）
 // yoyo: 刃の長さが伸び縮み / tesla: 近くの敵へ自動で電撃
 // shoot: 飛び道具 {kind, interval, speed, dmg, count, pierce, aoe, aim, life, homing}
+// スコア刻みは等差増分式（score(i)=250*i+27*i*(i-1)。増分が徐々に大きくなり後半ほど到達に時間がかかる）
+// flame:true と hybrid:true は既存のダブル攻撃5武器（炎の剣/ジャベリン/ドラゴンキラー/エクスカリバー/
+// インフィニティセーバー）専用。新武器には付けない（火力過多防止）。lightning/iceは追加弾ではないので新武器も可
 const WEAPONS = [
   { name: 'ナイフ',               score: 0,     len: 34, width: 3,  spin: 0.090, blades: 1, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
   { name: 'こんぼう',             score: 250,   len: 40, width: 9,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#8a5c3b', kind: 'club', knock: 24 },
-  { name: '剣',                   score: 600,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
-  { name: 'パチンコ',             score: 1000,  len: 30, width: 4,  spin: 0.100, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'sling',
+  { name: '剣',                   score: 550,   len: 42, width: 5,  spin: 0.100, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#94b0c2' },
+  { name: 'ふたごのダガー',       score: 910,   len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#c0c0c0', edge: '#f4f4f4' },
+  { name: 'パチンコ',             score: 1320,  len: 30, width: 4,  spin: 0.100, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'sling',
     shoot: { kind: 'pellet', interval: 26, speed: 4.0, dmg: 1, count: 3 } },
-  { name: 'ブーメラン',           score: 1800,  len: 36, width: 5,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#a77b5b', kind: 'boomer',
+  { name: 'ブーメラン',           score: 1790,  len: 36, width: 5,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#a77b5b', kind: 'boomer',
     shoot: { kind: 'boomerang', interval: 38, speed: 4.5, dmg: 1, pierce: true } },
-  { name: '槍',                   score: 2600,  len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57', kind: 'spear' },
-  { name: 'はんげつとう',         score: 3300,  len: 46, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#ffcd75', kind: 'scimitar' },
-  { name: 'しゅりけん',           score: 4000,  len: 30, width: 3,  spin: 0.120, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'ninja',
+  { name: '槍',                   score: 2310,  len: 58, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#ef7d57', kind: 'spear' },
+  { name: 'はんげつとう',         score: 2880,  len: 46, width: 8,  spin: 0.120, blades: 1, dmg: 1, color: '#f4f4f4', edge: '#ffcd75', kind: 'scimitar' },
+  { name: 'スターシューター',     score: 3510,  len: 32, width: 3,  spin: 0.110, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', kind: 'sling',
+    shoot: { kind: 'pellet', interval: 22, speed: 4.5, dmg: 1, count: 4 } },
+  { name: 'しゅりけん',           score: 4190,  len: 30, width: 3,  spin: 0.120, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'ninja',
     shoot: { kind: 'shuriken', interval: 16, speed: 6.0, dmg: 1, count: 2 } },
-  { name: 'てつぼう',             score: 5000,  len: 70, width: 7,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#94b0c2', kind: 'club', knock: 24 },
-  { name: 'ゆみ',                 score: 6000,  len: 34, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'bow',
+  { name: 'てつぼう',             score: 4930,  len: 70, width: 7,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#94b0c2', kind: 'club', knock: 24 },
+  { name: 'ゆみ',                 score: 5720,  len: 34, width: 4,  spin: 0.110, blades: 1, dmg: 1, color: '#a77b5b', edge: '#f4f4f4', kind: 'bow',
     shoot: { kind: 'arrow', interval: 20, speed: 6.0, dmg: 1, pierce: true, aim: true } },
-  { name: 'ダブルナイフ',         score: 7200,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
-  { name: '大剣',                 score: 8200,  len: 52, width: 10, spin: 0.140, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
-  { name: 'モーニングスター',     score: 9300,  len: 56, width: 5,  spin: 0.160, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 11, knock: 22 },
-  { name: 'ばくだん',             score: 10400, len: 32, width: 6,  spin: 0.110, blades: 1, dmg: 1, color: '#1a1c2c', edge: '#ef7d57', kind: 'bombH',
+  { name: 'フレイル',             score: 6560,  len: 50, width: 5,  spin: 0.150, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 10, knock: 22 },
+  { name: 'ダブルナイフ',         score: 7460,  len: 38, width: 3,  spin: 0.115, blades: 2, dmg: 1, color: '#94b0c2', edge: '#f4f4f4' },
+  { name: '大剣',                 score: 8410,  len: 52, width: 10, spin: 0.140, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4' },
+  { name: 'アイスワンド',         score: 9420,  len: 38, width: 4,  spin: 0.125, blades: 1, dmg: 1, color: '#41a6f6', edge: '#73eff7', kind: 'wand', ice: true,
+    shoot: { kind: 'orb', interval: 28, speed: 3.2, dmg: 1, count: 2, homing: 0.05 } },
+  { name: 'モーニングスター',     score: 10480, len: 56, width: 5,  spin: 0.160, blades: 1, dmg: 2, color: '#566c86', edge: '#94b0c2', kind: 'chain', ballR: 11, knock: 22 },
+  { name: 'ばくだん',             score: 11590, len: 32, width: 6,  spin: 0.110, blades: 1, dmg: 1, color: '#1a1c2c', edge: '#ef7d57', kind: 'bombH',
     shoot: { kind: 'bomb', interval: 50, speed: 2.6, dmg: 2, aoe: 45, life: 55, aim: true } },
-  { name: '大槍',                 score: 11800, len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
-  { name: 'みつまたのほこ',       score: 13000, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
-  { name: 'ムチ',                 score: 14200, len: 80, width: 4,  spin: 0.150, blades: 1, dmg: 1, color: '#a77b5b', edge: '#ffcd75', kind: 'whip' },
-  { name: '炎の剣',               score: 15500, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true, hybrid: true },
-  { name: 'ジャベリン',           score: 16800, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear', hybrid: true,
+  { name: '大槍',                 score: 12760, len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
+  { name: 'ハルバード',           score: 13980, len: 62, width: 8,  spin: 0.135, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'axe', knock: 20 },
+  { name: 'みつまたのほこ',       score: 15260, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
+  { name: 'ムチ',                 score: 16590, len: 80, width: 4,  spin: 0.150, blades: 1, dmg: 1, color: '#a77b5b', edge: '#ffcd75', kind: 'whip' },
+  { name: 'サンダーボウガン',     score: 17970, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'bow',
+    shoot: { kind: 'arrow', interval: 14, speed: 7.0, dmg: 1, aim: true } },
+  { name: '炎の剣',               score: 19410, len: 60, width: 9,  spin: 0.130, blades: 1, dmg: 1, color: '#ef7d57', edge: '#ffcd75', flame: true, hybrid: true },
+  { name: 'ジャベリン',           score: 20900, len: 62, width: 5,  spin: 0.125, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'spear', hybrid: true,
     shoot: { kind: 'javelin', interval: 40, speed: 5.0, dmg: 2 } },
-  { name: 'クロスボウ',           score: 18200, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
+  { name: 'クロスボウ',           score: 22450, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#a77b5b', kind: 'bow',
     shoot: { kind: 'arrow', interval: 12, speed: 7.0, dmg: 1, aim: true } },
-  { name: 'バトルアックス',       score: 19800, len: 54, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#94b0c2', edge: '#f4f4f4', kind: 'axe', knock: 20 },
-  { name: '雷の槍',               score: 21400, len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'spear' },
-  { name: 'ハイパーヨーヨー',     score: 23000, len: 78, width: 5,  spin: 0.150, blades: 1, dmg: 2, color: '#b13e53', edge: '#f4f4f4', kind: 'yoyo', yoyo: true },
-  { name: 'てっきゅう',           score: 24700, len: 60, width: 6,  spin: 0.150, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 14, knock: 26 },
-  { name: 'マシンガン',           score: 26400, len: 34, width: 5,  spin: 0.130, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'gun',
+  { name: 'オーロラブレード',     score: 24050, len: 62, width: 9,  spin: 0.140, blades: 1, dmg: 2, color: '#73eff7', edge: '#f4f4f4', ice: true },
+  { name: 'バトルアックス',       score: 25700, len: 54, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#94b0c2', edge: '#f4f4f4', kind: 'axe', knock: 20 },
+  { name: '雷の槍',               score: 27410, len: 78, width: 5,  spin: 0.145, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'spear' },
+  { name: 'フェニックスアロー',   score: 29170, len: 36, width: 4,  spin: 0.120, blades: 1, dmg: 2, color: '#ef7d57', edge: '#ffcd75', kind: 'bow',
+    shoot: { kind: 'arrow', interval: 15, speed: 7.5, dmg: 2, pierce: true, aim: true } },
+  { name: 'ハイパーヨーヨー',     score: 30990, len: 78, width: 5,  spin: 0.150, blades: 1, dmg: 2, color: '#b13e53', edge: '#f4f4f4', kind: 'yoyo', yoyo: true },
+  { name: 'てっきゅう',           score: 32860, len: 60, width: 6,  spin: 0.150, blades: 1, dmg: 3, color: '#333c57', edge: '#566c86', kind: 'chain', ballR: 14, knock: 26 },
+  { name: 'らいじんのオノ',       score: 34780, len: 58, width: 9,  spin: 0.135, blades: 1, dmg: 3, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'axe', knock: 22 },
+  { name: 'マシンガン',           score: 36760, len: 34, width: 5,  spin: 0.130, blades: 1, dmg: 1, color: '#333c57', edge: '#94b0c2', kind: 'gun',
     shoot: { kind: 'bullet', interval: 7, speed: 6.5, dmg: 1, aim: true } },
-  { name: '氷の大剣',             score: 30000, len: 64, width: 11, spin: 0.145, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
-  { name: 'かえんほうしゃき',     score: 31800, len: 36, width: 6,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#ef7d57', kind: 'flamer',
+  { name: '氷の大剣',             score: 38790, len: 64, width: 11, spin: 0.145, blades: 1, dmg: 1, color: '#41a6f6', edge: '#f4f4f4', ice: true },
+  { name: 'ロケットランチャー',   score: 40880, len: 36, width: 7,  spin: 0.125, blades: 1, dmg: 2, color: '#566c86', edge: '#ef7d57', kind: 'launcher',
+    shoot: { kind: 'missile', interval: 42, speed: 4.2, dmg: 2, aoe: 32, homing: 0.06, aim: true } },
+  { name: 'かえんほうしゃき',     score: 43020, len: 36, width: 6,  spin: 0.120, blades: 1, dmg: 1, color: '#566c86', edge: '#ef7d57', kind: 'flamer',
     shoot: { kind: 'flame', interval: 4, speed: 3.6, dmg: 1, life: 26, aim: true } },
-  { name: 'トリプルソード',       score: 33600, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
-  { name: 'まほうのつえ',         score: 35400, len: 40, width: 4,  spin: 0.130, blades: 1, dmg: 2, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
+  { name: 'トリプルソード',       score: 45210, len: 58, width: 7,  spin: 0.130, blades: 3, dmg: 1, color: '#f4f4f4', edge: '#41a6f6' },
+  { name: 'かげろうのカタナ',     score: 47460, len: 64, width: 5,  spin: 0.165, blades: 2, dmg: 3, color: '#8b4f8b', edge: '#f4f4f4' },
+  { name: 'まほうのつえ',         score: 49760, len: 40, width: 4,  spin: 0.130, blades: 1, dmg: 2, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
     shoot: { kind: 'orb', interval: 30, speed: 3.2, dmg: 2, count: 2, homing: 0.06 } },
-  { name: 'ゴールデンソード',     score: 37300, len: 70, width: 12, spin: 0.155, blades: 1, dmg: 3, color: '#ffcd75', edge: '#f4f4f4' },
-  { name: 'しにがみのカマ',       score: 39200, len: 68, width: 6,  spin: 0.140, blades: 1, dmg: 3, color: '#566c86', edge: '#f4f4f4', kind: 'scytheW' },
-  { name: 'たいほう',             score: 41200, len: 38, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#333c57', edge: '#566c86', kind: 'cannon',
+  { name: 'ゴールデンソード',     score: 52120, len: 70, width: 12, spin: 0.155, blades: 1, dmg: 3, color: '#ffcd75', edge: '#f4f4f4' },
+  { name: 'スペクトルカッター',   score: 54530, len: 44, width: 5,  spin: 0.130, blades: 1, dmg: 3, color: '#8b4f8b', edge: '#73eff7', kind: 'boomer',
+    shoot: { kind: 'boomerang', interval: 30, speed: 5.5, dmg: 3, pierce: true } },
+  { name: 'しにがみのカマ',       score: 56990, len: 68, width: 6,  spin: 0.140, blades: 1, dmg: 3, color: '#566c86', edge: '#f4f4f4', kind: 'scytheW' },
+  { name: 'たいほう',             score: 59510, len: 38, width: 9,  spin: 0.130, blades: 1, dmg: 2, color: '#333c57', edge: '#566c86', kind: 'cannon',
     shoot: { kind: 'cannonball', interval: 50, speed: 3.2, dmg: 3, aoe: 42, aim: true } },
-  { name: 'ホーミングミサイル',   score: 43300, len: 36, width: 6,  spin: 0.130, blades: 1, dmg: 1, color: '#566c86', edge: '#b13e53', kind: 'launcher',
+  { name: 'クリスタルランス',     score: 62080, len: 76, width: 6,  spin: 0.140, blades: 1, dmg: 4, color: '#41a6f6', edge: '#73eff7', ice: true, kind: 'spear' },
+  { name: 'ホーミングミサイル',   score: 64710, len: 36, width: 6,  spin: 0.130, blades: 1, dmg: 1, color: '#566c86', edge: '#b13e53', kind: 'launcher',
     shoot: { kind: 'missile', interval: 38, speed: 4.5, dmg: 3, aoe: 34, homing: 0.09, aim: true } },
-  { name: 'ライトセーバー',       score: 45500, len: 80, width: 7,  spin: 0.170, blades: 2, dmg: 4, saber: true, saberColor: '#73eff7', color: '#73eff7', edge: '#f4f4f4' },
-  { name: 'ドリルランス',         score: 47700, len: 72, width: 8,  spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#a77b5b', kind: 'drill' },
-  { name: 'ダブルライトセーバー', score: 49900, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
-  { name: 'テスラコイル',         score: 52200, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 2, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true },
-  { name: 'ドラゴンキラー',       score: 54600, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true, hybrid: true },
-  { name: 'エクスカリバー',       score: 57100, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75', hybrid: true },
-  { name: 'インフィニティセーバー', score: 59800, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4', hybrid: true,
+  { name: 'レールガン',           score: 67390, len: 38, width: 5,  spin: 0.130, blades: 1, dmg: 3, color: '#333c57', edge: '#73eff7', kind: 'gun',
+    shoot: { kind: 'laser', interval: 20, speed: 9.0, dmg: 3, pierce: true, aim: true } },
+  { name: 'ライトセーバー',       score: 70120, len: 80, width: 7,  spin: 0.170, blades: 2, dmg: 4, saber: true, saberColor: '#73eff7', color: '#73eff7', edge: '#f4f4f4' },
+  { name: 'ドリルランス',         score: 72910, len: 72, width: 8,  spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#a77b5b', kind: 'drill' },
+  { name: 'せいじゃのメイス',     score: 75750, len: 60, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#f4f4f4', kind: 'club', knock: 26 },
+  { name: 'ダブルライトセーバー', score: 78650, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
+  { name: 'ツインミラーワンド',   score: 81600, len: 42, width: 4,  spin: 0.135, blades: 1, dmg: 3, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
+    shoot: { kind: 'orb', interval: 24, speed: 3.6, dmg: 3, count: 3, homing: 0.07 } },
+  { name: 'テスラコイル',         score: 84600, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 2, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true },
+  { name: 'メテオハンマー',       score: 87660, len: 68, width: 6,  spin: 0.155, blades: 1, dmg: 5, color: '#333c57', edge: '#ef7d57', kind: 'chain', ballR: 15, knock: 28 },
+  { name: 'ブラックホールキャノン', score: 90770, len: 40, width: 9, spin: 0.130, blades: 1, dmg: 4, color: '#333c57', edge: '#8b4f8b', kind: 'cannon',
+    shoot: { kind: 'cannonball', interval: 44, speed: 3.4, dmg: 4, aoe: 48, aim: true } },
+  { name: 'りゅうせいのけん',     score: 93940, len: 80, width: 12, spin: 0.160, blades: 2, dmg: 5, color: '#ffcd75', edge: '#ef7d57', lightning: true },
+  { name: 'ドラゴンキラー',       score: 97160, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true, hybrid: true },
+  { name: 'ギャラクシーバスター', score: 100430, len: 42, width: 9, spin: 0.140, blades: 1, dmg: 4, color: '#8b4f8b', edge: '#73eff7', kind: 'cannon',
+    shoot: { kind: 'laser', interval: 12, speed: 8.5, dmg: 4, pierce: true, aim: true } },
+  { name: 'エクスカリバー',       score: 103760, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75', hybrid: true },
+  { name: 'インフィニティセーバー', score: 107140, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4', hybrid: true,
     shoot: { kind: 'laser', interval: 10, speed: 8.0, dmg: 2, pierce: true, aim: true } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
 // ジギムント戦ではインフィニティセーバーの刃が2.2倍にのびる（勇者の力の解放）
 function weaponLen(w) {
-  let L = w.len;
+  let L = w.len * hero.reachMul; // ゆうしゃレベルのリーチ強化（Lv5/Lv11）
   if (w.rainbowSaber && sigmundFight) L *= 2.2;
   return w.yoyo ? L * (0.55 + 0.45 * Math.sin(frame * 0.09)) : L;
 }
@@ -1540,6 +1626,7 @@ function startGame() {
   slashes = [];
   hitstopT = 0;
   score = 0;
+  hero = defaultHero();
   lives = 5;
   weaponIdx = 0;
   formIdx = 0;
@@ -1851,8 +1938,8 @@ function checkWeaponEvolve() {
   const pc = playerCenter();
   rainbowBurst(pc.x, pc.y, 40, 3);
   SFX.fanfare();
-  // 5レベルごとにキャラの見た目も進化！
-  const nf = Math.min(FORMS.length - 1, Math.floor(newIdx / 5));
+  // 8レベルごとにキャラの見た目も進化！
+  const nf = Math.min(FORMS.length - 1, Math.floor(newIdx / 8));
   if (nf > formIdx) {
     formIdx = nf;
     bannerText = `すがたしんか！ ${FORMS[nf].name}に なった！`;
@@ -1861,6 +1948,30 @@ function checkWeaponEvolve() {
     flashTimer = 22;
   }
   return true;
+}
+
+// ---------- ゆうしゃレベルのチェック（毎フレーム呼ばれる） ----------
+// スコアがしきい値を超えていれば、たまっている分だけまとめてレベルアップする
+function checkHeroLevel() {
+  while (hero.level - 1 < HERO_LV.length && score >= HERO_LV[hero.level - 1].score) {
+    const lv = HERO_LV[hero.level - 1];
+    lv.apply(hero);
+    hero.level++;
+    heroLevelUp(lv);
+  }
+}
+
+// レベルアップの派手な演出（虹バースト＋衝撃波＋ファンファーレ＋バナー）
+function heroLevelUp(lv) {
+  const pc = playerCenter();
+  rainbowBurst(pc.x, pc.y, 55, 4);
+  addShockwave(pc.x, pc.y, lv.color, 14, 6, 24, 5);
+  addShockwave(pc.x, pc.y, '#f4f4f4', 8, 8, 20, 3);
+  addPopup(pc.x, pc.y - 22, `ゆうしゃLv${hero.level}！`, lv.color, 14);
+  bannerText = `ゆうしゃレベル${hero.level}！ ${lv.label}`;
+  bannerTimer = 170;
+  flashTimer = 18;
+  SFX.fanfare();
 }
 
 // ---------- 敵を倒したときの共通処理 ----------
@@ -1899,7 +2010,7 @@ function killEnemy(e, lightningDepth = 2) {
   addPopup(e.x + e.size / 2, e.y, `+${gained}`, e.boss ? '#ffcd75' : '#f4f4f4', e.boss ? 16 : 11);
 
   // 必殺技ゲージが溜まる
-  const gaugeGain = (e.boss ? 30 : 4) * (gear.ring ? 1.5 : 1);
+  const gaugeGain = (e.boss ? 30 : 4) * (gear.ring ? 1.5 : 1) * hero.gaugeMul;
   specialGauge = Math.min(100, specialGauge + gaugeGain);
 
   if (e.boss) {
@@ -2033,8 +2144,17 @@ function hurtPlayer() {
     SFX.guard();
     return;
   }
+  // ゆうしゃのオーラ（Lv12）: 一定確率でダメージを無効化
+  if (hero.auraChance > 0 && Math.random() < hero.auraChance) {
+    const pc = playerCenter();
+    addPopup(pc.x, pc.y - 20, 'ガード！', '#ffcd75', 13);
+    addShockwave(pc.x, pc.y, '#ffcd75', 12, 5, 16, 3);
+    invincibleTimer = 30;
+    SFX.guard();
+    return;
+  }
   lives--;
-  invincibleTimer = gear.cloak ? 180 : 90;
+  invincibleTimer = Math.round((gear.cloak ? 180 : 90) * hero.invMul);
   shakeTimer = 10;
   if (!gear.hagoromo) combo = 0;
   const pc = playerCenter();
@@ -2180,6 +2300,8 @@ function update() {
   if (state !== 'playing') return;
   frame++;
 
+  checkHeroLevel(); // ゆうしゃレベルアップの判定（スコア到達でボーナス加算＋演出）
+
   // けっさんへの移行待ち（ボス撃破の余韻のあとに開く）
   if (pendingTally > 0) {
     pendingTally--;
@@ -2196,7 +2318,7 @@ function update() {
   if (playerSlowT > 0) playerSlowT--;
   // ジギムント戦では勇者の力がみなぎってスピード10%アップ
   sigmundFight = bossActive && enemies.some((en) => en.boss && en.type.big);
-  const pspeed = player.speed * (gear.boots ? 1.2 : 1) * (playerSlowT > 0 ? 0.5 : 1) * (sigmundFight ? 1.1 : 1);
+  const pspeed = player.speed * (gear.boots ? 1.2 : 1) * (playerSlowT > 0 ? 0.5 : 1) * (sigmundFight ? 1.1 : 1) * hero.speedMul;
 
   // セリフのやりとりが終わった瞬間、勇者の力が解放される！
   if (sigmundPowerPending && sigmundFight && serifuTimer <= 1) {
@@ -2267,7 +2389,7 @@ function update() {
           hitSet: sh.pierce ? new Set() : null,
         });
       }
-      shootTimer = sh.interval;
+      shootTimer = Math.max(1, Math.round(sh.interval / hero.fireMul));
       SFX.shoot();
     }
   }
@@ -2346,7 +2468,7 @@ function update() {
   });
 
   // ボス戦中は必殺技ゲージが自動でたまっていく（使えるのは1ボス戦にBOSS_SPECIAL_LIMIT回まで）
-  if (bossActive) specialGauge = Math.min(100, specialGauge + 0.12);
+  if (bossActive) specialGauge = Math.min(100, specialGauge + 0.12 * hero.gaugeMul);
 
   // ボス出現の警告
   if (!bossActive && warningTimer === 0 && score >= nextBossScore && pendingTally === 0 && !finalClear) {
@@ -3070,8 +3192,12 @@ function updateWeaponHits(pc, weapon) {
         dealt = damageBoss(e, weapon.dmg, hitX, hitY);
         if (dealt === 0) { e.hitTimer = 14; continue; }
       } else {
-        e.hp -= weapon.dmg;
-        dealt = weapon.dmg;
+        // かいしんの一撃（Lv9）: 雑魚へ確率で1.5倍ダメージ
+        let dmg = weapon.dmg;
+        const crit = hero.critChance > 0 && Math.random() < hero.critChance;
+        if (crit) { dmg = Math.max(dmg + 1, Math.round(dmg * 1.5)); addPopup(hitX, hitY - 8, 'かいしん！', '#ff004d', 12); }
+        e.hp -= dmg;
+        dealt = dmg;
       }
       // ズバッ！の手ごたえ: 斬撃エフェクト＋ヒットストップ＋切れ味のある音
       addSlash(hitX, hitY, hitA + Math.PI / 2 + (Math.random() - 0.5) * 0.6);
@@ -3086,7 +3212,7 @@ function updateWeaponHits(pc, weapon) {
         killEnemy(e);
       } else {
         const kb = Math.atan2(ecy - pc.y, ecx - pc.x);
-        const kbDist = e.boss ? 3 : (weapon.knock || 14);
+        const kbDist = e.boss ? 3 : (weapon.knock || 14) * hero.knockMul;
         e.x += Math.cos(kb) * kbDist;
         e.y += Math.sin(kb) * kbDist;
         e.hitTimer = 18;
@@ -3114,8 +3240,14 @@ function updatePShotHits() {
           const rangedMul = (f.half && !e.type.gimmicks.includes('weakpoint')) ? 0.5 : 1;
           dealt = damageBoss(e, f.dmg * rangedMul, f.x, f.y);
         } else {
-          e.hp -= f.dmg;
-          dealt = f.dmg;
+          // かいしんの一撃（Lv9）: 雑魚へ確率で1.5倍ダメージ
+          let fdmg = f.dmg;
+          if (hero.critChance > 0 && Math.random() < hero.critChance) {
+            fdmg = Math.max(fdmg + 1, Math.round(fdmg * 1.5));
+            addPopup(f.x, f.y - 8, 'かいしん！', '#ff004d', 12);
+          }
+          e.hp -= fdmg;
+          dealt = fdmg;
         }
         // 大砲・爆弾・ミサイルは着弾で大爆発（まわりの敵にもダメージ）
         if (f.aoe > 0) {
@@ -4430,6 +4562,9 @@ function renderHUD() {
   const wp = WEAPONS[weaponIdx];
   drawText(`ぶき: ${wp.name} (${weaponIdx + 1}/${WEAPONS.length})`, 6, 24, wp.rainbow || wp.rainbowSaber ? RAINBOW[Math.floor(gframe / 6) % RAINBOW.length] : wp.color, 13);
   drawText(`ステージ${stage}/${LAST_STAGE} ${currentStage().name}`, 6, 42, '#94b0c2', 11);
+  // ゆうしゃレベル（右上・満レベルは虹色）
+  const heroCol = hero.level >= HERO_LV.length + 1 ? RAINBOW[Math.floor(gframe / 6) % RAINBOW.length] : '#ffcd75';
+  drawText(`ゆうしゃ Lv${hero.level}`, W - 92, 54, heroCol, 12);
   // ゴールド
   ctx.fillStyle = '#ffcd75';
   ctx.beginPath();
