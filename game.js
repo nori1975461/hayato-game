@@ -1015,7 +1015,7 @@ function defaultHero() {
 }
 let hero = defaultHero();
 
-// ---------- 武器の進化テーブル（66段階） ----------
+// ---------- 武器の進化テーブル（69段階） ----------
 // blades: 刃の本数 / dmg: 1振りのダメージ / kind: 見た目の種類
 // flame: 火の玉 / lightning: 雷連鎖 / ice: 凍らせる / rainbow: 虹色
 // saber: ライトセーバー（saberColorで刃の色、rainbowSaberで虹色に変化）
@@ -1120,6 +1120,10 @@ const WEAPONS = [
   { name: 'エクスカリバー',       score: 103760, len: 84, width: 11, spin: 0.160, blades: 3, dmg: 4, rainbow: true, flame: true, lightning: true, color: '#f4f4f4', edge: '#ffcd75', hybrid: true },
   { name: 'インフィニティセーバー', score: 107140, len: 86, width: 8, spin: 0.180, blades: 3, dmg: 6, saber: true, rainbowSaber: true, lightning: true, color: '#f4f4f4', edge: '#f4f4f4', hybrid: true,
     shoot: { kind: 'laser', interval: 10, speed: 8.0, dmg: 2, pierce: true, aim: true } },
+  { name: 'てんくうのつるぎ',     score: 110600, len: 88, width: 10, spin: 0.165, blades: 2, dmg: 7, knock: 20, lightning: true, ice: true, color: '#73eff7', edge: '#ffcd75' },
+  { name: 'スーパーノヴァキャノン', score: 116900, len: 44, width: 10, spin: 0.140, blades: 1, dmg: 4, color: '#333c57', edge: '#ffcd75', kind: 'cannon', hybrid: false,
+    shoot: { kind: 'cannonball', interval: 42, speed: 3.6, dmg: 5, aoe: 56, aim: true } },
+  { name: 'りゅうじんセーバー',   score: 126500, len: 92, width: 9, spin: 0.190, blades: 4, dmg: 8, saber: true, saberColor: '#f4f4f4', rainbowSaber: true, tesla: true, color: '#f4f4f4', edge: '#f4f4f4' },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
