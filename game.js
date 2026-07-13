@@ -1238,6 +1238,10 @@ const BOSS_TYPES = [
     serifu: 'わがほのおで もえつきるがいい！！' },
 ];
 
+// ジギムント第2形態の配色（体K=深紅・腹P=金・翼p=赤）とオーラ色。スプライトはdragon共用のまま差し替える
+const SIGMUND_FORM2_REMAP = { K: '#5d1520', P: '#ffcd75', p: '#b13e53' };
+const SIGMUND_FORM2_AURA = '#ff2e4d';
+
 function currentBossType() {
   return BOSS_TYPES[Math.min(stage, LAST_STAGE) - 1];
 }
@@ -1843,6 +1847,9 @@ function makeBoss(type, x, y, size, hp, opts = {}) {
     meleeTimer: 300 + Math.random() * 120,
     airborne: false,
     speedCharge: 0,
+    // ジギムント第2形態変身用（type.bigのときのみ機能する）
+    form2: false,
+    transforming: 0,
   };
 }
 
@@ -1958,6 +1965,7 @@ function chainLightning(fromX, fromY, depth) {
 // 戻り値: 実際に与えたダメージ
 function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
   if (e.dying) return 0; // 崩壊演出中は無敵
+  if (e.transforming) return 0; // 変身演出中は完全無敵
   const ecx = e.x + e.size / 2;
   const ecy = e.y + e.size / 2;
   if (!ignoreDefense) {
@@ -2074,6 +2082,19 @@ function heroLevelUp(lv) {
   SFX.fanfare();
 }
 
+// ---------- ジギムントのシネマティック/変身に入るときの共通中断処理 ----------
+// 技や空中（ふみつけ・急降下）の最中でも、必ず画面内の地上に降ろして弾を消す。
+// これを怠ると act=null で着地処理が来なくなり、透明のまま画面外で演出が再生されてしまう
+// （fd642c7で修正した空中トドメバグ）。killEnemy（撃破）と変身の両方から呼ぶ。
+function sigmundInterrupt(e) {
+  e.act = null;
+  e.giantCharge = 0;
+  e.airborne = false;
+  e.x = Math.max(-e.size * 0.1, Math.min(W - e.size * 0.9, e.x));
+  e.y = Math.max(-e.size * 0.15, Math.min(H - e.size * 0.85, e.y));
+  fireballs = [];  // 弾は全部消える
+}
+
 // ---------- 敵を倒したときの共通処理 ----------
 function killEnemy(e, lightningDepth = 2) {
   // ジギムントは倒しても即消えず、「地鳴り→崩壊→粉砕」のシネマティック演出に入る
@@ -2081,14 +2102,7 @@ function killEnemy(e, lightningDepth = 2) {
     if (!e.dying) {
       e.dying = 1;
       e.hp = 1;        // 演出が終わるまで消えない
-      e.act = null;
-      e.giantCharge = 0;
-      // ふみつけ（空中）の最中に必殺技でトドメを刺されたケース:
-      // act=nullで着地処理が来なくなるため、ここで降ろさないと透明のまま画面外で崩壊してしまう
-      e.airborne = false;
-      e.x = Math.max(-e.size * 0.1, Math.min(W - e.size * 0.9, e.x));
-      e.y = Math.max(-e.size * 0.15, Math.min(H - e.size * 0.85, e.y));
-      fireballs = [];  // 弾は全部消える
+      sigmundInterrupt(e);
       // 取り巻きは静かに消滅
       for (const m of enemies) {
         if (!m.boss && m.hp > 0) {
@@ -2218,6 +2232,7 @@ function specialAttack() {
     if (e.hp <= 0) continue;
     if (e.boss) {
       if (e.dying) continue; // 崩壊演出中は必殺技も無効
+      if (e.transforming) continue; // 変身演出中は必殺技のHP直接減算もスキップ（damageBoss非経由の抜け道）
       e.hp -= 5;
       score += 50; // 必殺技のボスヒットにもポイント
       e.hitTimer = 24;
@@ -2661,7 +2676,55 @@ function updateBoss(e, pc, ecx, ecy) {
     return;
   }
 
-  // 神様のオーラ（体の周りから立ちのぼる光。激怒中は赤くなる）
+  // ジギムント第2形態への変身（HPが半分を切ると1回だけ・激怒25%判定と同型のワンショット）
+  if (type.big && !e.form2 && e.transforming <= 0 && e.hp <= e.maxHp * 0.5) {
+    e.transforming = 150; // 約2.5秒（60fps想定）。この間は完全無敵・行動停止
+    sigmundInterrupt(e);  // 空中・技の最中でも画面内の地上に降ろす（撃破シネマティックと同じ中断処理）
+    flashTimer = 20;
+    shakeTimer = 24;
+    bannerText = `${type.name}が しんの すがたに めざめる…！！`;
+    bannerTimer = 150;
+    SFX.rage();
+  }
+  // 変身演出中: 完全に行動停止し、旧/新パレットで明滅（描画側）＋エネルギーを渦巻かせる
+  if (e.transforming > 0) {
+    e.transforming--;
+    shakeTimer = Math.max(shakeTimer, 4);
+    for (let i = 0; i < 3; i++) {
+      const ca = Math.random() * Math.PI * 2;
+      const cd = 60 + Math.random() * 50;
+      pushParticle({
+        x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
+        vx: -Math.cos(ca) * 4, vy: -Math.sin(ca) * 4,
+        life: 14, color: Math.random() < 0.5 ? SIGMUND_FORM2_AURA : '#ffcd75',
+      });
+    }
+    if (e.transforming % 24 === 0) beep(70 + (150 - e.transforming), 0.4, 'sawtooth', 0.06, 40);
+    if (e.transforming <= 0) {
+      // 変身完了: 第2形態へ。衝撃波演出（必殺技の三重リングを流用）＋バナー＋セリフ
+      e.form2 = true;
+      e.remap = SIGMUND_FORM2_REMAP;
+      addShockwave(ecx, ecy, '#f4f4f4', 10, 10, 30, 7);
+      addShockwave(ecx, ecy, SIGMUND_FORM2_AURA, 10, 8, 34, 5);
+      addShockwave(ecx, ecy, '#ffcd75', 10, 6, 38, 4);
+      rainbowBurst(ecx, ecy, 60, 4);
+      burst(ecx, ecy, SIGMUND_FORM2_AURA, 30, 4);
+      flashTimer = 30;
+      shakeTimer = 30;
+      bannerText = `ジギムント だいにけいたい！！`;
+      bannerTimer = 160;
+      // spawnBossと同じグローバルなセリフウィンドウ機構
+      serifuName = type.name;
+      serifuText = 'これが わがしんのすがた…もえつきろ！';
+      serifuReply = '';
+      serifuTimer = 220;
+      SFX.rage();
+      SFX.roar();
+    }
+    return; // 変身中は移動・射撃・近接をいっさいしない
+  }
+
+  // 神様のオーラ（体の周りから立ちのぼる光。激怒中は赤く、第2形態は真紅に）
   if (frame % 3 === 0) {
     pushParticle({
       x: e.x + Math.random() * e.size,
@@ -2669,7 +2732,7 @@ function updateBoss(e, pc, ecx, ecy) {
       vx: (Math.random() - 0.5) * 0.3,
       vy: -0.6 - Math.random() * 0.6,
       life: 20 + Math.random() * 15,
-      color: e.raged ? '#b13e53' : (type.aura || PALETTE.p),
+      color: e.form2 ? SIGMUND_FORM2_AURA : (e.raged ? '#b13e53' : (type.aura || PALETTE.p)),
     });
   }
 
@@ -2751,7 +2814,8 @@ function updateBoss(e, pc, ecx, ecy) {
 
   // ジギムントの炎ブレスは激怒前からのレギュラー攻撃（定期的にゴオオッと吐く）
   if (type.big && !e.act && e.y > 0) {
-    e.breathT = (e.breathT == null ? 180 : e.breathT) - (e.raged ? 1.6 : 1);
+    // 第2形態はブレス間隔を1.25倍短縮（既存の激怒係数と乗算）。予告フレームは削らない
+    e.breathT = (e.breathT == null ? 180 : e.breathT) - (e.raged ? 1.6 : 1) * (e.form2 ? 1.25 : 1);
     if (e.breathT <= 0) {
       e.act = { kind: 'breath', t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
       e.breathT = 250 + Math.random() * 90;
@@ -2767,7 +2831,8 @@ function updateBoss(e, pc, ecx, ecy) {
   if (e.meleeTimer <= 0 && type.melee.length > 0 && e.y > 0) {
     const kind = type.melee[Math.floor(Math.random() * type.melee.length)];
     e.act = { kind, t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
-    e.meleeTimer = (280 + Math.random() * 140) * (e.raged ? 0.6 : 1);
+    // 第2形態は近接クールダウンを0.85倍短縮（既存の激怒係数と乗算）
+    e.meleeTimer = (280 + Math.random() * 140) * (e.raged ? 0.6 : 1) * (e.form2 ? 0.85 : 1);
   }
 
   // 通常移動（プレイヤーへゆっくり近づく）
@@ -4472,6 +4537,12 @@ function render() {
     const scale = e.size / spr.length;
     const offX = (e.size - spr[0].length * scale) / 2;
     const bob = e.boss ? Math.sin(gframe * 0.08) * 3 : 0;
+    // ボスのパレット差し替え（第2形態のジギムントは e.remap を持つ）。
+    // 変身演出中は旧パレット/新パレットを数フレームごとに切り替えて明滅させる
+    let bossRemap = e.boss ? (e.remap || e.type.remap) : null;
+    if (e.boss && e.transforming > 0) {
+      bossRemap = (Math.floor(e.transforming / 6) % 2 === 0) ? SIGMUND_FORM2_REMAP : null;
+    }
     // ボスのアクション演出: のけぞり・しゃがみこみ・震え・残像
     let dxv = 0, dyv = bob, sxv = 1, syv = 1;
     if (e.boss) {
@@ -4507,7 +4578,7 @@ function render() {
         if (a.trail) {
           for (let ti = 0; ti < a.trail.length; ti++) {
             ctx.globalAlpha = 0.1 + ti * 0.07;
-            drawSprite(sname, a.trail[ti].x + offX, a.trail[ti].y + bob, scale, e.type.remap);
+            drawSprite(sname, a.trail[ti].x + offX, a.trail[ti].y + bob, scale, bossRemap);
           }
           ctx.globalAlpha = 1;
         }
@@ -4524,10 +4595,10 @@ function render() {
       ctx.translate(cx0, cy0);
       ctx.scale(sxv, syv);
       ctx.translate(-cx0, -cy0);
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, true);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, bossRemap, true);
       ctx.restore();
     } else {
-      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, e.boss ? e.type.remap : null, true);
+      drawSprite(sname, e.x + offX + dxv, e.y + dyv, scale, bossRemap, true);
     }
     ctx.globalAlpha = 1;
     // 崩壊中は体に赤白の亀裂が走る
