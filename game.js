@@ -968,7 +968,7 @@ function playerRemap() {
   return { C: OUTFITS[outfitIdx].hex };
 }
 
-// 武器レベルで見た目が進化（8レベルごと。最終形態は武器idx56付近＝約97,000点で到達）
+// 武器レベルで見た目が進化（下の FORM_SCORES のスコア閾値で段階が上がる。最終形態は約97,000点で到達）
 const FORMS = [
   { sprite: 'player0', name: 'ぼうけんしゃ' },
   { sprite: 'player1', name: 'せんし' },
@@ -979,6 +979,18 @@ const FORMS = [
   { sprite: 'player6', name: 'せいなるゆうしゃ' },
   { sprite: 'player7', name: 'しんわのゆうしゃ' },
 ];
+
+// クラスチェンジはスコアで判定する（武器idxではなく固定スコア閾値7点）。
+// 新武器を配列の途中に挿入しても既存の切り替わりタイミングがずれないようにするため。
+// 各閾値は現行構成で Math.floor(武器idx/8) が段階を上げる武器idx=8,16,24,32,40,48,56 の
+// スコア（スターシューター/モーニングスター/ジャベリン/らいじんのオノ/ゴールデンソード/
+// ドリルランス/ドラゴンキラー）に一致させてある。
+const FORM_SCORES = [3510, 10480, 20900, 34780, 52120, 72910, 97160];
+function formForScore(s) {
+  let f = 0;
+  for (let i = 0; i < FORM_SCORES.length; i++) if (s >= FORM_SCORES[i]) f = i + 1;
+  return Math.min(FORMS.length - 1, f);
+}
 
 // ---------- ゆうしゃレベル（Lv1〜12）----------
 // スコアがしきい値を超えるたびにレベルアップし、決まったボーナスが積み重なる（カード選択ではない）。
@@ -1003,7 +1015,7 @@ function defaultHero() {
 }
 let hero = defaultHero();
 
-// ---------- 武器の進化テーブル（60段階） ----------
+// ---------- 武器の進化テーブル（66段階） ----------
 // blades: 刃の本数 / dmg: 1振りのダメージ / kind: 見た目の種類
 // flame: 火の玉 / lightning: 雷連鎖 / ice: 凍らせる / rainbow: 虹色
 // saber: ライトセーバー（saberColorで刃の色、rainbowSaberで虹色に変化）
@@ -1039,8 +1051,12 @@ const WEAPONS = [
   { name: 'ばくだん',             score: 11590, len: 32, width: 6,  spin: 0.110, blades: 1, dmg: 1, color: '#1a1c2c', edge: '#ef7d57', kind: 'bombH',
     shoot: { kind: 'bomb', interval: 50, speed: 2.6, dmg: 2, aoe: 45, life: 55, aim: true } },
   { name: '大槍',                 score: 12760, len: 74, width: 8,  spin: 0.140, blades: 1, dmg: 1, color: '#38b764', edge: '#ffcd75', kind: 'spear' },
+  { name: 'つむじかぜのゆみ',     score: 13350, len: 36, width: 4,  spin: 0.115, blades: 1, dmg: 1, color: '#38b764', edge: '#f4f4f4', kind: 'bow',
+    shoot: { kind: 'arrow', interval: 18, speed: 6.5, dmg: 1, pierce: true, aim: true } },
   { name: 'ハルバード',           score: 13980, len: 62, width: 8,  spin: 0.135, blades: 1, dmg: 2, color: '#94b0c2', edge: '#ffcd75', kind: 'axe', knock: 20 },
   { name: 'みつまたのほこ',       score: 15260, len: 66, width: 6,  spin: 0.140, blades: 1, dmg: 2, color: '#ffcd75', edge: '#f4f4f4', kind: 'trident' },
+  { name: 'みだれしゅりけん',     score: 15900, len: 32, width: 3,  spin: 0.130, blades: 1, dmg: 1, color: '#566c86', edge: '#73eff7', kind: 'ninja',
+    shoot: { kind: 'shuriken', interval: 14, speed: 6.5, dmg: 1, count: 3 } },
   { name: 'ムチ',                 score: 16590, len: 80, width: 4,  spin: 0.150, blades: 1, dmg: 1, color: '#a77b5b', edge: '#ffcd75', kind: 'whip' },
   { name: 'サンダーボウガン',     score: 17970, len: 36, width: 5,  spin: 0.120, blades: 1, dmg: 1, color: '#ffcd75', edge: '#f4f4f4', lightning: true, kind: 'bow',
     shoot: { kind: 'arrow', interval: 14, speed: 7.0, dmg: 1, aim: true } },
@@ -1080,8 +1096,14 @@ const WEAPONS = [
   { name: 'レールガン',           score: 67390, len: 38, width: 5,  spin: 0.130, blades: 1, dmg: 3, color: '#333c57', edge: '#73eff7', kind: 'gun',
     shoot: { kind: 'laser', interval: 20, speed: 9.0, dmg: 3, pierce: true, aim: true } },
   { name: 'ライトセーバー',       score: 70120, len: 80, width: 7,  spin: 0.170, blades: 2, dmg: 4, saber: true, saberColor: '#73eff7', color: '#73eff7', edge: '#f4f4f4' },
+  { name: 'プラズマライフル',     score: 71500, len: 36, width: 5,  spin: 0.135, blades: 1, dmg: 2, color: '#333c57', edge: '#73eff7', kind: 'gun',
+    shoot: { kind: 'bullet', interval: 12, speed: 7.0, dmg: 2, aim: true } },
   { name: 'ドリルランス',         score: 72910, len: 72, width: 8,  spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#a77b5b', kind: 'drill' },
+  { name: 'ヴォルカニックキャノン', score: 74200, len: 40, width: 9, spin: 0.135, blades: 1, dmg: 3, color: '#46201a', edge: '#ef7d57', kind: 'cannon',
+    shoot: { kind: 'cannonball', interval: 46, speed: 3.3, dmg: 3, aoe: 44, aim: true } },
   { name: 'せいじゃのメイス',     score: 75750, len: 60, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#ffcd75', edge: '#f4f4f4', kind: 'club', knock: 26 },
+  { name: 'ヴォイドレイ',         score: 77100, len: 40, width: 5,  spin: 0.135, blades: 1, dmg: 3, color: '#1a1c2c', edge: '#8b4f8b', kind: 'gun',
+    shoot: { kind: 'laser', interval: 22, speed: 8.5, dmg: 3, pierce: true, aim: true } },
   { name: 'ダブルライトセーバー', score: 78650, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
   { name: 'ツインミラーワンド',   score: 81600, len: 42, width: 4,  spin: 0.135, blades: 1, dmg: 3, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
     shoot: { kind: 'orb', interval: 24, speed: 3.6, dmg: 3, count: 3, homing: 0.07 } },
@@ -1089,6 +1111,8 @@ const WEAPONS = [
   { name: 'メテオハンマー',       score: 87660, len: 68, width: 6,  spin: 0.155, blades: 1, dmg: 5, color: '#333c57', edge: '#ef7d57', kind: 'chain', ballR: 15, knock: 28 },
   { name: 'ブラックホールキャノン', score: 90770, len: 40, width: 9, spin: 0.130, blades: 1, dmg: 4, color: '#333c57', edge: '#8b4f8b', kind: 'cannon',
     shoot: { kind: 'cannonball', interval: 44, speed: 3.4, dmg: 4, aoe: 48, aim: true } },
+  { name: 'タイタンランチャー',   score: 92300, len: 38, width: 7,  spin: 0.130, blades: 1, dmg: 2, color: '#333c57', edge: '#ffcd75', kind: 'launcher',
+    shoot: { kind: 'missile', interval: 32, speed: 4.6, dmg: 3, aoe: 38, homing: 0.10, aim: true } },
   { name: 'りゅうせいのけん',     score: 93940, len: 80, width: 12, spin: 0.160, blades: 2, dmg: 5, color: '#ffcd75', edge: '#ef7d57', lightning: true },
   { name: 'ドラゴンキラー',       score: 97160, len: 76, width: 11, spin: 0.150, blades: 1, dmg: 4, color: '#b13e53', edge: '#ef7d57', flame: true, hybrid: true },
   { name: 'ギャラクシーバスター', score: 100430, len: 42, width: 9, spin: 0.140, blades: 1, dmg: 4, color: '#8b4f8b', edge: '#73eff7', kind: 'cannon',
@@ -2014,8 +2038,8 @@ function checkWeaponEvolve() {
   const pc = playerCenter();
   rainbowBurst(pc.x, pc.y, 40, 3);
   SFX.fanfare();
-  // 8レベルごとにキャラの見た目も進化！
-  const nf = Math.min(FORMS.length - 1, Math.floor(newIdx / 8));
+  // スコア閾値ごとにキャラの見た目も進化！（武器idxではなくスコアで判定＝新武器挿入の影響を受けない）
+  const nf = formForScore(score);
   if (nf > formIdx) {
     formIdx = nf;
     bannerText = `すがたしんか！ ${FORMS[nf].name}に なった！`;

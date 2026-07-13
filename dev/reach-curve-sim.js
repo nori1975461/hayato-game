@@ -17,19 +17,21 @@ const src = fs.readFileSync(process.argv[2], 'utf8');
 function extract(re) { const m = src.match(re); if (!m) throw new Error('抽出失敗: ' + re); return m[0]; }
 const chunk = [
   extract(/const FORMS = \[[\s\S]*?\n\];/),
+  extract(/const FORM_SCORES = \[[^\]]*\];/),
+  extract(/function formForScore\(s\)[\s\S]*?\n\}/),
   extract(/const HERO_LV = \[[\s\S]*?\n\];/),
   extract(/function defaultHero\(\)[\s\S]*?\n\}/),
   'let hero = defaultHero();',
   extract(/const WEAPONS = \[[\s\S]*?\n\];/),
   extract(/function weaponForScore\(s\)[\s\S]*?\n\}/),
   // vmの字句宣言(const/let)はsandboxのプロパティにならないので明示的に載せ替える
-  'this.WEAPONS = WEAPONS; this.HERO_LV = HERO_LV; this.FORMS = FORMS; this.weaponForScore = weaponForScore;',
+  'this.WEAPONS = WEAPONS; this.HERO_LV = HERO_LV; this.FORMS = FORMS; this.FORM_SCORES = FORM_SCORES; this.formForScore = formForScore; this.weaponForScore = weaponForScore;',
 ].join('\n');
 
 const sandbox = { Math };
 vm.createContext(sandbox);
 vm.runInContext(chunk, sandbox);
-const { WEAPONS, HERO_LV, FORMS, weaponForScore } = sandbox;
+const { WEAPONS, HERO_LV, FORMS, FORM_SCORES, formForScore, weaponForScore } = sandbox;
 
 // スコアからゆうしゃレベル（Lv1〜）を求める
 function heroLevelForScore(s) {
@@ -37,18 +39,16 @@ function heroLevelForScore(s) {
   for (let i = 0; i < HERO_LV.length; i++) if (s >= HERO_LV[i].score) lv = i + 2;
   return lv;
 }
-function formIdxForWeaponIdx(wi) { return Math.min(FORMS.length - 1, Math.floor(wi / 8)); }
-
 function line(label, score) {
   const wi = weaponForScore(score);
   const lv = heroLevelForScore(score);
-  const fi = formIdxForWeaponIdx(wi);
+  const fi = formForScore(score); // クラスチェンジはスコア基準（game.jsと同じ判定）
   return `${label}  score=${String(score).padStart(7)}  ぶきLv${String(wi + 1).padStart(2)} ${WEAPONS[wi].name.padEnd(12, '　')}  ゆうしゃLv${String(lv).padStart(2)}  形態${fi} ${FORMS[fi].name}`;
 }
 
 const LAST_STAGE = 20;
 console.log('=== スコア曲線シミュレータ（理論最低ライン）===');
-console.log('武器60段階 / ゆうしゃLv1〜12 / クラスチェンジ8形態\n');
+console.log('武器66段階 / ゆうしゃLv1〜12 / クラスチェンジ8形態\n');
 
 let score = 0;
 let nextBossScore = 3000;
@@ -76,12 +76,11 @@ function firstStageReaching(pred) {
   return null;
 }
 const finalWeaponScore = WEAPONS[WEAPONS.length - 1].score;
-const finalFormWeaponIdx = 56; // 最終形態(idx7)に入る武器idx
-const finalFormScore = WEAPONS[finalFormWeaponIdx].score;
+const finalFormScore = FORM_SCORES[FORM_SCORES.length - 1]; // 最終形態(idx7)に入るスコア閾値
 const maxHeroScore = HERO_LV[HERO_LV.length - 1].score;
 
 console.log('=== 到達テンポの要約（各クリア時点で条件到達した最初のステージ）===');
-console.log(`最終武器 idx59「${WEAPONS[59].name}」(${finalWeaponScore}点): S${firstStageReaching(s => s >= finalWeaponScore)}クリア`);
-console.log(`最終形態 idx7「${FORMS[7].name}」(武器idx56=${finalFormScore}点相当): S${firstStageReaching(s => weaponForScore(s) >= finalFormWeaponIdx)}クリア`);
+console.log(`最終武器「${WEAPONS[WEAPONS.length - 1].name}」(${finalWeaponScore}点): S${firstStageReaching(s => s >= finalWeaponScore)}クリア`);
+console.log(`最終形態 idx7「${FORMS[7].name}」(スコア閾値${finalFormScore}点): S${firstStageReaching(s => formForScore(s) >= FORMS.length - 1)}クリア`);
 console.log(`ゆうしゃ最大Lv12 (${maxHeroScore}点): S${firstStageReaching(s => s >= maxHeroScore)}クリア`);
 console.log(`\n参考ターゲット: 最終形態は約97,000点(=武器idx56)・ステージ17前後で到達が狙い。`);
