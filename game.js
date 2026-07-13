@@ -1378,6 +1378,74 @@ const SFX = {
   },
 };
 
+// ---------- 遠距離武器 演出テーブル（Phase2a: kind別に音・色・演出を分ける） ----------
+// SHOT_FX[kind]: 弾ごとの見た目/演出の既定値
+//   color   : 弾・着弾の基準色（WEAPONS の shoot.color が優先）
+//   burst   : 着弾時に散らす火花の数
+//   trail   : 飛行中に尾を引く色（null なら尾なし）。武器側 shoot.trail で上書き可
+//   heavy   : true なら重量弾（着弾で 2F の小ヒットストップ）
+const SHOT_FX = {
+  bullet:     { color: '#f4f4f4', burst: 5, trail: null,      heavy: false },
+  pellet:     { color: '#ffcd75', burst: 4, trail: null,      heavy: false },
+  shuriken:   { color: '#94b0c2', burst: 4, trail: null,      heavy: false },
+  arrow:      { color: '#f4f4f4', burst: 4, trail: null,      heavy: false },
+  javelin:    { color: '#94b0c2', burst: 6, trail: null,      heavy: true  },
+  laser:      { color: '#73eff7', burst: 7, trail: '#73eff7', heavy: false },
+  orb:        { color: '#ff77a8', burst: 6, trail: '#ff77a8', heavy: false },
+  missile:    { color: '#ef7d57', burst: 8, trail: '#ef7d57', heavy: true  },
+  cannonball: { color: '#94b0c2', burst: 8, trail: '#566c86', heavy: true  },
+  bomb:       { color: '#ef7d57', burst: 6, trail: null,      heavy: false },
+  boomerang:  { color: '#ffcd75', burst: 4, trail: null,      heavy: false },
+  flame:      { color: '#ffcd75', burst: 3, trail: null,      heavy: false },
+};
+
+// 弾の基準色（武器の shoot.color を最優先、なければ kind の既定色）
+function shotColor(f) {
+  return f.color || (SHOT_FX[f.kind] && SHOT_FX[f.kind].color) || '#ffcd75';
+}
+
+// 発射音の kind 別ディスパッチ。近接（0.17）より控えめ（0.05〜0.08）。
+// 連射系（interval が短い）は 3 発に 1 回だけ鳴らしてリズムで聞かせる（毎回だとうるさい）
+let shootSeq = 0;
+function shootSFX(kind, interval) {
+  if (interval <= 10) { shootSeq++; if (shootSeq % 3 !== 0) return; }
+  switch (kind) {
+    case 'bullet':                       // マシンガン: 乾いたパンッ
+      beep(780, 0.045, 'square', 0.05, 240); noise(0.03, 0.05, 3200, 'highpass'); break;
+    case 'laser':                        // レールガン系: ピシューン
+      beep(1700, 0.12, 'sawtooth', 0.06, 320); beep(950, 0.08, 'square', 0.04, 1900); break;
+    case 'missile':                      // ロケット: プシュッと噴射
+      noise(0.14, 0.06, 900, 'bandpass', 0, 220); beep(230, 0.14, 'sawtooth', 0.05, 90); break;
+    case 'cannonball':                   // 大砲: ドムッと重い
+      beep(120, 0.18, 'sawtooth', 0.07, 45); noise(0.1, 0.06, 700, 'lowpass'); break;
+    case 'bomb':                         // 投擲: ぽすっ
+      beep(200, 0.1, 'triangle', 0.05, 90); break;
+    case 'arrow': case 'javelin':        // 弓・投槍: ヒュンッ
+      beep(1250, 0.08, 'triangle', 0.055, 380); break;
+    case 'orb':                          // 杖: キラッと魔法
+      beep(900, 0.1, 'sine', 0.05, 1500); beep(1500, 0.08, 'triangle', 0.04, null, 30); break;
+    case 'pellet': case 'shuriken':      // パチンコ・手裏剣: パスッ
+      beep(680, 0.05, 'square', 0.05, 1050); break;
+    case 'boomerang':                    // ブーメラン: ヒュルル
+      beep(520, 0.14, 'triangle', 0.05, 950); break;
+    case 'flame':                        // かえんほうしゃき: ゴォッ（連射なので薄く）
+      noise(0.06, 0.03, 1200, 'bandpass', 0, 400); break;
+    default:
+      beep(700, 0.05, 'square', 0.05, 1100);
+  }
+}
+
+// 発射口のマズルフラッシュ（粒子）。全遠距離武器に展開
+function muzzleFlash(x, y, ang, kind) {
+  const c = (SHOT_FX[kind] && SHOT_FX[kind].color) || '#ffcd75';
+  const n = 4;
+  for (let i = 0; i < n; i++) {
+    const a = ang + (Math.random() - 0.5) * 0.9;
+    const sp = 0.8 + Math.random() * 1.6;
+    pushParticle({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 5 + Math.random() * 5, color: Math.random() < 0.5 ? c : '#f4f4f4' }, true);
+  }
+}
+
 // 明るいチップチューンBGM（ステージが進むとキーが上がる）
 const BGM_BASS = [48, 48, 55, 48, 45, 45, 52, 45, 41, 41, 48, 41, 43, 43, 50, 43];
 const BGM_MELODY = [72, 0, 76, 0, 79, 0, 76, 0, 72, 0, 74, 0, 79, 0, 83, 0];
@@ -1793,25 +1861,33 @@ function spawnBoss() {
 }
 
 // ---------- パーティクル ----------
-function burst(x, y, color, count = 8, speed = 1.5) {
+// ソフトキャップ: 演出強化で粒子が増えるため、装飾用の粒子（decorative=true）は
+// 上限を超えたらスキップする。爆発・撃破などの重要演出は decorative=false で必ず残す
+const PARTICLE_CAP = 520;
+function pushParticle(p, decorative = false) {
+  if (decorative && particles.length >= PARTICLE_CAP) return;
+  particles.push(p);
+}
+
+function burst(x, y, color, count = 8, speed = 1.5, decorative = false) {
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
     const sp = speed * (0.7 + Math.random());
-    particles.push({ x, y, vx: Math.cos(angle) * sp, vy: Math.sin(angle) * sp, life: 15 + Math.random() * 12, color });
+    pushParticle({ x, y, vx: Math.cos(angle) * sp, vy: Math.sin(angle) * sp, life: 15 + Math.random() * 12, color }, decorative);
   }
 }
 
-function rainbowBurst(x, y, count = 30, speed = 2.5) {
+function rainbowBurst(x, y, count = 30, speed = 2.5, decorative = false) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const sp = speed * (0.4 + Math.random());
-    particles.push({
+    pushParticle({
       x, y,
       vx: Math.cos(angle) * sp,
       vy: Math.sin(angle) * sp,
       life: 25 + Math.random() * 25,
       color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
-    });
+    }, decorative);
   }
 }
 
@@ -2059,7 +2135,7 @@ function killEnemy(e, lightningDepth = 2) {
     for (let i = 0; i < 12; i++) {
       const a = away + (Math.random() - 0.5) * 1.1;
       const sp = 1.6 + Math.random() * 3.2;
-      particles.push({
+      pushParticle({
         x: ecx, y: ecy,
         vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         life: 16 + Math.random() * 14,
@@ -2387,10 +2463,13 @@ function update() {
           turn: sh.homing || 0,
           ang, rot: 0, t: 0, returning: false,
           hitSet: sh.pierce ? new Set() : null,
+          color: sh.color || null,                                     // 武器ごとの弾色（未指定なら kind 既定色）
+          trail: sh.trail !== undefined ? sh.trail : (SHOT_FX[sh.kind] && SHOT_FX[sh.kind].trail) || null, // 尾の色
         });
       }
       shootTimer = Math.max(1, Math.round(sh.interval / hero.fireMul));
-      SFX.shoot();
+      muzzleFlash(tipX, tipY, baseAng, sh.kind); // 発射口の火花（全遠距離武器）
+      shootSFX(sh.kind, sh.interval);            // kind 別の発射音
     }
   }
 
@@ -2415,7 +2494,7 @@ function update() {
     const L = weaponLen(weapon);
     for (let b = 0; b < weapon.blades; b++) {
       const a = weaponAngle + (b * Math.PI * 2) / weapon.blades;
-      particles.push({
+      pushParticle({
         x: pc.x + Math.cos(a) * L, y: pc.y + Math.sin(a) * L,
         vx: (Math.random() - 0.5) * 0.9, vy: (Math.random() - 0.5) * 0.9,
         life: 13, color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
@@ -2452,9 +2531,13 @@ function update() {
         f.vx = Math.cos(na) * sp;
         f.vy = Math.sin(na) * sp;
       }
-      if (f.kind === 'missile' && Math.random() < 0.7) {
-        particles.push({ x: f.x - f.vx * 2, y: f.y - f.vy * 2, vx: 0, vy: 0, life: 10, color: Math.random() < 0.5 ? PALETTE.O : PALETTE.S });
-      }
+    }
+    // 尾を引く演出（trail 色を持つ弾: missile/laser/orb/cannonball 等）。装飾なのでキャップ対象
+    if (f.trail && Math.random() < 0.7) {
+      const tc = f.kind === 'missile'
+        ? (Math.random() < 0.5 ? PALETTE.O : PALETTE.S)  // ミサイルは炎＋煙の従来色
+        : (Math.random() < 0.35 ? '#f4f4f4' : f.trail);
+      pushParticle({ x: f.x - f.vx * 2, y: f.y - f.vy * 2, vx: 0, vy: 0, life: 10, color: tc }, true);
     }
     f.x += f.vx;
     f.y += f.vy;
@@ -2556,7 +2639,7 @@ function updateBoss(e, pc, ecx, ecy) {
 
   // 神様のオーラ（体の周りから立ちのぼる光。激怒中は赤くなる）
   if (frame % 3 === 0) {
-    particles.push({
+    pushParticle({
       x: e.x + Math.random() * e.size,
       y: e.y + e.size - Math.random() * 20,
       vx: (Math.random() - 0.5) * 0.3,
@@ -2627,7 +2710,7 @@ function updateBoss(e, pc, ecx, ecy) {
     for (let i = 0; i < 2; i++) {
       const ca = Math.random() * Math.PI * 2;
       const cd = 60 + Math.random() * 40;
-      particles.push({
+      pushParticle({
         x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
         vx: -Math.cos(ca) * 3.5, vy: -Math.sin(ca) * 3.5,
         life: 14, color: '#73eff7',
@@ -2669,7 +2752,7 @@ function updateBoss(e, pc, ecx, ecy) {
   e.x += Math.cos(angle) * spd;
   e.y += Math.sin(angle) * spd;
   if (e.speedBurst > 0 && frame % 2 === 0) {
-    particles.push({ x: ecx, y: ecy, vx: -Math.cos(angle) * 1.5, vy: -Math.sin(angle) * 1.5, life: 12, color: '#73eff7' });
+    pushParticle({ x: ecx, y: ecy, vx: -Math.cos(angle) * 1.5, vy: -Math.sin(angle) * 1.5, life: 12, color: '#73eff7' });
   }
 
   // ---- 射撃（チャージ→発射。4回に1回は10倍サイズの巨大な一撃！） ----
@@ -2682,7 +2765,7 @@ function updateBoss(e, pc, ecx, ecy) {
       const a = Math.random() * Math.PI * 2;
       const d = 50 + Math.random() * 50;
       const cc = type.ballColors ? type.ballColors[Math.floor(Math.random() * 3)] : (Math.random() < 0.5 ? PALETTE.O : PALETTE.Y);
-      particles.push({
+      pushParticle({
         x: mouthX + Math.cos(a) * d, y: mouthY + Math.sin(a) * d,
         vx: -Math.cos(a) * 3.5, vy: -Math.sin(a) * 3.5,
         life: 14, color: cc,
@@ -2712,7 +2795,7 @@ function updateBoss(e, pc, ecx, ecy) {
     const a = Math.random() * Math.PI * 2;
     const d = 30 + Math.random() * 30;
     const cc = type.ballColors ? type.ballColors[Math.floor(Math.random() * 3)] : (Math.random() < 0.5 ? PALETTE.O : PALETTE.Y);
-    particles.push({
+    pushParticle({
       x: mouthX + Math.cos(a) * d, y: mouthY + Math.sin(a) * d,
       vx: -Math.cos(a) * 2.5, vy: -Math.sin(a) * 2.5,
       life: 12, color: cc,
@@ -2824,13 +2907,13 @@ function updateSigmundDeath(e, ecx, ecy) {
     }
     if (e.dying % 3 === 0) {
       // 地面から土けむりが立ちのぼる（進行とともに増える）
-      particles.push({
+      pushParticle({
         x: Math.random() * W, y: H + 4,
         vx: (Math.random() - 0.5) * 0.5, vy: -0.8 - Math.random(),
         life: 30, color: '#94b0c2',
       });
       if (prog > 0.5) {
-        particles.push({
+        pushParticle({
           x: Math.random() * W, y: H + 4,
           vx: (Math.random() - 0.5) * 0.7, vy: -1 - Math.random() * 1.4,
           life: 34, color: '#566c86',
@@ -2843,7 +2926,7 @@ function updateSigmundDeath(e, ecx, ecy) {
     shakeTimer = Math.max(shakeTimer, 4);
     const n = 2 + Math.floor(cprog * 3);
     for (let i = 0; i < n; i++) {
-      particles.push({
+      pushParticle({
         x: e.x + Math.random() * e.size,
         y: e.y + Math.random() * e.size,
         vx: (Math.random() - 0.5) * 0.8,
@@ -2872,7 +2955,7 @@ function updateSigmundDeath(e, ecx, ecy) {
     for (let i = 0; i < 240; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 1 + Math.random() * 5.5;
-      particles.push({
+      pushParticle({
         x: ecx + (Math.random() - 0.5) * e.size * 0.8,
         y: ecy + (Math.random() - 0.5) * e.size * 0.8,
         vx: Math.cos(a) * sp,
@@ -2885,7 +2968,7 @@ function updateSigmundDeath(e, ecx, ecy) {
     for (let i = 0; i < 36; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 0.3 + Math.random() * 1.2;
-      particles.push({
+      pushParticle({
         x: ecx + (Math.random() - 0.5) * e.size * 0.6,
         y: ecy + (Math.random() - 0.5) * e.size * 0.6,
         vx: Math.cos(a) * sp,
@@ -2929,7 +3012,7 @@ function runBossAct(e, pc, ecx, ecy) {
       if (a.t % 2 === 0) {
         const ca = Math.random() * Math.PI * 2;
         const cd = 50 + Math.random() * 40;
-        particles.push({
+        pushParticle({
           x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
           vx: -Math.cos(ca) * 3, vy: -Math.sin(ca) * 3,
           life: 14, color: e.type.aura,
@@ -2952,8 +3035,8 @@ function runBossAct(e, pc, ecx, ecy) {
       if (a.trail.length > 4) a.trail.shift();
       e.x = Math.max(-e.size / 2, Math.min(W - e.size / 2, e.x + a.vx));
       e.y = Math.max(-e.size / 2, Math.min(H - e.size / 2, e.y + a.vy));
-      particles.push({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.3, vy: -a.vy * 0.3, life: 12, color: e.type.aura });
-      particles.push({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.2, vy: -a.vy * 0.2, life: 10, color: '#f4f4f4' });
+      pushParticle({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.3, vy: -a.vy * 0.3, life: 12, color: e.type.aura });
+      pushParticle({ x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size, vx: -a.vx * 0.2, vy: -a.vy * 0.2, life: 10, color: '#f4f4f4' });
     } else if (a.t === tel + dur) {
       // 急ブレーキの土けむり
       burst(ecx, e.y + e.size * 0.9, '#94b0c2', 10, 2);
@@ -3020,7 +3103,7 @@ function runBossAct(e, pc, ecx, ecy) {
       burst(a.tx, a.ty, e.type.aura, 24, 2.5);
       for (let i = 0; i < 14; i++) {
         // 土けむりが柱のように吹き上がる
-        particles.push({
+        pushParticle({
           x: a.tx + (Math.random() - 0.5) * 90,
           y: a.ty + (Math.random() - 0.5) * 20,
           vx: (Math.random() - 0.5) * 1.2,
@@ -3046,7 +3129,7 @@ function runBossAct(e, pc, ecx, ecy) {
       for (let i = 0; i < 2; i++) {
         const ca = Math.random() * Math.PI * 2;
         const cd = 40 + Math.random() * 50;
-        particles.push({
+        pushParticle({
           x: mouthX + Math.cos(ca) * cd, y: mouthY + Math.sin(ca) * cd,
           vx: -Math.cos(ca) * 3, vy: -Math.sin(ca) * 3,
           life: 13, color: Math.random() < 0.5 ? PALETTE.O : PALETTE.Y,
@@ -3112,10 +3195,10 @@ function updateBossShots(pc) {
       // 飛んでいる間は地響きがして、まわりをエネルギーの火花が回る
       if (gframe % 5 === 0) shakeTimer = Math.max(shakeTimer, 3);
       const sa = f.rot * 3;
-      particles.push({ x: f.x + Math.cos(sa) * 48, y: f.y + Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#f4f4f4' });
-      particles.push({ x: f.x - Math.cos(sa) * 48, y: f.y - Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#ffcd75' });
+      pushParticle({ x: f.x + Math.cos(sa) * 48, y: f.y + Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#f4f4f4' });
+      pushParticle({ x: f.x - Math.cos(sa) * 48, y: f.y - Math.sin(sa) * 48, vx: 0, vy: 0, life: 8, color: '#ffcd75' });
       // 通ったあとに衝撃波のなごりを残す
-      particles.push({
+      pushParticle({
         x: f.x - f.vx * 8 + (Math.random() - 0.5) * 40,
         y: f.y - f.vy * 8 + (Math.random() - 0.5) * 40,
         vx: (Math.random() - 0.5) * 1.2, vy: (Math.random() - 0.5) * 1.2,
@@ -3126,7 +3209,7 @@ function updateBossShots(pc) {
     for (let i = 0; i < trailN; i++) {
       if (Math.random() < 0.6) {
         const spread = f.giant ? 40 : 6;
-        particles.push({
+        pushParticle({
           x: f.x + (Math.random() - 0.5) * spread,
           y: f.y + (Math.random() - 0.5) * spread,
           vx: (Math.random() - 0.5) * 0.5,
@@ -3259,7 +3342,7 @@ function updatePShotHits() {
           f.life = 0;
         }
         if (e.hp <= 0) killEnemy(e);
-        else if (dealt > 0) { e.hitTimer = 12; burst(ecx, ecy, PALETTE.O, 5); }
+        else if (dealt > 0) { e.hitTimer = 12; bulletHitFX(f, ecx, ecy); }
         if (!f.pierce) break;
       }
     }
@@ -3268,9 +3351,27 @@ function updatePShotHits() {
   enemies = enemies.filter((e) => e.hp > 0);
 }
 
+// 着弾の火花（kind 別に色・散り方を変える）。近接ヒットより控えめ
+function bulletHitFX(f, x, y) {
+  const fx = SHOT_FX[f.kind] || { color: '#ef7d57', burst: 5 };
+  if (f.kind === 'orb') {
+    rainbowBurst(x, y, 8, 1.8, true);              // 魔法弾: 虹の小さな飛沫
+  } else if (f.kind === 'arrow' || f.kind === 'javelin') {
+    burst(x, y, '#f4f4f4', fx.burst, 1.6, true);   // 矢・投槍: 白い小火花
+  } else if (f.kind === 'laser') {
+    burst(x, y, '#73eff7', fx.burst, 2.4, true);   // レーザー: シアンの火花
+  } else {
+    burst(x, y, shotColor(f), fx.burst, 1.8, true); // それ以外: 弾色の火花
+  }
+  // 重量弾（dmg の高い弾）にだけ小さなヒットストップ（近接の最大6Fより控えめに2F）
+  if (f.dmg >= 3) hitstopT = Math.max(hitstopT, 2);
+}
+
 function explodeAt(x, y, radius, dmg, half = false) {
   burst(x, y, PALETTE.O, 20, 3);
   burst(x, y, PALETTE.Y, 16, 2);
+  addShockwave(x, y, '#ffcd75', radius * 0.4, 6, 18, 4); // 広がる衝撃波リングで爆発を強調
+  addShockwave(x, y, '#ef7d57', radius * 0.2, 4, 14, 3);
   shakeTimer = Math.max(shakeTimer, 10);
   SFX.boom();
   for (const e of enemies) {
@@ -3351,45 +3452,45 @@ function updateStageFx() {
   const st = currentStage();
   const fx = st.fx;
   if (fx === 'petal' && frame % 24 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: 0.4 + Math.random() * 0.5, vy: 0.5 + Math.random() * 0.5, life: 90, color: '#ff77a8' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: 0.4 + Math.random() * 0.5, vy: 0.5 + Math.random() * 0.5, life: 90, color: '#ff77a8' });
   } else if (fx === 'leaf' && frame % 14 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 1.2, vy: 0.6 + Math.random() * 0.6, life: 80, color: '#38b764' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 1.2, vy: 0.6 + Math.random() * 0.6, life: 80, color: '#38b764' });
   } else if (fx === 'bubble' && frame % 16 === 0) {
-    particles.push({ x: Math.random() * W, y: H + 4, vx: (Math.random() - 0.5) * 0.3, vy: -0.5 - Math.random() * 0.5, life: 60, color: '#5f6b35' });
+    pushParticle({ x: Math.random() * W, y: H + 4, vx: (Math.random() - 0.5) * 0.3, vy: -0.5 - Math.random() * 0.5, life: 60, color: '#5f6b35' });
   } else if (fx === 'rain') {
     if (frame % 2 === 0) {
-      particles.push({ x: Math.random() * (W + 60) - 30, y: -4, vx: -1.5, vy: 6 + Math.random() * 2, life: 70, color: '#73a3c9' });
+      pushParticle({ x: Math.random() * (W + 60) - 30, y: -4, vx: -1.5, vy: 6 + Math.random() * 2, life: 70, color: '#73a3c9' });
     }
     // ときどき稲光が走る
     if (Math.random() < 0.003) { flashTimer = Math.max(flashTimer, 5); beep(70, 0.5, 'sawtooth', 0.03, 40); }
   } else if (fx === 'ripple' && frame % 20 === 0) {
-    particles.push({ x: Math.random() * W, y: Math.random() * H, vx: 0.3, vy: 0, life: 40, color: '#5da3cc' });
+    pushParticle({ x: Math.random() * W, y: Math.random() * H, vx: 0.3, vy: 0, life: 40, color: '#5da3cc' });
   } else if (fx === 'drip' && frame % 30 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: 0, vy: 3 + Math.random(), life: 90, color: '#73eff7' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: 0, vy: 3 + Math.random(), life: 90, color: '#73eff7' });
   } else if (fx === 'sand' && frame % 3 === 0) {
-    particles.push({ x: -4, y: Math.random() * H, vx: 3 + Math.random() * 2, vy: (Math.random() - 0.5) * 0.6, life: 80, color: '#c9a95e' });
+    pushParticle({ x: -4, y: Math.random() * H, vx: 3 + Math.random() * 2, vy: (Math.random() - 0.5) * 0.6, life: 80, color: '#c9a95e' });
   } else if (fx === 'dust' && frame % 18 === 0) {
-    particles.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.4, vy: -0.2, life: 60, color: '#8a83a3' });
+    pushParticle({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.4, vy: -0.2, life: 60, color: '#8a83a3' });
   } else if ((fx === 'ember' || fx === 'ember2') && frame % (fx === 'ember2' ? 3 : 6) === 0) {
-    particles.push({
+    pushParticle({
       x: Math.random() * W, y: H + 4,
       vx: (Math.random() - 0.5) * 0.4, vy: -0.7 - Math.random() * 0.8,
       life: 40 + Math.random() * 30,
       color: Math.random() < 0.5 ? PALETTE.O : PALETTE.R,
     });
   } else if (fx === 'snow' && frame % 6 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.7 + Math.random() * 0.6, life: 110, color: '#f4f4f4' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.7 + Math.random() * 0.6, life: 110, color: '#f4f4f4' });
   } else if (fx === 'aurora') {
     if (frame % 6 === 0) {
-      particles.push({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.7 + Math.random() * 0.6, life: 110, color: '#f4f4f4' });
+      pushParticle({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.7 + Math.random() * 0.6, life: 110, color: '#f4f4f4' });
     }
     if (frame % 8 === 0) {
-      particles.push({ x: Math.random() * W, y: Math.random() * 60, vx: 1 + Math.random(), vy: 0, life: 50, color: Math.random() < 0.5 ? '#73eff7' : '#38b764' });
+      pushParticle({ x: Math.random() * W, y: Math.random() * 60, vx: 1 + Math.random(), vy: 0, life: 50, color: Math.random() < 0.5 ? '#73eff7' : '#38b764' });
     }
   } else if (fx === 'bubble2' && frame % 8 === 0) {
-    particles.push({ x: Math.random() * W, y: H + 4, vx: (Math.random() - 0.5) * 0.4, vy: -0.8 - Math.random() * 0.7, life: 80, color: '#73eff7' });
+    pushParticle({ x: Math.random() * W, y: H + 4, vx: (Math.random() - 0.5) * 0.4, vy: -0.8 - Math.random() * 0.7, life: 80, color: '#73eff7' });
   } else if (fx === 'miasma' && frame % 6 === 0) {
-    particles.push({
+    pushParticle({
       x: Math.random() * W, y: H + 4,
       vx: (Math.random() - 0.5) * 0.4, vy: -0.7 - Math.random() * 0.8,
       life: 40 + Math.random() * 30,
@@ -3397,7 +3498,7 @@ function updateStageFx() {
     });
   } else if (fx === 'hellfire') {
     if (frame % 3 === 0) {
-      particles.push({
+      pushParticle({
         x: Math.random() * W, y: H + 4,
         vx: (Math.random() - 0.5) * 0.5, vy: -1 - Math.random(),
         life: 40 + Math.random() * 30,
@@ -3405,11 +3506,11 @@ function updateStageFx() {
       });
     }
   } else if (fx === 'feather' && frame % 16 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.4 + Math.random() * 0.4, life: 130, color: '#f4f4f4' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: (Math.random() - 0.5) * 0.8, vy: 0.4 + Math.random() * 0.4, life: 130, color: '#f4f4f4' });
   } else if (fx === 'star' && frame % 90 === 0) {
-    particles.push({ x: Math.random() * W, y: -4, vx: 2.5 + Math.random() * 2, vy: 1.5 + Math.random(), life: 30, color: '#f4f4f4' });
+    pushParticle({ x: Math.random() * W, y: -4, vx: 2.5 + Math.random() * 2, vy: 1.5 + Math.random(), life: 30, color: '#f4f4f4' });
   } else if (fx === 'gstar' && frame % 30 === 0) {
-    particles.push({
+    pushParticle({
       x: Math.random() * W, y: -4,
       vx: 2 + Math.random() * 2, vy: 1.2 + Math.random(),
       life: 35, color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
@@ -3420,11 +3521,11 @@ function updateStageFx() {
     const d = 180 + Math.random() * 120;
     const x = W / 2 + Math.cos(a) * d;
     const y = H / 2 + Math.sin(a) * d;
-    particles.push({ x, y, vx: -Math.cos(a) * 2.2, vy: -Math.sin(a) * 2.2, life: 70, color: Math.random() < 0.3 ? '#8b4f8b' : '#566c86' });
+    pushParticle({ x, y, vx: -Math.cos(a) * 2.2, vy: -Math.sin(a) * 2.2, life: 70, color: Math.random() < 0.3 ? '#8b4f8b' : '#566c86' });
   } else if (fx === 'dimension' && frame % 3 === 0) {
     const a = Math.random() * Math.PI * 2;
     const d = 60 + Math.random() * 200;
-    particles.push({
+    pushParticle({
       x: W / 2 + Math.cos(a) * d, y: H / 2 + Math.sin(a) * d,
       vx: Math.cos(a + Math.PI / 2) * 1.8, vy: Math.sin(a + Math.PI / 2) * 1.8,
       life: 40, color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
@@ -4160,19 +4261,19 @@ function drawPShot(f) {
     ctx.fillStyle = PALETTE.R;
     ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
   } else if (f.kind === 'pellet') {
-    ctx.fillStyle = '#ffcd75';
+    ctx.fillStyle = shotColor(f);
     ctx.fillRect(Math.round(f.x) - 2, Math.round(f.y) - 2, 4, 4);
   } else if (f.kind === 'arrow' || f.kind === 'javelin') {
     ctx.save();
     ctx.translate(f.x, f.y);
     ctx.rotate(Math.atan2(f.vy, f.vx));
-    ctx.fillStyle = f.kind === 'javelin' ? '#94b0c2' : '#a77b5b';
+    ctx.fillStyle = f.color || (f.kind === 'javelin' ? '#94b0c2' : '#a77b5b');
     ctx.fillRect(-8, -1, 12, 2);
     ctx.fillStyle = '#f4f4f4';
     ctx.fillRect(4, -2, 5, 4);
     ctx.restore();
   } else if (f.kind === 'bullet') {
-    ctx.fillStyle = '#f4f4f4';
+    ctx.fillStyle = shotColor(f);
     ctx.fillRect(Math.round(f.x) - 2, Math.round(f.y) - 1, 4, 3);
   } else if (f.kind === 'cannonball') {
     ctx.fillStyle = '#333c57';
@@ -4187,14 +4288,14 @@ function drawPShot(f) {
     ctx.rotate(Math.atan2(f.vy, f.vx));
     ctx.fillStyle = 'rgba(115, 239, 247, 0.4)';
     ctx.fillRect(-10, -3, 20, 6);
-    ctx.fillStyle = '#73eff7';
+    ctx.fillStyle = f.color || '#73eff7';
     ctx.fillRect(-9, -1, 18, 3);
     ctx.restore();
   } else if (f.kind === 'boomerang') {
     ctx.save();
     ctx.translate(f.x, f.y);
     ctx.rotate(f.rot);
-    ctx.fillStyle = '#ffcd75';
+    ctx.fillStyle = shotColor(f);
     ctx.fillRect(-7, -2, 12, 4);
     ctx.fillRect(1, -10, 4, 12);
     ctx.restore();
@@ -4226,7 +4327,7 @@ function drawPShot(f) {
     ctx.beginPath();
     ctx.arc(f.x, f.y, 9, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#ff77a8';
+    ctx.fillStyle = f.color || '#ff77a8';
     ctx.beginPath();
     ctx.arc(f.x, f.y, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -4511,7 +4612,7 @@ function render() {
     drawSprite(form.sprite, player.x, player.y, 2, playerRemap());
     // 上位フォームはキラキラのオーラをまとう
     if (formIdx >= 4 && frame % 4 === 0) {
-      particles.push({
+      pushParticle({
         x: player.x + Math.random() * PLAYER_SIZE,
         y: player.y + PLAYER_SIZE,
         vx: (Math.random() - 0.5) * 0.4,
@@ -4709,7 +4810,7 @@ function renderTitle() {
 
   // ただよう光の粒
   if (gframe % 6 === 0) {
-    particles.push({
+    pushParticle({
       x: Math.random() * W, y: H + 4,
       vx: (Math.random() - 0.5) * 0.3, vy: -0.4 - Math.random() * 0.5,
       life: 90, color: Math.random() < 0.5 ? '#73eff7' : '#ff77a8',
