@@ -199,6 +199,50 @@ const SPRITES = {
     '.GGGG......GGGG.',
     '.gggg......gggg.',
   ],
+  // ダークバット: 夜の魔コウモリ（はばたき2コマ・すばやくジグザグ）
+  darkbat: [ // つばさを ひろげた コマ
+    '............',
+    'KK........KK',
+    'KKK......KKK',
+    'KKKK....KKKK',
+    '.KKKKKKKKKK.',
+    '.KRKKKKKKRK.',
+    '.KKKKKKKKKK.',
+    '..KKKKKKKK..',
+    '...KK..KK...',
+    '............',
+    '............',
+    '............',
+  ],
+  darkbat2: [ // つばさを おろした コマ
+    '............',
+    '............',
+    '..KKKKKKKK..',
+    '.KKKKKKKKKK.',
+    '.KRKKKKKKRK.',
+    '.KKKKKKKKKK.',
+    'KKKK....KKKK',
+    'KKK......KKK',
+    'KK........KK',
+    '...KK..KK...',
+    '............',
+    '............',
+  ],
+  // ポイズンスライム: どくのねばねばスライム（たおすと2ひきに分裂）
+  poisonslime: [
+    '............',
+    '...GGGGGG...',
+    '..GGGGGGGG..',
+    '.GGGGGGGGGG.',
+    '.GWKGGGGWKG.',
+    '.GGGGGGGGGG.',
+    'GGGGGGGGGGGG',
+    'GGPGGGGGGPGG',
+    'GGGGGGGGGGGG',
+    '.GGGGGGGGGG.',
+    '..GggGGggG..',
+    '...gg..gg...',
+  ],
   heart: [
     '.MM.MM.',
     'MMMMMMM',
@@ -1181,61 +1225,61 @@ function currentStage() {
 // serifu: 出現時のセリフ（ドラクエ風ウィンドウに表示）
 const BOSS_TYPES = [
   { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi',    aura: '#38b764', pattern: 'aim',    shot: 'snake',
-    gimmicks: [],                    melee: ['tail'], mods: { wave: true },
+    gimmicks: [],                    melee: ['tail'], mods: { wave: true }, rageRemap: { G: '#b13e53', g: '#5d1520' },
     serifu: 'シャアアア…！ わがねぐらに よくきたな…' },
   { name: 'ティラノサウルス', origin: 'きょうりゅうのおう', sprite: 'trex', aura: '#38b764', pattern: 'aim',   shot: 'fang',
-    gimmicks: ['rage'],              melee: ['punch', 'stomp'], hpMul: 1.05, ballColors: ['#f4f4f4', '#38b764', '#f4f4f4'],
+    gimmicks: ['rage'],              melee: ['punch', 'stomp'], hpMul: 1.05, ballColors: ['#f4f4f4', '#38b764', '#f4f4f4'], rageRemap: { G: '#b13e53', g: '#5d1520' },
     serifu: 'ガアアアオオオオオッ！！' },
   { name: 'ヒュドラ',       origin: 'ギリシャしんわ', sprite: 'orochi',    aura: '#8b4f8b', pattern: 'wide',   shot: 'snake',
-    gimmicks: ['split'],             melee: ['tail'], mods: { wave: true }, remap: { G: '#8b4f8b', g: '#5d275d', R: '#ffcd75' }, ballColors: ['#38b764', '#8b4f8b', '#38b764'],
+    gimmicks: ['split'],             melee: ['tail'], mods: { wave: true }, remap: { G: '#8b4f8b', g: '#5d275d', R: '#ffcd75' }, ballColors: ['#38b764', '#8b4f8b', '#38b764'], rageRemap: { G: '#b13e53', g: '#5d1520', R: '#ffcd75' },
     serifu: 'くびは いくらでも はえてくるぞ…' },
   { name: 'グリフォン',     origin: 'でんせつのまじゅう', sprite: 'griffin', aura: '#f4f4f4', pattern: 'rain', shot: 'wind',
-    gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, summonHearts: true, ballColors: ['#73eff7', '#f4f4f4', '#73eff7'],
+    gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, summonHearts: true, ballColors: ['#73eff7', '#f4f4f4', '#73eff7'], rageRemap: { W: '#b13e53', T: '#5d1520' },
     serifu: 'あらしの そらは わたしのものだ！' },
   { name: 'クラーケン',     origin: 'うみのまもの',   sprite: 'kraken',    aura: '#8b4f8b', pattern: 'wide',   shot: 'ball',
-    gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true }, ballColors: ['#5d275d', '#8b4f8b', '#1a1c2c'],
+    gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true }, ballColors: ['#5d275d', '#8b4f8b', '#1a1c2c'], rageRemap: { P: '#b13e53', p: '#5d1520' },
     serifu: 'うみのそこへ ひきずりこんでやろう…' },
   { name: 'ギガンテス',     origin: 'ひとつめのきょじんぞく', sprite: 'gigantes', aura: '#a77b5b', pattern: 'aim', shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.1, mods: { bounce: true }, ballColors: ['#566c86', '#94b0c2', '#566c86'],
+    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.1, mods: { bounce: true }, ballColors: ['#566c86', '#94b0c2', '#566c86'], rageRemap: { T: '#b13e53', g: '#5d1520' },
     serifu: 'グオオオ！ てつのこんぼうで ぶちくだく！！' },
   { name: 'アヌビス',       origin: 'エジプトしんわ', sprite: 'anubis',    aura: '#ffcd75', pattern: 'aim',    shot: 'light',
-    gimmicks: ['shield'],            melee: ['stomp'], mods: { dart: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'],
+    gimmicks: ['shield'],            melee: ['stomp'], mods: { dart: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53', K: '#5d1520' },
     serifu: 'さばきの ときが きた…' },
   { name: 'スフィンクス',   origin: 'エジプトしんわ', sprite: 'sphinx',    aura: '#ffcd75', pattern: 'wall',   shot: 'light',
-    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.1, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'],
+    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.1, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53' },
     serifu: 'わたしの かべを こえられるかな？' },
   { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',     aura: '#ef7d57', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage'],              melee: ['punch'], hpMul: 1.15,
+    gimmicks: ['rage'],              melee: ['punch'], hpMul: 1.15, rageRemap: { K: '#5d1520', P: '#b13e53' },
     serifu: 'めいかいへ ようこそ…' },
   { name: 'スルト',         origin: 'ほくおうしんわ', sprite: 'surtr',     aura: '#ef7d57', pattern: 'mix',    shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.25, mods: { bounce: true },
+    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.25, mods: { bounce: true }, rageRemap: { K: '#5d1520' },
     serifu: 'すべてを もやしつくす！！' },
   { name: 'ユミル',         origin: 'ほくおうしんわ', sprite: 'ymir',      aura: '#73eff7', pattern: 'ring',   shot: 'ice',
-    gimmicks: ['shield'],            melee: ['stomp'], hpMul: 1.15, mods: { burst: true }, ballColors: ['#73eff7', '#f4f4f4', '#41a6f6'],
+    gimmicks: ['shield'],            melee: ['stomp'], hpMul: 1.15, mods: { burst: true }, ballColors: ['#73eff7', '#f4f4f4', '#41a6f6'], rageRemap: { C: '#b13e53', D: '#5d1520' },
     serifu: 'こおりつけえええええ！' },
   { name: 'フェンリル',     origin: 'ほくおうしんわ', sprite: 'fenrir',    aura: '#94b0c2', pattern: 'aim',    shot: 'fang',
-    gimmicks: ['speed'],             melee: ['punch', 'dive'], hpMul: 1.1, mods: { dart: true }, ballColors: ['#f4f4f4', '#94b0c2', '#f4f4f4'],
+    gimmicks: ['speed'],             melee: ['punch', 'dive'], hpMul: 1.1, mods: { dart: true }, ballColors: ['#f4f4f4', '#94b0c2', '#f4f4f4'], rageRemap: { S: '#b13e53' },
     serifu: 'ガルルル…はやさで かてるかな？' },
   { name: 'メガロドン',     origin: 'しんかいのおうじゃ', sprite: 'megalodon', aura: '#41a6f6', pattern: 'wide', shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'tail'], hpMul: 1.2, mods: { bounce: true }, ballColors: ['#41a6f6', '#f4f4f4', '#41a6f6'],
+    gimmicks: ['rage'],              melee: ['stomp', 'tail'], hpMul: 1.2, mods: { bounce: true }, ballColors: ['#41a6f6', '#f4f4f4', '#41a6f6'], rageRemap: { S: '#b13e53' },
     serifu: 'しんかいの あぎとから にげられまい！' },
   { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',      aura: '#8b4f8b', pattern: 'mix',    shot: 'sword',
-    gimmicks: ['summon', 'speed', 'teleport'], melee: ['punch', 'dive'], hpMul: 1.15, ballColors: ['#94b0c2', '#f4f4f4', '#94b0c2'],
+    gimmicks: ['summon', 'speed', 'teleport'], melee: ['punch', 'dive'], hpMul: 1.15, ballColors: ['#94b0c2', '#f4f4f4', '#94b0c2'], rageRemap: { G: '#b13e53', p: '#5d1520' },
     serifu: 'フフフ…どれが ほんものかな？' },
   { name: 'エンマだいおう', origin: 'にほんしんわ',   sprite: 'enma',      aura: '#b13e53', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.3,
+    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.3, rageRemap: { N: '#5d1520' },
     serifu: 'おまえの つみを かぞえよ！' },
   { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',      aura: '#ffcd75', pattern: 'cross',  shot: 'bolt',
-    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'],
+    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { S: '#b13e53', b: '#5d1520' },
     serifu: 'てんばつを くらうがいい！' },
   { name: 'アマテラス',     origin: 'にほんしんわ',   sprite: 'amaterasu', aura: '#ffcd75', pattern: 'ring',   shot: 'light',
-    gimmicks: ['weakpoint'],         melee: ['stomp'], hpMul: 1.2, mods: { burst: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ef7d57'],
+    gimmicks: ['weakpoint'],         melee: ['stomp'], hpMul: 1.2, mods: { burst: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ef7d57'], rageRemap: { K: '#5d1520', W: '#b13e53' },
     serifu: 'ひかりのまえに ひれふしなさい' },
   { name: 'ベヒーモス',     origin: 'じゃりゅうのそっきん', sprite: 'behemoth', aura: '#8b4f8b', pattern: 'mix', shot: 'ball',
-    gimmicks: ['speed', 'rage'],     melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'],
+    gimmicks: ['speed', 'rage'],     melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
     serifu: 'ジギムントさまのもとへは いかせん！' },
   { name: 'デスサイザー',   origin: 'じゃりゅうのそっきん', sprite: 'reaper', aura: '#8b4f8b', pattern: 'spiral', shot: 'scythe',
-    gimmicks: ['teleport', 'summon'], melee: ['tail', 'stomp'], hpMul: 1.65, mods: { dart: true }, ballColors: ['#94b0c2', '#73eff7', '#94b0c2'],
+    gimmicks: ['teleport', 'summon'], melee: ['tail', 'stomp'], hpMul: 1.65, mods: { dart: true }, ballColors: ['#94b0c2', '#73eff7', '#94b0c2'], rageRemap: { N: '#5d1520', S: '#b13e53' },
     serifu: 'ここから さきは しのせかい…' },
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
     gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
@@ -1691,6 +1735,7 @@ let gframe = 0;
 // 配列はタイトル画面の時点でも参照されるため、必ず初期化しておく
 let player;
 let enemies = [], particles = [], pshots = [], fireballs = [], items = [], popups = [], bolts = [];
+let pendingEnemies = []; // 分裂で生まれた雑魚は次フレームに合流（同フレームの多重ヒットを防ぐ）
 let shockwaves = []; // 広がる衝撃波リング（近接攻撃・巨大弾の演出用）
 let slashes = [];    // 白い斬撃エフェクト（ヒットの気持ちよさ用）
 let hitstopT = 0;    // ヒットストップ: 当たった瞬間、世界が数フレーム止まる（イース風の手ごたえ）
@@ -1716,6 +1761,7 @@ function maxLives() { return 8 + (gear.helm ? 1 : 0); }
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
   enemies = [];
+  pendingEnemies = [];
   particles = [];
   pshots = [];
   fireballs = [];
@@ -1780,6 +1826,66 @@ function nearestEnemyTo(x, y) {
   return best;
 }
 
+// ---------- 雑魚敵ずかん（出現条件を満たすものから重みつき抽選） ----------
+// ai: chase=まっすぐ追う / zigzag=左右にゆれて追う / wisp=ふわふわ蛇行 /
+//     shooter=120pxで止まって射撃 / bomber=近づいて自爆 / dasher=タメて直進突進
+const ZAKO_TYPES = [
+  { name: 'ゴースト', sprite: 'enemy', size: ENEMY_SIZE, points: 100, ai: 'chase',
+    minStage: 1, minScore: 0, weight: 10, fxColor: PALETTE.P,
+    hp: () => 1, speed: (st, sc, m) => Math.min(0.55 + sc / 15000, 1.3) * m },
+  { name: 'ヘルハウンド', sprite: 'enemyFast', size: ENEMY_SIZE, points: 150, ai: 'chase',
+    minStage: 1, minScore: 800, weight: 7, fxColor: PALETTE.R,
+    hp: () => 1, speed: (st, sc, m) => Math.min(1.0 + sc / 12000, 1.8) * m },
+  { name: 'ストーンゴーレム', sprite: 'enemyTank', size: TANK_SIZE, points: 300, ai: 'chase',
+    minStage: 1, minScore: 1500, weight: 3, fxColor: PALETTE.G,
+    hp: (st) => 3 + Math.floor(st / 5), speed: (st, sc, m) => 0.35 * m },
+  { name: 'ダークバット', sprite: 'darkbat', size: 18, points: 120, ai: 'zigzag',
+    minStage: 2, minScore: 0, weight: 6, fxColor: PALETTE.N,
+    hp: () => 1, speed: (st, sc, m) => 1.1 * m },
+  { name: 'ポイズンスライム', sprite: 'poisonslime', size: ENEMY_SIZE, points: 140, ai: 'chase',
+    minStage: 3, minScore: 0, weight: 5, fxColor: PALETTE.G, zakoSplit: true,
+    hp: () => 2, speed: (st, sc, m) => 0.6 * m },
+  { name: 'スケルトンアーチャー', sprite: 'enemy', remap: { P: '#e8e8d8', M: '#b13e53' },
+    size: ENEMY_SIZE, points: 200, ai: 'shooter',
+    minStage: 5, minScore: 0, weight: 4, fxColor: '#e8e8d8',
+    hp: () => 1, speed: (st, sc, m) => 0.5 * m },
+  { name: 'ブレイズインプ', sprite: 'enemy', remap: { P: '#ef7d57', M: '#ffcd75' },
+    size: 18, points: 160, ai: 'chase',
+    minStage: 7, minScore: 0, weight: 4, fxColor: PALETTE.O, blaze: true,
+    hp: () => 1, speed: (st, sc, m) => Math.min(0.55 + sc / 15000, 1.3) * m * 1.4 },
+  { name: 'ボマー', sprite: 'enemyFast', remap: { R: '#1a1c2c', O: '#566c86', Y: '#b13e53', W: '#f4f4f4' },
+    size: ENEMY_SIZE, points: 180, ai: 'bomber',
+    minStage: 9, minScore: 0, weight: 3, fxColor: PALETTE.K,
+    hp: () => 1, speed: (st, sc, m) => 0.9 * m },
+  { name: 'アイスウィスプ', sprite: 'enemyFast', remap: { R: '#41a6f6', O: '#73eff7', Y: '#f4f4f4', W: '#f4f4f4' },
+    size: 20, points: 170, ai: 'wisp',
+    minStage: 11, minScore: 0, weight: 3, fxColor: PALETTE.C, iceTouch: true,
+    hp: () => 1, speed: (st, sc, m) => 1.0 * m },
+  { name: 'ダークナイト', sprite: 'enemyTank', remap: { G: '#5d275d', g: '#3a1a3a', Y: '#ffcd75', D: '#b13e53' },
+    size: 48, points: 350, ai: 'dasher',
+    minStage: 14, minScore: 0, weight: 2, fxColor: PALETTE.P,
+    hp: () => 5, speed: (st, sc, m) => 0.5 * m },
+];
+
+// 1体を実際にenemiesへ生成（opts で分裂の子などの上書きが可能）
+function spawnZako(t, x, y, spdMul, opts = {}) {
+  const hp = opts.hp != null ? opts.hp : t.hp(stage);
+  const size = opts.size != null ? opts.size : t.size;
+  const speed = opts.speed != null ? opts.speed : t.speed(stage, score, spdMul);
+  const dest = opts.pending ? pendingEnemies : enemies;
+  dest.push({
+    x, y, speed, sprite: t.sprite, remap: t.remap || null, size,
+    hp, maxHp: hp, points: opts.points != null ? opts.points : t.points,
+    hitTimer: 0, slowTimer: 0,
+    ai: t.ai, fxColor: t.fxColor, zakoType: t,
+    zakoSplit: !!t.zakoSplit && !opts.noSplit,
+    blaze: !!t.blaze, iceTouch: !!t.iceTouch,
+    shootTimer: t.ai === 'shooter' ? 60 + Math.floor(Math.random() * 40) : 0,
+    bombT: 0, dashT: 0, dashCool: 0, dashAng: 0,
+    zigPhase: Math.random() * Math.PI * 2,
+  });
+}
+
 // ---------- 敵の出現 ----------
 function spawnEnemy() {
   const side = Math.floor(Math.random() * 4);
@@ -1791,15 +1897,14 @@ function spawnEnemy() {
 
   // 敵の速さには上限を設ける（プレイヤーの移動速度2.3を超えて理不尽にならないように）
   const spdMul = Math.min(1 + (stage - 1) * 0.03, 1.45);
-  const roll = Math.random();
-  if (score >= 1500 && roll < 0.12) {
-    const hp = 3 + Math.floor(stage / 5);
-    enemies.push({ x, y, speed: 0.35 * spdMul, sprite: 'enemyTank', size: TANK_SIZE, hp, maxHp: hp, points: 300, hitTimer: 0, slowTimer: 0 });
-  } else if (score >= 800 && roll < 0.35) {
-    enemies.push({ x, y, speed: Math.min(1.0 + score / 12000, 1.8) * spdMul, sprite: 'enemyFast', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 150, hitTimer: 0, slowTimer: 0 });
-  } else {
-    enemies.push({ x, y, speed: Math.min(0.55 + score / 15000, 1.3) * spdMul, sprite: 'enemy', size: ENEMY_SIZE, hp: 1, maxHp: 1, points: 100, hitTimer: 0, slowTimer: 0 });
-  }
+  // 出現条件（ステージ・スコア）を満たすタイプだけを候補にして重みつき抽選
+  const cands = ZAKO_TYPES.filter((t) => stage >= t.minStage && score >= t.minScore);
+  let total = 0;
+  for (const t of cands) total += t.weight;
+  let r = Math.random() * total;
+  let pick = cands[cands.length - 1];
+  for (const t of cands) { r -= t.weight; if (r < 0) { pick = t; break; } }
+  spawnZako(pick, x, y, spdMul);
 }
 
 // ボスの仲間よび（summonギミック用）
@@ -1841,6 +1946,7 @@ function makeBoss(type, x, y, size, hp, opts = {}) {
     // ギミック用
     splitsLeft: opts.splitsLeft || 0,
     raged: false,
+    rageBurstT: 0,
     shieldT: 0,
     coreAngle: Math.random() * Math.PI * 2,
     summonT: 360,
@@ -2029,6 +2135,7 @@ function splitBoss(e) {
       speedMul: 1.8,
     });
     child.fireTimer = 120 + i * 40;
+    child.isChild = true;   // 分裂した子ボスは激怒時に速度アップのみ（レイジバースト咆哮はしない）
     enemies.push(child);
   }
   rainbowBurst(e.x + e.size / 2, e.y + e.size / 2, 40, 3.5);
@@ -2094,6 +2201,7 @@ function sigmundInterrupt(e) {
   e.act = null;
   e.giantCharge = 0;
   e.airborne = false;
+  e.rageBurstT = 0;   // レイジバースト咆哮中でも即座に中断し、透明・画面外再生を防ぐ
   e.x = Math.max(-e.size * 0.1, Math.min(W - e.size * 0.9, e.x));
   e.y = Math.max(-e.size * 0.15, Math.min(H - e.size * 0.85, e.y));
   fireballs = [];  // 弾は全部消える
@@ -2171,7 +2279,7 @@ function killEnemy(e, lightningDepth = 2) {
     // 破片がプレイヤーと反対方向へ勢いよく吹き飛ぶ＋大きな斬線＋ポップリング
     const ecx = e.x + e.size / 2;
     const ecy = e.y + e.size / 2;
-    const bodyColor = e.sprite === 'enemyFast' ? PALETTE.R : e.sprite === 'enemyTank' ? PALETTE.G : PALETTE.P;
+    const bodyColor = e.fxColor || (e.sprite === 'enemyFast' ? PALETTE.R : e.sprite === 'enemyTank' ? PALETTE.G : PALETTE.P);
     const pcz = playerCenter();
     const away = Math.atan2(ecy - pcz.y, ecx - pcz.x);
     for (let i = 0; i < 12; i++) {
@@ -2188,6 +2296,19 @@ function killEnemy(e, lightningDepth = 2) {
       addSlash(ecx, ecy, away + Math.PI / 2 + (Math.random() - 0.5) * 0.4, 1.7); // トドメの大斬線
       addShockwave(ecx, ecy, '#f4f4f4', 5, 4, 9, 2);                             // 小さなポップリング
       hitstopT = Math.min(6, hitstopT + 1);                                       // トドメの一瞬のタメ
+    }
+
+    // ポイズンスライム: 倒すと小型スライム2体に分裂（無限連鎖はnoSplitで防止）
+    if (e.zakoSplit && e.zakoType) {
+      const t = e.zakoType;
+      const spdMul = Math.min(1 + (stage - 1) * 0.03, 1.45);
+      const childSize = t.size * 0.65;
+      for (let i = 0; i < 2; i++) {
+        const a = Math.PI * i + Math.random() * 0.6;
+        spawnZako(t, ecx + Math.cos(a) * 8 - childSize / 2, ecy + Math.sin(a) * 8 - childSize / 2, spdMul, {
+          pending: true, noSplit: true, hp: 1, size: childSize, points: Math.floor(t.points * 0.4),
+        });
+      }
     }
   }
 
@@ -2636,6 +2757,10 @@ function update() {
 
 // ---------- 敵・ボスの行動 ----------
 function updateEnemies(pc) {
+  if (pendingEnemies.length) {
+    enemies.push(...pendingEnemies);
+    pendingEnemies = [];
+  }
   const bossRef = enemies.find((en) => en.boss);
   for (const e of enemies) {
     if (e.slowTimer > 0) e.slowTimer--;
@@ -2664,8 +2789,70 @@ function updateEnemies(pc) {
 
     const angle = Math.atan2(pc.y - ecy, pc.x - ecx);
     const spd = e.speed * (e.slowTimer > 0 ? 0.45 : 1);
-    e.x += Math.cos(angle) * spd;
-    e.y += Math.sin(angle) * spd;
+    const dist = Math.hypot(pc.x - ecx, pc.y - ecy);
+
+    if (e.ai === 'zigzag') {
+      e.zigPhase += 0.14;
+      const a = angle + Math.sin(e.zigPhase) * 0.9;
+      e.x += Math.cos(a) * spd;
+      e.y += Math.sin(a) * spd;
+    } else if (e.ai === 'wisp') {
+      e.zigPhase += 0.06;
+      const a = angle + Math.sin(e.zigPhase) * 1.6;
+      e.x += Math.cos(a) * spd * 0.8;
+      e.y += Math.sin(a) * spd * 0.8;
+    } else if (e.ai === 'shooter') {
+      if (dist > 130) {
+        e.x += Math.cos(angle) * spd;
+        e.y += Math.sin(angle) * spd;
+      }
+      if (e.shootTimer > 0) e.shootTimer--;
+      if (e.shootTimer <= 0 && dist <= 260) {
+        e.shootTimer = 110;
+        SFX.shoot();
+        fireballs.push({
+          x: ecx, y: ecy,
+          vx: Math.cos(angle) * 2.6, vy: Math.sin(angle) * 2.6,
+          life: 120, color: e.fxColor, kind: 'arrow', ang: angle, rot: 0,
+        });
+      }
+    } else if (e.ai === 'bomber') {
+      if (e.bombT > 0) {
+        e.bombT++;
+        if (e.bombT > 40) {
+          if (dist < 40) hurtPlayer();
+          burst(ecx, ecy, PALETTE.K, 14, 3.4);
+          addShockwave(ecx, ecy, PALETTE.O, 10, 6, 14, 3);
+          SFX.boom();
+          e.hp = 0;
+        }
+      } else if (dist < 46) {
+        e.bombT = 1; // 導火線スタート
+      } else {
+        e.x += Math.cos(angle) * spd;
+        e.y += Math.sin(angle) * spd;
+      }
+    } else if (e.ai === 'dasher') {
+      if (e.dashT > 0) {
+        e.x += Math.cos(e.dashAng) * spd * 4.2;
+        e.y += Math.sin(e.dashAng) * spd * 4.2;
+        e.dashT--;
+        if (e.dashT <= 0) e.dashCool = 70;
+      } else if (e.dashCool > 0) {
+        e.dashCool--;
+        e.x += Math.cos(angle) * spd * 0.4;
+        e.y += Math.sin(angle) * spd * 0.4;
+      } else if (dist < 220) {
+        e.dashAng = angle;
+        e.dashT = 16;
+      } else {
+        e.x += Math.cos(angle) * spd;
+        e.y += Math.sin(angle) * spd;
+      }
+    } else {
+      e.x += Math.cos(angle) * spd;
+      e.y += Math.sin(angle) * spd;
+    }
   }
   enemies = enemies.filter((e) => e.hp > 0);
 }
@@ -2740,15 +2927,47 @@ function updateBoss(e, pc, ecx, ecy) {
     });
   }
 
-  // 激怒ギミック: HPが1/4を切ると怒って強くなる！
-  if (gm.includes('rage') && !e.raged && e.hp <= e.maxHp * 0.25) {
+  // 激怒ギミック: HPが1/4を切ると怒って強くなる！（全20ボス共通）
+  if (!e.raged && e.hp <= e.maxHp * 0.25) {
     e.raged = true;
     e.speed *= 1.7;
     flashTimer = 15;
     shakeTimer = 20;
-    bannerText = `${type.name}が げきどした！！`;
-    bannerTimer = 130;
+    if (!e.isChild) {
+      // レイジバースト: 45フレームの咆哮ポーズ（行動停止）→リング弾＋衝撃波。分裂した子ボスは速度アップのみ
+      e.rageBurstT = 45;
+      e.act = null;        // 技・空中の最中でも咆哮ポーズを画面内で見せる（空中トドメバグと同じ配慮）
+      e.airborne = false;
+      e.giantCharge = 0;
+      bannerText = `${type.name}が げきどした！！`;
+      bannerTimer = 130;
+    }
     SFX.rage();
+  }
+
+  // レイジバースト演出中: 行動停止して咆哮 → 0でリング弾(12発)＋衝撃波を放つ（無敵化はしない）
+  if (e.rageBurstT > 0) {
+    e.rageBurstT--;
+    shakeTimer = Math.max(shakeTimer, 3);
+    if (frame % 4 === 0) {
+      const ba = Math.random() * Math.PI * 2;
+      pushParticle({
+        x: ecx + Math.cos(ba) * e.size * 0.4, y: ecy + Math.sin(ba) * e.size * 0.4,
+        vx: -Math.cos(ba) * 3, vy: -Math.sin(ba) * 3, life: 14, color: '#b13e53',
+      });
+    }
+    if (e.rageBurstT <= 0) {
+      addShockwave(ecx, ecy, '#b13e53', 8, 8, 28, 5);
+      addShockwave(ecx, ecy, '#ffcd75', 8, 6, 22, 3);
+      const cols = type.ballColors || ['#b13e53', '#ef7d57', '#ffcd75'];
+      for (let i = 0; i < 12; i++) {
+        const a = (Math.PI * 2 * i) / 12;
+        fireballs.push({ x: ecx, y: ecy, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4, life: 150, colors: cols, kind: 'ball', ang: a, rot: 0 });
+      }
+      flashTimer = Math.max(flashTimer, 12);
+      SFX.roar();
+    }
+    return; // 咆哮中は移動・射撃・近接をしない（ただし無敵ではない＝この間もダメージは通る）
   }
 
   // 盾ギミックのタイマー
@@ -4543,7 +4762,9 @@ function render() {
     const bob = e.boss ? Math.sin(gframe * 0.08) * 3 : 0;
     // ボスのパレット差し替え（第2形態のジギムントは e.remap を持つ）。
     // 変身演出中は旧パレット/新パレットを数フレームごとに切り替えて明滅させる
-    let bossRemap = e.boss ? (e.remap || e.type.remap) : null;
+    let bossRemap = e.boss
+      ? ((e.raged && e.type.rageRemap && !e.form2) ? e.type.rageRemap : (e.remap || e.type.remap))
+      : (e.remap || null);
     if (e.boss && e.transforming > 0) {
       bossRemap = (Math.floor(e.transforming / 6) % 2 === 0) ? SIGMUND_FORM2_REMAP : null;
     }
