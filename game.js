@@ -1043,15 +1043,15 @@ function formForScore(s) {
 const HERO_LV = [
   { score: 1500,  label: 'すばやさ +8%',       color: '#41a6f6', apply: h => h.speedMul *= 1.08 }, // Lv2
   { score: 4000,  label: 'ひっさつゲージ +20%', color: '#ff77a8', apply: h => h.gaugeMul *= 1.20 }, // Lv3
-  { score: 8000,  label: 'むてきじかん +30%',   color: '#ffcd75', apply: h => h.invMul *= 1.30 },   // Lv4
-  { score: 13000, label: 'リーチ +6%',          color: '#38b764', apply: h => h.reachMul *= 1.06 }, // Lv5
+  { score: 8000,  label: 'むてきじかん +15%',   color: '#ffcd75', apply: h => h.invMul *= 1.15 },   // Lv4
+  { score: 13000, label: 'リーチ +4%',          color: '#38b764', apply: h => h.reachMul *= 1.04 }, // Lv5
   { score: 19500, label: 'すばやさ +8%',        color: '#41a6f6', apply: h => h.speedMul *= 1.08 }, // Lv6
-  { score: 27500, label: 'れんしゃ +12%',       color: '#73eff7', apply: h => h.fireMul *= 1.12 },  // Lv7
-  { score: 37000, label: 'ふきとばし +30%',     color: '#ef7d57', apply: h => h.knockMul *= 1.30 }, // Lv8
-  { score: 48000, label: 'かいしんの一撃！',     color: '#ff004d', apply: h => h.critChance = 0.10 }, // Lv9
+  { score: 27500, label: 'れんしゃ +8%',        color: '#73eff7', apply: h => h.fireMul *= 1.08 },  // Lv7
+  { score: 37000, label: 'ふきとばし +20%',     color: '#ef7d57', apply: h => h.knockMul *= 1.20 }, // Lv8
+  { score: 48000, label: 'かいしんの一撃！',     color: '#ff004d', apply: h => h.critChance = 0.08 }, // Lv9
   { score: 60500, label: 'ひっさつゲージ +20%', color: '#ff77a8', apply: h => h.gaugeMul *= 1.20 }, // Lv10
-  { score: 74500, label: 'リーチ +6%',          color: '#38b764', apply: h => h.reachMul *= 1.06 }, // Lv11
-  { score: 90000, label: 'ゆうしゃのオーラ！',   color: '#ffcd75', apply: h => h.auraChance = 0.20 }, // Lv12
+  { score: 74500, label: 'リーチ +4%',          color: '#38b764', apply: h => h.reachMul *= 1.04 }, // Lv11
+  { score: 90000, label: 'ゆうしゃのオーラ！',   color: '#ffcd75', apply: h => h.auraChance = 0.12 }, // Lv12
 ];
 
 function defaultHero() {
@@ -1167,7 +1167,7 @@ const WEAPONS = [
   { name: 'てんくうのつるぎ',     score: 110600, len: 88, width: 10, spin: 0.165, blades: 2, dmg: 7, knock: 20, lightning: true, ice: true, color: '#73eff7', edge: '#ffcd75' },
   { name: 'スーパーノヴァキャノン', score: 116900, len: 44, width: 10, spin: 0.140, blades: 1, dmg: 4, color: '#333c57', edge: '#ffcd75', kind: 'cannon', hybrid: false,
     shoot: { kind: 'cannonball', interval: 42, speed: 3.6, dmg: 5, aoe: 56, aim: true } },
-  { name: 'りゅうじんセーバー',   score: 126500, len: 92, width: 9, spin: 0.190, blades: 4, dmg: 8, saber: true, saberColor: '#f4f4f4', rainbowSaber: true, tesla: true, color: '#f4f4f4', edge: '#f4f4f4' },
+  { name: 'りゅうじんセーバー',   score: 126500, len: 86, width: 9, spin: 0.165, blades: 4, dmg: 7, saber: true, saberColor: '#f4f4f4', rainbowSaber: true, tesla: true, color: '#f4f4f4', edge: '#f4f4f4' },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
@@ -1298,12 +1298,12 @@ function currentBossType() {
 const SHOP_ITEMS = [
   { id: 'heal',     name: 'ライフぜんかいふく',   desc: 'ハートが まんたんに もどる',            price: 200,  repeat: true },
   { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 1500, repeat: true },
-  { id: 'armor',    name: 'てつのよろい',         desc: '20%で こうげきを ガードする',           price: 800 },
+  { id: 'armor',    name: 'てつのよろい',         desc: '12%で こうげきを ガードする',           price: 800 },
   { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが +1 ふえる',            price: 600 },
   { id: 'gauntlet', name: 'ちからのこて',         desc: 'ぶきの かいてんが 15% はやくなる',      price: 500 },
-  { id: 'shield',   name: 'まほうのたて',         desc: 'てきのたまを 30%で はじきかえす',       price: 700 },
+  { id: 'shield',   name: 'まほうのたて',         desc: 'てきのたまを 22%で はじきかえす',       price: 700 },
   { id: 'boots',    name: 'はやてのブーツ',       desc: 'いどうスピードが 20% アップ',           price: 400 },
-  { id: 'cloak',    name: 'かげのマント',         desc: 'やられたあとの むてきじかんが 2ばい',   price: 500 },
+  { id: 'cloak',    name: 'かげのマント',         desc: 'やられたあとの むてきじかんが 1.5ばい', price: 500 },
   { id: 'ring',     name: 'ひっさつのゆびわ',     desc: 'ひっさつゲージが 1.5ばい たまる',       price: 450 },
   { id: 'charm',    name: 'いのちのおまもり',     desc: 'ハートが 2ばい おちやすくなる',         price: 350 },
   { id: 'hagoromo', name: 'てんしのはごろも',     desc: 'やられても コンボが きれない',          price: 600 },
@@ -2376,8 +2376,8 @@ function specialAttack() {
 
 // ---------- プレイヤー被弾の共通処理 ----------
 function hurtPlayer() {
-  // てつのよろい: 20%でガード
-  if (gear.armor && Math.random() < 0.2) {
+  // てつのよろい: 12%でガード
+  if (gear.armor && Math.random() < 0.12) {
     const pc = playerCenter();
     addPopup(pc.x, pc.y - 20, 'ガード！', '#41a6f6', 13);
     invincibleTimer = 30;
@@ -2394,7 +2394,7 @@ function hurtPlayer() {
     return;
   }
   lives--;
-  invincibleTimer = Math.round((gear.cloak ? 180 : 90) * hero.invMul);
+  invincibleTimer = Math.round((gear.cloak ? 135 : 75) * hero.invMul);
   shakeTimer = 10;
   if (!gear.hagoromo) combo = 0;
   const pc = playerCenter();
@@ -3723,7 +3723,7 @@ function updatePlayerHits(pc) {
       if (e.airborne || e.dying) continue; // 空中・崩壊演出中のボスには当たらない
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
-      const hitR = e.boss ? e.size / 2 - 14 : PLAYER_SIZE / 2 + e.size / 2 - 4;
+      const hitR = e.boss ? (PLAYER_SIZE / 2 + e.size / 2 - 10) : (PLAYER_SIZE / 2 + e.size / 2 - 4);
       if ((pc.x - ecx) ** 2 + (pc.y - ecy) ** 2 < hitR ** 2) {
         hurtPlayer();
         break;
@@ -3734,8 +3734,8 @@ function updatePlayerHits(pc) {
     for (const f of fireballs) {
       const r = f.giant ? 42 : 15;
       if ((f.x - pc.x) ** 2 + (f.y - pc.y) ** 2 < r * r) {
-        // まほうのたて: 30%で弾をはじく（巨大な一撃は防げない）
-        if (!f.giant && gear.shield && Math.random() < 0.3) {
+        // まほうのたて: 22%で弾をはじく（巨大な一撃は防げない）
+        if (!f.giant && gear.shield && Math.random() < 0.22) {
           f.life = 0;
           addPopup(pc.x, pc.y - 20, 'はじいた！', '#41a6f6', 12);
           burst(f.x, f.y, PALETTE.C, 8);
