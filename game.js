@@ -1223,7 +1223,7 @@ function currentStage() {
 // ---------- ステージごとのボス（神話の神々20体） ----------
 // pattern: aim=狙い撃ち / wide=広範囲 / ring=全方向 / mix=交互 / spiral=螺旋
 // shot: 投げるものの見た目 / gimmicks: split=分裂 rage=激怒 speed=高速化
-//        summon=仲間よび shield=盾ガード weakpoint=弱点コア
+//        summon=仲間よび shield=盾ガード weakpoint=弱点コア callboss=過去のボスをよびだす
 // melee: punch=突進パンチ tail=しっぽ回転 stomp=ジャンプ踏みつけ dive=急降下体当たり
 // mods: 弾の特殊効果 wave=うねる / dart=止まってから急加速 / bounce=壁で跳ね返る / burst=消えるとき破裂
 // serifu: 出現時のセリフ（ドラクエ風ウィンドウに表示）
@@ -1271,16 +1271,16 @@ const BOSS_TYPES = [
     gimmicks: ['summon', 'speed', 'teleport'], melee: ['punch', 'dive'], hpMul: 1.15, ballColors: ['#94b0c2', '#f4f4f4', '#94b0c2'], rageRemap: { G: '#b13e53', p: '#5d1520' },
     serifu: 'フフフ…どれが ほんものかな？' },
   { name: 'エンマだいおう', origin: 'にほんしんわ',   sprite: 'enma',      aura: '#b13e53', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.3, rageRemap: { N: '#5d1520' },
+    gimmicks: ['rage', 'callboss'],  melee: ['stomp', 'punch'], hpMul: 1.3, rageRemap: { N: '#5d1520' },
     serifu: 'おまえの つみを かぞえよ！' },
   { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',      aura: '#ffcd75', pattern: 'cross',  shot: 'bolt',
-    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { S: '#b13e53', b: '#5d1520' },
+    gimmicks: ['shield', 'callboss'], melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { S: '#b13e53', b: '#5d1520' },
     serifu: 'てんばつを くらうがいい！' },
   { name: 'アマテラス',     origin: 'にほんしんわ',   sprite: 'amaterasu', aura: '#ffcd75', pattern: 'ring',   shot: 'light',
     gimmicks: ['weakpoint'],         melee: ['stomp'], hpMul: 1.2, mods: { burst: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ef7d57'], rageRemap: { K: '#5d1520', W: '#b13e53' },
     serifu: 'ひかりのまえに ひれふしなさい' },
   { name: 'ベヒーモス',     origin: 'じゃりゅうのそっきん', sprite: 'behemoth', aura: '#8b4f8b', pattern: 'mix', shot: 'ball',
-    gimmicks: ['speed', 'rage'],     melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
+    gimmicks: ['speed', 'rage', 'callboss'], melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
     serifu: 'ジギムントさまのもとへは いかせん！' },
   { name: 'デスサイザー',   origin: 'じゃりゅうのそっきん', sprite: 'reaper', aura: '#8b4f8b', pattern: 'spiral', shot: 'scythe',
     gimmicks: ['teleport', 'summon'], melee: ['tail', 'stomp'], hpMul: 1.65, mods: { dart: true }, ballColors: ['#94b0c2', '#73eff7', '#94b0c2'], rageRemap: { N: '#5d1520', S: '#b13e53' },
@@ -1938,6 +1938,34 @@ function summonMinions(boss) {
   SFX.summon();
 }
 
+// 過去のボスを1体よびだすギミック（callboss用・summonMinionsとは別物）。
+// 召喚体は boss:true のまま summoned:true を持ち、進行判定からは除外される小型ボス。
+function callBoss(boss) {
+  const idx = BOSS_TYPES.indexOf(boss.type);
+  // 自分より前に登場したボス（index が小さい方）からランダムに1体えらぶ
+  const pool = BOSS_TYPES.slice(0, Math.max(1, idx));
+  const src = pool[Math.floor(Math.random() * pool.length)];
+  // 召喚体は再帰召喚（callboss/summon/split）も近接攻撃もしない安全なコピー型を使う
+  const childType = { ...src, gimmicks: [], melee: [] };
+  const size = 96; // 通常ボスの約0.6倍の小型サイズ
+  const hp = Math.max(6, Math.round((26 + stage * 16) * 0.3)); // 通常ボスの約3割（15秒程度で倒せる規模）
+  const cx = Math.max(0, Math.min(W - size,
+    boss.x + boss.size / 2 - size / 2 + (Math.random() < 0.5 ? -1 : 1) * (boss.size / 2 + 40)));
+  const cy = Math.max(10, Math.min(H * 0.5, boss.y + boss.size / 2 - size / 2));
+  const child = makeBoss(childType, cx, cy, size, hp, { points: 1200, speedMul: 1.2 });
+  child.summoned = true; // 進行判定・大HPバーから除外する目印
+  child.isChild = true;  // 激怒しても速度アップのみ（レイジバースト咆哮はしない）
+  // 同フレームの多重ヒットを防ぐため直接 enemies.push せず pendingEnemies に積む
+  pendingEnemies.push(child);
+  burst(child.x + size / 2, child.y + size / 2, childType.aura || PALETTE.p, 24, 3);
+  rainbowBurst(boss.x + boss.size / 2, boss.y + boss.size / 2, 30, 3);
+  bannerText = `${boss.type.name}が ${src.name}を よびだした！！`;
+  bannerTimer = 140;
+  shakeTimer = 18;
+  addPopup(boss.x + boss.size / 2, boss.y - 10, 'かこのボスを よびだした！', '#ffcd75', 12);
+  SFX.summon();
+}
+
 function makeBoss(type, x, y, size, hp, opts = {}) {
   return {
     x, y, size,
@@ -2229,7 +2257,7 @@ function killEnemy(e, lightningDepth = 2) {
       sigmundInterrupt(e);
       // 取り巻きは静かに消滅
       for (const m of enemies) {
-        if (!m.boss && m.hp > 0) {
+        if ((!m.boss || m.summoned) && m.hp > 0) {
           m.hp = 0;
           burst(m.x + m.size / 2, m.y + m.size / 2, PALETTE.p, 6);
         }
@@ -2248,7 +2276,7 @@ function killEnemy(e, lightningDepth = 2) {
   addPopup(e.x + e.size / 2, e.y, `+${gained}`, e.boss ? '#ffcd75' : '#f4f4f4', e.boss ? 16 : 11);
 
   // 必殺技ゲージが溜まる
-  const gaugeGain = (e.boss ? 30 : 4) * (gear.ring ? 1.5 : 1) * hero.gaugeMul;
+  const gaugeGain = (e.summoned ? 12 : e.boss ? 30 : 4) * (gear.ring ? 1.5 : 1) * hero.gaugeMul;
   specialGauge = Math.min(100, specialGauge + gaugeGain);
 
   if (e.boss) {
@@ -2264,7 +2292,7 @@ function killEnemy(e, lightningDepth = 2) {
       items.push({ x: e.x + e.size / 3, y: e.y + e.size / 2, life: 600 });
       items.push({ x: e.x + (e.size * 2) / 3, y: e.y + e.size / 2, life: 600 });
       // 分裂した仲間がまだ残っていればステージは続く
-      const remaining = enemies.filter((b) => b.boss && b !== e && b.hp > 0);
+      const remaining = enemies.filter((b) => b.boss && !b.summoned && b !== e && b.hp > 0);
       if (remaining.length === 0) {
         bossActive = false;
         nextBossScore = Math.max(nextBossScore + 4000 + stage * 200, score + 3000);
@@ -3004,6 +3032,11 @@ function updateBoss(e, pc, ecx, ecy) {
       summonMinions(e);
       e.summonT = e.raged ? 260 : 400;
     }
+  }
+  // 過去ボス召喚ギミック: HPが60%以下になったら1回だけ発動（多重発動は calledBoss で防止）
+  if (gm.includes('callboss') && !e.calledBoss && e.hp <= e.maxHp * 0.6) {
+    e.calledBoss = true;
+    callBoss(e);
   }
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
@@ -5066,6 +5099,19 @@ function render() {
         ctx.arc(core.x, core.y, pulse * 0.4, 0, Math.PI * 2);
         ctx.fill();
       }
+      // 召喚された過去ボスは大バーに出さないので、頭上に小さなHPバーを描く
+      if (e.summoned && e.hp > 0) {
+        const bw = e.size * 0.7;
+        const bx = ecx - bw / 2;
+        const by = e.y + bob - 8;
+        const r = Math.max(0, Math.min(1, e.hp / e.maxHp));
+        ctx.fillStyle = '#1a1c2c';
+        ctx.fillRect(bx - 1, by - 1, bw + 2, 5);
+        ctx.fillStyle = '#5d275d';
+        ctx.fillRect(bx, by, bw, 3);
+        ctx.fillStyle = r > 0.4 ? '#b13e53' : '#ef7d57';
+        ctx.fillRect(bx, by, bw * r, 3);
+      }
     }
   }
 
@@ -5175,8 +5221,8 @@ function renderHUD() {
     drawCenteredText(`${combo} コンボ！`, 30, RAINBOW[combo % RAINBOW.length], pulse);
   }
 
-  // ボスHPバー（分裂中は合計HP）
-  const bosses = enemies.filter((e) => e.boss);
+  // ボスHPバー（分裂中は合計HP）。召喚された過去ボスは大バーに含めず頭上に小バーを描く
+  const bosses = enemies.filter((e) => e.boss && !e.summoned);
   if (bosses.length > 0) {
     const b0 = bosses[0];
     const hpSum = bosses.reduce((s, b) => s + Math.max(0, b.hp), 0);
