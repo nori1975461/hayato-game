@@ -3,7 +3,7 @@
 // 操作: 矢印キー（またはWASD）= 移動 / スペース = 必殺技（ゲージ満タン時）
 //       Mキー = おんがくON/OFF / タイトルで C = いろかえ, N = なまえ
 // 武器はスコアで30段階進化（ナイフ→…→ライトセーバー）
-// ステージは全20種、ボスは神話の神々20体
+// ステージは全27種、ボスは神話・伝説の魔物たち27体
 // 5ステージごとに「けっさん」→ ゴールドで おみせ（防具10種）
 // ============================================================
 
@@ -1190,31 +1190,39 @@ function weaponForScore(s) {
   return idx;
 }
 
-// ---------- ステージ（全20。ボスを倒すと進む） ----------
+// ---------- ステージ（全27。ボスを倒すと進む） ----------
 // deco: 地面のかざり / fx: 天気・環境エフェクト
+// mega: 画面中央の巨大ランドマーク演出（drawMegaDecoが type ごとに描き分ける）
 const STAGES = [
-  { name: 'だいそうげん',     bg: '#2b5a30', dot: '#4a8f52', deco: 'grass',   fx: 'petal' },
-  { name: 'ジャングル',       bg: '#1c421f', dot: '#357a3c', deco: 'jungle',  fx: 'leaf' },
-  { name: 'しっちたい',       bg: '#3c4526', dot: '#5f6b35', deco: 'swamp',   fx: 'bubble' },
-  { name: 'あらしのへいげん', bg: '#2e3d4d', dot: '#46586b', deco: 'storm',   fx: 'rain' },
-  { name: 'みずうみ',         bg: '#1d4e6b', dot: '#2f7ba3', deco: 'lake',    fx: 'ripple' },
-  { name: 'ちていこ',         bg: '#132f3a', dot: '#215a66', deco: 'cave',    fx: 'drip' },
-  { name: 'さばく',           bg: '#6b562c', dot: '#8f7a45', deco: 'desert',  fx: 'sand' },
-  { name: 'こだいいせき',     bg: '#474156', dot: '#6b6480', deco: 'ruins',   fx: 'dust' },
-  { name: 'かざん',           bg: '#46201a', dot: '#7a3a2a', deco: 'volcano', fx: 'ember' },
-  { name: 'ようがんのうみ',   bg: '#571c0e', dot: '#963415', deco: 'lava',    fx: 'ember2' },
-  { name: 'ひょうざん',       bg: '#2b5876', dot: '#4f8cb0', deco: 'iceberg', fx: 'snow' },
-  { name: 'こおりのせかい',   bg: '#1f3c5e', dot: '#3b6ea5', deco: 'iceworld', fx: 'aurora' },
-  { name: 'うみのせかい',     bg: '#0f3350', dot: '#1d5a80', deco: 'sea',     fx: 'bubble2' },
-  { name: 'まかい',           bg: '#241631', dot: '#5d275d', deco: 'makai',   fx: 'miasma' },
-  { name: 'じごく',           bg: '#380d12', dot: '#7d1c26', deco: 'hell',    fx: 'hellfire' },
-  { name: 'てんかい',         bg: '#3d6a92', dot: '#6fa3c9', deco: 'heaven',  fx: 'feather' },
-  { name: 'うちゅう',         bg: '#191b2b', dot: '#3b5dc9', deco: 'space',   fx: 'star' },
-  { name: 'ぎんが',           bg: '#241a3d', dot: '#5d4a8a', deco: 'galaxy',  fx: 'gstar' },
-  { name: 'ブラックホール',   bg: '#0c0c13', dot: '#26263a', deco: 'hole',    fx: 'warp' },
-  { name: 'たじげんうちゅう', bg: '#2a1030', dot: '#7a2a8a', deco: 'multi',   fx: 'dimension' },
+  { name: 'だいそうげん',     bg: '#2b5a30', dot: '#4a8f52', deco: 'grass',   fx: 'petal',    mega: { type: 'silhouette', color: '#1f4a24' } },
+  { name: 'ジャングル',       bg: '#1c421f', dot: '#357a3c', deco: 'jungle',  fx: 'leaf',     mega: { type: 'silhouette', color: '#12301a' } },
+  { name: 'しっちたい',       bg: '#3c4526', dot: '#5f6b35', deco: 'swamp',   fx: 'bubble',   mega: { type: 'orb', color: '#e8e8c8' } },
+  { name: 'あらしのへいげん', bg: '#2e3d4d', dot: '#46586b', deco: 'storm',   fx: 'rain',     mega: { type: 'beam', color: '#f4f4f4' } },
+  { name: 'みずうみ',         bg: '#1d4e6b', dot: '#2f7ba3', deco: 'lake',    fx: 'ripple',   mega: { type: 'vortex', color: '#2f7ba3', core: '#0d2c40' } },
+  { name: 'ちていこ',         bg: '#132f3a', dot: '#215a66', deco: 'cave',    fx: 'drip',     mega: { type: 'orb', color: '#73eff7' } },
+  { name: 'さばく',           bg: '#6b562c', dot: '#8f7a45', deco: 'desert',  fx: 'sand',     mega: { type: 'orb', color: '#ffcd75' } },
+  { name: 'こだいいせき',     bg: '#474156', dot: '#6b6480', deco: 'ruins',   fx: 'dust',     mega: { type: 'silhouette', color: '#312d40' } },
+  { name: 'かざん',           bg: '#46201a', dot: '#7a3a2a', deco: 'volcano', fx: 'ember',    mega: { type: 'beam', color: '#ef7d57' } },
+  { name: 'ようがんのうみ',   bg: '#571c0e', dot: '#963415', deco: 'lava',    fx: 'ember2',   mega: { type: 'orb', color: '#ff2e4d' } },
+  { name: 'ひょうざん',       bg: '#2b5876', dot: '#4f8cb0', deco: 'iceberg', fx: 'snow',     mega: { type: 'silhouette', color: '#bfe3f5' } },
+  { name: 'こおりのせかい',   bg: '#1f3c5e', dot: '#3b6ea5', deco: 'iceworld', fx: 'aurora',  mega: { type: 'ring', color: '#73eff7', color2: '#38b764' } },
+  { name: 'うみのせかい',     bg: '#0f3350', dot: '#1d5a80', deco: 'sea',     fx: 'bubble2',  mega: { type: 'silhouette', color: '#0a2438' } },
+  { name: 'まかい',           bg: '#241631', dot: '#5d275d', deco: 'makai',   fx: 'miasma',   mega: { type: 'ring', color: '#5d275d', color2: '#8b4f8b' } },
+  { name: 'じごく',           bg: '#380d12', dot: '#7d1c26', deco: 'hell',    fx: 'hellfire', mega: { type: 'beam', color: '#b13e53' } },
+  { name: 'てんかい',         bg: '#3d6a92', dot: '#6fa3c9', deco: 'heaven',  fx: 'feather',  mega: { type: 'beam', color: '#f4f4f4' } },
+  { name: 'うちゅう',         bg: '#191b2b', dot: '#3b5dc9', deco: 'space',   fx: 'star',     mega: { type: 'orb', color: '#3b5dc9' } },
+  { name: 'ぎんが',           bg: '#241a3d', dot: '#5d4a8a', deco: 'galaxy',  fx: 'gstar',    mega: { type: 'ring', color: '#5d4a8a', rainbow: true } },
+  { name: 'ブラックホール',   bg: '#0c0c13', dot: '#26263a', deco: 'hole',    fx: 'warp',     mega: { type: 'vortex', color: '#8b4f8b', core: '#000000' } },
+  { name: 'たじげんうちゅう', bg: '#2a1030', dot: '#7a2a8a', deco: 'multi',   fx: 'dimension', mega: { type: 'ring', color: '#7a2a8a', rainbow: true } },
+  { name: 'こがねのてんくう', bg: '#4a3a1a', dot: '#c9a24a', deco: 'heaven',  fx: 'feather',  mega: { type: 'orb', color: '#ffcd75' } },
+  { name: 'まがんのいわあな', bg: '#1c1420', dot: '#4a2e52', deco: 'cave',    fx: 'drip',     mega: { type: 'orb', color: '#b13e53' } },
+  { name: 'こくようのしんでん', bg: '#2a1010', dot: '#5a1818', deco: 'ruins', fx: 'dust',     mega: { type: 'silhouette', color: '#1a0a0a' } },
+  { name: 'せいじゅのしんりん', bg: '#0f2e14', dot: '#2a6b30', deco: 'jungle', fx: 'leaf',    mega: { type: 'silhouette', color: '#0a1f0e' } },
+  { name: 'かんばつのだいち', bg: '#4a3418', dot: '#8a6a2a', deco: 'desert',  fx: 'sand',     mega: { type: 'vortex', color: '#8a6a2a', core: '#2a1c0a' } },
+  { name: 'せいりゅうのてんくう', bg: '#0a2a4a', dot: '#3a7ac9', deco: 'galaxy', fx: 'gstar',  mega: { type: 'ring', color: '#3a7ac9', color2: '#41a6f6' } },
+  { name: 'こんとんのしんえん', bg: '#150a20', dot: '#5a1a6a', deco: 'multi', fx: 'dimension', mega: { type: 'vortex', color: '#5a1a6a', core: '#000000', rainbow: true } },
 ];
-const LAST_STAGE = STAGES.length; // 20
+const LAST_STAGE = STAGES.length; // 27
 
 function currentStage() {
   return STAGES[Math.min(stage, LAST_STAGE) - 1];
@@ -1288,6 +1296,40 @@ const BOSS_TYPES = [
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
     gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
     serifu: 'わがほのおで もえつきるがいい！！' },
+  { name: 'ガルーダ',       origin: 'インドしんわ',       sprite: 'griffin',  aura: '#ffdd55', pattern: 'rain', shot: 'wind',
+    gimmicks: ['teleport', 'callboss'], melee: ['dive'], hpMul: 1.2,
+    remap: { W: '#ffdd55', Y: '#ff9d2e', T: '#c98b2e' }, ballColors: ['#ffdd55', '#f4f4f4', '#ff9d2e'],
+    serifu: 'てんくうの ちからを みせてやろう！' },
+  { name: 'バロール',       origin: 'ケルトしんわ',       sprite: 'gigantes', aura: '#ff2e4d', pattern: 'wall', shot: 'light',
+    gimmicks: ['weakpoint'], melee: ['stomp', 'punch'], hpMul: 1.25,
+    remap: { T: '#2b1f3d', g: '#1a1c2c', W: '#ff2e4d' }, ballColors: ['#ff2e4d', '#f4f4f4', '#ff2e4d'],
+    serifu: 'わがまなこに にらまれて ただですむとおもうな…' },
+  { name: 'テスカトリポカ', origin: 'アステカしんわ',     sprite: 'fenrir',   aura: '#d4f236', pattern: 'mix', shot: 'fang',
+    gimmicks: ['speed', 'callboss'], melee: ['dive', 'punch'], hpMul: 1.3,
+    remap: { S: '#1a1a2e', W: '#3d3d5c', R: '#d4f236' }, ballColors: ['#1a1a2e', '#d4f236', '#1a1a2e'],
+    serifu: 'よるのやみに ひそむ おれから にげられるか…？' },
+  { name: 'フンババ',       origin: 'メソポタミアしんわ', sprite: 'behemoth', aura: '#38b764', pattern: 'mix', shot: 'ball',
+    gimmicks: ['shield'], melee: ['stomp', 'punch'], hpMul: 1.35,
+    remap: { P: '#2d5016', p: '#4a7729', Y: '#7a5c1e' }, ballColors: ['#38b764', '#257179', '#38b764'],
+    serifu: 'もりを まもるため おまえを ふみつぶす！' },
+  { name: 'ヴリトラ',       origin: 'インドしんわ',       sprite: 'dragon',   aura: '#a77b5b', pattern: 'wide', shot: 'ball', big: true,
+    gimmicks: ['rage', 'callboss'], melee: ['tail', 'stomp', 'punch'], hpMul: 1.8,
+    remap: { K: '#4a2c17', P: '#a77b5b', p: '#c9a66b', W: '#d4b483', O: '#6b4423' }, ballColors: ['#a77b5b', '#d4b483', '#4a2c17'],
+    form2Remap: { K: '#1a0f08', P: '#8b3a1a', p: '#ff6b1a', W: '#ffcd75', O: '#3d1f0a' }, form2Aura: '#ff6b1a',
+    form2Serifu: 'かわいた だいちの いかりを うけよ…！',
+    serifu: 'だいちの みずを すべて わがものに…！' },
+  { name: 'セイリュウ',     origin: 'ちゅうごくしんわ',   sprite: 'dragon',   aura: '#41a6f6', pattern: 'ring', shot: 'ice', big: true,
+    gimmicks: ['callboss', 'rage'], melee: ['tail', 'dive', 'stomp'], hpMul: 2.0,
+    remap: { K: '#1c3a5e', P: '#2f6690', p: '#41a6f6', W: '#a8dadc' }, ballColors: ['#41a6f6', '#73eff7', '#41a6f6'],
+    form2Remap: { K: '#0a1929', P: '#164e73', p: '#73eff7', W: '#f4f4f4' }, form2Aura: '#73eff7',
+    form2Serifu: 'そうてんの いかりを そのみに うけよ…！',
+    serifu: 'そうりゅうの いぶきを うけてみよ！' },
+  { name: 'ティアマト',     origin: 'メソポタミアしんわ', sprite: 'dragon',   aura: '#8b4f8b', pattern: 'mix', shot: 'ball', big: true,
+    gimmicks: ['rage', 'summon', 'weakpoint', 'callboss'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
+    remap: { K: '#3d1f4d', P: '#5d1520', p: '#8b4f8b', W: '#ff77a8', O: '#ff2e4d' }, ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
+    form2Remap: { K: '#0d0221', P: '#ff2e4d', p: '#ffcd75', W: '#41a6f6', O: '#38b764' }, form2Aura: '#ff2e4d',
+    form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
+    serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
 ];
 
 // ジギムント第2形態の配色（体K=深紅・腹P=金・翼p=赤）とオーラ色。スプライトはdragon共用のまま差し替える
@@ -2016,7 +2058,7 @@ function spawnBoss() {
   // ドラクエ風のセリフウィンドウ（最終ボスには勇者の返しゼリフも）
   serifuName = type.name;
   serifuText = type.serifu || '';
-  serifuReply = type.big ? 'ジギムント、かくごしろ！' : '';
+  serifuReply = type.big ? `${type.name}、かくごしろ！` : '';
   serifuTimer = type.big ? 260 : 200;
   if (type.big) sigmundPowerPending = true;
   if (type.big) addPopup(player.x + PLAYER_SIZE / 2, player.y - 16, 'ちからが みなぎる！ スピードUP！', '#73eff7', 12);
@@ -2942,26 +2984,26 @@ function updateBoss(e, pc, ecx, ecy) {
       pushParticle({
         x: ecx + Math.cos(ca) * cd, y: ecy + Math.sin(ca) * cd,
         vx: -Math.cos(ca) * 4, vy: -Math.sin(ca) * 4,
-        life: 14, color: Math.random() < 0.5 ? SIGMUND_FORM2_AURA : '#ffcd75',
+        life: 14, color: Math.random() < 0.5 ? (type.form2Aura || SIGMUND_FORM2_AURA) : '#ffcd75',
       });
     }
     if (e.transforming % 24 === 0) beep(70 + (150 - e.transforming), 0.4, 'sawtooth', 0.06, 40);
     if (e.transforming <= 0) {
       // 変身完了: 第2形態へ。衝撃波演出（必殺技の三重リングを流用）＋バナー＋セリフ
       e.form2 = true;
-      e.remap = SIGMUND_FORM2_REMAP;
+      e.remap = type.form2Remap || SIGMUND_FORM2_REMAP;
       addShockwave(ecx, ecy, '#f4f4f4', 10, 10, 30, 7);
-      addShockwave(ecx, ecy, SIGMUND_FORM2_AURA, 10, 8, 34, 5);
+      addShockwave(ecx, ecy, type.form2Aura || SIGMUND_FORM2_AURA, 10, 8, 34, 5);
       addShockwave(ecx, ecy, '#ffcd75', 10, 6, 38, 4);
       rainbowBurst(ecx, ecy, 60, 4);
-      burst(ecx, ecy, SIGMUND_FORM2_AURA, 30, 4);
+      burst(ecx, ecy, type.form2Aura || SIGMUND_FORM2_AURA, 30, 4);
       flashTimer = 30;
       shakeTimer = 30;
-      bannerText = `ジギムント だいにけいたい！！`;
+      bannerText = `${type.name} だいにけいたい！！`;
       bannerTimer = 160;
       // spawnBossと同じグローバルなセリフウィンドウ機構
       serifuName = type.name;
-      serifuText = 'これが わがしんのすがた…もえつきろ！';
+      serifuText = type.form2Serifu || 'これが わがしんのすがた…もえつきろ！';
       serifuReply = '';
       serifuTimer = 220;
       SFX.rage();
@@ -2978,7 +3020,7 @@ function updateBoss(e, pc, ecx, ecy) {
       vx: (Math.random() - 0.5) * 0.3,
       vy: -0.6 - Math.random() * 0.6,
       life: 20 + Math.random() * 15,
-      color: e.form2 ? SIGMUND_FORM2_AURA : (e.raged ? '#b13e53' : (type.aura || PALETTE.p)),
+      color: e.form2 ? (type.form2Aura || SIGMUND_FORM2_AURA) : (e.raged ? '#b13e53' : (type.aura || PALETTE.p)),
     });
   }
 
@@ -4511,23 +4553,89 @@ function drawBackground() {
     }
   }
 
-  // ブラックホールの中心
-  if (deco === 'hole') {
-    ctx.fillStyle = '#000000';
+  drawMegaDeco(st.mega);
+}
+
+// 巨大ランドマーク演出: ステージのmegaフィールド(type)に応じて画面中央付近に描き分ける
+function drawMegaDeco(mega) {
+  if (!mega) return;
+  const cx = W / 2;
+  if (mega.type === 'silhouette') {
+    // 遠景の巨大シルエット（山脈・遺跡・巨木など）
+    const cy = H * 0.5;
+    ctx.fillStyle = mega.color;
     ctx.beginPath();
-    ctx.arc(W / 2, H / 2, 26 + Math.sin(gframe * 0.05) * 3, 0, Math.PI * 2);
+    ctx.moveTo(cx - 170, cy + 70);
+    ctx.lineTo(cx - 120, cy - 40);
+    ctx.lineTo(cx - 70, cy + 10);
+    ctx.lineTo(cx - 10, cy - 90);
+    ctx.lineTo(cx + 50, cy - 10);
+    ctx.lineTo(cx + 110, cy - 60);
+    ctx.lineTo(cx + 170, cy + 40);
+    ctx.lineTo(cx + 170, cy + 80);
+    ctx.lineTo(cx - 170, cy + 80);
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#8b4f8b';
+  } else if (mega.type === 'orb') {
+    // 脈動する巨大な発光オーブ
+    const cy = H * 0.36;
+    const pulse = 30 + Math.sin(gframe * 0.04) * 6;
+    const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, pulse);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.45, mega.color);
+    grad.addColorStop(1, mega.color + '00');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pulse, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (mega.type === 'beam') {
+    // 天地を貫く巨大な光の柱
+    const sway = Math.sin(gframe * 0.02) * 16;
+    ctx.fillStyle = mega.color + '2e';
+    ctx.beginPath();
+    ctx.moveTo(cx - 46 + sway, -10); ctx.lineTo(cx + 46 + sway, -10);
+    ctx.lineTo(cx + 12, H + 10); ctx.lineTo(cx - 12, H + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = mega.color + '55';
+    ctx.beginPath();
+    ctx.moveTo(cx - 16 + sway, -10); ctx.lineTo(cx + 16 + sway, -10);
+    ctx.lineTo(cx + 5, H + 10); ctx.lineTo(cx - 5, H + 10);
+    ctx.closePath();
+    ctx.fill();
+  } else if (mega.type === 'vortex') {
+    // 中心に吸いこまれる渦（coreがあれば中心を塗りつぶす）
+    const cy = H / 2;
+    if (mega.core) {
+      ctx.fillStyle = mega.core;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 26 + Math.sin(gframe * 0.05) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = mega.color;
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 26 + Math.sin(gframe * 0.05) * 3, 0, Math.PI * 2);
     ctx.stroke();
-  }
-  // 多次元宇宙は回る虹のリング
-  if (deco === 'multi') {
     for (let r = 0; r < 3; r++) {
-      ctx.strokeStyle = RAINBOW[(r * 2 + Math.floor(gframe / 10)) % RAINBOW.length] + '44';
+      const a0 = gframe * (0.02 + r * 0.006);
+      ctx.strokeStyle = (mega.rainbow ? RAINBOW[(r * 2 + Math.floor(gframe / 10)) % RAINBOW.length] : mega.color) + '55';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 40 + r * 16, a0, a0 + Math.PI * 1.4);
+      ctx.stroke();
+    }
+  } else if (mega.type === 'ring') {
+    // 中心を回る複数のリング（rainbowなら虹色が巡回）
+    const cy = H / 2;
+    for (let r = 0; r < 3; r++) {
+      const col = mega.rainbow
+        ? RAINBOW[(r * 2 + Math.floor(gframe / 10)) % RAINBOW.length]
+        : (r % 2 === 0 ? mega.color : (mega.color2 || mega.color));
+      ctx.strokeStyle = col + '44';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(W / 2, H / 2, 60 + r * 55 + Math.sin(gframe * 0.03 + r) * 8, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 55 + r * 45 + Math.sin(gframe * 0.03 + r) * 8, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -4951,7 +5059,7 @@ function render() {
       ? ((e.raged && e.type.rageRemap && !e.form2) ? e.type.rageRemap : (e.remap || e.type.remap))
       : (e.remap || null);
     if (e.boss && e.transforming > 0) {
-      bossRemap = (Math.floor(e.transforming / 6) % 2 === 0) ? SIGMUND_FORM2_REMAP : null;
+      bossRemap = (Math.floor(e.transforming / 6) % 2 === 0) ? (e.type.form2Remap || SIGMUND_FORM2_REMAP) : null;
     }
     // ボスのアクション演出: のけぞり・しゃがみこみ・震え・残像
     let dxv = 0, dyv = bob, sxv = 1, syv = 1;

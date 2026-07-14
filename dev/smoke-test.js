@@ -75,10 +75,11 @@ step('全72武器で各120フレーム', () => {
   }
 });
 
-// 全20ボスを出現→戦闘→強制ギミック→撃破まで通す
-step('全20ボスの出現・巨大弾・近接・ギミック・撃破', () => {
+// 全27ボスを出現→戦闘→強制ギミック→撃破まで通す
+step('全27ボスの出現・巨大弾・近接・ギミック・撃破', () => {
   run('lives = 99;'); // テスト中に死なないように
-  for (let s = 1; s <= 20; s++) {
+  const lastStage = run('LAST_STAGE');
+  for (let s = 1; s <= lastStage; s++) {
     run(`stage = ${s}; bossActive = false; warningTimer = 0; finalClear = false; pendingTally = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();`);
     frames(400); // 入場＋弾幕＋巨大弾チャージ
     // 近接攻撃＋加速＋テレポートを強制発動（ブレスはドラゴンのmelee抽選で実行される）
@@ -120,13 +121,14 @@ step('ゲームオーバー画面→タイトル復帰', () => {
   frames(120);
 });
 
-step('全ステージ20種の背景・環境エフェクト描画', () => {
+step('全ステージ27種の背景・環境エフェクト描画', () => {
   key('Enter'); // 再スタート
-  for (let s = 1; s <= 20; s++) { run(`stage = ${s};`); frames(90); }
+  const lastStage = run('LAST_STAGE');
+  for (let s = 1; s <= lastStage; s++) { run(`stage = ${s};`); frames(90); }
 });
 
 step('必殺技（ボスあり）', () => {
-  run('stage = 20; spawnBoss(); specialGauge = 100;');
+  run('stage = LAST_STAGE; spawnBoss(); specialGauge = 100;');
   frames(30);
   key(' ');
   frames(120);
@@ -213,9 +215,9 @@ step('コンティニュー3回→使い切り→タイトル', () => {
   frames(60);
 });
 
-step('ジギムント崩壊シネマティック（地鳴り→崩壊→粉砕→撃破処理）', () => {
+step('最終ボス崩壊シネマティック（地鳴り→崩壊→粉砕→撃破処理）', () => {
   run('if (state !== "playing") startGame();'); // タイトルにいる場合はゲームを開始してから
-  run('stage = 20; lives = 99; bossActive = false; warningTimer = 0; finalClear = false; pendingTally = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();');
+  run('stage = LAST_STAGE; lives = 99; bossActive = false; warningTimer = 0; finalClear = false; pendingTally = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();');
   run('(function(){ const b = enemies.find(e => e.boss); b.y = 40; killEnemy(b); })();'); // 撃破→演出開始
   frames(200); // 地鳴り→崩壊フェーズ
   if (!run('enemies.some(e => e.boss && e.dying)')) throw new Error('崩壊演出が始まっていない');
