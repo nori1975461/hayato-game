@@ -2294,6 +2294,13 @@ function killEnemy(e, lightningDepth = 2) {
       // 分裂した仲間がまだ残っていればステージは続く
       const remaining = enemies.filter((b) => b.boss && !b.summoned && b !== e && b.hp > 0);
       if (remaining.length === 0) {
+        // 本体を倒したら、召喚した過去ボスが残っていても静かに一掃する
+        for (const m of enemies) {
+          if (m.boss && m.summoned && m.hp > 0) {
+            m.hp = 0;
+            burst(m.x + m.size / 2, m.y + m.size / 2, PALETTE.p, 10);
+          }
+        }
         bossActive = false;
         nextBossScore = Math.max(nextBossScore + 4000 + stage * 200, score + 3000);
         const cleared = stage;
