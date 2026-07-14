@@ -48,7 +48,7 @@ function line(label, score) {
 
 const LAST_STAGE = 20;
 console.log('=== スコア曲線シミュレータ（理論最低ライン）===');
-console.log('武器69段階 / ゆうしゃLv1〜12 / クラスチェンジ8形態\n');
+console.log('武器72段階 / ゆうしゃLv1〜12 / クラスチェンジ8形態\n');
 
 let score = 0;
 let nextBossScore = 3000;
