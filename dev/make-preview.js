@@ -46,6 +46,7 @@ const bosses = [
   ['behemoth', 'ベヒーモス', '邪竜の側近 St.18'],
   ['reaper', 'デスサイザー', '邪竜の側近 St.19'],
   ['dragon', 'じゃりゅうジギムント', '最強の邪竜 St.20'],
+  ['vritra', 'ヴリトラ（専用スプライト）', 'インド神話 Phase4'],
 ];
 const row = document.getElementById('row');
 for (const [key, name, origin] of bosses) {
