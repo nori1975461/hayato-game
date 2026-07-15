@@ -52,15 +52,22 @@ const row = document.getElementById('row');
 for (const [key, name, origin] of bosses) {
   const card = document.createElement('div');
   const cv = document.createElement('canvas');
-  cv.width = 32 * 6; cv.height = 32 * 6;
+  const BOX = 192;
+  cv.width = BOX; cv.height = BOX;
   const c = cv.getContext('2d');
   const spr = SPRITES[key];
+  const cols = Math.max(...spr.map(r => r.length));
+  const rows = spr.length;
+  // スプライトの行数・列数が異なっても同じ枠(192x192)に収まるよう自動フィット
+  const cell = Math.max(1, Math.floor(Math.min(BOX / cols, BOX / rows)));
+  const offX = Math.floor((BOX - cols * cell) / 2);
+  const offY = Math.floor((BOX - rows * cell) / 2);
   for (let r = 0; r < spr.length; r++) {
     for (let col = 0; col < spr[r].length; col++) {
       const ch = spr[r][col];
       if (ch === '.') continue;
       c.fillStyle = PALETTE[ch];
-      c.fillRect(col * 6, r * 6, 6, 6);
+      c.fillRect(offX + col * cell, offY + r * cell, cell, cell);
     }
   }
   card.appendChild(cv);
