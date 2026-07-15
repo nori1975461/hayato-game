@@ -47,6 +47,12 @@ const bosses = [
   ['reaper', 'デスサイザー', '邪竜の側近 St.19'],
   ['dragon', 'じゃりゅうジギムント', '最強の邪竜 St.20'],
   ['vritra', 'ヴリトラ（専用スプライト）', 'インド神話 Phase4'],
+  ['garuda', 'ガルーダ（専用スプライト）', 'インド神話 St.21'],
+  ['balor', 'バロール（専用スプライト）', 'ケルト神話 St.22'],
+  ['tezcatlipoca', 'テスカトリポカ（専用スプライト）', 'アステカ神話 St.23'],
+  ['humbaba', 'フンババ（専用スプライト）', 'メソポタミア神話 St.24'],
+  ['seiryu', 'セイリュウ（専用スプライト）', '中国神話 St.26'],
+  ['tiamat', 'ティアマト（専用スプライト・荘厳）', 'メソポタミア神話 最終ボス'],
 ];
 const row = document.getElementById('row');
 for (const [key, name, origin] of bosses) {
