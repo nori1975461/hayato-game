@@ -1407,6 +1407,15 @@ const WEAPONS = [
   { name: 'ギャラクシーツインリング', score: 137500, len: 70, width: 9, spin: 0.150, blades: 2, dmg: 6, rainbow: true, color: '#73eff7', edge: '#f4f4f4', hybrid: false, orbitals: { count: 3, r: 70, spin: -0.12 } },
   { name: 'じくうのカタナ・ムラクモ', score: 149500, len: 84, width: 8, spin: 0.170, blades: 2, dmg: 8, saber: true, saberColor: '#a685e2', color: '#a685e2', edge: '#f4f4f4', hybrid: false, echo: { delay: 18, mul: 0.5 } },
   { name: 'カオスブレイカー',     score: 162500, len: 88, width: 9, spin: 0.170, blades: 4, dmg: 8, saber: true, saberColor: '#c084fc', lightning: true, color: '#c084fc', edge: '#73eff7', hybrid: false, parry: true },
+  // ここから追加武器3種（ロケットパンチ／てんていのいかずち／はどうほう）
+  { name: 'ロケットパンチ', score: 176500, len: 48, width: 10, spin: 0.135, blades: 1, dmg: 4, knock: 30,
+    color: '#ef7d57', edge: '#ffcd75', kind: 'fist', hybrid: false,
+    shoot: { kind: 'rocketfist', interval: 36, speed: 5.2, dmg: 6, aoe: 40, aim: true } },
+  { name: 'てんていのいかずち', score: 191500, len: 92, width: 9, spin: 0.175, blades: 4, dmg: 9, knock: 22,
+    lightning: true, tesla: true, color: '#ffe94a', edge: '#f4f4f4', kind: 'boltrod', hybrid: false },
+  { name: 'はどうほう', score: 207500, len: 44, width: 10, spin: 0.130, blades: 1, dmg: 3,
+    color: '#1d5a80', edge: '#73eff7', kind: 'wavegun', hybrid: false,
+    shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 14, pierce: true, aim: true, life: 90, color: '#73eff7', r: 16 } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
@@ -1756,6 +1765,8 @@ const SHOT_FX = {
   bomb:       { color: '#ef7d57', burst: 6, trail: null,      heavy: false },
   boomerang:  { color: '#ffcd75', burst: 4, trail: null,      heavy: false },
   flame:      { color: '#ffcd75', burst: 3, trail: null,      heavy: false },
+  rocketfist: { color: '#ef7d57', burst: 8, trail: '#ffcd75', heavy: true  },
+  wave:       { color: '#73eff7', burst: 10, trail: '#41a6f6', heavy: true  },
 };
 
 // 弾の基準色（武器の shoot.color を最優先、なければ kind の既定色）
@@ -1789,6 +1800,10 @@ function shootSFX(kind, interval) {
       beep(520, 0.14, 'triangle', 0.05, 950); break;
     case 'flame':                        // かえんほうしゃき: ゴォッ（連射なので薄く）
       noise(0.06, 0.03, 1200, 'bandpass', 0, 400); break;
+    case 'rocketfist':                   // ロケットパンチ: ドッと打ち出す＋噴射
+      beep(180, 0.1, 'square', 0.06, 70); noise(0.16, 0.06, 800, 'bandpass', 0, 240); break;
+    case 'wave':                         // はどうほう: 溜め（低音）→ 解放（高音）
+      beep(160, 0.14, 'sawtooth', 0.06, 90); beep(1400, 0.09, 'triangle', 0.055, 320, 60); break;
     default:
       beep(700, 0.05, 'square', 0.05, 1100);
   }
@@ -2985,6 +3000,7 @@ function update() {
           vy: Math.sin(ang) * sh.speed,
           life: sh.kind === 'boomerang' ? 999 : (sh.life || 90),
           kind: sh.kind, dmg: sh.dmg, pierce: !!sh.pierce, aoe: sh.aoe || 0,
+          r: sh.r || 0, // 太い弾（はどうほう等）用の当たり判定半径ボーナス
           half: !!weapon.hybrid, // 純遠距離武器の弾は通常ダメージ、ダブル攻撃武器の弾のみ半減
           turn: sh.homing || 0,
           ang, rot: 0, t: 0, returning: false,
@@ -4061,7 +4077,7 @@ function updatePShotHits() {
       if (f.hitSet && f.hitSet.has(e)) continue;
       const ecx = e.x + e.size / 2;
       const ecy = e.y + e.size / 2;
-      const r = e.size / 2 + (f.aoe > 0 ? 8 : 5);
+      const r = e.size / 2 + (f.r || (f.aoe > 0 ? 8 : 5));
       if ((f.x - ecx) ** 2 + (f.y - ecy) ** 2 < r * r) {
         let dealt;
         if (e.boss) {
@@ -4614,6 +4630,84 @@ function drawWeapon() {
       ctx.stroke();
       ctx.fillStyle = edge;
       ctx.fillRect(wlen - 1, -1, 3, 3);
+    } else if (kind === 'fist') {
+      // ロケットパンチ: 腕（太い柄）＋先端の角丸矩形の拳
+      ctx.fillStyle = '#743f39';
+      ctx.fillRect(8, -3, wlen - 26, 6);          // 腕
+      ctx.fillStyle = '#94b0c2';                   // 手首のカフ
+      ctx.fillRect(wlen - 20, -6, 5, 12);
+      ctx.fillStyle = color;                       // こぶし本体（角丸矩形）
+      ctx.beginPath();
+      const fx0 = wlen - 15, fw = 15, fh = weapon.width + 4, r = 4;
+      ctx.moveTo(fx0 + r, -fh / 2);
+      ctx.arcTo(fx0 + fw, -fh / 2, fx0 + fw, fh / 2, r);
+      ctx.arcTo(fx0 + fw, fh / 2, fx0, fh / 2, r);
+      ctx.arcTo(fx0, fh / 2, fx0, -fh / 2, r);
+      ctx.arcTo(fx0, -fh / 2, fx0 + fw, -fh / 2, r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = edge;                      // 指節ライン
+      ctx.lineWidth = 1;
+      for (let k = 1; k < 4; k++) {
+        const kx = fx0 + (fw / 4) * k;
+        ctx.beginPath();
+        ctx.moveTo(kx, -fh / 2 + 2);
+        ctx.lineTo(kx, fh / 2 - 2);
+        ctx.stroke();
+      }
+    } else if (kind === 'boltrod') {
+      // てんていのいかずち: ジグザグの折れ線で描く稲妻ブレード（根元→先端で2色）
+      ctx.fillStyle = '#94b0c2';                   // 短い柄
+      ctx.fillRect(8, -2, 10, 4);
+      const seg = [
+        [18, 0], [18 + (wlen - 18) * 0.28, -8],
+        [18 + (wlen - 18) * 0.5, 5], [18 + (wlen - 18) * 0.74, -6],
+        [wlen, 0],
+      ];
+      // 外側グロー
+      ctx.strokeStyle = 'rgba(255, 233, 74, 0.35)';
+      ctx.lineWidth = weapon.width + 4;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(seg[0][0], seg[0][1]);
+      for (let s = 1; s < seg.length; s++) ctx.lineTo(seg[s][0], seg[s][1]);
+      ctx.stroke();
+      // 本体（各セグメントを根元色→先端白でグラデーション風に描く）
+      for (let s = 0; s < seg.length - 1; s++) {
+        const t = s / (seg.length - 2);
+        ctx.strokeStyle = t < 0.5 ? color : '#f4f4f4';
+        ctx.lineWidth = weapon.width - Math.round(t * 3);
+        ctx.beginPath();
+        ctx.moveTo(seg[s][0], seg[s][1]);
+        ctx.lineTo(seg[s + 1][0], seg[s + 1][1]);
+        ctx.stroke();
+      }
+      // 芯の白ライン
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(seg[0][0], seg[0][1]);
+      for (let s = 1; s < seg.length; s++) ctx.lineTo(seg[s][0], seg[s][1]);
+      ctx.stroke();
+    } else if (kind === 'wavegun') {
+      // はどうほう: 太い砲身＋砲口で脈動する発光リング
+      ctx.fillStyle = color;
+      ctx.fillRect(8, -weapon.width / 2, wlen - 10, weapon.width);
+      ctx.fillStyle = edge;
+      ctx.fillRect(wlen - 6, -weapon.width / 2 - 2, 6, weapon.width + 4);
+      const pulse = 5 + Math.sin(gframe * 0.3) * 2.5;   // 脈動する発光リング
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5 + Math.sin(gframe * 0.3) * 0.3;
+      ctx.beginPath();
+      ctx.arc(wlen, 0, pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if (weapon.shoot && shootTimer > (weapon.shoot.interval - 5)) {
+        ctx.fillStyle = '#73eff7';
+        ctx.fillRect(wlen, -5, 9, 10);
+      }
     } else {
       // 通常の刃（剣・槍など）
       ctx.fillStyle = '#743f39';
@@ -5215,6 +5309,55 @@ function drawPShot(f) {
     ctx.fillRect(5, -2, 4, 4);
     ctx.fillStyle = Math.random() < 0.5 ? PALETTE.O : PALETTE.Y;
     ctx.fillRect(-11, -2, 4, 4);
+    ctx.restore();
+  } else if (f.kind === 'rocketfist') {
+    // 飛び拳ロケット: 進行方向を向いた拳（角丸矩形＋指節線＋後端カフ）
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(Math.atan2(f.vy, f.vx));
+    ctx.fillStyle = Math.random() < 0.5 ? PALETTE.O : PALETTE.Y; // 後方の噴射
+    ctx.fillRect(-12, -2, 4, 4);
+    ctx.fillStyle = '#94b0c2';                                   // 手首のカフ
+    ctx.fillRect(-8, -5, 4, 10);
+    ctx.fillStyle = f.color || '#ef7d57';                        // こぶし本体
+    ctx.beginPath();
+    ctx.moveTo(-6, -6);
+    ctx.arcTo(9, -6, 9, 6, 4);
+    ctx.arcTo(9, 6, -6, 6, 4);
+    ctx.lineTo(-6, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#ffcd75';                                 // 指節ライン
+    ctx.lineWidth = 1;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(-1 + k * 3, -5);
+      ctx.lineTo(-1 + k * 3, 5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (f.kind === 'wave') {
+    // はどうほう: 進行方向に垂直な三日月アーク（脈動しながら複数重ね）
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(Math.atan2(f.vy, f.vx));
+    const base = f.color || '#73eff7';
+    const pulse = 1 + Math.sin(gframe * 0.5) * 0.15;
+    ctx.strokeStyle = 'rgba(115, 239, 247, 0.35)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(-4, 0, 14 * pulse, -Math.PI / 2.4, Math.PI / 2.4);
+    ctx.stroke();
+    ctx.strokeStyle = base;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(-2, 0, 12 * pulse, -Math.PI / 2.2, Math.PI / 2.2);
+    ctx.stroke();
+    ctx.strokeStyle = '#f4f4f4';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9 * pulse, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
     ctx.restore();
   }
 }
