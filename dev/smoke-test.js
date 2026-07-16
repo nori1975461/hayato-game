@@ -75,8 +75,8 @@ step('全75武器で各120フレーム', () => {
   }
 });
 
-// 全27ボスを出現→戦闘→強制ギミック→撃破まで通す
-step('全27ボスの出現・巨大弾・近接・ギミック・撃破', () => {
+// 全ボスを出現→戦闘→強制ギミック→撃破まで通す（LAST_STAGE基準で自動追随）
+step('全ボスの出現・巨大弾・近接・ギミック・撃破', () => {
   run('lives = 99;'); // テスト中に死なないように
   const lastStage = run('LAST_STAGE');
   for (let s = 1; s <= lastStage; s++) {
@@ -121,7 +121,7 @@ step('ゲームオーバー画面→タイトル復帰', () => {
   frames(120);
 });
 
-step('全ステージ27種の背景・環境エフェクト描画', () => {
+step('全ステージの背景・環境エフェクト描画', () => {
   key('Enter'); // 再スタート
   const lastStage = run('LAST_STAGE');
   for (let s = 1; s <= lastStage; s++) { run(`stage = ${s};`); frames(90); }

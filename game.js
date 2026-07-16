@@ -1025,6 +1025,39 @@ const SPRITES = {
     '...CCCbb..........................',
     '.CCC..............................',
   ],
+  // ライリュウ(雷龍): 稲妻そのもの(Z字)に体を走らせる雷龍。左上の二本角の竜頭から胴が3回折れて対角線を走り、右下の鏃形の尾で終わる。雲は一切描かず「竜自身が稲妻」で差別化
+  rairyu: [
+    '...W.....W..........................',
+    '..WKW...WKW...................D.....',
+    '...KNK.KNK..........................',
+    '..KNNNNNNNK................Y........',
+    '.KNNCNNNNNK.........................',
+    '.KNNNNNNNNNKK..................Y....',
+    '..KNNYDYNNKYD.......................',
+    '...KNNNNNK.......................W..',
+    '....KNNNNNNNNYK.....................',
+    '..Y........KbNNNYK..................',
+    '..............KbNNNYK..........D....',
+    '....W............KbNNNYK............',
+    '....................KbNNNYK.........',
+    '......Y................KbNNNYK......',
+    '..........................KbNNNYK...',
+    '...........................KNNNNNNK.',
+    '........................KYNNNNNNNK..',
+    '....................KYNNNbK......W..',
+    '................KYNNNbK.......Y.....',
+    '.D..........KYNNNbK.................',
+    '........KYNNNbK.....................',
+    '....KYNNNbK.................Y.......',
+    '...KNNNNNNK.........................',
+    '......KbNNNYK.......................',
+    '..........KbNNNYK.............W.....',
+    '...Y..........KbNNNYK...............',
+    '..................KbNNNYK...........',
+    '......................KbNNNYKY......',
+    '..........................KNYYWWY...',
+    '.............................WYYW...',
+  ],
   // ティアマト: メソポタミアしんわの混沌の母。海と星空に二分された巨躯・二つの目・波間から立ち上がる女王のシルエット
   tiamat: [
     '..........Y..Y.Y.Y..Y...............',
@@ -1465,8 +1498,9 @@ const STAGES = [
   { name: 'かんばつのだいち', bg: '#4a3418', dot: '#8a6a2a', deco: 'desert',  fx: 'sand',     mega: { type: 'vortex', color: '#8a6a2a', core: '#2a1c0a' } },
   { name: 'せいりゅうのてんくう', bg: '#0a2a4a', dot: '#3a7ac9', deco: 'galaxy', fx: 'gstar',  mega: { type: 'ring', color: '#3a7ac9', color2: '#41a6f6' } },
   { name: 'こんとんのしんえん', bg: '#150a20', dot: '#5a1a6a', deco: 'multi', fx: 'dimension', mega: { type: 'vortex', color: '#5a1a6a', core: '#000000', rainbow: true } },
+  { name: 'ばんらいのそら',   bg: '#131735', dot: '#3a4a8f', deco: 'thundercloud', fx: 'thunder', mega: { type: 'beam', color: '#ffcd75' } },
 ];
-const LAST_STAGE = STAGES.length; // 27
+const LAST_STAGE = STAGES.length; // 28
 
 function currentStage() {
   return STAGES[Math.min(stage, LAST_STAGE) - 1];
@@ -1574,6 +1608,13 @@ const BOSS_TYPES = [
     form2Remap: { b: '#0d0221', P: '#ff2e4d', p: '#ffcd75', C: '#41a6f6', M: '#38b764' }, form2Aura: '#ff2e4d',
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
+  { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
+    gimmicks: ['rage', 'summon', 'callboss', 'storm'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.4, points: 20000,
+    ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
+    breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
+    form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#ff77a8', C: '#ff77a8' }, form2Aura: '#b567b5',
+    serifu: 'わがなは ライリュウ…てんくうの いかずちは すべて わがしもべ！！',
+    form2Serifu: 'よくぞ ここまで…！ ならば しでんの すがたで むかえうとう！！' },
 ];
 
 // ジギムント第2形態の配色（体K=深紅・腹P=金・翼p=赤）とオーラ色。スプライトはdragon共用のまま差し替える
@@ -1678,6 +1719,11 @@ const SFX = {
   bossFire: () => beep(180, 0.3, 'sawtooth', 0.05, 50),
   warn: () => beep(750, 0.16, 'square', 0.05, 480),
   zap: () => beep(1400, 0.08, 'sawtooth', 0.04, 200),
+  thunder: () => {
+    noise(0.25, 0.1, 900, 'bandpass');
+    beep(1600, 0.12, 'sawtooth', 0.05, 180);
+    beep(70, 0.55, 'sawtooth', 0.08, 35, 60);
+  },
   freeze: () => beep(880, 0.1, 'sine', 0.04, 660),
   guard: () => { beep(1200, 0.05, 'square', 0.05); beep(900, 0.08, 'square', 0.04, 500, 40); },
   // パリィ: 金属のカキーン＋弾き返しの上昇チャープ
@@ -2056,6 +2102,7 @@ let player;
 let enemies = [], particles = [], pshots = [], fireballs = [], items = [], popups = [], bolts = [];
 let pendingEnemies = []; // 分裂で生まれた雑魚は次フレームに合流（同フレームの多重ヒットを防ぐ）
 let shockwaves = []; // 広がる衝撃波リング（近接攻撃・巨大弾の演出用）
+let strikes = [];    // ライリュウの落雷予告マーカー（予告→一定フレーム後に落雷）
 let slashes = [];    // 白い斬撃エフェクト（ヒットの気持ちよさ用）
 let hitstopT = 0;    // ヒットストップ: 当たった瞬間、世界が数フレーム止まる（イース風の手ごたえ）
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
@@ -2099,6 +2146,7 @@ function startGame() {
   popups = [];
   bolts = [];
   shockwaves = [];
+  strikes = [];
   slashes = [];
   hitstopT = 0;
   score = 0;
@@ -3120,6 +3168,7 @@ function update() {
   updatePShotHits();
   updateItems(pc);
   updatePlayerHits(pc);
+  updateThunderStrikes(pc);
   updateStageFx();
 
   // コンボタイマー
@@ -3368,6 +3417,29 @@ function updateBoss(e, pc, ecx, ecy) {
   if (gm.includes('callboss') && !e.calledBoss && e.hp <= e.maxHp * 0.6) {
     e.calledBoss = true;
     callBoss(e);
+  }
+  // 雷嵐ギミック(ライリュウ専用): 周期的に全画面へ落雷を予告 → 45フレーム後に落とす
+  if (gm.includes('storm')) {
+    e.stormT = (e.stormT == null ? 240 : e.stormT) - 1;
+    if (e.stormT <= 0) {
+      const n = e.form2 ? 5 : 3;              // 第2形態は本数アップ＝「画面いっぱいに雷が乱れ飛ぶ」
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        let sx, sy, tries = 0;
+        do {
+          sx = 30 + Math.random() * (W - 60);
+          sy = 60 + Math.random() * (H - 90);
+          tries++;
+        } while (tries < 20 && pts.some((p) => (p.x - sx) ** 2 + (p.y - sy) ** 2 < 70 ** 2));
+        pts.push({ x: sx, y: sy });
+      }
+      const pcs = playerCenter();
+      pts[0].x = pcs.x; pts[0].y = pcs.y;     // 1本だけ現在位置狙い(警告があるので歩けばかわせる)
+      for (const p of pts) strikes.push({ x: p.x, y: p.y, t: 45 });
+      addPopup(ecx, e.y - 24, 'らいめいのあらし！！', '#ffcd75', 16);
+      SFX.warn();
+      e.stormT = e.form2 ? 210 : 300;
+    }
   }
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
@@ -3814,12 +3886,13 @@ function runBossAct(e, pc, ecx, ecy) {
       e.act = null;
     }
   } else if (a.kind === 'breath') {
-    // ドラゴンの炎ブレス: 口に炎が集まり…ゴオオオッ！と吐き続ける
+    // ドラゴンの炎ブレス: 口に炎が集まり…ゴオオオッ！と吐き続ける（ボスごとに breathName/breathColors で上書き可）
+    const bcol = e.type.breathColors;
     const tel = 35;
     const dur = 75;
     const mouthX = ecx;
     const mouthY = e.y + e.size * 0.32;
-    if (a.t === 1) { addPopup(ecx, e.y - 12, 'ほのおのブレス！！', '#ef7d57', 17); SFX.warn(); SFX.giantCharge(); }
+    if (a.t === 1) { addPopup(ecx, e.y - 12, e.type.breathName || 'ほのおのブレス！！', bcol ? bcol[1] : '#ef7d57', 17); SFX.warn(); SFX.giantCharge(); }
     if (a.t < tel) {
       // 吸い込み: 炎が口に集まる
       for (let i = 0; i < 2; i++) {
@@ -3828,7 +3901,7 @@ function runBossAct(e, pc, ecx, ecy) {
         pushParticle({
           x: mouthX + Math.cos(ca) * cd, y: mouthY + Math.sin(ca) * cd,
           vx: -Math.cos(ca) * 3, vy: -Math.sin(ca) * 3,
-          life: 13, color: Math.random() < 0.5 ? PALETTE.O : PALETTE.Y,
+          life: 13, color: Math.random() < 0.5 ? (bcol ? bcol[2] : PALETTE.O) : (bcol ? bcol[1] : PALETTE.Y),
         });
       }
     } else if (a.t < tel + dur) {
@@ -3840,7 +3913,7 @@ function runBossAct(e, pc, ecx, ecy) {
         fireballs.push({
           x: mouthX, y: mouthY,
           vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
-          life: 85, colors: ['#b13e53', '#ef7d57', '#ffcd75'], kind: 'fire',
+          life: 85, colors: bcol || ['#b13e53', '#ef7d57', '#ffcd75'], kind: 'fire',
           ang, rot: 0,
         });
       }
@@ -4210,6 +4283,26 @@ function updatePlayerHits(pc) {
   }
 }
 
+// 落雷の進行と着弾。ボスが咆哮・変身中でも予告済みの雷は必ず落ちる（回避ルールを一定に保つ）
+function updateThunderStrikes(pc) {
+  strikes = strikes.filter((s) => {
+    s.t--;
+    if (s.t > 0) return true;
+    bolts.push({ x1: s.x + (Math.random() - 0.5) * 30, y1: -10, x2: s.x, y2: s.y, life: 8 });
+    bolts.push({ x1: s.x + (Math.random() - 0.5) * 50, y1: -10, x2: s.x, y2: s.y, life: 6 });
+    burst(s.x, s.y, '#ffcd75', 14, 3);
+    burst(s.x, s.y, '#f4f4f4', 8, 2);
+    addShockwave(s.x, s.y, '#ffcd75', 6, 5, 20, 3);
+    flashTimer = Math.max(flashTimer, 8);
+    shakeTimer = Math.max(shakeTimer, 5);
+    SFX.thunder();
+    if (invincibleTimer === 0 && state === 'playing' && (pc.x - s.x) ** 2 + (pc.y - s.y) ** 2 < 26 ** 2) {
+      hurtPlayer();
+    }
+    return false;
+  });
+}
+
 // ---------- ステージごとの環境エフェクト ----------
 function updateStageFx() {
   const st = currentStage();
@@ -4293,6 +4386,16 @@ function updateStageFx() {
       vx: Math.cos(a + Math.PI / 2) * 1.8, vy: Math.sin(a + Math.PI / 2) * 1.8,
       life: 40, color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
     });
+  } else if (fx === 'thunder') {
+    // よこなぐりの雨＋ときどき上空に遠雷（rainの強化版。かみなりは画面上部だけで実害なし）
+    if (frame % 2 === 0) {
+      pushParticle({ x: Math.random() * (W + 60) - 30, y: -4, vx: -2, vy: 7 + Math.random() * 2, life: 70, color: '#8a9fdf' });
+    }
+    if (Math.random() < 0.006) {
+      flashTimer = Math.max(flashTimer, 5);
+      bolts.push({ x1: Math.random() * W, y1: -10, x2: Math.random() * W, y2: 40 + Math.random() * 60, life: 6 });
+      beep(70, 0.5, 'sawtooth', 0.03, 40);
+    }
   }
 }
 
@@ -4910,6 +5013,16 @@ function drawBackground() {
       // 異次元のゆらめき
       ctx.fillStyle = RAINBOW[(i + Math.floor(gframe / 15)) % RAINBOW.length] + '55';
       ctx.fillRect(x, y, 4, 4);
+    } else if (deco === 'thundercloud') {
+      // らんうん（乱雲）と ときどき ひかる いなびかり
+      ctx.fillStyle = 'rgba(26,28,44,0.55)';
+      ctx.fillRect(x - 6, y, 18, 5);
+      ctx.fillRect(x - 2, y - 3, 12, 3);
+      if ((i + Math.floor(gframe / 25)) % 7 === 0) {
+        ctx.fillStyle = '#ffcd75';
+        ctx.fillRect(x + 3, y + 5, 2, 4);
+        ctx.fillRect(x + 1, y + 8, 2, 3);
+      }
     }
   }
 
@@ -5362,6 +5475,22 @@ function drawPShot(f) {
   }
 }
 
+// 落雷の予告マーカー: 地面に点滅する円＋稲妻マーク
+function drawThunderStrikes() {
+  for (const s of strikes) {
+    const blink = Math.floor(s.t / 4) % 2 === 0;
+    ctx.strokeStyle = blink ? '#ffcd75' : 'rgba(255,205,117,0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 26, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = blink ? '#f4f4f4' : '#ffcd75';
+    ctx.fillRect(s.x - 1, s.y - 7, 3, 8);
+    ctx.fillRect(s.x - 3, s.y - 2, 3, 3);
+    ctx.fillRect(s.x + 1, s.y + 3, 3, 3);
+  }
+}
+
 function render() {
   ctx.save();
   // 画面シェイクはプレイ中のみ（ゲームオーバー画面では揺らさない）
@@ -5420,6 +5549,9 @@ function render() {
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
+
+  // 落雷の予告マーカー（ボルトより先に地面へ描く）
+  drawThunderStrikes();
 
   // 雷の連鎖ボルト
   for (const b of bolts) {
