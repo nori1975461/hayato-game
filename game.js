@@ -1581,6 +1581,7 @@ const BOSS_TYPES = [
     serifu: 'ここから さきは しのせかい…' },
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
     gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
+    deathEvent: true, // 撃破後に雷龍登場の会話イベントを挟む（ステージ20クリア演出）
     serifu: 'わがほのおで もえつきるがいい！！' },
   { name: 'ガルーダ',       origin: 'インドしんわ',       sprite: 'garuda',  aura: '#ffdd55', pattern: 'rain', shot: 'wind',
     gimmicks: ['teleport', 'callboss'], melee: ['dive'], hpMul: 1.2,
@@ -1617,6 +1618,7 @@ const BOSS_TYPES = [
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
   { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
+    bossBgm: 'rairyu', // 雷太鼓＋高速ベースの専用BGM（他のドラゴン系DRAGON_CHORDSより速く鋭い）
     gimmicks: ['rage', 'summon', 'callboss', 'storm'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.4, points: 20000,
     remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
@@ -1921,6 +1923,23 @@ const DRAGON_CHORDS = [
   [48, 52, 55], // C
   [47, 50, 53], // B dim
 ];
+// ライリュウ専用BGM: 雷太鼓の連打＋疾走する低音（Em→C→D→B）と鋭い稲妻メロディ
+const RAIRYU_CHORDS = [
+  [52, 55, 59], // Em
+  [48, 52, 55], // C
+  [50, 54, 57], // D
+  [47, 51, 54], // B
+];
+const RAIRYU_MELODY = [76, 0, 79, 76, 83, 0, 79, 0, 84, 83, 79, 76, 75, 0, 74, 0];
+// ライリュウ専用BGM 案B（重厚系）: フリジアン進行 Em→F→Em→B のオルガン和音＋雷ドラム。
+// 案Aの疾走感（sawtooth主体・%5）とは対照的に、どっしり構える（%8）
+const RAIRYU_CHORDS_B = [
+  [52, 55, 59], // Em
+  [53, 57, 60], // F
+  [52, 55, 59], // Em
+  [47, 51, 54], // B
+];
+const RAIRYU_MELODY_B = [64, 0, 0, 0, 65, 0, 0, 0, 64, 0, 62, 0, 59, 0, 0, 0];
 // エンディングBGM: 荘厳な勝利のテーマ（ロマサガ「決戦！サルーイン」風の
 // ハーモニックマイナー進行 Am→G→F→E。オルガンの和音＋駆動ベース＋ティンパニ＋鐘）
 const CLEAR_CHORDS = [
@@ -1934,9 +1953,11 @@ const CLEAR_MELODY = [69, 0, 72, 74, 76, 0, 74, 72, 77, 0, 76, 74, 76, 0, 71, 68
 let bossChordIdx = 0;
 let musicFrame = 0;
 let musicStep = 0;
+let bgmTestVariant = 'A'; // BGM A/B比較用テストコード（選定後削除予定）: 'A'=疾走系 / 'B'=重厚系
 const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
 function tickMusic() {
+  if (bossEvent) return; // ボス撃破イベント中はBGMを止める（雷龍登場の会話演出）
   if (!audioCtx || !musicOn || paused) return;
   if (state !== 'playing' && state !== 'shop' && state !== 'tally' && state !== 'clear') return;
   if (warningTimer > 0 && state === 'playing') return; // WARNING中はサイレンだけ響かせる
@@ -1964,6 +1985,57 @@ function tickMusic() {
     return;
   }
   if (bossActive && state === 'playing') {
+    // ライリュウは専用BGM（big級共通判定より前に処理する）。案A/案BをA/Bテストモードで切替
+    const stormBoss = enemies.find((en) => en.boss && en.type.bossBgm === 'rairyu');
+    if (stormBoss) {
+      if (bgmTestVariant === 'B') {
+        // 案B（重厚系）: フリジアン進行のオルガン和音＋雷ドラム。どっしりした拍（%8）
+        if (musicFrame % 8 !== 0) return;
+        const chord = RAIRYU_CHORDS_B[bossChordIdx % RAIRYU_CHORDS_B.length];
+        if (musicStep % 4 === 0) {
+          // オルガン風の2オクターブ重ね和音（triangle+sine）＋地を這うベース
+          for (const n of chord) {
+            beep(midi2f(n), 1.6, 'triangle', 0.02);
+            beep(midi2f(n - 12), 1.6, 'sine', 0.02);
+          }
+          beep(midi2f(chord[0] - 24), 1.6, 'sawtooth', 0.03);
+          bossChordIdx++;
+        }
+        // 雷ドラム: どっしり響く低音パーカッション（4分の頭でドーン）
+        if (musicStep % 4 === 0) { noise(0.28, 0.055, 160, 'lowpass'); beep(41, 0.3, 'sine', 0.06, 28); }
+        if (musicStep % 8 === 4) noise(0.14, 0.04, 900, 'highpass'); // 遠雷のうなり
+        // 重く鳴るメロディ（オクターブ下も重ねて厚みを出す）
+        const m = RAIRYU_MELODY_B[musicStep];
+        if (m) {
+          beep(midi2f(m), 0.5, 'square', 0.028);
+          beep(midi2f(m - 12), 0.5, 'triangle', 0.02);
+        }
+        musicStep = (musicStep + 1) % 16;
+        return;
+      }
+      // 案A（疾走系）: 雷太鼓＋疾走ベース。速く鋭いテンポ（%5）
+      if (musicFrame % 5 !== 0) return;
+      const chord = RAIRYU_CHORDS[bossChordIdx % RAIRYU_CHORDS.length];
+      if (musicStep % 4 === 0) {
+        // 疾走する低音（オクターブ下＋うなる最低音）
+        for (const n of chord) beep(midi2f(n - 12), 0.5, 'sawtooth', 0.02);
+        beep(midi2f(chord[0] - 24), 0.5, 'sawtooth', 0.045);
+        bossChordIdx++;
+      }
+      // 雷太鼓: 16分で刻む疾走する鼓動
+      beep(midi2f(chord[0] - 24), 0.09, 'square', 0.038, midi2f(chord[0] - 28));
+      if (musicStep % 2 === 1) noise(0.05, 0.028, 1400, 'highpass'); // 雷のパチパチ
+      if (musicStep % 8 === 4) noise(0.2, 0.05, 220, 'lowpass');      // 太鼓のドン
+      // 鋭い稲妻メロディ
+      const m = RAIRYU_MELODY[musicStep];
+      if (m) {
+        beep(midi2f(m), 0.16, 'square', 0.03);
+        beep(midi2f(m + 12), 0.16, 'triangle', 0.018);
+      }
+      if (musicStep === 12) beep(midi2f(chord[((musicStep / 4) | 0) % 3] + 12), 0.4, 'sine', 0.025); // 高く鳴る鐘
+      musicStep = (musicStep + 1) % 16;
+      return;
+    }
     // 最終ボスのドラゴンは専用BGM（速い鼓動＋うなる低音）
     if (enemies.some((en) => en.boss && en.type.big)) {
       if (musicFrame % 7 !== 0) return;
@@ -2018,6 +2090,9 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
   if (e.key === 'm' || e.key === 'M') musicOn = !musicOn;
+  // BGM A/B比較用テストコード（選定後削除予定）: ライリュウBGMを 1キー=案A（疾走系）/ 2キー=案B（重厚系）で切替
+  if (e.key === '1') { bgmTestVariant = 'A'; bossChordIdx = 0; musicStep = 0; beep(660, 0.08, 'square', 0.04); }
+  if (e.key === '2') { bgmTestVariant = 'B'; bossChordIdx = 0; musicStep = 0; beep(440, 0.12, 'triangle', 0.04); }
   if (state === 'title') {
     if (e.key === 'Enter') startGame();
     if (e.key === 'ArrowLeft') {
@@ -2157,6 +2232,7 @@ let continuesLeft = 3; // ゲームオーバーからのコンティニュー残
 let serifuTimer = 0, serifuName = '', serifuText = '', serifuReply = ''; // ボス出現セリフ（ドラクエ風ウィンドウ）
 let sigmundFight = false;        // ジギムント戦中か（勇者スピードUP・セーバー延長）
 let sigmundPowerPending = false; // セリフのあとに「ちからが かいほうされた！」を出す予約
+let bossEvent = null;            // ジギムント撃破後の雷龍登場イベント（playing内カットシーン。null=非発生）
 let tally = { t: 0, earned: 0, bonus: 0, total: 0, given: false, cleared: 0 };
 let shopIdx = 0;
 let shopScroll = 0;
@@ -2220,6 +2296,7 @@ function startGame() {
   continuesLeft = 3;
   sigmundFight = false;
   sigmundPowerPending = false;
+  bossEvent = null;
   gold = 0;
   gear = {};
   lastTallyScore = 0;
@@ -3011,6 +3088,9 @@ function update() {
   if (state !== 'playing') return;
   frame++;
 
+  // ジギムント撃破後の会話イベント（playing内カットシーン。敵AI・当たり判定は止め、演出だけ進める）
+  if (bossEvent) { updateBossEvent(); return; }
+
   checkHeroLevel(); // ゆうしゃレベルアップの判定（スコア到達でボーナス加算＋演出）
 
   // けっさんへの移行待ち（ボス撃破の余韻のあとに開く）
@@ -3790,6 +3870,14 @@ function updateSigmundDeath(e, ecx, ecy) {
       noise(0.55, 0.06, 300, 'lowpass');
     }
   } else {
+    // ジギムントは砕ける直前に雷龍登場の会話イベントへ移行する（1回だけ）
+    if (e.type.deathEvent && !e.eventFired) {
+      e.eventFired = true;
+      serifuTimer = 0;
+      bannerTimer = 0;
+      bossEvent = { step: 0, t: 0, boss: e };
+      return;
+    }
     // 粉々に砕け散る！！
     for (let i = 0; i < 240; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -3831,6 +3919,101 @@ function updateSigmundDeath(e, ecx, ecy) {
     SFX.bossDie();
     e.dyingDone = true;
     killEnemy(e); // 本来の撃破処理（スコア加算・クリア進行）へ
+  }
+}
+
+// ---- ジギムント撃破後の会話イベント（雷龍登場）。playing内カットシーンとして自動進行する ----
+// セリフは原文どおり漢字表記。各ステップの表示テキストはdrawBossEventWindow()側が bossEvent.step を見て描く
+const BOSS_EVENT_STEPS = [50, 180, 130, 180, 110, 200, 40]; // 各ステップの継続フレーム数
+// 各ステップのセリフ（原文どおり漢字表記・変更禁止）。null=ウィンドウ非表示 / narration=ナレーション
+const BOSS_EVENT_LINES = [
+  null,
+  { name: '雷龍', color: '#ffcd75', text: 'ジギムントよ。人間ごときに遅れをとるとは・・・' },
+  { name: 'ジギムント', color: '#94b0c2', text: '申し訳ありません' },
+  { name: '雷龍', color: '#ffcd75', text: 'もうよい。我ら【八大神魔】が相手となろう。貴様は死ね・・・' },
+  { narration: true, text: '（巨大な赤い雷がジギムントに落とされ、ジギムントは灰と化す）' },
+  { name: '雷龍', color: '#ffcd75', text: '人間よ。かかってくるがいい。我ら【八大神魔】の力を思い知らせてくれる・・・' },
+  null,
+];
+function updateBossEvent() {
+  const ev = bossEvent;
+  const e = ev.boss;
+  ev.t++;
+  const dur = BOSS_EVENT_STEPS[ev.step] || 60;
+
+  // 通常update()末尾のタイマー減衰はbossEvent中スキップされるため、ここで代わりに減衰させる
+  // （やらないと落雷演出のshake/flashが以降のセリフ表示中もずっと残ってしまう）
+  if (shakeTimer > 0) shakeTimer--;
+  if (flashTimer > 0) flashTimer--;
+  if (redFlashTimer > 0) redFlashTimer--;
+
+  // 暗雲がたれこめ、雷龍の金色の目が空にともる演出（全ステップ共通で継続）
+  if (ev.t % 4 === 0 && ev.step >= 1 && ev.step <= 5) {
+    // 空の暗雲がゆっくり流れる
+    pushParticle({ x: Math.random() * (W + 40) - 20, y: Math.random() * 70, vx: -0.4 - Math.random() * 0.4, vy: 0.05, life: 60, color: Math.random() < 0.5 ? '#1a1c2c' : '#333c57' });
+  }
+
+  if (ev.step === 0) {
+    // 静寂の間: 空が一気に暗くなり、遠くで雷鳴が轟く
+    if (ev.t === 1) { shakeTimer = Math.max(shakeTimer, 6); }
+    if (ev.t === 18) { noise(0.7, 0.09, 200, 'lowpass'); beep(40, 0.9, 'sine', 0.08, 24); } // 遠雷ゴロゴロ
+  } else if (ev.step === 1) {
+    // 雷龍「ジギムントよ。人間ごときに遅れをとるとは・・・」
+    if (ev.t === 1) { beep(58, 0.5, 'sawtooth', 0.05, 40); noise(0.2, 0.04, 600, 'highpass'); } // 低く重い声色
+  } else if (ev.step === 2) {
+    // ジギムント「申し訳ありません」
+    if (ev.t === 1) beep(150, 0.18, 'square', 0.035, 90); // 弱々しい声
+  } else if (ev.step === 3) {
+    // 雷龍「もうよい。我ら【八大神魔】が相手となろう。貴様は死ね・・・」
+    if (ev.t === 1) { beep(55, 0.55, 'sawtooth', 0.055, 36); noise(0.25, 0.05, 500, 'highpass'); }
+    if (ev.t % 30 === 0) { flashTimer = Math.max(flashTimer, 6); noise(0.25, 0.045, 800, 'highpass'); } // 空が不穏に光りだす
+  } else if (ev.step === 4) {
+    // （巨大な赤い雷がジギムントに落とされ、ジギムントは灰と化す）
+    const ecx = e.x + e.size / 2;
+    const ecy = e.y + e.size / 2;
+    if (ev.t === 8) {
+      // ドカーン！赤い巨大落雷がジギムントを直撃
+      for (let i = 0; i < 5; i++) {
+        bolts.push({ x1: ecx + (Math.random() - 0.5) * 44, y1: -12, x2: ecx + (Math.random() - 0.5) * 12, y2: ecy, life: 16, storm: true });
+      }
+      flashTimer = 40; shakeTimer = 42; redFlashTimer = Math.max(redFlashTimer, 28);
+      noise(0.5, 0.18, 1600, 'lowpass', 0, 160);
+      beep(34, 1.0, 'sawtooth', 0.13, 20);
+      noise(0.4, 0.1, 700, 'lowpass', 120, 100);
+    }
+    if (ev.t === 16) {
+      // 灰と化す: 灰色の粒子を大量に散らしてジギムントを消す
+      for (let i = 0; i < 130; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 0.4 + Math.random() * 2.4;
+        pushParticle({
+          x: ecx + (Math.random() - 0.5) * e.size * 0.7,
+          y: ecy + (Math.random() - 0.5) * e.size * 0.7,
+          vx: Math.cos(a) * sp * 0.4,
+          vy: Math.sin(a) * sp * 0.4 - 0.6,
+          life: 50 + Math.random() * 60,
+          color: ['#94b0c2', '#566c86', '#333c57', '#f4f4f4'][Math.floor(Math.random() * 4)],
+        });
+      }
+      addShockwave(ecx, ecy, '#94b0c2', 18, 10, 40, 7);
+      e.dyingDone = true;
+      killEnemy(e);        // 本来の撃破処理（スコア加算・stage進行・けっさん予約 pendingTally=110）
+      bannerTimer = 0;     // クリアバナーはイベント中に出さない
+      enemies = enemies.filter((x) => x !== e); // 灰になって画面から消える
+    }
+  } else if (ev.step === 5) {
+    // 雷龍「人間よ。かかってくるがいい。我ら【八大神魔】の力を思い知らせてくれる・・・」
+    if (ev.t === 1) { beep(60, 0.5, 'sawtooth', 0.05, 42); noise(0.2, 0.04, 600, 'highpass'); }
+  } else if (ev.step === 6) {
+    // 締め: ウィンドウを閉じてゲームへ戻る
+  }
+
+  if (ev.t >= dur) {
+    ev.step++;
+    ev.t = 0;
+    if (ev.step >= BOSS_EVENT_STEPS.length) {
+      bossEvent = null; // イベント終了。以降 pendingTally が減り、けっさん画面へ移行する
+    }
   }
 }
 
@@ -6032,6 +6215,14 @@ function render() {
     ctx.fillRect(-8, -8, W + 16, H + 16);
   }
 
+  // ジギムント撃破後の会話イベント（雷龍登場）
+  if (bossEvent) drawBossEventWindow();
+
+  // BGM A/B比較用テストコード（選定後削除予定）: ライリュウ戦中は現在の案を画面右上に表示
+  if (state === 'playing' && bossActive && enemies.some((en) => en.boss && en.type.bossBgm === 'rairyu')) {
+    drawText(`BGM案:${bgmTestVariant} (1=A疾走 2=B重厚)`, 6, 100, '#73eff7', 11);
+  }
+
   // 一時停止中の画面
   if (paused && state === 'playing') {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
@@ -6151,6 +6342,71 @@ function renderHUD() {
     const bc = RAINBOW[Math.floor(gframe / 5) % RAINBOW.length];
     drawCenteredText(bannerText, 58, bc, pulse);
   }
+}
+
+// ジギムント撃破後の会話イベントの描画（暗雲＋雷龍の金色の目＋セリフウィンドウ）
+function drawBossEventWindow() {
+  const ev = bossEvent;
+  // 暗雲がたれこめて画面全体が暗くなる
+  ctx.fillStyle = 'rgba(4, 4, 12, 0.5)';
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // 雷龍の金色の目が空にともる（2つの光点。ゆらめきながら光る）
+  if (ev.step >= 1) {
+    const eyeY = 48 + Math.sin(gframe * 0.08) * 3;
+    const glow = 0.55 + Math.sin(gframe * 0.2) * 0.25;
+    for (const ex of [W / 2 - 36, W / 2 + 36]) {
+      const g = ctx.createRadialGradient(ex, eyeY, 0, ex, eyeY, 24);
+      g.addColorStop(0, `rgba(255, 220, 120, ${glow})`);
+      g.addColorStop(1, 'rgba(255, 205, 117, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, 24, 0, Math.PI * 2);
+      ctx.fill();
+      // 目の芯（金色の光）と縦長の瞳孔
+      ctx.fillStyle = '#fff6d5';
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, 6, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#b13e53';
+      ctx.fillRect(ex - 1, eyeY - 6, 2, 12);
+    }
+  }
+
+  // セリフウィンドウ（step0とstep6は非表示）
+  const line = BOSS_EVENT_LINES[ev.step];
+  if (!line) return;
+  const ww = W - 48, wh = 66, wx = 24, wy = H - wh - 6;
+  const maxW = ww - 32;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+  ctx.fillRect(wx, wy, ww, wh);
+  ctx.strokeStyle = line.narration ? '#ff2e4d' : '#f4f4f4';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(wx + 3, wy + 3, ww - 6, wh - 6);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(wx + 7, wy + 7, ww - 14, wh - 14);
+  if (line.narration) {
+    drawWrappedText(line.text, wx + 16, wy + 20, '#ff8fa3', 12, maxW, 20);
+  } else {
+    drawText(line.name, wx + 16, wy + 12, line.color, 12);
+    drawWrappedText(`「${line.text}」`, wx + 16, wy + 32, '#f4f4f4', 12, maxW, 20);
+  }
+}
+
+// 指定幅で自動改行しながらテキストを描く（漢字まじりの長いセリフ用）
+function drawWrappedText(text, x, y, color, size, maxW, lineH) {
+  ctx.font = `${size}px "MS Gothic", monospace`;
+  let line = '', ln = 0;
+  for (const ch of text) {
+    if (line && ctx.measureText(line + ch).width > maxW) {
+      drawText(line, x, y + ln * lineH, color, size);
+      line = ch;
+      ln++;
+    } else {
+      line += ch;
+    }
+  }
+  if (line) drawText(line, x, y + ln * lineH, color, size);
 }
 
 function renderTitle() {
