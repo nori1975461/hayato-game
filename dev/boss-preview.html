@@ -1024,6 +1024,44 @@ const SPRITES = {
     '...CCCbb..........................',
     '.CCC..............................',
   ],
+  // ライリュウ(雷龍): 参考画像準拠の再々設計。後脚2本で直立する虎縞（シアン地×紺縞）の雷竜。
+  // 後方湾曲の銀角・琥珀色の目・大きく開いた顎（白牙＋赤い舌＋暗い口内）・頭頂と尾に氷白の背びれ棘。
+  // 左右いっぱいに広げたコウモリ翼（紺の翼膜に氷色の稲妻血管D）・胸の前に構えた白い鉤爪の前腕・
+  // 幅広スタンスの太い脚と白爪・右へ跳ね上がる棘付きの尾・股間から地面へ落ちる大稲妻＋左右の稲妻
+  rairyu: [
+    '...KY.....WS..............SW.....YK...',
+    '..YK.......SS....W..W....SS.....D.....',
+    '............SSKKKKKKKKKKSS............',
+    '..............KSNNNNNNSK..............',
+    '..............KNYYNNYYNK..............',
+    '....WK......W.KCNCCCCNCK.W......KW....',
+    '......KKK..WD.KWKWKKWKWK.DW..KKK......',
+    '......NNNKKK..KWKRRRRKWK..KKKNNN......',
+    '.....KNNNNNNKK.KNCCCCNK.KKNNNNNNK.....',
+    '....KNNNDNNNNKbCNCCCCNCbKNNNNDNNNK....',
+    '...KNNDNNNDNNKCKCNCCNCKCKNNDNNNDNNK...',
+    '...KNDNNDNNDNKbCKCNNCKCbKNDNNDNNDNK...',
+    '...KNNDNNDNNNKbbCKCCKCbbKNNNDNNDNNK...',
+    '....KNDNNDNNNKbKWWCCWWKbKNNNDNNDNK....',
+    '.....KNDK..NKKbCWCDDCWCbKKN..KDNK.....',
+    '......K....K.KbCNCDDCNCbK.K....K......',
+    '...Y..........KbCNCCNCbK..........Y...',
+    '..Y...........KbCCNNCCbK...........Y..',
+    '...Y........KCCNK....KNCCK..........W.',
+    '..Y........KCNCCKKYY.KCCNCK........KW.',
+    '...Y.......KCCNCK.KYYKNCCCK......WKCN.',
+    '..YW......KCNCCK.KYW..KCCNCK...WKCND..',
+    '.........KCCNCK...KYY...KCNCCKWKCND...',
+    '.........KCNCCK..KWY....KCCNCKKND.....',
+    '.........KCCCK....KYY....KCCCKND......',
+    '.........KCNCK....KYW....KCNCK........',
+    '.......KCCCCCK....KYY...KCCCCCK.......',
+    '.......KCKCKCK...KYY....KCKCKCK.......',
+    '........W.W.W.....KWY....W.W.W........',
+    '...........D.....KYY......D...........',
+    '..................KYY.................',
+    '...................KW.................',
+  ],
   // ティアマト: メソポタミアしんわの混沌の母にして五色竜の女王。白・青・赤・黒・緑の5つの竜頭が束になって生え、紫の巨躯に大きく広げた翼、胸の中央にピンクに光るハートの心臓（弱点コアの源）
   tiamat: [
     '..............YK....KY..............',
@@ -1179,6 +1217,7 @@ const bosses = [
   ['humbaba', 'フンババ（専用スプライト）', 'メソポタミア神話 St.24'],
   ['seiryu', 'セイリュウ（専用スプライト）', '中国神話 St.26'],
   ['tiamat', 'ティアマト（専用スプライト・荘厳）', 'メソポタミア神話 最終ボス'],
+  ['rairyu', 'ライリュウ（雷龍・専用スプライト）', 'てんくうのはおう 真の最終ボス St.28'],
 ];
 const row = document.getElementById('row');
 for (const [key, name, origin] of bosses) {

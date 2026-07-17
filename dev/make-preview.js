@@ -53,6 +53,7 @@ const bosses = [
   ['humbaba', 'フンババ（専用スプライト）', 'メソポタミア神話 St.24'],
   ['seiryu', 'セイリュウ（専用スプライト）', '中国神話 St.26'],
   ['tiamat', 'ティアマト（専用スプライト・荘厳）', 'メソポタミア神話 最終ボス'],
+  ['rairyu', 'ライリュウ（雷龍・専用スプライト）', 'てんくうのはおう 真の最終ボス St.28'],
 ];
 const row = document.getElementById('row');
 for (const [key, name, origin] of bosses) {
