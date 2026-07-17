@@ -1652,6 +1652,7 @@ const SHOP_ITEMS = [
   { id: 'clover',   name: 'よつばのクローバー',   desc: 'かいしんのいちげきが 6% でるようになる',      price: 550 },
   { id: 'bandana',  name: 'まけずぎらいのバンダナ', desc: 'ライフのこり2いかで スピードが 15% アップ',  price: 600 },
   { id: 'crown',    name: 'おうじゃのかんむり',   desc: 'ひっさつを つかっても ゲージが 25 のこる',    price: 800 },
+  { id: 'socks',    name: 'にじのくつした',       desc: 'はしると にじいろの キラキラが でる！',       price: 250 },
 ];
 
 // ---------- 効果音＆BGM（Web Audio・ファイル不要） ----------
@@ -3040,6 +3041,18 @@ function update() {
   }
   player.x = Math.max(0, Math.min(W - PLAYER_SIZE, player.x + dx * pspeed));
   player.y = Math.max(0, Math.min(H - PLAYER_SIZE, player.y + dy * pspeed));
+
+  // にじのくつした: 移動中、足元ににじいろのキラキラを出す（純装飾・ゲームプレイへの影響なし）
+  if (gear.socks && (dx !== 0 || dy !== 0) && gframe % 4 === 0) {
+    pushParticle({
+      x: player.x + PLAYER_SIZE / 2 + (Math.random() - 0.5) * 8,
+      y: player.y + PLAYER_SIZE - 2,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: -0.3 - Math.random() * 0.3,
+      life: 14 + Math.random() * 8,
+      color: RAINBOW[Math.floor(Math.random() * RAINBOW.length)],
+    }, true);
+  }
 
   const weapon = WEAPONS[weaponIdx];
   // ジギムント戦のインフィニティセーバーは回転も1.3倍
