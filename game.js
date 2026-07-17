@@ -1058,38 +1058,38 @@ const SPRITES = {
     '..........................KNYYWWY...',
     '.............................WYYW...',
   ],
-  // ティアマト: メソポタミアしんわの混沌の母。海と星空に二分された巨躯・二つの目・波間から立ち上がる女王のシルエット
+  // ティアマト: メソポタミアしんわの混沌の母にして五色竜の女王。白・青・赤・黒・緑の5つの竜頭が束になって生え、紫の巨躯に大きく広げた翼、胸の中央にピンクに光るハートの心臓（弱点コアの源）
   tiamat: [
-    '..........Y..Y.Y.Y..Y...............',
-    '....Y.....YYYYYYYY.....Y............',
-    '...YY....YYYYYYYYYY....YY...........',
-    '........bbbbbbbbPPPPPPPP............',
-    '.......bbbRRbbbbPPPPRRPPP...........',
-    '....ppbbbbbbbbbbPPPPPPPPPPpp........',
-    '....pbbbbWWbbbbMMPPPPWWPPPPp........',
-    '.....pbbbbbbbbCMMPPPPPPPPPp.........',
-    '..pppbbbbbbbbbCPPPPPPPPPPPppp.......',
-    'ppbbbbbbbbbbbbCPPPPPPPPPPPPPPpp.....',
-    'pbbbbbbbbbbbbbCPPPPPPPPPPPPPPPp.....',
-    'pbbbbbbbbbbbMMMMMMPPPPPPPPPPPPp.....',
-    'pbbbbbbbbbbbMMMMMMPPPPPPPPPPPPp.....',
-    'WbbbbbbbbbbbbCPPPPPPPPPPPPPPW.......',
-    '...bbbbbbbbbbbCPPPPPPPPPPPPP........',
-    '...bCbbbbCbbbbCPPWPPPPWPPPPP........',
-    '...bbbbbCbbbbbCPPPPPWPPPPWPP........',
-    '...bCbbbbbCbbbCPWPPPPPPWPPPP........',
-    '....bbbCbbbbbCPPPPWPPPPPPPP.........',
-    '....bbbbbCbbbCPPPWPPPPWPPP..........',
-    '.....bbbbbbbCPPPPPPPPPPPP...........',
-    '...bbbbbbbCPPPPPPPPPPP..............',
-    '..bbbWbbbbbbCPPPPPWPPPPP............',
-    '.bbWbbbbWbbbbWbbbbWbbbbWbbbbWbb.....',
-    'bWbbbbWbbbbWbbbbWbbbbWbbbbWbbbbW....',
-    'bbbWbbbbbWbbbbbWbbbbbWbbbbbWbbbb....',
-    'WbbbbbWbbbbbWbbbbbWbbbbbWbbbbbWb....',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb....',
-    'bWbbbbbbbWbbbbbbbWbbbbbbbWbbbbbb....',
-    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb....',
+    '..............YK....KY..............',
+    '.........Y..Y..RRRRRR..Y..Y.........',
+    '..WWWWW.bbbbbbRRYRRYRRKKKKKK.GGGGG..',
+    '..WKWWW.bYbbYbRRRRRRRRKRKKRK.GKGGG..',
+    '...WWW..bWbbWbRWKWWKWRKWKKWK..GGG...',
+    '...WW.....bb....RRRR....KK.....GG...',
+    '.....WW....bb...RRRR...KK....GG.....',
+    '.......WW...bb..RRRR..KK...GG.......',
+    '.........WW..bb.RRRR.KK..GG.........',
+    '..pp......VWWPbbRRRRKKPGGV......pp..',
+    'pppp......VPPPPPPPPPPPPPPV......pppp',
+    'Kppppp....VPPPPPPPPPPPPPPV....pppppK',
+    'ppppppp...VPPPPMMPMMPPPPPV...ppppppp',
+    'ppppHpppVVVPPPPMWMMMPPPPPVVVpppHpppp',
+    '..pppppp..VPPPPPMMMPPPPPPV..pppppp..',
+    '...pppp...VPPPPPPMPPPPPPPV...pppp...',
+    '...........VPHPPPPPPPPHPV...........',
+    '...........VPHHHHHHHHHHPV...........',
+    '..........VPPHHHHHHHHHHPPV..........',
+    '...........PPPP..PP..PPPP...........',
+    '...........VPPP..PP..PPPV...........',
+    '...........VPPP..PP..PPPV...........',
+    '..........PPPPP..PP..PPPPP..........',
+    '..........YWYWY..PP..YWYWY..........',
+    '.................PPP................',
+    '...................PPP..............',
+    '.....................PPPP...........',
+    '........................PPPP........',
+    '...........................PPP......',
+    '..............................YY....',
   ],
   // ベヒーモス: 邪竜の側近。巨大な湾曲角＋牙＋どっしりした紫の巨獣
   behemoth: [
@@ -1446,9 +1446,9 @@ const WEAPONS = [
     shoot: { kind: 'rocketfist', interval: 36, speed: 5.2, dmg: 6, aoe: 40, aim: true } },
   { name: 'てんていのいかずち', score: 191500, len: 92, width: 9, spin: 0.175, blades: 4, dmg: 9, knock: 22,
     lightning: true, tesla: true, color: '#ffe94a', edge: '#f4f4f4', kind: 'boltrod', hybrid: false },
-  { name: 'はどうほう', score: 207500, len: 44, width: 10, spin: 0.130, blades: 1, dmg: 3,
+  { name: 'はどうほう', score: 207500, len: 60, width: 14, spin: 0.130, blades: 1, dmg: 6,
     color: '#1d5a80', edge: '#73eff7', kind: 'wavegun', hybrid: false,
-    shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 14, pierce: true, aim: true, life: 90, color: '#73eff7', r: 16 } },
+    shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 20, pierce: true, aim: true, life: 90, color: '#73eff7', r: 26 } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
@@ -1604,13 +1604,13 @@ const BOSS_TYPES = [
     serifu: 'そうりゅうの いぶきを うけてみよ！' },
   { name: 'ティアマト',     origin: 'メソポタミアしんわ', sprite: 'tiamat',   aura: '#8b4f8b', pattern: 'mix', shot: 'ball', big: true,
     gimmicks: ['rage', 'summon', 'weakpoint', 'callboss'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
-    remap: { b: '#2f6690', P: '#3d1f4d', C: '#73eff7' }, ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
-    form2Remap: { b: '#0d0221', P: '#ff2e4d', p: '#ffcd75', C: '#41a6f6', M: '#38b764' }, form2Aura: '#ff2e4d',
+    ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
+    form2Remap: { P: '#160a20', p: '#c9284a', H: '#5d1520', M: '#ff2e4d', b: '#73eff7', G: '#7bf05a', R: '#ff2e4d' }, form2Aura: '#ff2e4d',
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
   { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
     gimmicks: ['rage', 'summon', 'callboss', 'storm'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.4, points: 20000,
-    ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
+    remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
     form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#ff77a8', C: '#ff77a8' }, form2Aura: '#b567b5',
     serifu: 'わがなは ライリュウ…てんくうの いかずちは すべて わがしもべ！！',
@@ -1720,9 +1720,12 @@ const SFX = {
   warn: () => beep(750, 0.16, 'square', 0.05, 480),
   zap: () => beep(1400, 0.08, 'sawtooth', 0.04, 200),
   thunder: () => {
-    noise(0.25, 0.1, 900, 'bandpass');
-    beep(1600, 0.12, 'sawtooth', 0.05, 180);
-    beep(70, 0.55, 'sawtooth', 0.08, 35, 60);
+    // 鋭いカミナリの割れる音 → 重く長い雷鳴のとどろき（巨大な雷の演出）
+    noise(0.42, 0.16, 1300, 'bandpass');
+    noise(0.7, 0.11, 320, 'lowpass', 40);      // 低くうなる余韻
+    beep(1900, 0.14, 'sawtooth', 0.06, 150);   // 鋭い一撃
+    beep(90, 0.78, 'sawtooth', 0.12, 28, 45);  // 重い雷鳴
+    beep(52, 0.62, 'square', 0.07, 20, 120);   // 地響きの下支え
   },
   freeze: () => beep(880, 0.1, 'sine', 0.04, 660),
   guard: () => { beep(1200, 0.05, 'square', 0.05); beep(900, 0.08, 'square', 0.04, 500, 40); },
@@ -1783,6 +1786,18 @@ const SFX = {
     });
     [1047, 1319, 1568, 2093].forEach((f, i) => beep(f, 1.4, 'triangle', 0.05, null, 1950 + i * 70));
     noise(0.8, 0.06, 4000, 'highpass', 1950);
+  },
+  // はどうほう: 発射直前のエネルギー充填（低→高へ吸い上がるうなり）
+  waveCharge: () => {
+    beep(110, 0.32, 'sawtooth', 0.05, 1000);
+    beep(300, 0.32, 'sine', 0.035, 1700, 40);
+    beep(60, 0.3, 'square', 0.045, 260);
+  },
+  // はどうほう: 着弾の炸裂（水色の破裂音）
+  waveHit: () => {
+    beep(220, 0.16, 'sawtooth', 0.07, 70);
+    beep(1300, 0.1, 'triangle', 0.05, 480);
+    noise(0.18, 0.08, 1600, 'bandpass', 0, 400);
   },
   // 花火の音
   fireworkLaunch: () => beep(500 + Math.random() * 300, 0.5, 'sine', 0.03, 1500),
@@ -1848,8 +1863,13 @@ function shootSFX(kind, interval) {
       noise(0.06, 0.03, 1200, 'bandpass', 0, 400); break;
     case 'rocketfist':                   // ロケットパンチ: ドッと打ち出す＋噴射
       beep(180, 0.1, 'square', 0.06, 70); noise(0.16, 0.06, 800, 'bandpass', 0, 240); break;
-    case 'wave':                         // はどうほう: 溜め（低音）→ 解放（高音）
-      beep(160, 0.14, 'sawtooth', 0.06, 90); beep(1400, 0.09, 'triangle', 0.055, 320, 60); break;
+    case 'wave':                         // はどうほう: 重低音の溜め→中音の共鳴→高音の解放→衝撃波の余韻＋炸裂ノイズ
+      beep(64, 0.24, 'sawtooth', 0.13, 42);         // 地を揺らす重低音の溜め
+      beep(180, 0.2, 'square', 0.09, 90, 30);       // 中音の共鳴
+      beep(1700, 0.14, 'sawtooth', 0.08, 360, 90);  // 高音へ吹き抜ける解放
+      beep(950, 0.16, 'triangle', 0.06, 120, 120);  // 落ちていく衝撃波の余韻
+      noise(0.34, 0.11, 1500, 'bandpass', 55, 260); // ドバッと放たれる炸裂ノイズ
+      break;
     default:
       beep(700, 0.05, 'square', 0.05, 1100);
   }
@@ -2108,7 +2128,7 @@ let hitstopT = 0;    // ヒットストップ: 当たった瞬間、世界が数
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
 let orbitAngle = 0;   // オービット刃（ギャラクシーツインリング）の周回角度。本体の回転とは独立
 let angleHist = [];   // 武器角度の履歴リングバッファ（じくうのカタナ・ムラクモの残像斬り用）
-let bannerText, bannerTimer, shakeTimer, flameTimer, shootTimer, flashTimer;
+let bannerText, bannerTimer, shakeTimer, flameTimer, shootTimer, flashTimer, redFlashTimer;
 let combo, comboTimer, maxCombo;
 let bossActive, nextBossScore, bossCount, warningTimer;
 let stage, specialGauge, playerSlowT;
@@ -2166,6 +2186,7 @@ function startGame() {
   flameTimer = 0;
   shootTimer = 0;
   flashTimer = 0;
+  redFlashTimer = 0;
   combo = 0;
   comboTimer = 0;
   maxCombo = 0;
@@ -3028,6 +3049,8 @@ function update() {
   // 飛び道具武器（弓・銃・大砲・爆弾・手裏剣・ミサイル・魔法の杖・レーザー等）
   if (weapon.shoot) {
     shootTimer--;
+    // はどうほう: 発射直前の溜め音（エネルギー充填のうなり）
+    if (weapon.kind === 'wavegun' && shootTimer === 18) SFX.waveCharge();
     if (shootTimer <= 0) {
       const sh = weapon.shoot;
       const tipA = weaponAngle;
@@ -3180,6 +3203,7 @@ function update() {
   if (bannerTimer > 0) bannerTimer--;
   if (shakeTimer > 0) shakeTimer--;
   if (flashTimer > 0) flashTimer--;
+  if (redFlashTimer > 0) redFlashTimer--;
   if (serifuTimer > 0) serifuTimer--;
 }
 
@@ -3418,27 +3442,30 @@ function updateBoss(e, pc, ecx, ecy) {
     e.calledBoss = true;
     callBoss(e);
   }
-  // 雷嵐ギミック(ライリュウ専用): 周期的に全画面へ落雷を予告 → 45フレーム後に落とす
+  // 雷嵐ギミック(ライリュウ専用): 周期的に全画面へ巨大な赤い落雷を予告 → 45フレーム後に落とす
   if (gm.includes('storm')) {
-    e.stormT = (e.stormT == null ? 240 : e.stormT) - 1;
+    e.stormT = (e.stormT == null ? 180 : e.stormT) - 1;
     if (e.stormT <= 0) {
-      const n = e.form2 ? 5 : 3;              // 第2形態は本数アップ＝「画面いっぱいに雷が乱れ飛ぶ」
+      const n = e.form2 ? 9 : 6;              // 画面いっぱいに雷が乱れ飛ぶ（大幅増）
       const pts = [];
       for (let i = 0; i < n; i++) {
         let sx, sy, tries = 0;
         do {
-          sx = 30 + Math.random() * (W - 60);
-          sy = 60 + Math.random() * (H - 90);
+          sx = 24 + Math.random() * (W - 48);
+          sy = 50 + Math.random() * (H - 80);
           tries++;
-        } while (tries < 20 && pts.some((p) => (p.x - sx) ** 2 + (p.y - sy) ** 2 < 70 ** 2));
+        } while (tries < 20 && pts.some((p) => (p.x - sx) ** 2 + (p.y - sy) ** 2 < 52 ** 2));
         pts.push({ x: sx, y: sy });
       }
       const pcs = playerCenter();
       pts[0].x = pcs.x; pts[0].y = pcs.y;     // 1本だけ現在位置狙い(警告があるので歩けばかわせる)
-      for (const p of pts) strikes.push({ x: p.x, y: p.y, t: 45 });
-      addPopup(ecx, e.y - 24, 'らいめいのあらし！！', '#ffcd75', 16);
+      // 第2形態はさらに追い討ちの一撃を現在位置へ
+      if (e.form2 && pts[1]) { pts[1].x = pcs.x + (Math.random() - 0.5) * 40; pts[1].y = pcs.y + (Math.random() - 0.5) * 40; }
+      for (const p of pts) strikes.push({ x: p.x, y: p.y, t: 45, storm: true });
+      addPopup(ecx, e.y - 24, 'らいめいのあらし！！', '#ff2e4d', 18);
+      redFlashTimer = Math.max(redFlashTimer, 6); // 予告の瞬間にも空が赤くうなる
       SFX.warn();
-      e.stormT = e.form2 ? 210 : 300;
+      e.stormT = e.form2 ? 150 : 220;
     }
   }
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
@@ -4188,6 +4215,7 @@ function updatePShotHits() {
 }
 
 // 着弾の火花（kind 別に色・散り方を変える）。近接ヒットより控えめ
+let waveHitSfxFrame = -99; // はどうほうの貫通弾が連続ヒットしても炸裂音が鳴りすぎないよう間引く
 function bulletHitFX(f, x, y) {
   const fx = SHOT_FX[f.kind] || { color: '#ef7d57', burst: 5 };
   if (f.kind === 'orb') {
@@ -4196,6 +4224,13 @@ function bulletHitFX(f, x, y) {
     burst(x, y, '#f4f4f4', fx.burst, 1.6, true);   // 矢・投槍: 白い小火花
   } else if (f.kind === 'laser') {
     burst(x, y, '#73eff7', fx.burst, 2.4, true);   // レーザー: シアンの火花
+  } else if (f.kind === 'wave') {
+    // はどうほう: 大きな水色の炸裂＋二重の衝撃波リング＋白い飛沫
+    burst(x, y, shotColor(f), 14, 2.8, true);
+    burst(x, y, '#f4f4f4', 8, 2.0, true);
+    addShockwave(x, y, '#73eff7', 10, 5, 16, 3);
+    addShockwave(x, y, '#f4f4f4', 5, 4, 12, 2);
+    if (frame - waveHitSfxFrame > 6) { SFX.waveHit(); waveHitSfxFrame = frame; }
   } else {
     burst(x, y, shotColor(f), fx.burst, 1.8, true); // それ以外: 弾色の火花
   }
@@ -4288,15 +4323,31 @@ function updateThunderStrikes(pc) {
   strikes = strikes.filter((s) => {
     s.t--;
     if (s.t > 0) return true;
-    bolts.push({ x1: s.x + (Math.random() - 0.5) * 30, y1: -10, x2: s.x, y2: s.y, life: 8 });
-    bolts.push({ x1: s.x + (Math.random() - 0.5) * 50, y1: -10, x2: s.x, y2: s.y, life: 6 });
-    burst(s.x, s.y, '#ffcd75', 14, 3);
-    burst(s.x, s.y, '#f4f4f4', 8, 2);
-    addShockwave(s.x, s.y, '#ffcd75', 6, 5, 20, 3);
-    flashTimer = Math.max(flashTimer, 8);
-    shakeTimer = Math.max(shakeTimer, 5);
+    if (s.storm) {
+      // ライリュウの雷嵐: 巨大な赤い落雷。天から複数の稲妻が束になって落ちる
+      bolts.push({ x1: s.x + (Math.random() - 0.5) * 40, y1: -12, x2: s.x, y2: s.y, life: 11, storm: true });
+      bolts.push({ x1: s.x + (Math.random() - 0.5) * 70, y1: -12, x2: s.x, y2: s.y, life: 9, storm: true });
+      bolts.push({ x1: s.x + (Math.random() - 0.5) * 100, y1: -12, x2: s.x, y2: s.y, life: 7, storm: true });
+      burst(s.x, s.y, '#ff2e4d', 26, 4.5);
+      burst(s.x, s.y, '#ff77a8', 16, 3);
+      burst(s.x, s.y, '#f4f4f4', 12, 2.5);
+      addShockwave(s.x, s.y, '#ff003c', 8, 8, 40, 4);
+      addShockwave(s.x, s.y, '#ff77a8', 4, 5, 26, 3);
+      redFlashTimer = Math.max(redFlashTimer, 18);
+      flashTimer = Math.max(flashTimer, 6);
+      shakeTimer = Math.max(shakeTimer, 9);
+    } else {
+      bolts.push({ x1: s.x + (Math.random() - 0.5) * 30, y1: -10, x2: s.x, y2: s.y, life: 8 });
+      bolts.push({ x1: s.x + (Math.random() - 0.5) * 50, y1: -10, x2: s.x, y2: s.y, life: 6 });
+      burst(s.x, s.y, '#ffcd75', 14, 3);
+      burst(s.x, s.y, '#f4f4f4', 8, 2);
+      addShockwave(s.x, s.y, '#ffcd75', 6, 5, 20, 3);
+      flashTimer = Math.max(flashTimer, 8);
+      shakeTimer = Math.max(shakeTimer, 5);
+    }
     SFX.thunder();
-    if (invincibleTimer === 0 && state === 'playing' && (pc.x - s.x) ** 2 + (pc.y - s.y) ** 2 < 26 ** 2) {
+    const hitR = s.storm ? 30 : 26;
+    if (invincibleTimer === 0 && state === 'playing' && (pc.x - s.x) ** 2 + (pc.y - s.y) ** 2 < hitR ** 2) {
       hurtPlayer();
     }
     return false;
@@ -4794,22 +4845,44 @@ function drawWeapon() {
       for (let s = 1; s < seg.length; s++) ctx.lineTo(seg[s][0], seg[s][1]);
       ctx.stroke();
     } else if (kind === 'wavegun') {
-      // はどうほう: 太い砲身＋砲口で脈動する発光リング
+      // はどうほう: 極太の砲身＋多重エネルギーリングで脈動する砲口（最終最強の波動砲）
+      const half = weapon.width / 2;
+      // 溜めが完了に近づくほど砲口が高エネルギーに（発射直前18Fで最大）
+      const charge = (weapon.shoot && shootTimer < 18) ? (18 - shootTimer) / 18 : 0;
+      // 砲身の外周グロー
+      ctx.fillStyle = 'rgba(65, 166, 246, 0.35)';
+      ctx.fillRect(6, -half - 3, wlen - 4, weapon.width + 6);
+      // 砲身本体
       ctx.fillStyle = color;
-      ctx.fillRect(8, -weapon.width / 2, wlen - 10, weapon.width);
+      ctx.fillRect(8, -half, wlen - 10, weapon.width);
+      // 上面のプレートハイライト
+      ctx.fillStyle = '#41a6f6';
+      ctx.fillRect(8, -half, wlen - 10, 3);
+      // 中心を走る明滅エネルギー導線
+      ctx.globalAlpha = 0.6 + Math.sin(gframe * 0.35) * 0.35;
       ctx.fillStyle = edge;
-      ctx.fillRect(wlen - 6, -weapon.width / 2 - 2, 6, weapon.width + 4);
-      const pulse = 5 + Math.sin(gframe * 0.3) * 2.5;   // 脈動する発光リング
-      ctx.strokeStyle = edge;
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.5 + Math.sin(gframe * 0.3) * 0.3;
-      ctx.beginPath();
-      ctx.arc(wlen, 0, pulse, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.fillRect(12, -2, wlen - 22, 4);
       ctx.globalAlpha = 1;
-      if (weapon.shoot && shootTimer > (weapon.shoot.interval - 5)) {
-        ctx.fillStyle = '#73eff7';
-        ctx.fillRect(wlen, -5, 9, 10);
+      // 砲口の分厚いリム
+      ctx.fillStyle = edge;
+      ctx.fillRect(wlen - 8, -half - 4, 8, weapon.width + 8);
+      // 多重の発光リング（脈動しながら3枚重ね。溜め完了間際は膨らむ）
+      for (let ri = 0; ri < 3; ri++) {
+        const pr = 7 + ri * 5 + Math.sin(gframe * 0.3 - ri) * 2.5 + charge * 8;
+        ctx.strokeStyle = ri === 0 ? '#f4f4f4' : edge;
+        ctx.lineWidth = ri === 0 ? 3 : 2;
+        ctx.globalAlpha = (0.3 + Math.sin(gframe * 0.3 - ri) * 0.22) * (0.6 + charge * 0.4) + (ri === 0 ? 0.2 : 0);
+        ctx.beginPath();
+        ctx.arc(wlen, 0, pr, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // 溜め完了間際は砲口が白く明滅
+      if (weapon.shoot && shootTimer < 10) {
+        ctx.fillStyle = (gframe % 4 < 2) ? '#f4f4f4' : '#73eff7';
+        ctx.beginPath();
+        ctx.arc(wlen, 0, 5 + charge * 4, 0, Math.PI * 2);
+        ctx.fill();
       }
     } else {
       // 通常の刃（剣・槍など）
@@ -5014,14 +5087,21 @@ function drawBackground() {
       ctx.fillStyle = RAINBOW[(i + Math.floor(gframe / 15)) % RAINBOW.length] + '55';
       ctx.fillRect(x, y, 4, 4);
     } else if (deco === 'thundercloud') {
-      // らんうん（乱雲）と ときどき ひかる いなびかり
+      // らんうん（乱雲）と ときどき 赤く ひかる いなびかり
       ctx.fillStyle = 'rgba(26,28,44,0.55)';
       ctx.fillRect(x - 6, y, 18, 5);
       ctx.fillRect(x - 2, y - 3, 12, 3);
-      if ((i + Math.floor(gframe / 25)) % 7 === 0) {
-        ctx.fillStyle = '#ffcd75';
-        ctx.fillRect(x + 3, y + 5, 2, 4);
-        ctx.fillRect(x + 1, y + 8, 2, 3);
+      // 雲が赤くうなる（雷龍の空）
+      if ((i + Math.floor(gframe / 18)) % 5 === 0) {
+        ctx.fillStyle = 'rgba(255,46,77,0.22)';
+        ctx.fillRect(x - 7, y - 1, 20, 7);
+      }
+      if ((i + Math.floor(gframe / 20)) % 6 === 0) {
+        ctx.fillStyle = '#ff2e4d';
+        ctx.fillRect(x + 3, y + 5, 2, 5);
+        ctx.fillRect(x + 1, y + 9, 2, 4);
+        ctx.fillStyle = '#ff77a8';
+        ctx.fillRect(x + 4, y + 5, 1, 4);
       }
     }
   }
@@ -5450,27 +5530,50 @@ function drawPShot(f) {
     }
     ctx.restore();
   } else if (f.kind === 'wave') {
-    // はどうほう: 進行方向に垂直な三日月アーク（脈動しながら複数重ね）
+    // はどうほう: 巨大な波動弾。後方へ伸びるテール＋外周オーラ＋三日月アーク多重＋白熱コア
     ctx.save();
     ctx.translate(f.x, f.y);
     ctx.rotate(Math.atan2(f.vy, f.vx));
     const base = f.color || '#73eff7';
     const pulse = 1 + Math.sin(gframe * 0.5) * 0.15;
-    ctx.strokeStyle = 'rgba(115, 239, 247, 0.35)';
-    ctx.lineWidth = 5;
+    // 後方へ伸びるエネルギーテール
+    ctx.fillStyle = 'rgba(65, 166, 246, 0.28)';
     ctx.beginPath();
-    ctx.arc(-4, 0, 14 * pulse, -Math.PI / 2.4, Math.PI / 2.4);
+    ctx.moveTo(-4, -11 * pulse);
+    ctx.lineTo(-36, 0);
+    ctx.lineTo(-4, 11 * pulse);
+    ctx.closePath();
+    ctx.fill();
+    // 外周オーラ（大きな薄い円）
+    ctx.fillStyle = 'rgba(115, 239, 247, 0.18)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 22 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    // 三日月アーク（外→内で色を変え、太→細で多重）
+    ctx.strokeStyle = 'rgba(65, 166, 246, 0.5)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(-6, 0, 22 * pulse, -Math.PI / 2.3, Math.PI / 2.3);
     ctx.stroke();
     ctx.strokeStyle = base;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4.5;
     ctx.beginPath();
-    ctx.arc(-2, 0, 12 * pulse, -Math.PI / 2.2, Math.PI / 2.2);
+    ctx.arc(-3, 0, 18 * pulse, -Math.PI / 2.15, Math.PI / 2.15);
     ctx.stroke();
     ctx.strokeStyle = '#f4f4f4';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, 9 * pulse, -Math.PI / 2, Math.PI / 2);
+    ctx.arc(-1, 0, 14 * pulse, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
+    // 白熱コア（水色ハロー＋白い芯）
+    ctx.fillStyle = base;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4f4f4';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.5 * pulse, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 }
@@ -5479,15 +5582,34 @@ function drawPShot(f) {
 function drawThunderStrikes() {
   for (const s of strikes) {
     const blink = Math.floor(s.t / 4) % 2 === 0;
-    ctx.strokeStyle = blink ? '#ffcd75' : 'rgba(255,205,117,0.35)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 26, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = blink ? '#f4f4f4' : '#ffcd75';
-    ctx.fillRect(s.x - 1, s.y - 7, 3, 8);
-    ctx.fillRect(s.x - 3, s.y - 2, 3, 3);
-    ctx.fillRect(s.x + 1, s.y + 3, 3, 3);
+    if (s.storm) {
+      // 巨大な赤い予告リング（二重）＋赤いグロー
+      const r = 30;
+      ctx.strokeStyle = blink ? '#ff2e4d' : 'rgba(255,46,77,0.35)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = blink ? 'rgba(255,119,168,0.7)' : 'rgba(255,119,168,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = blink ? '#fff' : '#ff2e4d';
+      ctx.fillRect(s.x - 2, s.y - 10, 4, 11);
+      ctx.fillRect(s.x - 5, s.y - 3, 4, 4);
+      ctx.fillRect(s.x + 1, s.y + 4, 4, 4);
+    } else {
+      ctx.strokeStyle = blink ? '#ffcd75' : 'rgba(255,205,117,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 26, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = blink ? '#f4f4f4' : '#ffcd75';
+      ctx.fillRect(s.x - 1, s.y - 7, 3, 8);
+      ctx.fillRect(s.x - 3, s.y - 2, 3, 3);
+      ctx.fillRect(s.x + 1, s.y + 3, 3, 3);
+    }
   }
 }
 
@@ -5553,17 +5675,43 @@ function render() {
   // 落雷の予告マーカー（ボルトより先に地面へ描く）
   drawThunderStrikes();
 
-  // 雷の連鎖ボルト
+  // 雷の連鎖ボルト（武器のチェイン雷はそのまま。ライリュウの雷嵐だけ巨大な赤い稲妻に分岐）
   for (const b of bolts) {
-    ctx.strokeStyle = Math.random() < 0.5 ? '#ffcd75' : '#f4f4f4';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(b.x1, b.y1);
-    const mx = (b.x1 + b.x2) / 2 + (Math.random() - 0.5) * 16;
-    const my = (b.y1 + b.y2) / 2 + (Math.random() - 0.5) * 16;
-    ctx.lineTo(mx, my);
-    ctx.lineTo(b.x2, b.y2);
-    ctx.stroke();
+    if (b.storm) {
+      // 太く赤い稲妻＋白い芯。ジグザグの折れ点を増やして「うねる巨大な雷」に
+      const cols = ['#ff003c', '#ff2e4d', '#ff77a8'];
+      ctx.strokeStyle = cols[(Math.random() * cols.length) | 0];
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(b.x1, b.y1);
+      const m1x = b.x1 + (b.x2 - b.x1) * 0.35 + (Math.random() - 0.5) * 28;
+      const m1y = b.y1 + (b.y2 - b.y1) * 0.35;
+      const m2x = b.x1 + (b.x2 - b.x1) * 0.7 + (Math.random() - 0.5) * 28;
+      const m2y = b.y1 + (b.y2 - b.y1) * 0.7;
+      ctx.lineTo(m1x, m1y);
+      ctx.lineTo(m2x, m2y);
+      ctx.lineTo(b.x2, b.y2);
+      ctx.stroke();
+      // 白い芯
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(b.x1, b.y1);
+      ctx.lineTo(m1x, m1y);
+      ctx.lineTo(m2x, m2y);
+      ctx.lineTo(b.x2, b.y2);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = Math.random() < 0.5 ? '#ffcd75' : '#f4f4f4';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.x1, b.y1);
+      const mx = (b.x1 + b.x2) / 2 + (Math.random() - 0.5) * 16;
+      const my = (b.y1 + b.y2) / 2 + (Math.random() - 0.5) * 16;
+      ctx.lineTo(mx, my);
+      ctx.lineTo(b.x2, b.y2);
+      ctx.stroke();
+    }
   }
 
   // プレイヤーの弾
@@ -5811,6 +5959,18 @@ function render() {
   // 全画面フラッシュ
   if (flashTimer > 0) {
     ctx.fillStyle = `rgba(255, 250, 210, ${(flashTimer / 25) * 0.55})`;
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+  }
+  // 赤い巨大落雷の閃光（ライリュウのらいめいのあらし）。白フラッシュに重ねて「赤く光る雷」を演出
+  if (redFlashTimer > 0) {
+    const a = redFlashTimer / 18;
+    ctx.fillStyle = `rgba(255, 46, 77, ${a * 0.5})`;
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+    // 上端から降り注ぐ赤い光のグラデーション（雷が空から落ちてくる圧）
+    const grd = ctx.createLinearGradient(0, -8, 0, H);
+    grd.addColorStop(0, `rgba(255, 119, 168, ${a * 0.6})`);
+    grd.addColorStop(1, 'rgba(255, 46, 77, 0)');
+    ctx.fillStyle = grd;
     ctx.fillRect(-8, -8, W + 16, H + 16);
   }
 
