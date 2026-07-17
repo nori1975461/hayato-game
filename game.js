@@ -1635,7 +1635,7 @@ const SHOP_ITEMS = [
   { id: 'heal',     name: 'ライフぜんかいふく',   desc: 'ハートが まんたんに もどる',            price: 200,  repeat: true },
   { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 1500, repeat: true },
   { id: 'armor',    name: 'てつのよろい',         desc: '12%で こうげきを ガードする',           price: 800 },
-  { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが +1 ふえる',            price: 600 },
+  { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが 10に ふえる',          price: 600 },
   { id: 'gauntlet', name: 'ちからのこて',         desc: 'ぶきの かいてんが 15% はやくなる',      price: 500 },
   { id: 'shield',   name: 'まほうのたて',         desc: 'てきのたまを 22%で はじきかえす',       price: 700 },
   { id: 'boots',    name: 'はやてのブーツ',       desc: 'いどうスピードが 20% アップ',           price: 400 },
@@ -2066,8 +2066,8 @@ window.addEventListener('keydown', (e) => {
 // ゲームオーバーした場所からコンティニュー（スコア・武器・ステージ・ゴールド・装備は維持）
 function continueGame() {
   continuesLeft--;
-  // ジギムント戦（最終決戦）でのコンティニューは特別にハート8つで復帰
-  lives = enemies.some((en) => en.boss && en.type.big) ? 8 : 5;
+  // ジギムント戦（最終決戦）などの巨大ボス戦でのコンティニューは特別に満タンで復帰
+  lives = enemies.some((en) => en.boss && en.type.big) ? maxLives() : 8;
   player.x = W / 2 - PLAYER_SIZE / 2;
   player.y = H / 2 - PLAYER_SIZE / 2;
   fireballs = [];      // 弾は全部消える
@@ -2158,7 +2158,7 @@ function recordBossDefeat(idx) {
   localStorage.setItem('hayato-bosszukan', JSON.stringify([...defeatedBosses]));
 }
 
-function maxLives() { return 8 + (gear.helm ? 1 : 0); }
+function maxLives() { return 8 + (gear.helm ? 2 : 0); }
 
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
@@ -2176,7 +2176,7 @@ function startGame() {
   hitstopT = 0;
   score = 0;
   hero = defaultHero();
-  lives = 5;
+  lives = 8;
   weaponIdx = 0;
   formIdx = 0;
   weaponAngle = 0;
@@ -2927,7 +2927,7 @@ function shopInput(key) {
       continuesLeft++;
     } else {
       gear[item.id] = true;
-      if (item.id === 'helm') lives = Math.min(lives + 1, maxLives());
+      if (item.id === 'helm') lives = Math.min(lives + 2, maxLives());
     }
     SFX.buy();
   } else if (key === 'Escape' || key === 'x' || key === 'X') {
