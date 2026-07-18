@@ -65,9 +65,9 @@ step('移動キー入力しながら300フレーム', () => {
 });
 
 // 全武器を順に装備して回す（飛び道具・鎖・セーバー・ホーミング等の描画/発射コードを全部通す）
-step('全75武器で各120フレーム', () => {
+step('全81武器で各120フレーム', () => {
   const n = run('WEAPONS.length');
-  if (n !== 75) throw new Error('武器数が75でない: ' + n);
+  if (n !== 81) throw new Error('武器数が81でない: ' + n);
   run('score = 0;');
   for (let i = 0; i < n; i++) {
     run(`score = WEAPONS[${i}].score; weaponIdx = ${i}; shootTimer = 0; flameTimer = 0;`);
