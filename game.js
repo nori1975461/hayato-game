@@ -1653,6 +1653,9 @@ const BOSS_TYPES = [
     remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
     form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#f4f4f4', C: '#ff77a8', R: '#ff2e4d' }, form2Aura: '#b567b5',
+    deathTalk: true, // 撃破時に専用の断末魔イベント（ジギムントのdeathEventとは別系統）
+    deathColors: ['#1a1c2c', '#3b5dc9', '#73eff7', '#b567b5', '#f4f4f4'], // 崩れ落ちる体の雷パレット（紺→青→水色→紫→白）
+    deathSpark: true, // 崩壊中に稲妻エフェクトを散らす
     serifu: 'わがなは ライリュウ…てんくうの いかずちは すべて わがしもべ！！',
     form2Serifu: 'よくぞ ここまで…！ ならば しでんの すがたで むかえうとう！！' },
 ];
@@ -2247,6 +2250,8 @@ let enemies = [], particles = [], pshots = [], fireballs = [], items = [], popup
 let pendingEnemies = []; // 分裂で生まれた雑魚は次フレームに合流（同フレームの多重ヒットを防ぐ）
 let shockwaves = []; // 広がる衝撃波リング（近接攻撃・巨大弾の演出用）
 let strikes = [];    // ライリュウの落雷予告マーカー（予告→一定フレーム後に落雷）
+let fences = [];     // ライリュウ「いかずちのかご」の電気フェンス（予告→本体でダメージ判定）
+let novas = [];      // ライリュウ「ばんらいノヴァ」の広がる電気リング（第2形態専用）
 let slashes = [];    // 白い斬撃エフェクト（ヒットの気持ちよさ用）
 let hitstopT = 0;    // ヒットストップ: 当たった瞬間、世界が数フレーム止まる（イース風の手ごたえ）
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
@@ -2309,6 +2314,8 @@ function startGame() {
   bolts = [];
   shockwaves = [];
   strikes = [];
+  fences = [];
+  novas = [];
   slashes = [];
   hitstopT = 0;
   score = 0;
@@ -2533,6 +2540,10 @@ function makeBoss(type, x, y, size, hp, opts = {}) {
     // ジギムント第2形態変身用（type.bigのときのみ機能する）
     form2: false,
     transforming: 0,
+    // ライリュウ専用の特殊攻撃タイマー（type.sprite==='rairyu' のときだけ進む）
+    beamT: 0,   // らいこうレーザー
+    cageT: 0,   // いかずちのかご
+    novaT: 0,   // ばんらいノヴァ（第2形態のみ）
   };
 }
 
@@ -2780,10 +2791,35 @@ function sigmundInterrupt(e) {
   e.x = Math.max(-e.size * 0.1, Math.min(W - e.size * 0.9, e.x));
   e.y = Math.max(-e.size * 0.15, Math.min(H - e.size * 0.85, e.y));
   fireballs = [];  // 弾は全部消える
+  fences = [];     // ライリュウの電気フェンス・ノヴァも中断（透明化中の理不尽ヒット防止）
+  novas = [];
 }
 
 // ---------- 敵を倒したときの共通処理 ----------
 function killEnemy(e, lightningDepth = 2) {
+  // ライリュウ（deathTalk）は撃破時に専用の断末魔カットシーンに入る。
+  // ジギムントのdeathEvent（撃破後に別ボスが登場する会話）とは別系統で、
+  // 崩壊アニメはカットシーン内（updateBossEvent の rairyuDeath 分岐）で e.dying を進めて描画する。
+  if (e.boss && e.type && e.type.deathTalk && !e.dyingDone) {
+    if (!e.dying) {
+      e.dying = 1;
+      e.hp = 1;          // 演出が終わるまで消えない
+      sigmundInterrupt(e); // 空中・技中でも画面内の地上に降ろす（fences/novasもここで一掃）
+      strikes = [];      // 進行中の落雷予告も消す
+      // 取り巻きは静かに消滅
+      for (const m of enemies) {
+        if ((!m.boss || m.summoned) && m.hp > 0) {
+          m.hp = 0;
+          burst(m.x + m.size / 2, m.y + m.size / 2, PALETTE.p, 6);
+        }
+      }
+      SFX.roar();
+      serifuTimer = 0;
+      bannerTimer = 0;
+      bossEvent = { kind: 'rairyuDeath', step: 0, t: 0, boss: e, eventFired: false };
+    }
+    return;
+  }
   // ジギムントは倒しても即消えず、「地鳴り→崩壊→粉砕」のシネマティック演出に入る
   if (e.boss && e.type && e.type.big && !e.dyingDone) {
     if (!e.dying) {
@@ -3376,6 +3412,8 @@ function update() {
   updateItems(pc);
   updatePlayerHits(pc);
   updateThunderStrikes(pc);
+  updateFences(pc);
+  updateNovas(pc);
   updateStageFx();
 
   // コンボタイマー
@@ -3507,6 +3545,7 @@ function updateBoss(e, pc, ecx, ecy) {
   if (type.big && !e.form2 && e.transforming <= 0 && e.hp <= e.maxHp * 0.5) {
     e.transforming = 150; // 約2.5秒（60fps想定）。この間は完全無敵・行動停止
     sigmundInterrupt(e);  // 空中・技の最中でも画面内の地上に降ろす（撃破シネマティックと同じ中断処理）
+    strikes = []; fences = []; novas = []; // 変身の無敵中に進行中の設置攻撃で理不尽にやられないよう一掃
     flashTimer = 20;
     shakeTimer = 24;
     bannerText = `${type.name}が しんの すがたに めざめる…！！`;
@@ -3652,6 +3691,8 @@ function updateBoss(e, pc, ecx, ecy) {
       e.stormT = e.form2 ? 150 : 220;
     }
   }
+  // ライリュウ専用の特殊攻撃3種（らいこうレーザー / いかずちのかご / ばんらいノヴァ）
+  if (type.sprite === 'rairyu') updateRairyuSpecials(e, pc, ecx, ecy);
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
     e.teleT = (e.teleT == null ? 240 : e.teleT) - 1;
@@ -3995,8 +4036,92 @@ const BOSS_EVENT_LINES = [
   { name: '雷龍', color: '#ffcd75', text: '人間よ。かかってくるがいい。我ら【八大神魔】の力を思い知らせてくれる・・・' },
   null,
 ];
+// ---- ライリュウ撃破の断末魔カットシーン（ジギムントのdeathEventとは完全に別系統） ----
+// セリフは原文どおり漢字表記・変更禁止。名前は「雷龍」
+const RAIRYU_DEATH_STEPS = [50, 300, 40]; // 導入50 → 断末魔セリフ＋崩壊300 → 消滅40
+const RAIRYU_DEATH_LINE = { name: '雷龍', color: '#73eff7', text: 'この私までもが・・・。我ら【八大神魔】をすべて倒すとは・・・お前はいったい・・・' };
+
+function updateRairyuDeath(ev) {
+  const e = ev.boss;
+  ev.t++;
+  const dur = RAIRYU_DEATH_STEPS[ev.step] || 60;
+
+  // bossEvent中は通常update()末尾のタイマー減衰が走らないため、ここで代わりに減衰させる
+  if (shakeTimer > 0) shakeTimer--;
+  if (flashTimer > 0) flashTimer--;
+  if (redFlashTimer > 0) redFlashTimer--;
+
+  const ecx = e.x + e.size / 2;
+  const ecy = e.y + e.size / 2;
+  const palette = e.type.deathColors || ['#1a1c2c', '#3b5dc9', '#73eff7', '#b567b5', '#f4f4f4'];
+
+  if (ev.step === 0) {
+    // 導入: 暗転して金のスポットライトが差し、雷龍が身を震わせる（青白い火花が漏れる）
+    // 崩壊が始まる予兆として、この間ずっと地鳴りの微振動を切らさない
+    e.dying++;
+    if (ev.t === 1) SFX.roar();
+    shakeTimer = Math.max(shakeTimer, 4);
+    if (ev.t % 8 === 0) burst(ecx + (Math.random() - 0.5) * e.size * 0.6, ecy + (Math.random() - 0.5) * e.size * 0.6, Math.random() < 0.5 ? palette[2] : palette[4], 3, 1.4);
+    if (ev.t % 24 === 0) beep(46, 0.5, 'sawtooth', 0.06, 30);
+  } else if (ev.step === 1) {
+    // 断末魔のセリフ＋崩壊。e.dyingを進めて「崩れ落ちる体」の描画を流用（Approach B）
+    e.dying++;
+    if (ev.t === 1) { beep(70, 0.6, 'sawtooth', 0.06, 34); noise(0.2, 0.04, 600, 'highpass'); }
+    const n = 2 + Math.floor(ev.t / 90);
+    for (let i = 0; i < n; i++) {
+      pushParticle({
+        x: e.x + Math.random() * e.size, y: e.y + Math.random() * e.size,
+        vx: (Math.random() - 0.5) * 0.9, vy: 1 + Math.random() * 1.8,
+        life: 26 + Math.random() * 18, color: palette[Math.floor(Math.random() * palette.length)],
+      });
+    }
+    // deathSpark: 崩壊中は体に稲妻が走る
+    if (e.type.deathSpark && ev.t % 18 === 0) {
+      bolts.push({ x1: ecx + (Math.random() - 0.5) * e.size * 0.7, y1: e.y, x2: ecx + (Math.random() - 0.5) * e.size * 0.5, y2: e.y + e.size, life: 12 });
+      noise(0.09, 0.1, 2600, 'bandpass', 0, 600);
+      addSlash(ecx + (Math.random() - 0.5) * e.size, ecy + (Math.random() - 0.5) * e.size, Math.random() * Math.PI * 2, 1.4);
+    }
+    if (ev.t % 40 === 20) noise(0.3, 0.08, 750, 'lowpass', 0, 280);
+    if (ev.t % 80 === 0) beep(72, 0.55, 'sawtooth', 0.07, 26);
+    shakeTimer = Math.max(shakeTimer, 3 + Math.floor(ev.t / 60));
+  } else if (ev.step === 2) {
+    // 消滅: 一気に砕け散る（1回だけ大爆発）→ killEnemyで本来の撃破処理（finalClear/けっさん予約）へ
+    if (!ev.eventFired) {
+      ev.eventFired = true;
+      for (let i = 0; i < 220; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 1 + Math.random() * 5.5;
+        pushParticle({ x: ecx + (Math.random() - 0.5) * e.size * 0.8, y: ecy + (Math.random() - 0.5) * e.size * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 30 + Math.random() * 45, color: palette[Math.floor(Math.random() * palette.length)] });
+      }
+      for (let i = 0; i < 30; i++) {
+        const a = Math.random() * Math.PI * 2;
+        bolts.push({ x1: ecx, y1: ecy, x2: ecx + Math.cos(a) * 200, y2: ecy + Math.sin(a) * 200, life: 16 });
+      }
+      addShockwave(ecx, ecy, '#f4f4f4', 24, 12, 34, 9);
+      addShockwave(ecx, ecy, palette[1], 14, 9, 40, 7);
+      addShockwave(ecx, ecy, palette[2], 10, 7, 46, 5);
+      flashTimer = 40; shakeTimer = 42;
+      noise(0.5, 0.17, 1400, 'lowpass', 0, 150);
+      beep(30, 1.2, 'sine', 0.13, 18);
+      SFX.giantShot();
+      SFX.bossDie();
+      e.dyingDone = true;      // これでkillEnemyのdeathTalk/big分岐を通り抜け、通常の撃破処理へ
+      killEnemy(e);
+      enemies = enemies.filter((x) => x !== e); // 砕け散って画面から消える
+      bannerTimer = 0;         // クリアバナーはイベント中に出さない
+    }
+  }
+
+  if (ev.t >= dur) {
+    ev.step++;
+    ev.t = 0;
+    if (ev.step >= RAIRYU_DEATH_STEPS.length) bossEvent = null; // 以降 pendingTally が減り、けっさんへ
+  }
+}
+
 function updateBossEvent() {
   const ev = bossEvent;
+  if (ev.kind === 'rairyuDeath') { updateRairyuDeath(ev); return; }
   const e = ev.boss;
   ev.t++;
   const dur = BOSS_EVENT_STEPS[ev.step] || 60;
@@ -4235,7 +4360,79 @@ function runBossAct(e, pc, ecx, ecy) {
     } else if (a.t > tel + dur + 35) {
       e.act = null;
     }
+  } else if (a.kind === 'beam') {
+    // らいこうレーザー: 口元に光が収束（予告）→ 極太の雷ビームで薙ぎ払う。
+    // 予告48フレーム以上。判定はビーム線分とプレイヤーの最短距離。ヒットは hurtPlayer()（無敵中は無効）。
+    const bcol = e.type.breathColors || ['#3b5dc9', '#73eff7', '#ffcd75'];
+    const tel = 50;                 // 収束予告
+    const fire = e.form2 ? 96 : 88; // 薙ぎ払い
+    const ox = ecx;
+    const oy = e.y + e.size * 0.40;
+    a.ox = ox; a.oy = oy; a.bcol = bcol;
+    if (a.t === 1) {
+      addPopup(ecx, e.y - 14, 'らいこうレーザー', bcol[1], 17);
+      SFX.warn(); SFX.giantCharge();
+      a.aimAng = Math.atan2(pc.y - oy, pc.x - ox);
+    }
+    if (a.t < tel) {
+      // 収束: 光の粒が口元に吸い込まれる。予告線は発射直前までプレイヤーを追う
+      a.telFrac = a.t / tel;
+      if (a.t < tel - 12) a.aimAng = Math.atan2(pc.y - oy, pc.x - ox);
+      a.beamOn = false;
+      for (let i = 0; i < 3; i++) {
+        const ca = Math.random() * Math.PI * 2;
+        const cd = 45 + Math.random() * 55;
+        pushParticle({
+          x: ox + Math.cos(ca) * cd, y: oy + Math.sin(ca) * cd,
+          vx: -Math.cos(ca) * 4, vy: -Math.sin(ca) * 4,
+          life: 12, color: Math.random() < 0.5 ? bcol[1] : bcol[2],
+        });
+      }
+    } else if (a.t === tel) {
+      // 発射開始: 薙ぎ払いの開始角・回転方向を確定（予告線の向きが起点）
+      a.beamAng0 = a.aimAng;
+      const range = e.form2 ? 0.95 : 0.62;   // 薙ぎ払いの総角度
+      a.beamDir = Math.random() < 0.5 ? 1 : -1;
+      a.beamRange = range;
+      a.beamOn = true;
+      addShockwave(ox, oy, '#f4f4f4', 10, 8, 20, 5);
+      flashTimer = Math.max(flashTimer, 12);
+      shakeTimer = Math.max(shakeTimer, 10);
+      SFX.giantShot();
+    } else if (a.t < tel + fire) {
+      const ft = (a.t - tel) / fire;                       // 0→1
+      const ang = a.beamAng0 + a.beamDir * (ft - 0.5) * a.beamRange;
+      a.beamAng = ang;
+      a.beamOn = true;
+      shakeTimer = Math.max(shakeTimer, 4);
+      if ((a.t - tel) % 12 === 0) SFX.bossFire();
+      // ビーム線分（口元→画面外）とプレイヤー中心の最短距離で判定
+      const L = 720;
+      const ex = ox + Math.cos(ang) * L;
+      const ey = oy + Math.sin(ang) * L;
+      const d = distToSegment(pc.x, pc.y, ox, oy, ex, ey);
+      const halfW = 15;
+      if (invincibleTimer === 0 && state === 'playing' && d < halfW) hurtPlayer();
+      // ビームの縁に火花を散らす（見栄え）
+      if (a.t % 2 === 0) {
+        const sd = 60 + Math.random() * (L - 120);
+        burst(ox + Math.cos(ang) * sd, oy + Math.sin(ang) * sd, Math.random() < 0.5 ? bcol[1] : '#f4f4f4', 2, 1.4);
+      }
+    } else {
+      a.beamOn = false;
+      if (a.t > tel + fire + 22) e.act = null;
+    }
   }
+}
+
+// 点(px,py)と線分(ax,ay)-(bx,by)の最短距離。ビーム判定に使う
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * dx, cy = ay + t * dy;
+  return Math.hypot(px - cx, py - cy);
 }
 
 // ---------- ボスの弾の移動 ----------
@@ -4830,6 +5027,138 @@ function updateThunderStrikes(pc) {
       hurtPlayer();
     }
     return false;
+  });
+}
+
+// 2つの角度の最短差（-π〜π）。ノヴァの「切れ目」判定に使う
+function angDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+// ---------- ライリュウ専用の特殊攻撃3種の発動タイミング制御 ----------
+// らいこうレーザー(beam)は近接技(act)と排他。いかずち/ノヴァは独立した設置ハザード。
+function updateRairyuSpecials(e, pc, ecx, ecy) {
+  const f2 = e.form2;
+
+  // らいこうレーザー: 周期到達で act に beam をセット（act状態機械が拾って実行）
+  e.beamT++;
+  const beamCycle = f2 ? 340 : 420;
+  if (e.beamT >= beamCycle && !e.act && e.giantCharge === 0 && e.y > 0) {
+    e.beamT = 0;
+    e.act = { kind: 'beam', t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
+  }
+
+  // いかずちのかご: HP80%以下で発動。電気フェンスを設置（予告→本体でダメージ）
+  if (e.hp <= e.maxHp * 0.8) {
+    e.cageT++;
+    const cageCycle = f2 ? 430 : 560;
+    if (e.cageT >= cageCycle && fences.length === 0) {
+      e.cageT = 0;
+      spawnCage(pc, f2);
+    }
+  }
+
+  // ばんらいノヴァ: 第2形態のみ。広がる電気リング3連（1枚目の切れ目はプレイヤー方向）
+  if (f2) {
+    e.novaT++;
+    if (e.novaT >= 480 && novas.length === 0) {
+      e.novaT = 0;
+      spawnNovas(ecx, ecy, pc);
+    }
+  }
+}
+
+// いかずちのかご: プリセットの柵配置から、今のプレイヤー位置に重なるものを除いて設置する
+function spawnCage(pc, f2) {
+  const presets = [
+    // 縦の柵2本
+    [[W * 0.30, 36, W * 0.30, H - 6], [W * 0.70, 36, W * 0.70, H - 6]],
+    // 横の柵2本
+    [[10, H * 0.38, W - 10, H * 0.38], [10, H * 0.72, W - 10, H * 0.72]],
+    // コの字（右下が開いた檻）
+    [[56, 54, W - 56, 54], [56, 54, 56, H - 30], [56, H - 30, W - 150, H - 30]],
+  ];
+  let p = presets[Math.floor(Math.random() * presets.length)].slice();
+  if (f2) p = p.concat([[W * 0.5, 36, W * 0.5, H - 6]]); // 第2形態は1本追加して密度アップ
+  const tel = 50;                 // 予告（ダメージなし）
+  const live = f2 ? 250 : 215;    // 通電（本物のダメージ）
+  let placed = 0;
+  for (const s of p) {
+    // プレイヤーの現在位置に重なる柵は張らない（予告中の逃げ場を確保）
+    if (distToSegment(pc.x, pc.y, s[0], s[1], s[2], s[3]) < 46) continue;
+    fences.push({ x1: s[0], y1: s[1], x2: s[2], y2: s[3], t: tel, tel, live, f2, seed: Math.random() * 100 });
+    placed++;
+  }
+  if (placed > 0) {
+    addPopup(W / 2, 30, 'いかずちのかご！！', '#73eff7', 17);
+    SFX.warn();
+    flashTimer = Math.max(flashTimer, 6);
+  }
+}
+
+// 電気フェンスの進行。予告50フレームは無害→通電後は最短距離で判定し hurtPlayer()
+function updateFences(pc) {
+  fences = fences.filter((fc) => {
+    fc.t--;
+    if (fc.t > 0) {
+      // 予告: 明滅しながら火花を散らす（ダメージなし）
+      if (frame % 5 === 0) {
+        const u = Math.random();
+        pushParticle({ x: fc.x1 + (fc.x2 - fc.x1) * u, y: fc.y1 + (fc.y2 - fc.y1) * u, vx: 0, vy: 0, life: 8, color: '#73eff7' });
+      }
+      return true;
+    }
+    if (fc.t === 0) { SFX.thunder(); flashTimer = Math.max(flashTimer, 6); shakeTimer = Math.max(shakeTimer, 5); }
+    fc.live--;
+    if (invincibleTimer === 0 && state === 'playing' && distToSegment(pc.x, pc.y, fc.x1, fc.y1, fc.x2, fc.y2) < 11) hurtPlayer();
+    if (frame % 3 === 0) {
+      const u = Math.random();
+      burst(fc.x1 + (fc.x2 - fc.x1) * u, fc.y1 + (fc.y2 - fc.y1) * u, Math.random() < 0.5 ? '#73eff7' : '#f4f4f4', 2, 1.3);
+    }
+    return fc.live > 0;
+  });
+}
+
+// ばんらいノヴァ: 中心から広がる電気リング3連を生成（1枚目の切れ目はプレイヤー方向＝逃げ道）
+function spawnNovas(cx, cy, pc) {
+  const toPlayer = Math.atan2(pc.y - cy, pc.x - cx);
+  const gapHalf = 0.61; // 切れ目 約70度の半分
+  for (let i = 0; i < 3; i++) {
+    // 1枚目は必ずプレイヤー方向に切れ目。2・3枚目はランダムな別方向
+    const gap = i === 0 ? toPlayer : Math.random() * Math.PI * 2;
+    novas.push({
+      cx, cy, gapAng: gap, gapHalf,
+      delay: i * 60, tel: 46,           // 60フレームおきに起動・予告46フレーム
+      r: 0, rMax: 300, thick: 13, expandDur: 70,
+    });
+  }
+  addPopup(cx, cy - 40, 'ばんらいノヴァ！！', '#b567b5', 18);
+  SFX.warn();
+}
+
+// ノヴァの進行。リング半径付近かつ切れ目の外にいたら hurtPlayer()
+function updateNovas(pc) {
+  novas = novas.filter((nv) => {
+    if (nv.delay > 0) { nv.delay--; return true; }
+    if (nv.tel > 0) {
+      nv.tel--;
+      if (nv.tel === 0) { SFX.thunder(); flashTimer = Math.max(flashTimer, 8); shakeTimer = Math.max(shakeTimer, 6); }
+      return true;
+    }
+    nv.r += nv.rMax / nv.expandDur;
+    if (invincibleTimer === 0 && state === 'playing') {
+      const dx = pc.x - nv.cx, dy = pc.y - nv.cy;
+      const dist = Math.hypot(dx, dy);
+      if (Math.abs(dist - nv.r) < nv.thick && Math.abs(angDiff(Math.atan2(dy, dx), nv.gapAng)) > nv.gapHalf) hurtPlayer();
+    }
+    if (frame % 2 === 0) {
+      const a = Math.random() * Math.PI * 2;
+      if (Math.abs(angDiff(a, nv.gapAng)) > nv.gapHalf) burst(nv.cx + Math.cos(a) * nv.r, nv.cy + Math.sin(a) * nv.r, Math.random() < 0.5 ? '#b567b5' : '#73eff7', 1, 1.2);
+    }
+    return nv.r < nv.rMax;
   });
 }
 
@@ -6092,6 +6421,121 @@ function drawThunderStrikes() {
   }
 }
 
+// いかずちのかご: 電気フェンス。予告中は明滅する破線、通電後は太い電流＋うねる稲妻
+function drawFences() {
+  for (const fc of fences) {
+    const teling = fc.t > 0;
+    const dx = fc.x2 - fc.x1, dy = fc.y2 - fc.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len; // 線分の法線（うねりの方向）
+    if (teling) {
+      // 予告: 明滅する細い水色の線（ダメージなし）
+      const blink = Math.floor(fc.t / 4) % 2 === 0;
+      ctx.strokeStyle = blink ? 'rgba(115,239,247,0.9)' : 'rgba(115,239,247,0.3)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(fc.x1, fc.y1);
+      ctx.lineTo(fc.x2, fc.y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      // 通電: 青いグロー→太い電流→白い芯＋ジグザグに走る稲妻
+      const segs = Math.max(3, Math.floor(len / 26));
+      const zig = (col, lw, amp) => {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(fc.x1, fc.y1);
+        for (let i = 1; i < segs; i++) {
+          const u = i / segs;
+          const off = (Math.random() - 0.5) * amp;
+          ctx.lineTo(fc.x1 + dx * u + nx * off, fc.y1 + dy * u + ny * off);
+        }
+        ctx.lineTo(fc.x2, fc.y2);
+        ctx.stroke();
+      };
+      ctx.globalAlpha = fc.live < 30 ? fc.live / 30 : 1; // 消える直前はフェード
+      zig('rgba(59,93,201,0.55)', 8, 0);   // 青いグロー
+      zig('#73eff7', 4, 5);                // 水色の電流
+      zig('#f4f4f4', 1.5, 5);              // 白い芯
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ばんらいノヴァ: 広がる電気リング。切れ目（逃げ道）は描かない
+function drawNovas() {
+  for (const nv of novas) {
+    if (nv.delay > 0) continue;
+    if (nv.tel > 0) {
+      // 予告: 中心で脈打つ紫のマーカー
+      const blink = Math.floor(nv.tel / 4) % 2 === 0;
+      const pr = 10 + Math.sin(nv.tel * 0.3) * 4;
+      ctx.strokeStyle = blink ? '#b567b5' : 'rgba(181,103,181,0.4)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(nv.cx, nv.cy, pr, 0, Math.PI * 2);
+      ctx.stroke();
+      continue;
+    }
+    // 拡大するリング（切れ目を除いた円弧）を3層で描く
+    const a0 = nv.gapAng + nv.gapHalf;
+    const a1 = nv.gapAng - nv.gapHalf + Math.PI * 2;
+    ctx.globalAlpha = Math.max(0, 1 - nv.r / nv.rMax);
+    ctx.strokeStyle = 'rgba(181,103,181,0.5)';
+    ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.arc(nv.cx, nv.cy, nv.r, a0, a1); ctx.stroke();
+    ctx.strokeStyle = '#73eff7';
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(nv.cx, nv.cy, nv.r, a0, a1); ctx.stroke();
+    ctx.strokeStyle = '#f4f4f4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(nv.cx, nv.cy, nv.r, a0, a1); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// らいこうレーザー: 収束予告の細線→極太の3層雷ビーム（口元から画面外へ）
+function drawBossBeams() {
+  for (const e of enemies) {
+    if (!e.act || e.act.kind !== 'beam') continue;
+    const a = e.act;
+    if (a.ox === undefined) continue;
+    const bcol = a.bcol || ['#3b5dc9', '#73eff7', '#ffcd75'];
+    const L = 720;
+    if (a.beamOn && a.beamAng !== undefined) {
+      // 発射中: 青グロー→水色の本体→白い芯
+      const ex = a.ox + Math.cos(a.beamAng) * L;
+      const ey = a.oy + Math.sin(a.beamAng) * L;
+      const line = (col, lw) => {
+        ctx.strokeStyle = col; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(a.ox, a.oy); ctx.lineTo(ex, ey); ctx.stroke();
+      };
+      line('rgba(59,93,201,0.5)', 34);
+      line(bcol[1], 18);
+      line('#f4f4f4', 7);
+      // 口元のまばゆい光
+      ctx.fillStyle = '#f4f4f4';
+      ctx.beginPath(); ctx.arc(a.ox, a.oy, 10, 0, Math.PI * 2); ctx.fill();
+    } else if (a.aimAng !== undefined && a.beamOn === false) {
+      // 予告: プレイヤーを追う細い明滅線（収束の進み具合で濃くなる）
+      const ex = a.ox + Math.cos(a.aimAng) * L;
+      const ey = a.oy + Math.sin(a.aimAng) * L;
+      const tf = a.telFrac || 0;
+      const blink = Math.floor(e.act.t / 3) % 2 === 0;
+      ctx.strokeStyle = blink ? `rgba(115,239,247,${0.35 + tf * 0.5})` : 'rgba(115,239,247,0.2)';
+      ctx.lineWidth = 1 + tf * 3;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.moveTo(a.ox, a.oy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.setLineDash([]);
+      // 口元に集まる光
+      ctx.fillStyle = bcol[2];
+      ctx.beginPath(); ctx.arc(a.ox, a.oy, 3 + tf * 7, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 function render() {
   ctx.save();
   // 画面シェイクはプレイ中のみ（ゲームオーバー画面では揺らさない）
@@ -6153,6 +6597,9 @@ function render() {
 
   // 落雷の予告マーカー（ボルトより先に地面へ描く）
   drawThunderStrikes();
+  // ライリュウの設置ハザード（地面レイヤー: 電気フェンス・ばんらいノヴァのリング）
+  drawFences();
+  drawNovas();
 
   // 雷の連鎖ボルト（武器のチェイン雷はそのまま。ライリュウの雷嵐だけ巨大な赤い稲妻に分岐）
   for (const b of bolts) {
@@ -6400,6 +6847,9 @@ function render() {
     }
   }
 
+  // らいこうレーザー（敵より上のレイヤーに極太ビームを描く）
+  drawBossBeams();
+
   drawWeapon();
 
   renderMercenaries(); // 傭兵（主人公の後方に隊列。武器はctxで描画）
@@ -6584,9 +7034,43 @@ function renderHUD() {
   }
 }
 
+// ライリュウ撃破の断末魔カットシーンの描画（暗幕＋金のスポットライト＋断末魔セリフ）
+function drawRairyuDeathWindow(ev) {
+  const e = ev.boss;
+  const ecx = e.x + e.size / 2;
+  const ecy = e.y + e.size / 2;
+  // 暗幕（会話イベントより控えめの0.35。崩れゆく雷龍を照らす金のスポットライト）
+  ctx.fillStyle = 'rgba(6, 4, 14, 0.35)';
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+  const g = ctx.createRadialGradient(ecx, ecy, 10, ecx, ecy, e.size * 0.9);
+  g.addColorStop(0, 'rgba(255, 224, 140, 0.28)');
+  g.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(ecx, ecy, e.size * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 断末魔のセリフウィンドウ（step1のみ。名前は「雷龍」）
+  if (ev.step === 1) {
+    const line = RAIRYU_DEATH_LINE;
+    const ww = W - 48, wh = 66, wx = 24, wy = H - wh - 6;
+    const maxW = ww - 32;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.fillRect(wx, wy, ww, wh);
+    ctx.strokeStyle = '#73eff7';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(wx + 3, wy + 3, ww - 6, wh - 6);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wx + 7, wy + 7, ww - 14, wh - 14);
+    drawText(line.name, wx + 16, wy + 12, line.color, 12);
+    drawWrappedText(`「${line.text}」`, wx + 16, wy + 32, '#f4f4f4', 12, maxW, 20);
+  }
+}
+
 // ジギムント撃破後の会話イベントの描画（暗雲＋雷龍の金色の目＋セリフウィンドウ）
 function drawBossEventWindow() {
   const ev = bossEvent;
+  if (ev.kind === 'rairyuDeath') { drawRairyuDeathWindow(ev); return; }
   // 暗雲がたれこめて画面全体が暗くなる
   ctx.fillStyle = 'rgba(4, 4, 12, 0.5)';
   ctx.fillRect(-8, -8, W + 16, H + 16);
