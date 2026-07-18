@@ -34,6 +34,9 @@ const PALETTE = {
   D: '#73eff7', // 氷の水色
   L: '#566c86', // 濃いグレー
   N: '#333c57', // 暗い紺
+  t: '#d9a066', // 明るいタン（ブロック上面・茶ハイライト）
+  o: '#c17a50', // オレンジ茶（トイブロックの中間トーン）
+  r: '#7d4238', // 暗い赤茶（腹・脚・尾の影）
 };
 
 const RAINBOW = ['#ffcd75', '#ff77a8', '#41a6f6', '#38b764', '#ef7d57', '#f4f4f4'];
@@ -895,39 +898,38 @@ const SPRITES = {
     '..........bbb......bbb..........',
     '..........KKK......KKK..........',
   ],
-  // ティラノサウルス: 恐竜の王。開いたアゴにギザギザの牙
-  // ティラノサウルス: 参考画像準拠の完全新規設計。左向きに前傾して襲いかかる肉食恐竜。
-  // 左下に大きく開いた顎（上下の白牙W・赤い口腔R・黄の目Y）、背から上へ反り上がる長い尾、
-  // 胸元の小さな前脚（オレンジの鉤爪O・白爪W）、地を踏みしめる太い二本脚と白い足爪。
-  // 全身は茶(T)、黒(K)の輪郭で躍動感のあるシルエットを描く。
+  // ティラノサウルス: ナノブロック玩具風の完全新規設計。左向きに前傾して襲いかかる。
+  // 茶系3トーンで面ごとに陰影: 頭頂・背・尾の上面=明るいタンt / 側面=オレンジ茶o / 腹・尾の下・奥脚=暗い赤茶r。
+  // 大きく開いた顎（上下2本ずつの太い白牙W・赤い口腔R）、2段の目Y、胸元の小さな前脚と白爪W、
+  // 背から階段状にカクカクと反り上がる尾、太い二本脚と黒っぽい足先N＋白い足爪W。奥脚は全て暗色で遠近感を出す。
   trex: [
-    '...KKKKKKKK........................',
-    '..KTTTTTTTTKK......................',
-    '.KTTTTTTTTTTTKK....................',
-    'KTTTYKTTTTTTTTTKKK.................',
-    'KTTYYKTTTTTTTTTTTTTKKKK............',
-    'KWKWKKTTTTTTTTTTTTTTTTTTKKK........',
-    'KRRRRKTTTTTTTTTTTTTTTTTTTTTTKK.....',
-    '.RRRRKTTTTTTTTTTTTTTTTTTTTTTTTKK...',
-    'KWKWKKTTTTTTTTTTTTTTTTTTTTTTTTTK...',
-    '.KKKKKTTTTTTTTTTTTTTTTTTTTTTTKK....',
-    '.....KTTTTTTTTTTTTTTTTTTTTTKKK.....',
-    '.....KTTTTTTTKKKTTTTTTTTKKK........',
-    '.....KTTTTTTK..KTTTTTTTK...........',
-    '....KTTTTTKO..KTTTTTTTTK...........',
-    '....KTTTTKWWKKTTTTTTTTTK...........',
-    '....KTTTTKKKTTTTTTTTTTTK...........',
-    '....KTTTTTTTTTTTTTTTTTTK...........',
-    '....KTTTTTTKKKKTTTTTTTTK...........',
-    '...KTTTTTTK..KTTTTTTTTTK...........',
-    '...KTTTTTK...KTTTTTTTTK............',
-    '..KTTTTTK....KTTTTTTTK.............',
-    '..KTTTTK.....KTTTTTTK..............',
-    '..KTTTK......KTTTTTK...............',
-    '.KTTTK.......KTTTTK................',
-    '.KTTTK.......KTTTK.................',
-    '.KWWWK......KWWWWK.................',
-    '.KKKKK......KKKKKK.................',
+    '..KKKKKKKKKKK.................KKKK.',
+    '.KtttttttttttK...............KttoK.',
+    '.KttttttYKoooKKKKKKKKK......KtoooK.',
+    'KttttttYYKoooottttttttKKKKKKtoooK..',
+    'KooooooooooooottttttooooooooorrK...',
+    'KWWRWWRRKoooooooooooooorrrrKKKK....',
+    'KRRRRRRRKooooooooooooorrKKK........',
+    'KRWWRWWRKooooooooooorrKK...........',
+    '.KKKKKKKrrooooooooorrK.............',
+    '...KooooooooooooorrrK..............',
+    '...KoooooooooooorrrrK..............',
+    '..KooKooooooooorrrrrK..............',
+    '..KooKoooooooorrrrrrK..............',
+    '..KWWKrrrrrrrrrrrrrrK..............',
+    '...KooooooKKKKrrrrrK...............',
+    '...KooooorK..KrrrrK................',
+    '....KooorK....KrrrK................',
+    '....KooorK....KrrrK................',
+    '....KooorK....KrrrK................',
+    '.....KoorK.....KrrK................',
+    '.....KoorK.....KrrK................',
+    '.....KoorK.....KrrK................',
+    '.....KoorK.....KrrK................',
+    '..KKKKNNNK.KKKKKNNK................',
+    '..KNNNNNNK.KNNNNNNK................',
+    '..KWWNNNNK.KWWNNNNK................',
+    '..KKKKKKKK.KKKKKKKK................',
   ],
   // ジャイアントスパイダー: 巨大グモ。8本の脚＋4つの赤い目
   spider: [
@@ -1800,7 +1802,7 @@ const BOSS_TYPES = [
     desc: 'にほんしんわに でてくる、やっつの あたまと おを もつ おおへび。スサノオという かみに たいじされ、おから くさなぎのつるぎが みつかった。',
     serifu: 'シャアアア…！ わがねぐらに よくきたな…' },
   { name: 'ティラノサウルス', origin: 'きょうりゅうのおう', sprite: 'trex', aura: '#38b764', pattern: 'aim',   shot: 'fang',
-    gimmicks: ['rage'],              melee: ['punch', 'stomp'], hpMul: 1.05, ballColors: ['#f4f4f4', '#38b764', '#f4f4f4'], rageRemap: { G: '#b13e53', g: '#5d1520' },
+    gimmicks: ['rage'],              melee: ['punch', 'stomp'], hpMul: 1.05, ballColors: ['#f4f4f4', '#38b764', '#f4f4f4'], rageRemap: { t: '#ef7d57', o: '#b13e53', r: '#5d1520' },
     desc: 'はくあきの おわりごろに いた さいだいきゅうの にくしょくきょうりゅう。おおきな あごで ほねごと えものを かみくだく、きょうりゅうの おうさま。',
     serifu: 'ガアアアオオオオオッ！！' },
   { name: 'ヒュドラ',       origin: 'ギリシャしんわ', sprite: 'hydra',     aura: '#8b4f8b', pattern: 'wide',   shot: 'snake',
