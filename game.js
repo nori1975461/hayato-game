@@ -1637,6 +1637,24 @@ const WEAPONS = [
   { name: 'はどうほう', score: 207500, len: 60, width: 14, spin: 0.130, blades: 1, dmg: 6,
     color: '#1d5a80', edge: '#73eff7', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 20, pierce: true, aim: true, life: 90, color: '#73eff7', r: 26 } },
+  // ここから最上位3武器の「改（強化版）」「真（最強版）」。各武器を3段階にレベルアップ。
+  // 段階が上がるごとに ダメージ・弾速・射撃間隔・貫通/範囲・色の派手さ を強化（hybrid は増やさない）。
+  { name: 'ロケットパンチ改', score: 223500, len: 50, width: 11, spin: 0.140, blades: 1, dmg: 6, knock: 36,
+    color: '#f0402f', edge: '#ffcd75', kind: 'fist', hybrid: false,
+    shoot: { kind: 'rocketfist', interval: 30, speed: 6.0, dmg: 9, aoe: 48, aim: true } },
+  { name: 'ロケットパンチ真', score: 239500, len: 52, width: 12, spin: 0.145, blades: 1, dmg: 9, knock: 42,
+    color: '#ff2e4d', edge: '#fff275', kind: 'fist', hybrid: false,
+    shoot: { kind: 'rocketfist', interval: 24, speed: 7.0, dmg: 12, aoe: 60, aim: true, count: 2 } },
+  { name: 'てんていのいかずち改', score: 255500, len: 96, width: 10, spin: 0.185, blades: 4, dmg: 13, knock: 26,
+    lightning: true, tesla: true, color: '#faff5a', edge: '#73eff7', kind: 'boltrod', hybrid: false },
+  { name: 'てんていのいかずち真', score: 271500, len: 100, width: 11, spin: 0.195, blades: 6, dmg: 18, knock: 30,
+    lightning: true, tesla: true, color: '#c9f5ff', edge: '#41a6f6', kind: 'boltrod', hybrid: false },
+  { name: 'はどうほう改', score: 287500, len: 64, width: 16, spin: 0.132, blades: 1, dmg: 8,
+    color: '#2a7db0', edge: '#a0f0ff', kind: 'wavegun', hybrid: false,
+    shoot: { kind: 'wave', interval: 46, speed: 6.6, dmg: 28, pierce: true, aim: true, life: 100, color: '#a0f0ff', r: 30 } },
+  { name: 'はどうほう真', score: 303500, len: 70, width: 18, spin: 0.135, blades: 1, dmg: 11,
+    color: '#41a6f6', edge: '#ffffff', kind: 'wavegun', hybrid: false,
+    shoot: { kind: 'wave', interval: 38, speed: 7.2, dmg: 38, pierce: true, aim: true, life: 110, color: '#c9f5ff', r: 34 } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
