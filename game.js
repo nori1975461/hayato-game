@@ -1786,20 +1786,20 @@ const BOSS_TYPES = [
     form2Serifu: 'かわいた だいちの いかりを うけよ…！',
     serifu: 'だいちの みずを すべて わがものに…！' },
   { name: 'セイリュウ',     origin: 'ちゅうごくしんわ',   sprite: 'seiryu',   aura: '#41a6f6', pattern: 'ring', shot: 'ice', big: true,
-    gimmicks: ['callboss', 'rage'], melee: ['tail', 'dive', 'stomp'], hpMul: 2.0,
+    gimmicks: ['callboss', 'rage', 'blizzard'], melee: ['tail', 'dive', 'stomp'], hpMul: 2.0,
     remap: { b: '#2f6690' }, ballColors: ['#41a6f6', '#73eff7', '#41a6f6'],
     form2Remap: { b: '#164e73', C: '#73eff7', D: '#f4f4f4', M: '#a8dadc' }, form2Aura: '#73eff7',
     form2Serifu: 'そうてんの いかりを そのみに うけよ…！',
     serifu: 'そうりゅうの いぶきを うけてみよ！' },
   { name: 'ティアマト',     origin: 'メソポタミアしんわ', sprite: 'tiamat',   aura: '#8b4f8b', pattern: 'mix', shot: 'ball', big: true,
-    gimmicks: ['rage', 'summon', 'weakpoint', 'callboss'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
+    gimmicks: ['rage', 'summon', 'weakpoint', 'callboss', 'vortex'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
     ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
     form2Remap: { P: '#160a20', p: '#c9284a', H: '#5d1520', M: '#ff2e4d', b: '#73eff7', G: '#7bf05a', R: '#ff2e4d' }, form2Aura: '#ff2e4d',
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
   { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
     bossBgm: 'rairyu', // 雷太鼓＋高速ベースの専用BGM（他のドラゴン系DRAGON_CHORDSより速く鋭い）
-    gimmicks: ['rage', 'summon', 'callboss', 'storm'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.4, points: 20000,
+    gimmicks: ['rage', 'summon', 'callboss', 'storm', 'weakpoint'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.9, points: 20000,
     remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
     form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#f4f4f4', C: '#ff77a8', R: '#ff2e4d' }, form2Aura: '#b567b5',
@@ -2402,6 +2402,8 @@ let shockwaves = []; // 広がる衝撃波リング（近接攻撃・巨大弾�
 let strikes = [];    // ライリュウの落雷予告マーカー（予告→一定フレーム後に落雷）
 let fences = [];     // ライリュウ「いかずちのかご」の電気フェンス（予告→本体でダメージ判定）
 let novas = [];      // ライリュウ「ばんらいノヴァ」の広がる電気リング（第2形態専用）
+let frost = [];      // セイリュウ「ひょうけつのあらし」の氷柱（予告→隆起でダメージ＋凍結）
+let vortexes = [];   // ティアマト「こんとんのうず」の引き寄せ渦（予告→吸引→爆発）
 let slashes = [];    // 白い斬撃エフェクト（ヒットの気持ちよさ用）
 let hitstopT = 0;    // ヒットストップ: 当たった瞬間、世界が数フレーム止まる（イース風の手ごたえ）
 let score, lives, weaponIdx, formIdx, weaponAngle, frame, spawnTimer, invincibleTimer;
@@ -2466,6 +2468,8 @@ function startGame() {
   strikes = [];
   fences = [];
   novas = [];
+  frost = [];
+  vortexes = [];
   slashes = [];
   hitstopT = 0;
   score = 0;
@@ -3145,7 +3149,7 @@ function specialAttack() {
 }
 
 // ---------- プレイヤー被弾の共通処理 ----------
-function hurtPlayer() {
+function hurtPlayer(dmg = 1) {
   // てつのよろい: 12%でガード
   if (gear.armor && Math.random() < 0.12) {
     const pc = playerCenter();
@@ -3174,7 +3178,7 @@ function hurtPlayer() {
     SFX.guard();
     return;
   }
-  lives--;
+  lives -= dmg;
   invincibleTimer = Math.round((gear.cloak ? 135 : 75) * hero.invMul);
   shakeTimer = 10;
   if (!gear.hagoromo) combo = 0;
@@ -3564,6 +3568,8 @@ function update() {
   updateThunderStrikes(pc);
   updateFences(pc);
   updateNovas(pc);
+  updateFrost(pc);
+  updateVortexes(pc);
   updateStageFx();
 
   // コンボタイマー
@@ -3695,7 +3701,7 @@ function updateBoss(e, pc, ecx, ecy) {
   if (type.big && !e.form2 && e.transforming <= 0 && e.hp <= e.maxHp * 0.5) {
     e.transforming = 150; // 約2.5秒（60fps想定）。この間は完全無敵・行動停止
     sigmundInterrupt(e);  // 空中・技の最中でも画面内の地上に降ろす（撃破シネマティックと同じ中断処理）
-    strikes = []; fences = []; novas = []; // 変身の無敵中に進行中の設置攻撃で理不尽にやられないよう一掃
+    strikes = []; fences = []; novas = []; frost = []; vortexes = []; // 変身の無敵中に進行中の設置攻撃で理不尽にやられないよう一掃
     flashTimer = 20;
     shakeTimer = 24;
     bannerText = `${type.name}が しんの すがたに めざめる…！！`;
@@ -3800,8 +3806,8 @@ function updateBoss(e, pc, ecx, ecy) {
     e.shieldT++;
     if (e.shieldT % 420 === 260) { addPopup(ecx, e.y - 10, 'シールド！', '#41a6f6', 13); SFX.guard(); }
   }
-  // 弱点コアはゆっくり回る
-  if (gm.includes('weakpoint')) e.coreAngle += 0.02;
+  // 弱点コアはゆっくり回る（ライリュウのみ1.2倍速で回転し、コア狙いをよりシビアにする）
+  if (gm.includes('weakpoint')) e.coreAngle += (type.sprite === 'rairyu') ? 0.024 : 0.02;
   // 仲間よびギミック
   if (gm.includes('summon')) {
     e.summonT--;
@@ -3817,9 +3823,9 @@ function updateBoss(e, pc, ecx, ecy) {
   }
   // 雷嵐ギミック(ライリュウ専用): 周期的に全画面へ巨大な赤い落雷を予告 → 45フレーム後に落とす
   if (gm.includes('storm')) {
-    e.stormT = (e.stormT == null ? 180 : e.stormT) - 1;
+    e.stormT = (e.stormT == null ? 140 : e.stormT) - 1;
     if (e.stormT <= 0) {
-      const n = e.form2 ? 9 : 6;              // 画面いっぱいに雷が乱れ飛ぶ（大幅増）
+      const n = e.form2 ? 11 : 8;             // 画面いっぱいに雷が乱れ飛ぶ（大幅増）
       const pts = [];
       for (let i = 0; i < n; i++) {
         let sx, sy, tries = 0;
@@ -3838,11 +3844,15 @@ function updateBoss(e, pc, ecx, ecy) {
       addPopup(ecx, e.y - 24, 'らいめいのあらし！！', '#ff2e4d', 18);
       redFlashTimer = Math.max(redFlashTimer, 6); // 予告の瞬間にも空が赤くうなる
       SFX.warn();
-      e.stormT = e.form2 ? 150 : 220;
+      e.stormT = e.form2 ? 105 : 150;
     }
   }
   // ライリュウ専用の特殊攻撃3種（らいこうレーザー / いかずちのかご / ばんらいノヴァ）
   if (type.sprite === 'rairyu') updateRairyuSpecials(e, pc, ecx, ecy);
+  // セイリュウ「ひょうけつのあらし」: 氷柱＋凍結フィールド（storm/雷とは別系統の氷ギミック）
+  if (gm.includes('blizzard')) updateSeiryuBlizzard(e, pc, ecx, ecy);
+  // ティアマト「こんとんのうず」: 引き寄せ渦→炸裂（storm/雷とは別系統の混沌ギミック）
+  if (gm.includes('vortex')) updateTiamatVortex(e, pc, ecx, ecy);
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
     e.teleT = (e.teleT == null ? 240 : e.teleT) - 1;
@@ -3978,7 +3988,7 @@ function updateBoss(e, pc, ecx, ecy) {
       e.giantCharge = 50;
       addPopup(ecx, e.y - 14, '！！！', '#b13e53', 20);
       SFX.giantCharge();
-      e.fireTimer = type.pattern === 'spiral' ? 55 : Math.max(70, 150 - stage * 4);
+      e.fireTimer = type.sprite === 'rairyu' ? 42 : (type.pattern === 'spiral' ? 55 : Math.max(70, 150 - stage * 4));
       return;
     }
     const shotSpeed = ({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15;
@@ -4019,8 +4029,17 @@ function updateBoss(e, pc, ecx, ecy) {
         for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.26);
       }
     } else if (type.pattern === 'spiral') {
-      for (let i = 0; i < 3; i++) shoot(e.spiralAngle + (Math.PI * 2 * i) / 3);
-      e.spiralAngle += 0.5;
+      if (type.sprite === 'rairyu') {
+        // ライリュウ強化: 腕を増やし、さらに逆回転の腕を重ねて弾道を読ませない（避けにくさアップ）
+        const arms = e.form2 ? 5 : 4;
+        for (let i = 0; i < arms; i++) shoot(e.spiralAngle + (Math.PI * 2 * i) / arms, mouthX, mouthY, 1.15);
+        const arms2 = e.form2 ? 3 : 2;   // 逆回転かつ少し速い第2腕
+        for (let i = 0; i < arms2; i++) shoot(-e.spiralAngle * 1.25 + (Math.PI * 2 * i) / arms2, mouthX, mouthY, 1.32);
+        e.spiralAngle += 0.62;
+      } else {
+        for (let i = 0; i < 3; i++) shoot(e.spiralAngle + (Math.PI * 2 * i) / 3);
+        e.spiralAngle += 0.5;
+      }
     } else if (type.pattern === 'rain') {
       // 空から降りそそぐ（メテオ・羽・炎の雨）
       const n = Math.min(5 + lv, 10);
@@ -4042,7 +4061,7 @@ function updateBoss(e, pc, ecx, ecy) {
         shoot(Math.PI / 2, x, -10, 0.75);
       }
     }
-    e.fireTimer = (type.pattern === 'spiral' || type.pattern === 'cross') ? 55 : Math.max(70, 150 - stage * 4);
+    e.fireTimer = type.sprite === 'rairyu' ? 38 : ((type.pattern === 'spiral' || type.pattern === 'cross') ? 55 : Math.max(70, 150 - stage * 4));
     if (type.pattern === 'wall') e.fireTimer += 60; // かべは強いので間隔ながめ
     shakeTimer = 8;
     SFX.bossFire();
@@ -5174,7 +5193,7 @@ function updateThunderStrikes(pc) {
     SFX.thunder();
     const hitR = s.storm ? 30 : 26;
     if (invincibleTimer === 0 && state === 'playing' && (pc.x - s.x) ** 2 + (pc.y - s.y) ** 2 < hitR ** 2) {
-      hurtPlayer();
+      hurtPlayer(s.storm ? 2 : 1); // 雷嵐の直撃はハート2つ分の大ダメージ
     }
     return false;
   });
@@ -5310,6 +5329,203 @@ function updateNovas(pc) {
     }
     return nv.r < nv.rMax;
   });
+}
+
+// ---------- セイリュウ「ひょうけつのあらし」: 氷柱＋凍結フィールド ----------
+// storm(赤い落雷)とは完全別系統。青白い結晶が地面から突き上がり、当たると凍結(移動半減)＋被弾。
+function updateSeiryuBlizzard(e, pc, ecx, ecy) {
+  const f2 = e.form2;
+  if (e.hp > e.maxHp * 0.9) return; // HP90%以下で始動
+  e.blizzT = (e.blizzT == null ? 200 : e.blizzT) - 1;
+  if (e.blizzT <= 0 && frost.length === 0) {
+    e.blizzT = f2 ? 150 : 230;      // 真の姿は発生間隔が短い
+    spawnFrostField(pc, f2);
+  }
+}
+
+// 氷柱を設置。1本目は現在位置、真の姿は予測位置も狙い、残りは既存とかぶらない乱数配置。
+function spawnFrostField(pc, f2) {
+  const n = f2 ? 9 : 6;
+  const pts = [{ x: pc.x, y: pc.y }];
+  if (f2) pts.push({ x: pc.x + (Math.random() - 0.5) * 90, y: pc.y + (Math.random() - 0.5) * 90 });
+  while (pts.length < n) {
+    let sx, sy, tries = 0;
+    do {
+      sx = 30 + Math.random() * (W - 60);
+      sy = 60 + Math.random() * (H - 90);
+      tries++;
+    } while (tries < 20 && pts.some((p) => (p.x - sx) ** 2 + (p.y - sy) ** 2 < 46 ** 2));
+    pts.push({ x: sx, y: sy });
+  }
+  for (const p of pts) {
+    frost.push({
+      x: Math.max(20, Math.min(W - 20, p.x)),
+      y: Math.max(50, Math.min(H - 20, p.y)),
+      t: 50, rise: 0, live: f2 ? 46 : 38, r: f2 ? 30 : 26, f2, hit: false,
+    });
+  }
+  addPopup(W / 2, 30, 'ひょうけつのあらし！！', '#a8dadc', 17);
+  SFX.warn();
+}
+
+// 氷柱の進行。予告50f(無害)→隆起して数フレームだけ判定。触れると凍結(playerSlowT)＋被弾(1回だけ)。
+function updateFrost(pc) {
+  frost = frost.filter((ic) => {
+    ic.t--;
+    if (ic.t > 0) {
+      if (frame % 4 === 0) pushParticle({ x: ic.x + (Math.random() - 0.5) * ic.r, y: ic.y + (Math.random() - 0.5) * ic.r, vx: 0, vy: -0.3, life: 10, color: '#a8dadc' });
+      return true;
+    }
+    if (ic.t === 0) { SFX.thunder(); flashTimer = Math.max(flashTimer, 5); shakeTimer = Math.max(shakeTimer, 6); burst(ic.x, ic.y, '#f4f4f4', 12, 2.5); }
+    if (ic.rise < 1) ic.rise = Math.min(1, ic.rise + 0.2);
+    ic.live--;
+    if (!ic.hit && ic.rise >= 1 && invincibleTimer === 0 && state === 'playing' && (pc.x - ic.x) ** 2 + (pc.y - ic.y) ** 2 < ic.r ** 2) {
+      ic.hit = true;
+      playerSlowT = ic.f2 ? 180 : 120;
+      addPopup(pc.x, pc.y - 30, 'こおった！', '#73eff7', 12);
+      hurtPlayer();
+    }
+    if (frame % 3 === 0) burst(ic.x + (Math.random() - 0.5) * ic.r, ic.y - 10 - Math.random() * 20, Math.random() < 0.5 ? '#a8dadc' : '#f4f4f4', 1, 1.2);
+    return ic.live > 0;
+  });
+}
+
+// 氷柱の描画。予告は六角の霜マーカー、発動後は下から突き上がる青白い結晶（雷とは別デザイン）。
+function drawFrost() {
+  for (const ic of frost) {
+    if (ic.t > 0) {
+      const blink = Math.floor(ic.t / 4) % 2 === 0;
+      ctx.strokeStyle = blink ? 'rgba(168,218,220,0.9)' : 'rgba(168,218,220,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+        const px = ic.x + Math.cos(a) * ic.r, py = ic.y + Math.sin(a) * ic.r * 0.6;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      continue;
+    }
+    const h = ic.rise * (ic.f2 ? 62 : 48);
+    const w = ic.r * 0.7;
+    ctx.globalAlpha = ic.live < 12 ? ic.live / 12 : 1; // 砕け散る直前はフェード
+    ctx.fillStyle = 'rgba(59,93,201,0.5)';             // 影（濃い青）
+    ctx.beginPath();
+    ctx.moveTo(ic.x, ic.y - h); ctx.lineTo(ic.x + w, ic.y); ctx.lineTo(ic.x, ic.y + 6); ctx.lineTo(ic.x - w, ic.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#73eff7';                          // 本体（水色）
+    ctx.beginPath();
+    ctx.moveTo(ic.x, ic.y - h); ctx.lineTo(ic.x + w * 0.6, ic.y - h * 0.35); ctx.lineTo(ic.x, ic.y); ctx.lineTo(ic.x - w * 0.6, ic.y - h * 0.35);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f4f4f4';                          // 白い芯のきらめき
+    ctx.fillRect(ic.x - 1, ic.y - h + 2, 2, h * 0.5);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------- ティアマト「こんとんのうず」: 引き寄せ渦→炸裂 ----------
+// storm(落雷)とは別系統。渦がプレイヤーを吸い寄せてから爆発する。逃げ切れないと被弾。
+function updateTiamatVortex(e, pc, ecx, ecy) {
+  const f2 = e.form2;
+  if (e.hp > e.maxHp * 0.85) return; // HP85%以下で始動
+  e.vortexT = (e.vortexT == null ? 260 : e.vortexT) - 1;
+  if (e.vortexT <= 0 && vortexes.length === 0) {
+    e.vortexT = f2 ? 210 : 320;      // 真の姿は発生間隔が短い
+    spawnVortex(pc, f2);
+  }
+}
+
+// 渦の核をプレイヤー近くに置く。真の姿は対角にもう1つ同時発生（多方向同時）。
+function spawnVortex(pc, f2) {
+  const cx = Math.max(60, Math.min(W - 60, pc.x + (Math.random() - 0.5) * 70));
+  const cy = Math.max(60, Math.min(H - 60, pc.y + (Math.random() - 0.5) * 70));
+  vortexes.push({ cx, cy, tel: 44, pull: f2 ? 120 : 96, blast: 0, ang: 0, r: f2 ? 84 : 70, f2 });
+  if (f2) vortexes.push({ cx: W - cx, cy: H - cy, tel: 70, pull: 120, blast: 0, ang: 0, r: 84, f2 });
+  addPopup(cx, cy - 40, 'こんとんのうず！！', '#c9284a', 18);
+  SFX.warn();
+}
+
+// 渦の進行。予告→吸引(歩いて抵抗可＝理不尽にしない)→炸裂。半径内で逃げ遅れたら被弾。
+function updateVortexes(pc) {
+  vortexes = vortexes.filter((v) => {
+    v.ang += v.f2 ? 0.35 : 0.28;
+    if (v.tel > 0) {
+      v.tel--;
+      if (frame % 3 === 0) {
+        const a = v.ang * 2 + Math.random() * Math.PI * 2;
+        const rr = v.r * (0.5 + Math.random() * 0.5);
+        pushParticle({ x: v.cx + Math.cos(a) * rr, y: v.cy + Math.sin(a) * rr, vx: -Math.cos(a) * 1.5, vy: -Math.sin(a) * 1.5, life: 14, color: Math.random() < 0.5 ? '#8b4f8b' : '#ff2e4d' });
+      }
+      if (v.tel === 0) { SFX.warn(); flashTimer = Math.max(flashTimer, 6); }
+      return true;
+    }
+    if (v.pull > 0) {
+      v.pull--;
+      if (state === 'playing') {
+        const lc = playerCenter();
+        const dx = v.cx - lc.x, dy = v.cy - lc.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const strength = (v.f2 ? 1.15 : 0.8) * Math.min(1, d / 120);
+        player.x = Math.max(0, Math.min(W - PLAYER_SIZE, player.x + (dx / d) * strength));
+        player.y = Math.max(0, Math.min(H - PLAYER_SIZE, player.y + (dy / d) * strength));
+      }
+      if (frame % 2 === 0) {
+        const a = v.ang * 3 + Math.random() * Math.PI * 2;
+        const rr = v.r * (0.7 + Math.random() * 0.6);
+        pushParticle({ x: v.cx + Math.cos(a) * rr, y: v.cy + Math.sin(a) * rr, vx: -Math.cos(a) * 2.4, vy: -Math.sin(a) * 2.4, life: 12, color: Math.random() < 0.5 ? '#c9284a' : '#8b4f8b' });
+      }
+      if (v.pull === 0) { v.blast = 26; addPopup(v.cx, v.cy - 30, 'はじける…！', '#ff2e4d', 14); }
+      return true;
+    }
+    v.blast--;
+    if (v.blast === 20) {
+      SFX.boom();
+      flashTimer = Math.max(flashTimer, 10); shakeTimer = Math.max(shakeTimer, 12);
+      addShockwave(v.cx, v.cy, '#ff2e4d', 10, 8, v.r + 8, 6);
+      addShockwave(v.cx, v.cy, '#8b4f8b', 8, 6, v.r, 4);
+      rainbowBurst(v.cx, v.cy, 30, 4);
+      burst(v.cx, v.cy, '#ff2e4d', 24, 4.5);
+      burst(v.cx, v.cy, '#c9284a', 16, 3);
+      const lc = playerCenter();
+      if (invincibleTimer === 0 && state === 'playing' && (lc.x - v.cx) ** 2 + (lc.y - v.cy) ** 2 < v.r ** 2) {
+        hurtPlayer(v.f2 ? 2 : 1); // 真の姿の炸裂はハート2つ分
+      }
+    }
+    return v.blast > 0;
+  });
+}
+
+// 渦の描画。3本のらせん腕が回転しながら中心へ吸い込むデザイン（雷・氷とは別）。
+function drawVortexes() {
+  for (const v of vortexes) {
+    if (v.blast > 0) {
+      const p = 1 - v.blast / 26;
+      ctx.globalAlpha = Math.max(0, 1 - p);
+      ctx.strokeStyle = '#f4f4f4'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(v.cx, v.cy, v.r * p * 1.2, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    const pulling = v.tel <= 0;
+    const rr = pulling ? v.r : v.r * 0.7;
+    for (let k = 0; k < 3; k++) {
+      const base = v.ang + (Math.PI * 2 * k) / 3;
+      ctx.strokeStyle = k % 2 === 0 ? 'rgba(139,79,139,0.85)' : 'rgba(255,46,77,0.8)';
+      ctx.lineWidth = pulling ? 3 : 2;
+      ctx.beginPath();
+      for (let s = 0; s <= 18; s++) {
+        const u = s / 18;
+        const a = base + u * 3.2;             // らせん
+        const px = v.cx + Math.cos(a) * rr * u, py = v.cy + Math.sin(a) * rr * u;
+        s === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = pulling ? '#ff2e4d' : '#8b4f8b';
+    ctx.beginPath(); ctx.arc(v.cx, v.cy, pulling ? 6 : 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f4f4f4';
+    ctx.beginPath(); ctx.arc(v.cx, v.cy, 2, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 // ---------- ステージごとの環境エフェクト ----------
@@ -6750,6 +6966,9 @@ function render() {
   // ライリュウの設置ハザード（地面レイヤー: 電気フェンス・ばんらいノヴァのリング）
   drawFences();
   drawNovas();
+  // セイリュウの氷柱・ティアマトの混沌の渦（地面レイヤー）
+  drawFrost();
+  drawVortexes();
 
   // 雷の連鎖ボルト（武器のチェイン雷はそのまま。ライリュウの雷嵐だけ巨大な赤い稲妻に分岐）
   for (const b of bolts) {
