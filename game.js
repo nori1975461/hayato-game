@@ -7416,21 +7416,55 @@ function render() {
         ctx.fill();
       }
       // 弱点コア（虹色に光る球。ここをねらえ！）※崩壊演出中は消える
+      // ライリュウだけは専用の「雷電コア」：虹色ではなく金×水色の高速明滅＋放射する電光の棘で別格の特別感を出す
       if (e.type.gimmicks.includes('weakpoint') && !e.dying) {
         const core = bossCorePos(e);
         const pulse = 8 + Math.sin(gframe * 0.25) * 3;
-        ctx.fillStyle = 'rgba(255, 205, 117, 0.3)';
-        ctx.beginPath();
-        ctx.arc(core.x, core.y, pulse * 1.8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = RAINBOW[Math.floor(gframe / 5) % RAINBOW.length];
-        ctx.beginPath();
-        ctx.arc(core.x, core.y, pulse, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#f4f4f4';
-        ctx.beginPath();
-        ctx.arc(core.x, core.y, pulse * 0.4, 0, Math.PI * 2);
-        ctx.fill();
+        if (e.type.sprite === 'rairyu') {
+          const flick = (gframe % 4 < 2) ? '#73eff7' : '#ffcd75';
+          ctx.fillStyle = 'rgba(115, 239, 247, 0.35)';
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse * 2.1, 0, Math.PI * 2);
+          ctx.fill();
+          // 放射する電光の棘（逆回転で稲妻コアらしい躍動感を出す）
+          ctx.strokeStyle = flick;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 6; i++) {
+            const ang = -e.coreAngle * 1.6 + (Math.PI * 2 / 6) * i;
+            const ix = core.x + Math.cos(ang) * pulse * 1.1;
+            const iy = core.y + Math.sin(ang) * pulse * 1.1;
+            const jx = core.x + Math.cos(ang + 0.15) * pulse * 2.6;
+            const jy = core.y + Math.sin(ang + 0.15) * pulse * 2.6;
+            const ox = core.x + Math.cos(ang) * pulse * 3.2;
+            const oy = core.y + Math.sin(ang) * pulse * 3.2;
+            ctx.beginPath();
+            ctx.moveTo(ix, iy);
+            ctx.lineTo(jx, jy);
+            ctx.lineTo(ox, oy);
+            ctx.stroke();
+          }
+          ctx.fillStyle = flick;
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = 'rgba(255, 205, 117, 0.3)';
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse * 1.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = RAINBOW[Math.floor(gframe / 5) % RAINBOW.length];
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#f4f4f4';
+          ctx.beginPath();
+          ctx.arc(core.x, core.y, pulse * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       // 召喚された過去ボスは大バーに出さないので、頭上に小さなHPバーを描く
       if (e.summoned && e.hp > 0) {
