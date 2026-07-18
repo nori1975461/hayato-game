@@ -134,11 +134,17 @@ step('必殺技（ボスあり）', () => {
   frames(120);
 });
 
-step('全クリア画面', () => {
-  run('finalClear = true; state = "clear";');
-  frames(200);
-  key('Enter');
+step('全クリア画面（エンディング3フェーズ）', () => {
+  run('finalClear = true; state = "clear"; clearPhase = 0; clearT = 0; clearTransT = 0;');
   frames(60);
+  key('Enter'); frames(40); // フェーズ0（星空ナレーション）→1へ暗転
+  if (run('clearPhase') !== 1) throw new Error('フェーズ0からEnterで進まない: ' + run('clearPhase'));
+  key('Enter'); frames(40); // フェーズ1（勇者と夜明け）→2へ暗転
+  if (run('clearPhase') !== 2) throw new Error('フェーズ1からEnterで進まない: ' + run('clearPhase'));
+  frames(200); // フェーズ2（せいせき・ハイスコア・ボスパレード）
+  key('Enter'); frames(60); // 最終フェーズでEnter→タイトル
+  if (run('state') !== 'title') throw new Error('エンディング後タイトルに戻らない: ' + run('state'));
+  run('finalClear = false;');
 });
 
 function click(x, y) { for (const fn of handlers.click || []) fn({ clientX: x, clientY: y }); }

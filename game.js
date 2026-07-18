@@ -2135,6 +2135,31 @@ const CLEAR_CHORDS = [
 ];
 const CLEAR_BASS = [45, 52, 45, 57, 43, 50, 43, 55, 41, 48, 41, 53, 40, 47, 40, 52];
 const CLEAR_MELODY = [69, 0, 72, 74, 76, 0, 74, 72, 77, 0, 76, 74, 76, 0, 71, 68];
+// エピローグBGM（ナレーション用）: やさしく荘厳な賛歌。王道の感動コード進行
+// C→G→Am→Em→F→C→F→G を、やわらかいパッド＋きらめく鐘のアルペジオでゆったり奏でる
+const EPILOGUE_CHORDS = [
+  [60, 64, 67], // C
+  [55, 59, 62], // G
+  [57, 60, 64], // Am
+  [52, 55, 59], // Em
+  [53, 57, 60], // F
+  [60, 64, 67], // C
+  [53, 57, 60], // F
+  [55, 59, 62], // G
+];
+const EPILOGUE_BELL = [72, 76, 79, 76, 74, 79, 83, 79]; // きらめく鐘のアルペジオ
+// エンディング演出のフェーズ管理（0=星空のナレーション / 1=勇者たちの立ち姿 / 2=せいせき画面）
+let clearPhase = 0;
+let clearT = 0;       // いまのフェーズが始まってからの経過フレーム
+let clearTransT = 0;  // フェーズ切り替えの暗転フェード残りフレーム（0=フェードなし）
+const CLEAR_PHASE_DUR = [340, 340]; // フェーズ0・1の自動進行フレーム数（フェーズ2は手動でタイトルへ）
+const CLEAR_TRANS = 26;             // フェード（暗転）にかけるフレーム数
+// エピローグのナレーション文（1行ずつフェードインで表示）
+const CLEAR_NARR_1 = [
+  'ながく くるしい たたかいが、いま おわった。',
+  '20の せかいを つつんでいた やみが きえて、',
+  'そらには ふたたび、ほしが かがやきはじめた。',
+];
 let bossChordIdx = 0;
 let musicFrame = 0;
 let musicStep = 0;
@@ -2147,8 +2172,26 @@ function tickMusic() {
   if (state !== 'playing' && state !== 'shop' && state !== 'tally' && state !== 'clear') return;
   if (warningTimer > 0 && state === 'playing') return; // WARNING中はサイレンだけ響かせる
   musicFrame++;
-  // エンディング: 荘厳な勝利のテーマ
+  // エンディング: フェーズ0・1はやさしく荘厳な賛歌、フェーズ2で勝利のテーマへ
   if (state === 'clear') {
+    if (clearPhase < 2) {
+      // エピローグの賛歌: ゆったりしたパッド＋きらめく鐘（ナレーションに寄りそう静けさ）
+      if (musicFrame % 12 !== 0) return;
+      const chord = EPILOGUE_CHORDS[Math.floor(musicStep / 2) % EPILOGUE_CHORDS.length];
+      if (musicStep % 2 === 0) {
+        // やわらかいパッド（2オクターブのサイン＋トライアングル）＋ふかい低音
+        for (const n of chord) {
+          beep(midi2f(n), 2.2, 'sine', 0.02);
+          beep(midi2f(n + 12), 2.2, 'triangle', 0.012);
+        }
+        beep(midi2f(chord[0] - 24), 2.2, 'sine', 0.03);
+      }
+      // きらめく鐘のアルペジオ
+      beep(midi2f(EPILOGUE_BELL[musicStep % EPILOGUE_BELL.length] + 12), 0.9, 'sine', 0.022);
+      if (musicStep % 4 === 0) beep(midi2f(chord[0] - 12), 0.4, 'triangle', 0.02); // やさしい鼓動
+      musicStep = (musicStep + 1) % 16;
+      return;
+    }
     if (musicFrame % 8 !== 0) return;
     const chord = CLEAR_CHORDS[Math.floor(musicStep / 4) % 4];
     if (musicStep % 4 === 0) {
@@ -2323,7 +2366,11 @@ window.addEventListener('keydown', (e) => {
   } else if (state === 'shop') {
     shopInput(e.key);
   } else if (state === 'clear') {
-    if (e.key === 'Enter') state = 'title';
+    // ENTERでフェーズを進める（暗転中は無視）。最後のフェーズでタイトルへ
+    if (e.key === 'Enter' && clearTransT === 0) {
+      if (clearPhase < 2) { clearTransT = CLEAR_TRANS; beep(660, 0.06, 'sine', 0.04); }
+      else state = 'title';
+    }
   } else if (state === 'zukan') {
     if (e.key === 'ArrowUp') { zukanCursor = (zukanCursor - 1 + BOSS_TYPES.length) % BOSS_TYPES.length; beep(500, 0.03, 'square', 0.03); }
     if (e.key === 'ArrowDown') { zukanCursor = (zukanCursor + 1) % BOSS_TYPES.length; beep(500, 0.03, 'square', 0.03); }
@@ -3233,7 +3280,10 @@ function closeShop() {
     state = 'clear';
     musicFrame = 0;
     musicStep = 0;
-    SFX.clear();
+    // エンディングは星空のナレーションから始める（勝利ファンファーレはフェーズ2到達時に鳴らす）
+    clearPhase = 0;
+    clearT = 0;
+    clearTransT = 0;
     if (score > highScore) {
       highScore = score;
       localStorage.setItem('hayato-highscore', String(highScore));
@@ -3319,15 +3369,30 @@ function update() {
     return;
   }
   if (state === 'clear') {
-    // 豪華な花火ショー（増量＋効果音つき）
-    if (gframe % 10 === 0) {
-      const fx = 40 + Math.random() * (W - 80);
-      const fy = 25 + Math.random() * (H * 0.55);
-      rainbowBurst(fx, fy, 24, 3.8);
-      addShockwave(fx, fy, RAINBOW[Math.floor(Math.random() * RAINBOW.length)], 4, 3.5, 13, 2);
-      if (gframe % 20 === 0) SFX.fireworkPop();
+    clearT++;
+    // フェーズ切り替え: 暗転フェード中はカウントし、明けたら次のフェーズへ
+    if (clearTransT > 0) {
+      clearTransT--;
+      if (clearTransT === 0) {
+        clearPhase++;
+        clearT = 0;
+        musicStep = 0; // 次フェーズのBGMを頭からそろえる
+        if (clearPhase === 2) SFX.clear(); // せいせき画面の到達で勝利ファンファーレ
+      }
+    } else if (clearPhase < 2 && clearT >= CLEAR_PHASE_DUR[clearPhase]) {
+      clearTransT = CLEAR_TRANS; // 時間経過で自動的に次フェーズへ暗転
     }
-    if (gframe % 80 === 0) SFX.fireworkLaunch(); // ヒュ〜っと打ち上がる音
+    // 豪華な花火ショーはフェーズ2（せいせき画面）だけ
+    if (clearPhase === 2) {
+      if (gframe % 10 === 0) {
+        const fx = 40 + Math.random() * (W - 80);
+        const fy = 25 + Math.random() * (H * 0.55);
+        rainbowBurst(fx, fy, 24, 3.8);
+        addShockwave(fx, fy, RAINBOW[Math.floor(Math.random() * RAINBOW.length)], 4, 3.5, 13, 2);
+        if (gframe % 20 === 0) SFX.fireworkPop();
+      }
+      if (gframe % 80 === 0) SFX.fireworkLaunch(); // ヒュ〜っと打ち上がる音
+    }
     return;
   }
   if (state !== 'playing') return;
@@ -7494,7 +7559,150 @@ function renderShop() {
 }
 
 // ---------- ぜんクリア画面 ----------
+// エンディングは3つのフェーズを暗転フェードでつなぐ:
+//  フェーズ0=星空のナレーション / フェーズ1=勇者たちの立ち姿 / フェーズ2=せいせき画面
 function renderClear() {
+  if (clearPhase === 0) renderEpiPhase0();
+  else if (clearPhase === 1) renderEpiPhase1();
+  else renderEpiPhase2();
+  // フェーズ切り替えの暗転フェード（画面ぜんたいを黒でおおう）
+  const fade = clearFadeAlpha();
+  if (fade > 0) {
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(-8, -8, W + 16, H + 16);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// フェード量: 暗転中は 0→1、フェーズが明けたら 1→0
+function clearFadeAlpha() {
+  if (clearTransT > 0) return (CLEAR_TRANS - clearTransT) / CLEAR_TRANS;
+  if (clearT < CLEAR_TRANS) return 1 - clearT / CLEAR_TRANS;
+  return 0;
+}
+
+// ナレーションを1行ずつフェードインで表示する
+function drawNarration(lines, startY, gap, revealStart, revealInterval) {
+  for (let i = 0; i < lines.length; i++) {
+    const appear = revealStart + i * revealInterval;
+    if (clearT < appear) continue;
+    ctx.globalAlpha = Math.min(1, (clearT - appear) / 24);
+    drawCenteredText(lines[i], startY + i * gap, '#f4f4f4', 14);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// 「ENTER ▶ すすむ」のヒント（ナレーション中に点滅で表示）
+function drawEpiHint() {
+  if (Math.floor(gframe / 30) % 2 === 0) {
+    drawCenteredText('ENTER ▶ すすむ', H - 16, '#566c86', 10);
+  }
+}
+
+// フェーズ0: 星空の夜明けまえ。ナレーションが静かに流れる
+function renderEpiPhase0() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#05040f');
+  sky.addColorStop(0.6, '#0b0a24');
+  sky.addColorStop(1, '#241a3a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // きらめく星々（位置は固定・明るさだけゆらぐ）
+  for (let i = 0; i < 80; i++) {
+    const sx = (i * 71 + 13) % W;
+    const sy = (i * 137 + 7) % (H - 40);
+    const tw = 0.35 + 0.65 * Math.abs(Math.sin(gframe * 0.03 + i * 1.7));
+    ctx.globalAlpha = tw;
+    ctx.fillStyle = i % 7 === 0 ? '#ffcd75' : '#f4f4f4';
+    ctx.fillRect(sx, sy, i % 5 === 0 ? 2 : 1, i % 5 === 0 ? 2 : 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // 地平線からわずかにのぼりはじめる夜明けの光
+  const glow = ctx.createLinearGradient(0, H, 0, H - 90);
+  glow.addColorStop(0, 'rgba(255, 205, 117, 0.28)');
+  glow.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(-8, H - 90, W + 16, 98);
+
+  drawNarration(CLEAR_NARR_1, 120, 26, 40, 62);
+  drawEpiHint();
+}
+
+// フェーズ1: 夜明けの空に、勇者（と傭兵）が並び立つ
+function renderEpiPhase1() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#1b2a5c');
+  sky.addColorStop(0.5, '#7a4a8a');
+  sky.addColorStop(1, '#ffb877');
+  ctx.fillStyle = sky;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // のぼる朝日
+  const sunY = 150;
+  const sun = ctx.createRadialGradient(W / 2, sunY, 4, W / 2, sunY, 120);
+  sun.addColorStop(0, 'rgba(255, 240, 200, 0.95)');
+  sun.addColorStop(0.3, 'rgba(255, 205, 117, 0.55)');
+  sun.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = sun;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+  ctx.fillStyle = '#fff3d6';
+  ctx.beginPath();
+  ctx.arc(W / 2, sunY, 26, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 天からさす光の帯
+  for (let i = 0; i < 5; i++) {
+    const a = -0.5 + i * 0.25 + Math.sin(gframe * 0.01 + i) * 0.05;
+    ctx.save();
+    ctx.translate(W / 2, -20);
+    ctx.rotate(a);
+    const ray = ctx.createLinearGradient(0, 0, 0, 320);
+    ray.addColorStop(0, 'rgba(255, 235, 190, 0.18)');
+    ray.addColorStop(1, 'rgba(255, 235, 190, 0)');
+    ctx.fillStyle = ray;
+    ctx.fillRect(-14, 0, 28, 340);
+    ctx.restore();
+  }
+
+  // 大地
+  ctx.fillStyle = '#3a2a44';
+  ctx.fillRect(-8, 214, W + 16, H - 206);
+
+  // 勇者と、生きのこった傭兵が並び立つ
+  const hy = 168 + Math.sin(gframe * 0.05) * 2;
+  const alive = mercenaries || [];
+  const mercXs = [W / 2 - 74, W / 2 + 74];
+  for (let i = 0; i < alive.length && i < 2; i++) {
+    const type = MERC_TYPES[alive[i].typeId];
+    if (!type) continue;
+    drawSprite(type.sprite, mercXs[i] - 12, 186 + Math.sin(gframe * 0.05 + i) * 2, 2, null);
+  }
+  // 勇者の光の円座
+  const rg = ctx.createRadialGradient(W / 2, hy + 44, 2, W / 2, hy + 44, 54);
+  rg.addColorStop(0, 'rgba(255, 205, 117, 0.5)');
+  rg.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = rg;
+  ctx.beginPath();
+  ctx.ellipse(W / 2, hy + 44, 54, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  drawSprite('player5', W / 2 - 18, hy, 3, playerRemap());
+
+  // ナレーション（プレイヤーへの感謝の言葉つき）
+  const heroName = playerName ? playerName : 'きみ';
+  const lines = [
+    'きみの ゆうきが、たくさんの いのちを すくった。',
+    'まもりぬいた せかいに、あたたかい あさが もどる。',
+    `${heroName}、きみこそ ほんとうの でんせつの ゆうしゃだ！`,
+    'ここまで あそんでくれて、ほんとうに ありがとう。',
+  ];
+  drawNarration(lines, 246, 22, 40, 58);
+  drawEpiHint();
+}
+
+function renderEpiPhase2() {
   // 勝利の夜明けグラデーション
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, '#0a0817');
