@@ -3508,7 +3508,7 @@ function shopInput(key) {
     const owned = !item.repeat && gear[item.id];
     if (owned) { SFX.buzz(); return; }
     if (item.id === 'heal' && lives >= maxLives()) { SFX.buzz(); return; }
-    if (item.id === 'contUp' && continuesLeft >= 9) { SFX.buzz(); return; }
+    if (item.id === 'contUp' && continuesLeft >= 5) { SFX.buzz(); return; }
     if (item.merc) {
       // 傭兵は上限2体まで・同種が生存中なら追加雇用できない
       if (mercenaries.length >= MERC_MAX) { SFX.buzz(); return; }
@@ -4858,7 +4858,7 @@ function runBossAct(e, pc, ecx, ecy) {
       const ey = oy + Math.sin(ang) * L;
       const d = distToSegment(pc.x, pc.y, ox, oy, ex, ey);
       const halfW = a.gaze ? 17 : 15;
-      if (invincibleTimer === 0 && state === 'playing' && d < halfW) hurtPlayer(a.gaze ? 2 : 1);
+      if (invincibleTimer === 0 && state === 'playing' && d < halfW) hurtPlayer(2); // らいこうレーザー/まがんのぎょうしは共に薙ぎ払いの大ダメージ
       // ビームの縁に火花を散らす（見栄え）
       if (a.t % 2 === 0) {
         const sd = 60 + Math.random() * (L - 120);
