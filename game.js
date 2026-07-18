@@ -7836,11 +7836,58 @@ function renderTitle() {
   }
   ctx.globalAlpha = 1;
 
+  // シネマティックなビネット（周辺減光で奥行きと高級感を演出）
+  const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.78);
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(-8, -8, W + 16, H + 16);
+
   // ロゴ（金色グラデーション＋ゴールドグロー＋ゆったり浮遊）
   const bob = Math.sin(gframe * 0.04) * 3;
   drawGlowTitle('HAYATO', 42 + bob, 54, '#fff3c4', '#ffcd75', '#ffcd75');
-  ctx.fillStyle = 'rgba(255, 205, 117, 0.55)';
-  ctx.fillRect(W / 2 - 130, 102 + bob, 260, 1);
+
+  // ロゴに周期的な光の帯を走らせる（モダンなシャインエフェクト）
+  {
+    const logoSize = 54, logoY = 42 + bob;
+    ctx.font = `bold ${logoSize}px "MS Gothic", monospace`;
+    const logoW = ctx.measureText('HAYATO').width;
+    const logoX = W / 2 - logoW / 2;
+    const sweepT = gframe % 150;
+    if (sweepT < 45) {
+      const sp = sweepT / 45;
+      const sweepX = logoX - 40 + (logoW + 80) * sp;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(logoX - 4, logoY - 4, logoW + 8, logoSize + 12);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'source-atop';
+      const shine = ctx.createLinearGradient(sweepX - 16, 0, sweepX + 16, 0);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      shine.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
+      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shine;
+      ctx.fillRect(logoX - 40, logoY - 10, logoW + 80, logoSize + 20);
+      ctx.restore();
+    }
+  }
+
+  // ロゴ下の装飾ライン（グラデーション＋両端にダイヤ型アクセント）
+  const lineY = 102 + bob;
+  const lineGrad = ctx.createLinearGradient(W / 2 - 130, 0, W / 2 + 130, 0);
+  lineGrad.addColorStop(0, 'rgba(255, 205, 117, 0)');
+  lineGrad.addColorStop(0.5, 'rgba(255, 205, 117, 0.75)');
+  lineGrad.addColorStop(1, 'rgba(255, 205, 117, 0)');
+  ctx.fillStyle = lineGrad;
+  ctx.fillRect(W / 2 - 130, lineY, 260, 1);
+  ctx.fillStyle = 'rgba(255, 205, 117, 0.85)';
+  for (const dx of [-130, 130]) {
+    ctx.save();
+    ctx.translate(W / 2 + dx, lineY);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-3, -3, 6, 6);
+    ctx.restore();
+  }
   drawCenteredText('― 邪竜と20の世界 ―', 112 + bob, '#94b0c2', 13);
 
   // PRESS ENTER（呼吸するピルボタン）
@@ -7899,6 +7946,24 @@ function renderTitle() {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctx.fillRect(-8, H - 26, W + 16, 34);
   drawCenteredText('やじるし: ステージせんたく　M: おんがく　Z: ずかん', H - 19, '#566c86', 11);
+
+  // HUD風コーナーブラケット（画面四隅にアクセントを添えて全体を引き締める）
+  ctx.strokeStyle = 'rgba(115, 239, 247, 0.5)';
+  ctx.lineWidth = 2;
+  const cornerLen = 14, cornerMargin = 8;
+  const corners = [
+    [cornerMargin, cornerMargin, 1, 1],
+    [W - cornerMargin, cornerMargin, -1, 1],
+    [cornerMargin, H - cornerMargin, 1, -1],
+    [W - cornerMargin, H - cornerMargin, -1, -1],
+  ];
+  for (const [cx, cy, dx, dy] of corners) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + dy * cornerLen);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(cx + dx * cornerLen, cy);
+    ctx.stroke();
+  }
 }
 
 // ---------- けっさん画面（5ステージごとの点数大カウント） ----------
