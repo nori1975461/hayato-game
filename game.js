@@ -1875,7 +1875,7 @@ const BOSS_TYPES = [
     serifu: 'てんくうの ちからを みせてやろう！' },
   { name: 'バロール',       origin: 'ケルトしんわ',       sprite: 'balor', aura: '#ff2e4d', pattern: 'wall', shot: 'light',
     gimmicks: ['weakpoint'], melee: ['stomp', 'punch'], hpMul: 1.25,
-    remap: { T: '#7a2d3d' }, ballColors: ['#ff2e4d', '#f4f4f4', '#ff2e4d'],
+    ballColors: ['#ff2e4d', '#f4f4f4', '#ff2e4d'],
     desc: 'ケルトしんわの ひとつめの きょじん。その まがんに にらまれた ものは たおれてしまう。まぶたを あけるのに よにんが ひつようだった。',
     serifu: 'わがまなこに にらまれて ただですむとおもうな…' },
   { name: 'テスカトリポカ', origin: 'アステカしんわ',     sprite: 'tezcatlipoca',   aura: '#d4f236', pattern: 'mix', shot: 'fang',
