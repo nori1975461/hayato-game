@@ -1192,6 +1192,36 @@ const SPRITES = {
     '........PPPPPPPPPPPP...S........',
     '........PP.PPP.PPP.PP...S.......',
   ],
+
+  // ===== 傭兵（ショップで雇える味方・12x12・武器は本体とは別にctxで描画） =====
+  mercKnight: [ // せいぎのナイト: 赤い羽飾り＋銀の兜＋青い鎧（武器はやり）
+    '....RRRR....',
+    '...RSSSSR...',
+    '..SSSSSSSS..',
+    '..SYKYYKYS..',
+    '..SSSSSSSS..',
+    '...SSSSSS...',
+    '..SbbbbbbS..',
+    '..bbBBBBbb..',
+    '..SbbbbbbS..',
+    '...bbbbbb...',
+    '...SS..SS...',
+    '...KK..KK...',
+  ],
+  mercArcher: [ // もりのアーチャー: 緑フード＋深緑の服＋革ベルト（武器はゆみ）
+    '...GGGGGG...',
+    '..GGGGGGGG..',
+    '..GGYYYYGG..',
+    '..GYKYYKYG..',
+    '..GGYYYYGG..',
+    '...GGGGGG...',
+    '...gggggg...',
+    '..ggTTTTgg..',
+    '..gggggggg..',
+    '...gggggg...',
+    '...gg..gg...',
+    '...KK..KK...',
+  ],
 };
 
 // 色を明るく/暗くする（高精細シェーディング用。結果はキャッシュ）
@@ -1658,6 +1688,8 @@ const SHOP_ITEMS = [
   { id: 'bandana',  name: 'まけずぎらいのバンダナ', desc: 'ライフのこり2いかで スピードが 15% アップ',  price: 600 },
   { id: 'crown',    name: 'おうじゃのかんむり',   desc: 'ひっさつを つかっても ゲージが 25 のこる',    price: 800 },
   { id: 'socks',    name: 'にじのくつした',       desc: 'はしると にじいろの キラキラが でる！',       price: 250 },
+  { id: 'mercKnight', name: 'せいぎのナイト（傭兵）', desc: 'やりで いっしょに たたかう・5はつで しぼう',   price: 900,  repeat: true, merc: true },
+  { id: 'mercArcher', name: 'もりのアーチャー（傭兵）', desc: 'ゆみで えんきょり・5はつで しぼう',           price: 1100, repeat: true, merc: true },
 ];
 
 // ---------- 効果音＆BGM（Web Audio・ファイル不要） ----------
@@ -2228,6 +2260,22 @@ let paused = false;
 const BOSS_SPECIAL_LIMIT = 5; // 同じボス戦の中で必殺技を使える回数
 let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
+let mercenaries = []; // ショップで雇った傭兵（最大2体・武器レベル固定・ハート回復なし・5発で死亡）
+const MERC_MAX = 2;        // 同時に連れて歩ける最大数
+const MERC_MAX_HITS = 5;   // このダメージ回数で死亡
+const MERC_OFFSETS = [{ x: -34, y: 18 }, { x: 34, y: 18 }]; // 主人公の後方左右の隊列位置
+const MERC_TYPES = {
+  mercKnight: {
+    name: 'せいぎのナイト', sprite: 'mercKnight', color: '#3b5dc9',
+    ranged: false, dmg: 2, reach: 52, atkInterval: 45, price: 900,
+    desc: 'やりで せっきんせん・こうげき力たかめ',
+  },
+  mercArcher: {
+    name: 'もりのアーチャー', sprite: 'mercArcher', color: '#38b764',
+    ranged: true, dmg: 1, range: 240, atkInterval: 34, arrowSpeed: 5.5, half: true, price: 1100,
+    desc: 'ゆみで えんきょり・ボスへは ダメージ半分',
+  },
+};
 let continuesLeft = 3; // ゲームオーバーからのコンティニュー残り回数（1プレイ3回まで）
 let serifuTimer = 0, serifuName = '', serifuText = '', serifuReply = ''; // ボス出現セリフ（ドラクエ風ウィンドウ）
 let sigmundFight = false;        // ジギムント戦中か（勇者スピードUP・セーバー延長）
@@ -2299,6 +2347,7 @@ function startGame() {
   bossEvent = null;
   gold = 0;
   gear = {};
+  mercenaries = [];
   lastTallyScore = 0;
   pendingTally = 0;
   finalClear = false;
@@ -3023,6 +3072,16 @@ function shopInput(key) {
     if (owned) { SFX.buzz(); return; }
     if (item.id === 'heal' && lives >= maxLives()) { SFX.buzz(); return; }
     if (item.id === 'contUp' && continuesLeft >= 9) { SFX.buzz(); return; }
+    if (item.merc) {
+      // 傭兵は上限2体まで・同種が生存中なら追加雇用できない
+      if (mercenaries.length >= MERC_MAX) { SFX.buzz(); return; }
+      if (mercenaries.some((m) => m.typeId === item.id)) { SFX.buzz(); return; }
+      if (gold < item.price) { SFX.buzz(); return; }
+      gold -= item.price;
+      hireMercenary(item.id);
+      SFX.buy();
+      return;
+    }
     if (gold < item.price) { SFX.buzz(); return; }
     gold -= item.price;
     if (item.id === 'heal') {
@@ -3310,6 +3369,7 @@ function update() {
 
   updateEnemies(pc);
   updateBossShots(pc);
+  updateMercenaries(pc);
   updateWeaponHits(pc, weapon);
   if (weapon.parry) updateWeaponParry(pc, weapon);
   updatePShotHits();
@@ -4555,6 +4615,184 @@ function updatePlayerHits(pc) {
         hurtPlayer();
         break;
       }
+    }
+  }
+}
+
+// ---------- 傭兵（ショップで雇う味方） ----------
+// 主人公の後方に隊列を組み、近くの敵を自動で攻撃する。武器レベルは固定・ハート回復なし・5発被弾で死亡。
+function hireMercenary(typeId) {
+  const pc = playerCenter();
+  const off = MERC_OFFSETS[mercenaries.length] || MERC_OFFSETS[0];
+  mercenaries.push({
+    typeId,
+    x: pc.x + off.x,
+    y: pc.y + off.y,
+    hits: 0,       // 被弾回数（MERC_MAX_HITSで死亡）
+    invT: 0,       // 被弾後の無敵フレーム（多重ヒット防止）
+    atkCool: 0,    // 攻撃クールダウン
+    atkAnim: 0,    // 攻撃モーション（武器の突き出し演出）
+    angle: 0,      // 向いている方向（近い敵の方角）
+    bobT: Math.random() * Math.PI * 2, // 上下ゆらぎの位相
+    dead: false,
+  });
+}
+
+function updateMercenaries(pc) {
+  if (!mercenaries.length) return;
+  for (let i = 0; i < mercenaries.length; i++) {
+    const m = mercenaries[i];
+    const type = MERC_TYPES[m.typeId];
+    if (m.invT > 0) m.invT--;
+    if (m.atkCool > 0) m.atkCool--;
+    if (m.atkAnim > 0) m.atkAnim--;
+    m.bobT += 0.15;
+
+    // 隊列位置へゆっくり追従（敵を追いかけ回さず、主人公を守る動き）
+    const off = MERC_OFFSETS[i] || MERC_OFFSETS[0];
+    m.x += (pc.x + off.x - m.x) * 0.12;
+    m.y += (pc.y + off.y - m.y) * 0.12;
+    m.x = Math.max(10, Math.min(W - 10, m.x));
+    m.y = Math.max(10, Math.min(H - 10, m.y));
+
+    // 一番近い敵をさがす（空中・崩壊中・逃走中は除外）
+    let target = null, bestD2 = Infinity;
+    for (const e of enemies) {
+      if (e.hp <= 0 || e.airborne || e.dying || e.flee) continue;
+      const ex = e.x + e.size / 2, ey = e.y + e.size / 2;
+      const d2 = (ex - m.x) ** 2 + (ey - m.y) ** 2;
+      if (d2 < bestD2) { bestD2 = d2; target = e; }
+    }
+    if (target) {
+      const ex = target.x + target.size / 2, ey = target.y + target.size / 2;
+      m.angle = Math.atan2(ey - m.y, ex - m.x);
+      if (m.atkCool <= 0) {
+        const dist = Math.hypot(ex - m.x, ey - m.y);
+        if (type.ranged) {
+          // アーチャー: 矢を放つ（pshotsに合流→updatePShotHitsが半減も処理）
+          if (dist <= type.range) {
+            pshots.push({
+              x: m.x, y: m.y,
+              vx: Math.cos(m.angle) * type.arrowSpeed,
+              vy: Math.sin(m.angle) * type.arrowSpeed,
+              life: 90,
+              kind: 'arrow', dmg: type.dmg, pierce: false, aoe: 0, r: 0,
+              half: !!type.half, turn: 0, ang: m.angle, rot: 0, t: 0, returning: false,
+              hitSet: null, color: '#b6ff8a', trail: null,
+            });
+            m.atkCool = type.atkInterval;
+            m.atkAnim = 10;
+            SFX.shoot();
+          }
+        } else {
+          // ナイト: やりで一突き（テスラ方式のダメージ経路。近接はボスへも通常ダメージ）
+          if (dist <= type.reach) {
+            const dealt = target.boss ? damageBoss(target, type.dmg, ex, ey) : (target.hp -= type.dmg, type.dmg);
+            m.atkCool = type.atkInterval;
+            m.atkAnim = 12;
+            addSlash(ex, ey, m.angle, 0.9);
+            SFX.slash();
+            if (target.hp <= 0) killEnemy(target);
+            else if (dealt > 0) { target.hitTimer = 12; burst(ex, ey, '#c0e0ff', 6); }
+          }
+        }
+      }
+    }
+
+    // 被弾判定（敵の体当たり＋敵弾のみ。ハートでの回復はしない）
+    if (m.invT === 0) {
+      let hit = false;
+      for (const e of enemies) {
+        if (e.airborne || e.dying) continue;
+        const ex = e.x + e.size / 2, ey = e.y + e.size / 2;
+        const hitR = e.size / 2 + 10;
+        if ((m.x - ex) ** 2 + (m.y - ey) ** 2 < hitR * hitR) { hit = true; break; }
+      }
+      if (!hit) {
+        for (const f of fireballs) {
+          const r = f.giant ? 42 : 15;
+          if ((f.x - m.x) ** 2 + (f.y - m.y) ** 2 < r * r) { f.life = 0; hit = true; break; }
+        }
+      }
+      if (hit) hurtMercenary(m);
+    }
+  }
+  // 近接で倒した敵と、倒れた傭兵を除去
+  enemies = enemies.filter((e) => e.hp > 0);
+  if (mercenaries.some((m) => m.dead)) mercenaries = mercenaries.filter((m) => !m.dead);
+}
+
+function hurtMercenary(m) {
+  m.hits++;
+  m.invT = 40;
+  const type = MERC_TYPES[m.typeId];
+  if (m.hits >= MERC_MAX_HITS) {
+    // 5発うけたら死亡（同ステージ中は復活しない。同種はショップで再雇用可能）
+    m.dead = true;
+    burst(m.x, m.y, type.color, 20, 3);
+    burst(m.x, m.y, '#f4f4f4', 12, 2.5);
+    addShockwave(m.x, m.y, type.color, 8, 5, 22, 3);
+    addPopup(m.x, m.y - 24, 'たおれた…', type.color, 12);
+    SFX.boom();
+  } else {
+    SFX.hurt();
+    burst(m.x, m.y, '#ff77a8', 8, 2);
+    addPopup(m.x, m.y - 20, 'のこり' + (MERC_MAX_HITS - m.hits), '#41a6f6', 10);
+  }
+}
+
+// 傭兵の武器（やり／ゆみ）をctxで描画。攻撃時に前へ突き出す
+function drawMercWeapon(m, type) {
+  ctx.save();
+  ctx.translate(Math.round(m.x), Math.round(m.y));
+  ctx.rotate(m.angle);
+  if (type.ranged) {
+    const push = m.atkAnim > 0 ? 2 : 0;
+    ctx.strokeStyle = '#a77b5b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(9 + push, 0, 7, -Math.PI / 2.2, Math.PI / 2.2);
+    ctx.stroke();
+    ctx.strokeStyle = '#f4f4f4';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(9 + push, -6);
+    ctx.lineTo(9 + push, 6);
+    ctx.stroke();
+  } else {
+    const reach = 14 + (m.atkAnim > 0 ? 10 : 0);
+    ctx.strokeStyle = '#a77b5b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(4, 0);
+    ctx.lineTo(reach, 0);
+    ctx.stroke();
+    ctx.fillStyle = '#94b0c2';
+    ctx.beginPath();
+    ctx.moveTo(reach, -3);
+    ctx.lineTo(reach + 6, 0);
+    ctx.lineTo(reach, 3);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function renderMercenaries() {
+  for (const m of mercenaries) {
+    const type = MERC_TYPES[m.typeId];
+    const bob = Math.sin(m.bobT) * 1.2;
+    const by = m.y - 12 + bob;
+    const flick = m.invT > 0 && Math.floor(frame / 3) % 2 === 0; // 被弾直後は点滅
+    if (!flick) {
+      drawSprite(type.sprite, m.x - 12, by, 2, null, true);
+      drawMercWeapon(m, type);
+    }
+    // 頭上に残りライフのピップ（水色＝残り／暗い＝失った分）
+    const remain = MERC_MAX_HITS - m.hits;
+    for (let p = 0; p < MERC_MAX_HITS; p++) {
+      ctx.fillStyle = p < remain ? '#73eff7' : '#333c57';
+      ctx.fillRect(Math.round(m.x - 11 + p * 5), Math.round(by - 6), 3, 3);
     }
   }
 }
@@ -6164,6 +6402,8 @@ function render() {
 
   drawWeapon();
 
+  renderMercenaries(); // 傭兵（主人公の後方に隊列。武器はctxで描画）
+
   // プレイヤー（武器レベルで見た目が進化）
   if (invincibleTimer === 0 || Math.floor(frame / 4) % 2 === 0) {
     const form = FORMS[formIdx];
@@ -6594,6 +6834,18 @@ function renderShop() {
       continue;
     }
     const item = SHOP_ITEMS[i];
+    if (item.merc) {
+      // 傭兵: 生存中なら「しゅつじんちゅう」・満員なら「まんいん」表示
+      const alive = mercenaries.some((m) => m.typeId === item.id);
+      const full = mercenaries.length >= MERC_MAX;
+      const blocked = alive || full;
+      const nameColor = blocked ? '#566c86' : (gold >= item.price ? '#f4f4f4' : '#7a8494');
+      drawText(item.name, 52, y, nameColor, 12);
+      const label = alive ? 'しゅつじんちゅう' : (full ? 'まんいん' : `${item.price}G`);
+      drawText(label, 230, y, alive ? '#38b764' : (full ? '#7a8494' : nameColor), 12);
+      if (sel) drawCenteredText(item.desc, H - 38, '#ffcd75', 12);
+      continue;
+    }
     const owned = !item.repeat && gear[item.id];
     const nameColor = owned ? '#566c86' : (gold >= item.price ? '#f4f4f4' : '#7a8494');
     drawText(item.name, 52, y, nameColor, 12);
