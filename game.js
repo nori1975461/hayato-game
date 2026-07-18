@@ -11,6 +11,9 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width;   // 480
 const H = canvas.height;  // 360
+// デバッグ用UI（ボステスト表示など）はローカル開発時のみ表示し、本番(GitHub Pages)では隠す
+// （locationが無い実行環境＝テストハーネス等では非devとして扱う）
+const isDevEnv = typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:');
 
 // ---------- ドット絵スプライト定義 ----------
 const PALETTE = {
@@ -2535,6 +2538,14 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowUp') { zukanCursor = (zukanCursor - 1 + BOSS_TYPES.length) % BOSS_TYPES.length; beep(500, 0.03, 'square', 0.03); }
     if (e.key === 'ArrowDown') { zukanCursor = (zukanCursor + 1) % BOSS_TYPES.length; beep(500, 0.03, 'square', 0.03); }
     if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'z' || e.key === 'Z') state = 'title';
+    if (e.key === 'r' || e.key === 'R') {
+      // ずかんの撃破記録を全リセット（開発用テストプレイの記録を消す隠しコマンド。画面ヒントには出さない）
+      if (window.confirm('ずかんの発見きろくをぜんぶリセットしますか？')) {
+        defeatedBosses.clear();
+        localStorage.removeItem('hayato-bosszukan');
+        beep(300, 0.12, 'sawtooth', 0.05);
+      }
+    }
   } else if (state === 'gameover') {
     // スペース＝コンティニュー（死んだ直後にスペース連打していても進行が消えない配置）
     if ((e.key === ' ' || e.key === 'c' || e.key === 'C') && continuesLeft > 0) continueGame();
@@ -8349,9 +8360,11 @@ function renderTitle() {
   drawText(`C  いろ: ${OUTFITS[outfitIdx].name}`, W / 2 - 138, 285, '#94b0c2', 11);
   drawText(`N  なまえ: ${playerName || 'なし'}`, W / 2 + 17, 285, '#94b0c2', 11);
 
-  // デバッグ用ステージスキップ（◀▶で選択、Bキーでそのボス戦へ直行）
-  const bt = BOSS_TYPES[Math.min(debugStage, LAST_STAGE) - 1];
-  drawCenteredText(`◀▶ ボステスト: St.${debugStage} ${bt.name}　[Bキー]`, 314, '#566c86', 11);
+  // デバッグ用ステージスキップ（◀▶で選択、Bキーでそのボス戦へ直行）。本番では非表示（先にボスの姿を見せないため）
+  if (isDevEnv) {
+    const bt = BOSS_TYPES[Math.min(debugStage, LAST_STAGE) - 1];
+    drawCenteredText(`◀▶ ボステスト: St.${debugStage} ${bt.name}　[Bキー]`, 314, '#566c86', 11);
+  }
 
   // ハイスコアのピル（右上）
   if (highScore > 0) {
