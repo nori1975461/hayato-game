@@ -1704,60 +1704,79 @@ function currentStage() {
 const BOSS_TYPES = [
   { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi',    aura: '#38b764', pattern: 'aim',    shot: 'snake',
     gimmicks: [],                    melee: ['tail'], mods: { wave: true }, rageRemap: { G: '#b13e53', g: '#5d1520' },
+    desc: 'にほんしんわに でてくる、やっつの あたまと おを もつ おおへび。スサノオという かみに たいじされ、おから くさなぎのつるぎが みつかった。',
     serifu: 'シャアアア…！ わがねぐらに よくきたな…' },
   { name: 'ティラノサウルス', origin: 'きょうりゅうのおう', sprite: 'trex', aura: '#38b764', pattern: 'aim',   shot: 'fang',
     gimmicks: ['rage'],              melee: ['punch', 'stomp'], hpMul: 1.05, ballColors: ['#f4f4f4', '#38b764', '#f4f4f4'], rageRemap: { G: '#b13e53', g: '#5d1520' },
+    desc: 'はくあきの おわりごろに いた さいだいきゅうの にくしょくきょうりゅう。おおきな あごで ほねごと えものを かみくだく、きょうりゅうの おうさま。',
     serifu: 'ガアアアオオオオオッ！！' },
   { name: 'ヒュドラ',       origin: 'ギリシャしんわ', sprite: 'hydra',     aura: '#8b4f8b', pattern: 'wide',   shot: 'snake',
     gimmicks: ['split'],             melee: ['tail'], mods: { wave: true }, ballColors: ['#38b764', '#8b4f8b', '#38b764'], rageRemap: { B: '#b13e53', b: '#ef7d57', g: '#5d1520', C: '#ffcd75' },
+    desc: 'ギリシャしんわの どくを もつ おおへび。くびを きっても すぐに ふえて はえてくる。えいゆう ヘラクレスに たいじされた。',
     serifu: 'くびは いくらでも はえてくるぞ…' },
   { name: 'グリフォン',     origin: 'でんせつのまじゅう', sprite: 'griffin', aura: '#f4f4f4', pattern: 'rain', shot: 'wind',
     gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, summonHearts: true, ballColors: ['#73eff7', '#f4f4f4', '#73eff7'], rageRemap: { W: '#b13e53', T: '#5d1520' },
+    desc: 'わしの つばさと あたま、ライオンの からだを もつ でんせつの まじゅう。たからものを まもる、ゆうかんで ほこりたかい いきもの。',
     serifu: 'あらしの そらは わたしのものだ！' },
   { name: 'クラーケン',     origin: 'うみのまもの',   sprite: 'kraken',    aura: '#8b4f8b', pattern: 'wide',   shot: 'ball',
     gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true }, ballColors: ['#5d275d', '#8b4f8b', '#1a1c2c'], rageRemap: { P: '#b13e53', p: '#5d1520' },
+    desc: 'ほくおうに つたわる、きょだいな タコや イカの すがたの うみの かいぶつ。うずしおを おこして ふねを のみこむと おそれられた。',
     serifu: 'うみのそこへ ひきずりこんでやろう…' },
   { name: 'ギガンテス',     origin: 'ひとつめのきょじんぞく', sprite: 'gigantes', aura: '#a77b5b', pattern: 'aim', shot: 'ball',
     gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.1, mods: { bounce: true }, ballColors: ['#566c86', '#94b0c2', '#566c86'], rageRemap: { T: '#b13e53', g: '#5d1520' },
+    desc: 'ギリシャしんわの きょじんぞく。だいちの めがみ ガイアから うまれ、かみがみに たたかいを いどんだ ちからじまんの きょじんたち。',
     serifu: 'グオオオ！ てつのこんぼうで ぶちくだく！！' },
   { name: 'アヌビス',       origin: 'エジプトしんわ', sprite: 'anubis',    aura: '#ffcd75', pattern: 'aim',    shot: 'light',
     gimmicks: ['shield'],            melee: ['stomp'], mods: { dart: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53', K: '#5d1520' },
+    desc: 'エジプトしんわの めいかいの かみ。くろい ジャッカルの あたまを もち、しんだ ひとを あのよへ みちびく やくめを もつ。',
     serifu: 'さばきの ときが きた…' },
   { name: 'スフィンクス',   origin: 'エジプトしんわ', sprite: 'sphinx',    aura: '#ffcd75', pattern: 'wall',   shot: 'light',
     gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.1, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53' },
+    desc: 'ライオンの からだに ひとの かおを もつ いきもの。ギリシャの はなしでは なぞなぞを だし、こたえられない ものを たべてしまう。',
     serifu: 'わたしの かべを こえられるかな？' },
   { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',     aura: '#ef7d57', pattern: 'rain',   shot: 'ball',
     gimmicks: ['rage'],              melee: ['punch'], hpMul: 1.15, rageRemap: { K: '#5d1520', P: '#b13e53' },
+    desc: 'ギリシャしんわで めいかい（しごの せかい）を おさめる おうさま。ゼウスや ポセイドンの あにで、しずかで こうへいな かみ。',
     serifu: 'めいかいへ ようこそ…' },
   { name: 'スルト',         origin: 'ほくおうしんわ', sprite: 'surtr',     aura: '#ef7d57', pattern: 'mix',    shot: 'ball',
     gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.25, mods: { bounce: true }, rageRemap: { K: '#5d1520' },
+    desc: 'ほくおうしんわの ほのおの きょじん。せかいの おわり「ラグナロク」で、ほのおの つるぎで せかいを やきつくすと いわれる。',
     serifu: 'すべてを もやしつくす！！' },
   { name: 'ユミル',         origin: 'ほくおうしんわ', sprite: 'ymir',      aura: '#73eff7', pattern: 'ring',   shot: 'ice',
     gimmicks: ['shield'],            melee: ['stomp'], hpMul: 1.15, mods: { burst: true }, ballColors: ['#73eff7', '#f4f4f4', '#41a6f6'], rageRemap: { C: '#b13e53', D: '#5d1520' },
+    desc: 'ほくおうしんわで いちばん さいしょに うまれた しもの きょじん。その からだから だいちや やま、うみや そらが つくられた。',
     serifu: 'こおりつけえええええ！' },
   { name: 'フェンリル',     origin: 'ほくおうしんわ', sprite: 'fenrir',    aura: '#94b0c2', pattern: 'aim',    shot: 'fang',
     gimmicks: ['speed'],             melee: ['punch', 'dive'], hpMul: 1.1, mods: { dart: true }, ballColors: ['#f4f4f4', '#94b0c2', '#f4f4f4'], rageRemap: { S: '#b13e53' },
+    desc: 'ほくおうしんわの きょだいな おおかみ。かみがみが おそれ、まほうの ひもで しばった。ラグナロクで オーディンを のみこむ。',
     serifu: 'ガルルル…はやさで かてるかな？' },
   { name: 'メガロドン',     origin: 'しんかいのおうじゃ', sprite: 'megalodon', aura: '#41a6f6', pattern: 'wide', shot: 'ball',
     gimmicks: ['rage'],              melee: ['stomp', 'tail'], hpMul: 1.2, mods: { bounce: true }, ballColors: ['#41a6f6', '#f4f4f4', '#41a6f6'], rageRemap: { S: '#b13e53' },
+    desc: 'むかしの うみに いた、ぜんちょう15メートルにも なる きょだいな サメ。いまの サメより ずっと おおきい、うみの おうじゃ。',
     serifu: 'しんかいの あぎとから にげられまい！' },
   { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',      aura: '#8b4f8b', pattern: 'mix',    shot: 'sword',
     gimmicks: ['summon', 'speed', 'teleport'], melee: ['punch', 'dive'], hpMul: 1.15, ballColors: ['#94b0c2', '#f4f4f4', '#94b0c2'], rageRemap: { G: '#b13e53', p: '#5d1520' },
+    desc: 'ほくおうしんわの いたずらずきの かみ。すがたを じざいに かえる へんしんの めいじん。かみがみを こまらせたり たすけたり する。',
     serifu: 'フフフ…どれが ほんものかな？' },
   { name: 'エンマだいおう', origin: 'にほんしんわ',   sprite: 'enma',      aura: '#b13e53', pattern: 'rain',   shot: 'ball',
     gimmicks: ['rage', 'callboss'],  melee: ['stomp', 'punch'], hpMul: 1.3, rageRemap: { N: '#5d1520' },
+    desc: 'しごの せかいで、しんだ ひとの つみを さばく おうさま。うそを つくと したを ぬくと いわれ、まっかな かおで にらむ。',
     serifu: 'おまえの つみを かぞえよ！' },
   { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',      aura: '#ffcd75', pattern: 'cross',  shot: 'bolt',
     gimmicks: ['shield', 'callboss'], melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { S: '#b13e53', b: '#5d1520' },
+    desc: 'ギリシャしんわの さいこうしん。てんくうを おさめ、かみなりを じざいに あやつる。オリンポスの かみがみの おうさま。',
     serifu: 'てんばつを くらうがいい！' },
   { name: 'アマテラス',     origin: 'にほんしんわ',   sprite: 'amaterasu', aura: '#ffcd75', pattern: 'ring',   shot: 'light',
     gimmicks: ['weakpoint'],         melee: ['stomp'], hpMul: 1.2, mods: { burst: true }, ballColors: ['#ffcd75', '#f4f4f4', '#ef7d57'], rageRemap: { K: '#5d1520', W: '#b13e53' },
+    desc: 'にほんしんわの たいようの めがみ。あまのいわとに かくれたとき、せかいは まっくらに なった。てんのうけの そせんとも いわれる。',
     serifu: 'ひかりのまえに ひれふしなさい' },
   { name: 'ベヒーモス',     origin: 'じゃりゅうのそっきん', sprite: 'behemoth', aura: '#8b4f8b', pattern: 'mix', shot: 'ball',
     gimmicks: ['speed', 'rage', 'callboss'], melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
+    desc: 'でんせつの りくの きょじゅうの なを もつ、じゃりゅうジギムントに つかえる そっきん。おおきな からだで あばれまわる。',
     serifu: 'ジギムントさまのもとへは いかせん！' },
   { name: 'デスサイザー',   origin: 'じゃりゅうのそっきん', sprite: 'reaper', aura: '#8b4f8b', pattern: 'spiral', shot: 'scythe',
     gimmicks: ['teleport', 'summon'], melee: ['tail', 'stomp'], hpMul: 1.65, mods: { dart: true }, ballColors: ['#94b0c2', '#73eff7', '#94b0c2'], rageRemap: { N: '#5d1520', S: '#b13e53' },
+    desc: 'おおきな かまを もつ、しにがみのような じゃりゅうの そっきん。テレポートで あらわれ、たましいを かりとろうと おそいかかる。',
     serifu: 'ここから さきは しのせかい…' },
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
     gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
@@ -1766,36 +1785,43 @@ const BOSS_TYPES = [
   { name: 'ガルーダ',       origin: 'インドしんわ',       sprite: 'garuda',  aura: '#ffdd55', pattern: 'rain', shot: 'wind',
     gimmicks: ['teleport', 'callboss'], melee: ['dive'], hpMul: 1.2,
     remap: { Y: '#ffdd55', R: '#e8913a', M: '#ff2e4d', S: '#c9d4e0', b: '#4a7dc9' }, ballColors: ['#ffdd55', '#f4f4f4', '#ff9d2e'],
+    desc: 'インドしんわの きんいろに かがやく しんちょう。ヴィシュヌがみの のりもので、へびの まもの ナーガを たいじする せいなる とり。',
     serifu: 'てんくうの ちからを みせてやろう！' },
   { name: 'バロール',       origin: 'ケルトしんわ',       sprite: 'balor', aura: '#ff2e4d', pattern: 'wall', shot: 'light',
     gimmicks: ['weakpoint'], melee: ['stomp', 'punch'], hpMul: 1.25,
     remap: { T: '#7a2d3d' }, ballColors: ['#ff2e4d', '#f4f4f4', '#ff2e4d'],
+    desc: 'ケルトしんわの ひとつめの きょじん。その まがんに にらまれた ものは たおれてしまう。まぶたを あけるのに よにんが ひつようだった。',
     serifu: 'わがまなこに にらまれて ただですむとおもうな…' },
   { name: 'テスカトリポカ', origin: 'アステカしんわ',     sprite: 'tezcatlipoca',   aura: '#d4f236', pattern: 'mix', shot: 'fang',
     gimmicks: ['speed', 'callboss'], melee: ['dive', 'punch'], hpMul: 1.3,
     remap: { S: '#1a1a2e', W: '#c9d4e0', b: '#5b6988' }, ballColors: ['#1a1a2e', '#d4f236', '#1a1a2e'],
+    desc: 'アステカしんわの よると まほうの かみ。なまえは「けむりを はく かがみ」の いみ。よるの やみに ひそみ、たたかいを つかさどる。',
     serifu: 'よるのやみに ひそむ おれから にげられるか…？' },
   { name: 'フンババ',       origin: 'メソポタミアしんわ', sprite: 'humbaba', aura: '#38b764', pattern: 'mix', shot: 'ball',
     gimmicks: ['shield'], melee: ['stomp', 'punch'], hpMul: 1.35,
     ballColors: ['#38b764', '#257179', '#38b764'],
+    desc: 'メソポタミアしんわの もりの ばんにん。すぎの もりを まもる きょじんで、えいゆう ギルガメシュと たたかった。',
     serifu: 'もりを まもるため おまえを ふみつぶす！' },
   { name: 'ヴリトラ',       origin: 'インドしんわ',       sprite: 'vritra',   aura: '#8b4f8b', pattern: 'wide', shot: 'ball', big: true,
     gimmicks: ['rage', 'callboss'], melee: ['tail', 'stomp', 'punch'], hpMul: 1.8,
     remap: { N: '#2b2b3a', L: '#9a8a7a', P: '#6b2d8b', p: '#9a4fc9', W: '#d4b483', O: '#6b4423', V: '#3a1650', Y: '#ffd23e', R: '#ff2e4d', T: '#d4b483', C: '#41a6f6', D: '#73eff7', b: '#3b7dd8' }, ballColors: ['#41a6f6', '#9a4fc9', '#4a2c17'],
     form2Remap: { N: '#1a0f08', L: '#ff9d2e', P: '#7a2410', p: '#ff6b1a', W: '#ffcd75', O: '#3d1f0a', V: '#2a0d05', Y: '#ffcd2e', R: '#f4f4f4', T: '#c9a66b', C: '#ff9d2e', D: '#ffcd75', b: '#3d1f0a' }, form2Aura: '#ff6b1a',
     form2Serifu: 'かわいた だいちの いかりを うけよ…！',
+    desc: 'インドしんわの ひでりを おこす おおへびの りゅう。みずを せきとめて ふらせず、ひとびとを くるしめた。かみ インドラに たおされる。',
     serifu: 'だいちの みずを すべて わがものに…！' },
   { name: 'セイリュウ',     origin: 'ちゅうごくしんわ',   sprite: 'seiryu',   aura: '#41a6f6', pattern: 'ring', shot: 'ice', big: true,
     gimmicks: ['callboss', 'rage'], melee: ['tail', 'dive', 'stomp'], hpMul: 2.0,
     remap: { b: '#2f6690' }, ballColors: ['#41a6f6', '#73eff7', '#41a6f6'],
     form2Remap: { b: '#164e73', C: '#73eff7', D: '#f4f4f4', M: '#a8dadc' }, form2Aura: '#73eff7',
     form2Serifu: 'そうてんの いかりを そのみに うけよ…！',
+    desc: 'ちゅうごくの しじん（ほうがくを まもる せいじゅう）の ひとつ。ひがしを まもる あおい りゅうで、はると せいめいの めばえの しょうちょう。',
     serifu: 'そうりゅうの いぶきを うけてみよ！' },
   { name: 'ティアマト',     origin: 'メソポタミアしんわ', sprite: 'tiamat',   aura: '#8b4f8b', pattern: 'mix', shot: 'ball', big: true,
     gimmicks: ['rage', 'summon', 'weakpoint', 'callboss'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
     ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
     form2Remap: { P: '#160a20', p: '#c9284a', H: '#5d1520', M: '#ff2e4d', b: '#73eff7', G: '#7bf05a', R: '#ff2e4d' }, form2Aura: '#ff2e4d',
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
+    desc: 'メソポタミアしんわの げんしの うみの めがみ。「こんとん」の しょうちょうで、その きょだいな からだから てんと ちが つくられた。',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
   { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
     bossBgm: 'rairyu', // 雷太鼓＋高速ベースの専用BGM（他のドラゴン系DRAGON_CHORDSより速く鋭い）
@@ -1806,6 +1832,7 @@ const BOSS_TYPES = [
     deathTalk: true, // 撃破時に専用の断末魔イベント（ジギムントのdeathEventとは別系統）
     deathColors: ['#1a1c2c', '#3b5dc9', '#73eff7', '#b567b5', '#f4f4f4'], // 崩れ落ちる体の雷パレット（紺→青→水色→紫→白）
     deathSpark: true, // 崩壊中に稲妻エフェクトを散らす
+    desc: 'てんくうを おさめる はおうを なのる りゅう。すべての いなずまを しもべとし、いかずちの ちからで おそいかかる。このゲームだけの さいごの てき。',
     serifu: 'わがなは ライリュウ…てんくうの いかずちは すべて わがしもべ！！',
     form2Serifu: 'よくぞ ここまで…！ ならば しでんの すがたで むかえうとう！！' },
 ];
@@ -7633,7 +7660,9 @@ function renderZukan() {
   drawGlassCard(boxX, boxY, boxW, boxH);
   const bt = BOSS_TYPES[zukanCursor];
   const found = defeatedBosses.has(zukanCursor);
-  const previewH = boxH - 50;
+  // 撃破済みで説明文がある場合はプレビューを縮めて下に説明スペースを確保する
+  const hasDesc = found && bt.desc;
+  const previewH = hasDesc ? boxH - 110 : boxH - 50;
   const sprite = SPRITES[bt.sprite];
   const cols = Math.max(...sprite.map(r => r.length));
   const rows = sprite.length;
@@ -7646,7 +7675,7 @@ function renderZukan() {
     drawSilhouette(bt.sprite, sx, sy, scale, '#0d0d16');
   }
 
-  const labelY = boxY + previewH + 10;
+  const labelY = boxY + previewH + (hasDesc ? 6 : 10);
   const nameText = found ? bt.name : '？？？';
   ctx.font = '14px "MS Gothic", monospace';
   const nameW = ctx.measureText(nameText).width;
@@ -7655,7 +7684,12 @@ function renderZukan() {
   const subText = found ? bt.origin : 'まだ みつけていない…';
   ctx.font = '10px "MS Gothic", monospace';
   const subW = ctx.measureText(subText).width;
-  drawText(subText, boxX + (boxW - subW) / 2, labelY + 18, found ? '#94b0c2' : '#4a5568', 10);
+  drawText(subText, boxX + (boxW - subW) / 2, labelY + 17, found ? '#94b0c2' : '#4a5568', 10);
+
+  // 説明文（撃破済みかつdescを持つボスのみ。ネタバレ防止で未撃破やジギムントは非表示）
+  if (hasDesc) {
+    drawWrappedText(bt.desc, boxX + 10, labelY + 33, '#c9d4e0', 9, boxW - 20, 11);
+  }
 
   drawCenteredText('↑↓：えらぶ　ENTER / ESC / Z：もどる', H - 14, '#566c86', 10);
 }
