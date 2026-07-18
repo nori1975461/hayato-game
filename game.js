@@ -152,6 +152,76 @@ const SPRITES = {
     '...MM..MM...',
     '...DD..DD...',
   ],
+  player8: [ // てんくうのおうじゃ: とがった黄金の王冠＋水色に光る大きなつばさ
+    'Y..Y.YY.Y..Y',
+    '.YYYYYYYYYY.',
+    '..YYYYYYYY..',
+    '..YYKYYKYY..',
+    '..YYYYYYYY..',
+    'C..WWWWWW..C',
+    'CCWYYYYYYWCC',
+    'CCWYCCCCYWCC',
+    'C.WYCCCCYW.C',
+    '..WYYYYYYW..',
+    '...YY..YY...',
+    '...WW..WW...',
+  ],
+  player9: [ // せいれいおう: 木のような緑のツノ冠＋左右にうかぶ光の玉＋すそが広がる精霊のローブ
+    'G.G......G.G',
+    '.GGG..GGG...',
+    '..GGGGGGGG..',
+    'D.GGKGGKGG.D',
+    '..GGGGGGGG..',
+    'D..gggggg..D',
+    '.GggGGGGggG.',
+    '.GggggggggG.',
+    '..gggggggg..',
+    '..ggg..ggg..',
+    '..gg....gg..',
+    '.gg......gg.',
+  ],
+  player10: [ // りゅうしんのゆうしゃ: 左右に大きくのびる竜のツノ＋赤いうろこの重よろい＋右にしっぽ
+    'O..........O',
+    'OO.YYYYYY.OO',
+    '.OYYYYYYYYO.',
+    '..YRKYYKRY..',
+    '..YRRRRRRY..',
+    '..RRRRRRRR..',
+    'R.ROOOOOOR.R',
+    'RRROOOOOORRR',
+    '.RROOOOOORR.',
+    '..RRRRRRRR..',
+    '..RR..RR..RR',
+    '..OO..OO....',
+  ],
+  player11: [ // そうせいのしんおう: 頭上の星の冠＋全身を囲む光のリング＋星がまたたく紫の宇宙ローブ
+    '...M.YY.M...',
+    '.D.YYYYYY.D.',
+    'D..WWWWWW..D',
+    'D.WYKYYKYW.D',
+    'D..WWWWWW..D',
+    'M..PPPPPP..M',
+    '.MPPHHHHPPM.',
+    '.PPPHHHHPPP.',
+    'D.PPPPPPPP.D',
+    '..PPPPPPPP..',
+    '..PP.MM.PP..',
+    '...M.HH.M...',
+  ],
+  player12: [ // ぜったいのかみ: 八方にのびる光のすじ＋金と白にかがやく究極の神身
+    'Y..Y.WW.Y..Y',
+    '.Y.YWWWWY.Y.',
+    'Y.WWWWWWWW.Y',
+    'Y.WYKYYKYW.Y',
+    'Y.WWWWWWWW.Y',
+    'YY.WWWWWW.YY',
+    '.YWYYYYYYWY.',
+    'Y.WYWWWWYW.Y',
+    'YY.YYYYYY.YY',
+    'Y.WWWWWWWW.Y',
+    '.Y.YY..YY.Y.',
+    'Y..WW..WW..Y',
+  ],
   // かげのインプ: ツノ＋ピンクに光る目＋ゆらめく影の下半身（神話世界の小悪魔）
   enemy: [
     '..P......P..',
@@ -1468,7 +1538,7 @@ function playerRemap() {
   return { C: OUTFITS[outfitIdx].hex };
 }
 
-// 武器レベルで見た目が進化（下の FORM_SCORES のスコア閾値で段階が上がる。最終形態は約97,000点で到達）
+// 武器レベルで見た目が進化（下の FORM_SCORES のスコア閾値で段階が上がる。最終形態は約238,000点で到達）
 const FORMS = [
   { sprite: 'player0', name: 'ぼうけんしゃ' },
   { sprite: 'player1', name: 'せんし' },
@@ -1478,6 +1548,11 @@ const FORMS = [
   { sprite: 'player5', name: 'でんせつのゆうしゃ' },
   { sprite: 'player6', name: 'せいなるゆうしゃ' },
   { sprite: 'player7', name: 'しんわのゆうしゃ' },
+  { sprite: 'player8', name: 'てんくうのおうじゃ' },
+  { sprite: 'player9', name: 'せいれいおう' },
+  { sprite: 'player10', name: 'りゅうしんのゆうしゃ' },
+  { sprite: 'player11', name: 'そうせいのしんおう' },
+  { sprite: 'player12', name: 'ぜったいのかみ' },
 ];
 
 // クラスチェンジはスコアで判定する（武器idxではなく固定スコア閾値7点）。
@@ -1485,7 +1560,7 @@ const FORMS = [
 // 各閾値は現行構成で Math.floor(武器idx/8) が段階を上げる武器idx=8,16,24,32,40,48,56 の
 // スコア（スターシューター/モーニングスター/ジャベリン/らいじんのオノ/ゴールデンソード/
 // ドリルランス/ドラゴンキラー）に一致させてある。
-const FORM_SCORES = [3510, 10480, 20900, 34780, 52120, 72910, 97160];
+const FORM_SCORES = [3510, 10480, 20900, 34780, 52120, 72910, 97160, 120000, 145000, 173000, 204000, 238000];
 function formForScore(s) {
   let f = 0;
   for (let i = 0; i < FORM_SCORES.length; i++) if (s >= FORM_SCORES[i]) f = i + 1;
@@ -7016,8 +7091,19 @@ function render() {
         vx: (Math.random() - 0.5) * 0.4,
         vy: -0.5 - Math.random() * 0.5,
         life: 14,
-        color: formIdx === 5 ? RAINBOW[Math.floor(Math.random() * RAINBOW.length)] : '#ffcd75',
+        color: (formIdx === 5 || formIdx >= 9) ? RAINBOW[Math.floor(Math.random() * RAINBOW.length)] : '#ffcd75',
       });
+    }
+    // 神級フォーム（player9〜）は全身をつつむ金色オーラの追加レイヤーをまとう
+    if (formIdx >= 9 && frame % 2 === 0) {
+      pushParticle({
+        x: player.x + Math.random() * PLAYER_SIZE,
+        y: player.y + Math.random() * PLAYER_SIZE,
+        vx: (Math.random() - 0.5) * 0.9,
+        vy: -0.7 - Math.random() * 0.7,
+        life: 20,
+        color: '#ffcd75',
+      }, true);
     }
     if (playerSlowT > 0) {
       ctx.fillStyle = 'rgba(115, 239, 247, 0.35)';
