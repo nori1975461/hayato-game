@@ -8294,7 +8294,6 @@ function renderTitle() {
     ctx.fillRect(-3, -3, 6, 6);
     ctx.restore();
   }
-  drawCenteredText('― 邪竜と20の世界 ―', 112 + bob, '#94b0c2', 13);
 
   // PRESS ENTER（呼吸するピルボタン）
   const pulse = 0.55 + Math.sin(gframe * 0.08) * 0.45;
