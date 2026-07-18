@@ -1836,13 +1836,13 @@ const SHOP_ITEMS = [
   { id: 'magnet',   name: 'マグネットハート',     desc: 'おちている ハートが すいよせられてくる',      price: 400 },
   { id: 'necklace', name: 'コンボのくびかざり',   desc: 'コンボが きれるまでの じかんが 1.5ばい',      price: 450 },
   { id: 'wallet',   name: 'おうごんのさいふ',     desc: 'けっさんで もらえるゴールドが 25% ふえる',    price: 500 },
-  { id: 'heartPot', name: 'ハートのつぼ',         desc: 'ハートをとると ライフが 2つ かいふくする',    price: 500 },
+  { id: 'thorns',   name: 'とげのオーラ',         desc: 'こうげきを うけたとき まわりの てきに はんげきダメージ', price: 650 },
   { id: 'clover',   name: 'よつばのクローバー',   desc: 'かいしんのいちげきが 6% でるようになる',      price: 550 },
   { id: 'bandana',  name: 'まけずぎらいのバンダナ', desc: 'ライフのこり2いかで スピードが 15% アップ',  price: 600 },
   { id: 'crown',    name: 'おうじゃのかんむり',   desc: 'ひっさつを つかっても ゲージが 25 のこる',    price: 800 },
   { id: 'socks',    name: 'にじのくつした',       desc: 'はしると にじいろの キラキラが でる！',       price: 250 },
-  { id: 'mercKnight', name: 'せいぎのナイト（傭兵）', desc: 'やりで いっしょに たたかう・5はつで しぼう',   price: 900,  repeat: true, merc: true },
-  { id: 'mercArcher', name: 'もりのアーチャー（傭兵）', desc: 'ゆみで えんきょり・5はつで しぼう',           price: 1100, repeat: true, merc: true },
+  { id: 'mercKnight', name: 'せいぎのナイト（傭兵）', desc: 'やりで いっしょに たたかう・10はつで しぼう',   price: 900,  repeat: true, merc: true },
+  { id: 'mercArcher', name: 'もりのアーチャー（傭兵）', desc: 'ゆみで えんきょり・10はつで しぼう',           price: 1100, repeat: true, merc: true },
 ];
 
 // ---------- 効果音＆BGM（Web Audio・ファイル不要） ----------
@@ -2417,17 +2417,17 @@ let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
 let mercenaries = []; // ショップで雇った傭兵（最大2体・武器レベル固定・ハート回復なし・5発で死亡）
 const MERC_MAX = 2;        // 同時に連れて歩ける最大数
-const MERC_MAX_HITS = 5;   // このダメージ回数で死亡
-const MERC_OFFSETS = [{ x: -34, y: 18 }, { x: 34, y: 18 }]; // 主人公の後方左右の隊列位置
+const MERC_MAX_HITS = 10;  // このダメージ回数で死亡
+const MERC_OFFSETS = [{ x: -56, y: 32 }, { x: 56, y: 32 }]; // 主人公の後方左右の隊列位置（少し離して展開）
 const MERC_TYPES = {
   mercKnight: {
     name: 'せいぎのナイト', sprite: 'mercKnight', color: '#3b5dc9',
-    ranged: false, dmg: 2, reach: 52, atkInterval: 45, price: 900,
+    ranged: false, dmg: 4, reach: 68, atkInterval: 45, price: 900,
     desc: 'やりで せっきんせん・こうげき力たかめ',
   },
   mercArcher: {
     name: 'もりのアーチャー', sprite: 'mercArcher', color: '#38b764',
-    ranged: true, dmg: 1, range: 240, atkInterval: 34, arrowSpeed: 5.5, half: true, price: 1100,
+    ranged: true, dmg: 3, range: 260, atkInterval: 22, arrowSpeed: 6.0, half: true, price: 1100,
     desc: 'ゆみで えんきょり・ボスへは ダメージ半分',
   },
 };
@@ -3181,6 +3181,24 @@ function hurtPlayer() {
   const pc = playerCenter();
   burst(pc.x, pc.y, PALETTE.C, 12);
   SFX.hurt();
+  // とげのオーラ: 被弾したとき まわりの てきに はんげきダメージ
+  if (gear.thorns) {
+    const R = 62;
+    addShockwave(pc.x, pc.y, '#ff6b6b', 10, 6, R, 4);
+    for (const e of [...enemies]) {
+      if (e.hp <= 0 || e.dying || e.airborne) continue;
+      const ex = e.x + e.size / 2, ey = e.y + e.size / 2;
+      if ((ex - pc.x) ** 2 + (ey - pc.y) ** 2 < R * R) {
+        if (e.boss) damageBoss(e, 4, ex, ey);
+        else e.hp -= 4;
+        e.hitTimer = 12;
+        burst(ex, ey, '#ff6b6b', 6);
+        if (e.hp <= 0) killEnemy(e);
+      }
+    }
+    enemies = enemies.filter((en) => en.hp > 0);
+    addPopup(pc.x, pc.y - 30, 'とげ はんげき！', '#ff6b6b', 12);
+  }
   if (lives <= 0) {
     // ふっかつのたま: 1回だけ復活
     if (gear.orb) {
@@ -4911,11 +4929,11 @@ function updateItems(pc) {
       }
     }
     if ((it.x - pc.x) ** 2 + (it.y - pc.y) ** 2 < 20 ** 2) {
-      // ハートのつぼ: とると2つ かいふく
-      if (lives < maxLives()) lives = Math.min(lives + (gear.heartPot ? 2 : 1), maxLives());
+      // ハートをとると ライフ1かいふく
+      if (lives < maxLives()) lives = Math.min(lives + 1, maxLives());
       SFX.heart();
       burst(it.x, it.y, PALETTE.M, 8);
-      addPopup(it.x, it.y - 10, gear.heartPot ? 'かいふく＋2！' : 'かいふく！', '#ff77a8', gear.heartPot ? 13 : 11);
+      addPopup(it.x, it.y - 10, 'かいふく！', '#ff77a8', 11);
       return false;
     }
     return it.life > 0;
@@ -4967,7 +4985,7 @@ function updatePlayerHits(pc) {
 }
 
 // ---------- 傭兵（ショップで雇う味方） ----------
-// 主人公の後方に隊列を組み、近くの敵を自動で攻撃する。武器レベルは固定・ハート回復なし・5発被弾で死亡。
+// 主人公の後方に隊列を組み、近くの敵を自動で攻撃する。武器レベルは固定・ハート回復なし・10発被弾で死亡。
 function hireMercenary(typeId) {
   const pc = playerCenter();
   const off = MERC_OFFSETS[mercenaries.length] || MERC_OFFSETS[0];
@@ -5025,7 +5043,7 @@ function updateMercenaries(pc) {
               life: 90,
               kind: 'arrow', dmg: type.dmg, pierce: false, aoe: 0, r: 0,
               half: !!type.half, turn: 0, ang: m.angle, rot: 0, t: 0, returning: false,
-              hitSet: null, color: '#b6ff8a', trail: null,
+              hitSet: null, color: '#b6ff8a', trail: null, merc: true,
             });
             m.atkCool = type.atkInterval;
             m.atkAnim = 10;
@@ -5074,7 +5092,7 @@ function hurtMercenary(m) {
   m.invT = 40;
   const type = MERC_TYPES[m.typeId];
   if (m.hits >= MERC_MAX_HITS) {
-    // 5発うけたら死亡（同ステージ中は復活しない。同種はショップで再雇用可能）
+    // 10発うけたら死亡（同ステージ中は復活しない。同種はショップで再雇用可能）
     m.dead = true;
     burst(m.x, m.y, type.color, 20, 3);
     burst(m.x, m.y, '#f4f4f4', 12, 2.5);
@@ -5088,38 +5106,59 @@ function hurtMercenary(m) {
   }
 }
 
-// 傭兵の武器（やり／ゆみ）をctxで描画。攻撃時に前へ突き出す
+// 傭兵の武器（やり／ゆみ）をctxで描画。ナイトの槍はくるくる回転、アーチャーの弓は太い
 function drawMercWeapon(m, type) {
   ctx.save();
   ctx.translate(Math.round(m.x), Math.round(m.y));
-  ctx.rotate(m.angle);
   if (type.ranged) {
+    ctx.rotate(m.angle);
     const push = m.atkAnim > 0 ? 2 : 0;
-    ctx.strokeStyle = '#a77b5b';
-    ctx.lineWidth = 2;
+    // 弓本体（太く）
+    ctx.strokeStyle = '#8a5a3b';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(9 + push, 0, 7, -Math.PI / 2.2, Math.PI / 2.2);
+    ctx.arc(9 + push, 0, 8, -Math.PI / 2.1, Math.PI / 2.1);
     ctx.stroke();
+    // 弦
     ctx.strokeStyle = '#f4f4f4';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(9 + push, -6);
-    ctx.lineTo(9 + push, 6);
+    ctx.moveTo(9 + push, -7);
+    ctx.lineTo(9 + push, 7);
     ctx.stroke();
+    // つがえた矢（発射直前の演出）
+    if (m.atkCool < 8) {
+      ctx.strokeStyle = '#b6ff8a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(3, 0);
+      ctx.lineTo(15 + push, 0);
+      ctx.stroke();
+    }
   } else {
-    const reach = 14 + (m.atkAnim > 0 ? 10 : 0);
+    // ナイトの槍: 長く、くるくる回転する（攻撃中は速く回る）
+    const spin = frame * (m.atkAnim > 0 ? 0.5 : 0.22);
+    ctx.rotate(m.angle + spin);
+    const len = 34 + (m.atkAnim > 0 ? 12 : 0);
+    // 柄（後方にも伸ばして回転がわかりやすいように）
     ctx.strokeStyle = '#a77b5b';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(4, 0);
-    ctx.lineTo(reach, 0);
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(len, 0);
     ctx.stroke();
+    // 穂先
+    ctx.fillStyle = '#cfe8ff';
+    ctx.beginPath();
+    ctx.moveTo(len, -4);
+    ctx.lineTo(len + 9, 0);
+    ctx.lineTo(len, 4);
+    ctx.closePath();
+    ctx.fill();
+    // 石突（反対側の飾り玉）
     ctx.fillStyle = '#94b0c2';
     ctx.beginPath();
-    ctx.moveTo(reach, -3);
-    ctx.lineTo(reach + 6, 0);
-    ctx.lineTo(reach, 3);
-    ctx.closePath();
+    ctx.arc(-10, 0, 2.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -5139,7 +5178,7 @@ function renderMercenaries() {
     const remain = MERC_MAX_HITS - m.hits;
     for (let p = 0; p < MERC_MAX_HITS; p++) {
       ctx.fillStyle = p < remain ? '#73eff7' : '#333c57';
-      ctx.fillRect(Math.round(m.x - 11 + p * 5), Math.round(by - 6), 3, 3);
+      ctx.fillRect(Math.round(m.x - 15 + p * 3), Math.round(by - 6), 2, 3);
     }
   }
 }
@@ -6383,10 +6422,25 @@ function drawPShot(f) {
     ctx.save();
     ctx.translate(f.x, f.y);
     ctx.rotate(Math.atan2(f.vy, f.vx));
-    ctx.fillStyle = f.color || (f.kind === 'javelin' ? '#94b0c2' : '#a77b5b');
-    ctx.fillRect(-8, -1, 12, 2);
-    ctx.fillStyle = '#f4f4f4';
-    ctx.fillRect(4, -2, 5, 4);
+    if (f.merc) {
+      // アーチャーの矢: 太く大きい（連射感を出す）
+      ctx.fillStyle = f.color || '#8a5a3b';
+      ctx.fillRect(-12, -2, 18, 4);
+      ctx.fillStyle = '#f4f4f4';
+      ctx.beginPath();
+      ctx.moveTo(6, -5);
+      ctx.lineTo(13, 0);
+      ctx.lineTo(6, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#b6ff8a';
+      ctx.fillRect(-12, -4, 3, 8); // 羽根
+    } else {
+      ctx.fillStyle = f.color || (f.kind === 'javelin' ? '#94b0c2' : '#a77b5b');
+      ctx.fillRect(-8, -1, 12, 2);
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(4, -2, 5, 4);
+    }
     ctx.restore();
   } else if (f.kind === 'bullet') {
     ctx.fillStyle = shotColor(f);
