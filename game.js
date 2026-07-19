@@ -1754,8 +1754,8 @@ const WEAPONS = [
   { name: 'はどうほう', score: 207500, len: 60, width: 14, spin: 0.130, blades: 1, dmg: 6,
     color: '#1d5a80', edge: '#73eff7', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 20, pierce: true, aim: true, life: 90, color: '#73eff7', r: 26 } },
-  // ここから最上位3武器の「改（強化版）」「真（最強版）」。各武器を3段階にレベルアップ。
-  // 段階が上がるごとに ダメージ・弾速・射撃間隔・貫通/範囲・色の派手さ を強化（hybrid は増やさない）。
+  // ここから最上位4武器の「改（強化版）」「真（最強版）」。各武器を3段階にレベルアップ。
+  // 段階が上がるごとに ダメージ・弾速・射撃間隔・貫通/範囲・色の派手さ を強化(hybrid は増やさない)。
   { name: 'ロケットパンチ改', score: 223500, len: 50, width: 11, spin: 0.140, blades: 1, dmg: 6, knock: 36,
     color: '#f0402f', edge: '#ffcd75', kind: 'fist', hybrid: false,
     shoot: { kind: 'rocketfist', interval: 30, speed: 6.0, dmg: 9, aoe: 48, aim: true } },
@@ -1772,6 +1772,12 @@ const WEAPONS = [
   { name: 'はどうほう真', score: 303500, len: 70, width: 18, spin: 0.135, blades: 1, dmg: 11,
     color: '#41a6f6', edge: '#ffffff', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 38, speed: 7.2, dmg: 38, pierce: true, aim: true, life: 110, color: '#c9f5ff', r: 34 } },
+  { name: 'マシンガン改', score: 319500, len: 36, width: 6, spin: 0.135, blades: 1, dmg: 2,
+    color: '#4a5c8f', edge: '#b8e0ff', kind: 'gun', hybrid: false,
+    shoot: { kind: 'bullet', interval: 6, speed: 7.5, dmg: 2, aim: true } },
+  { name: 'マシンガン真', score: 335500, len: 38, width: 7, spin: 0.140, blades: 1, dmg: 3,
+    color: '#6b8cff', edge: '#ffffff', kind: 'gun', hybrid: false,
+    shoot: { kind: 'bullet', interval: 5, speed: 8.5, dmg: 3, aim: true, count: 2 } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
