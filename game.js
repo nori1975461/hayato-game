@@ -1841,7 +1841,7 @@ function currentStage() {
 // shot: 投げるものの見た目 / gimmicks: split=分裂 rage=激怒 speed=高速化
 //        summon=仲間よび shield=盾ガード weakpoint=弱点コア callboss=過去のボスをよびだす
 // melee: punch=突進パンチ tail=しっぽ回転 stomp=ジャンプ踏みつけ dive=急降下体当たり
-// mods: 弾の特殊効果 wave=うねる / dart=止まってから急加速 / bounce=壁で跳ね返る / burst=消えるとき破裂
+// mods: 弾の特殊効果 wave=うねる / dart=止まってから急加速 / bounce=壁で跳ね返る / burst=消えるとき破裂 / homing=ゆるく追尾(40%抽選・期限つき) / curve=弧をえがく
 // serifu: 出現時のセリフ（ドラクエ風ウィンドウに表示）
 const BOSS_TYPES = [
   { name: 'ヤマタノオロチ', origin: 'にほんしんわ',   sprite: 'orochi',    aura: '#38b764', pattern: 'aim',    shot: 'snake',
@@ -1857,14 +1857,14 @@ const BOSS_TYPES = [
     desc: 'ギリシャしんわの どくを もつ おおへび。くびを きっても すぐに ふえて はえてくる。えいゆう ヘラクレスに たいじされた。',
     serifu: 'くびは いくらでも はえてくるぞ…' },
   { name: 'グリフォン',     origin: 'でんせつのまじゅう', sprite: 'griffin', aura: '#d9a066', pattern: 'rain', shot: 'wind',
-    gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, summonHearts: true, ballColors: ['#d9a066', '#f4f4f4', '#c17a50'], rageRemap: { T: '#5d1520', t: '#b13e53' },
+    gimmicks: ['speed', 'summon'],   melee: ['dive'], hpMul: 1.05, mods: { curve: 0.012 }, summonHearts: true, ballColors: ['#d9a066', '#f4f4f4', '#c17a50'], rageRemap: { T: '#5d1520', t: '#b13e53' },
     desc: 'わしの つばさと あたま、ライオンの からだを もつ でんせつの まじゅう。たからものを まもる、ゆうかんで ほこりたかい いきもの。',
     serifu: 'あらしの そらは わたしのものだ！' },
   { name: 'クラーケン',     origin: 'うみのまもの',   sprite: 'kraken',    aura: '#b13e53', pattern: 'wide',   shot: 'ball',
-    gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true }, ballColors: ['#b13e53', '#29366f', '#1a1c2c'], rageRemap: { R: '#ef7d57', r: '#b13e53', B: '#5d1520', O: '#ffcd75' },
+    gimmicks: ['split'],             melee: ['tail'], hpMul: 1.1, mods: { burst: true, curve: 0.014 }, ballColors: ['#b13e53', '#29366f', '#1a1c2c'], rageRemap: { R: '#ef7d57', r: '#b13e53', B: '#5d1520', O: '#ffcd75' },
     desc: 'ほくおうに つたわる、きょだいな タコや イカの すがたの うみの かいぶつ。うずしおを おこして ふねを のみこむと おそれられた。',
     serifu: 'うみのそこへ ひきずりこんでやろう…' },
-  { name: 'ギガンテス',     origin: 'ひとつめのきょじんぞく', sprite: 'gigantes', aura: '#ef7d57', pattern: 'aim', shot: 'ball',
+  { name: 'ギガンテス',     origin: 'ひとつめのきょじんぞく', sprite: 'gigantes', aura: '#ef7d57', pattern: 'aim', shot: 'hammer',
     gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.1, mods: { bounce: true }, ballColors: ['#566c86', '#94b0c2', '#566c86'], rageRemap: { L: '#b13e53', N: '#5d1520', R: '#ffcd75' },
     desc: 'ギリシャしんわの きょじんぞく。だいちの めがみ ガイアから うまれ、かみがみに たたかいを いどんだ ちからじまんの きょじんたち。',
     serifu: 'グオオオ！ てつのこんぼうで ぶちくだく！！' },
@@ -1873,35 +1873,35 @@ const BOSS_TYPES = [
     desc: 'エジプトしんわの めいかいの かみ。くろい ジャッカルの あたまを もち、しんだ ひとを あのよへ みちびく やくめを もつ。',
     serifu: 'さばきの ときが きた…' },
   { name: 'スフィンクス',   origin: 'エジプトしんわ', sprite: 'sphinx',    aura: '#ffcd75', pattern: 'wall',   shot: 'light',
-    gimmicks: ['shield'],            melee: ['dive'], hpMul: 1.1, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53' },
+    gimmicks: ['shield', 'pillars'], melee: ['dive'], hpMul: 1.1, pillarFx: { name: 'すなのやいば！', colors: ['#ffcd75', '#d9a066', '#8a6038'], count: 4, cycle: 360, slow: 0, hpGate: 0.9 }, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { T: '#b13e53' },
     desc: 'ライオンの からだに ひとの かおを もつ いきもの。ギリシャの はなしでは なぞなぞを だし、こたえられない ものを たべてしまう。',
     serifu: 'わたしの かべを こえられるかな？' },
   { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',     aura: '#ef7d57', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage'],              melee: ['punch'], hpMul: 1.15, rageRemap: { K: '#5d1520', P: '#b13e53' },
+    gimmicks: ['rage', 'pillars'],   melee: ['punch'], hpMul: 1.15, pillarFx: { name: 'ごうかばしら！！', colors: ['#ffcd75', '#ef7d57', '#b13e53'], count: 5, cycle: 320, slow: 0, hpGate: 0.92 }, rageRemap: { K: '#5d1520', P: '#b13e53' },
     desc: 'ギリシャしんわで めいかい（しごの せかい）を おさめる おうさま。ゼウスや ポセイドンの あにで、しずかで こうへいな かみ。',
     serifu: 'めいかいへ ようこそ…' },
-  { name: 'スルト',         origin: 'ほくおうしんわ', sprite: 'surtr',     aura: '#ef7d57', pattern: 'mix',    shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.25, mods: { bounce: true }, rageRemap: { K: '#5d1520' },
+  { name: 'スルト',         origin: 'ほくおうしんわ', sprite: 'surtr',     aura: '#ef7d57', pattern: 'mix',    shot: 'fire',
+    gimmicks: ['rage'],              melee: ['stomp', 'punch'], hpMul: 1.25, shotSpMul: 0.72, mods: { bounce: true }, rageRemap: { K: '#5d1520' },
     desc: 'ほくおうしんわの ほのおの きょじん。せかいの おわり「ラグナロク」で、ほのおの つるぎで せかいを やきつくすと いわれる。',
     serifu: 'すべてを もやしつくす！！' },
   { name: 'ユミル',         origin: 'ほくおうしんわ', sprite: 'ymir',      aura: '#73eff7', pattern: 'ring',   shot: 'ice',
-    gimmicks: ['shield'],            melee: ['stomp'], hpMul: 1.15, mods: { burst: true }, ballColors: ['#73eff7', '#f4f4f4', '#41a6f6'], rageRemap: { C: '#b13e53', D: '#5d1520' },
+    gimmicks: ['shield'],            melee: ['stomp'], hpMul: 1.15, mods: { burst: true, curve: 0.013 }, ballColors: ['#73eff7', '#f4f4f4', '#41a6f6'], rageRemap: { C: '#b13e53', D: '#5d1520' },
     desc: 'ほくおうしんわで いちばん さいしょに うまれた しもの きょじん。その からだから だいちや やま、うみや そらが つくられた。',
     serifu: 'こおりつけえええええ！' },
   { name: 'フェンリル',     origin: 'ほくおうしんわ', sprite: 'fenrir',    aura: '#41a6f6', pattern: 'aim',    shot: 'fang',
     gimmicks: ['speed'],             melee: ['punch', 'dive'], hpMul: 1.1, mods: { dart: true }, ballColors: ['#73eff7', '#41a6f6', '#f4f4f4'], rageRemap: { b: '#b13e53', B: '#5d1520', C: '#ef7d57', D: '#ffcd75' },
     desc: 'ほくおうしんわの きょだいな おおかみ。かみがみが おそれ、まほうの ひもで しばった。ラグナロクで オーディンを のみこむ。',
     serifu: 'ガルルル…はやさで かてるかな？' },
-  { name: 'メガロドン',     origin: 'しんかいのおうじゃ', sprite: 'megalodon', aura: '#41a6f6', pattern: 'wide', shot: 'ball',
-    gimmicks: ['rage'],              melee: ['stomp', 'tail'], hpMul: 1.2, mods: { bounce: true }, ballColors: ['#41a6f6', '#f4f4f4', '#41a6f6'], rageRemap: { B: '#b13e53', b: '#ef7d57', N: '#5d1520' },
+  { name: 'メガロドン',     origin: 'しんかいのおうじゃ', sprite: 'megalodon', aura: '#41a6f6', pattern: 'wide', shot: 'fang',
+    gimmicks: ['rage'],              melee: ['stomp', 'tail'], hpMul: 1.2, shotSpMul: 0.65, mods: { bounce: true }, ballColors: ['#41a6f6', '#f4f4f4', '#41a6f6'], rageRemap: { B: '#b13e53', b: '#ef7d57', N: '#5d1520' },
     desc: 'むかしの うみに いた、ぜんちょう15メートルにも なる きょだいな サメ。いまの サメより ずっと おおきい、うみの おうじゃ。',
     serifu: 'しんかいの あぎとから にげられまい！' },
   { name: 'ロキ',           origin: 'ほくおうしんわ', sprite: 'loki',      aura: '#38b764', pattern: 'mix',    shot: 'sword',
     gimmicks: ['summon', 'speed', 'teleport'], melee: ['punch', 'dive'], hpMul: 1.15, ballColors: ['#41a6f6', '#73eff7', '#ffcd75'], rageRemap: { g: '#b13e53', N: '#5d1520', C: '#ef7d57', D: '#ffcd75' },
     desc: 'ほくおうしんわの いたずらずきの かみ。すがたを じざいに かえる へんしんの めいじん。かみがみを こまらせたり たすけたり する。',
     serifu: 'フフフ…どれが ほんものかな？' },
-  { name: 'エンマだいおう', origin: 'にほんしんわ',   sprite: 'enma',      aura: '#b13e53', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage', 'callboss'],  melee: ['stomp', 'punch'], hpMul: 1.3, ballColors: ['#ef7d57', '#ffcd75', '#f4f4f4'], rageRemap: { R: '#5d1520', O: '#b13e53', Y: '#f4f4f4' },
+  { name: 'エンマだいおう', origin: 'にほんしんわ',   sprite: 'enma',      aura: '#b13e53', pattern: 'rain',   shot: 'fire',
+    gimmicks: ['rage', 'callboss'],  mods: { homing: { turn: 0.025, dur: 60 } }, melee: ['stomp', 'punch'], hpMul: 1.3, shotSpMul: 0.72, ballColors: ['#ef7d57', '#ffcd75', '#f4f4f4'], rageRemap: { R: '#5d1520', O: '#b13e53', Y: '#f4f4f4' },
     desc: 'しごの せかいで、しんだ ひとの つみを さばく おうさま。きんいろの かみを さかだてた わかき せんしの すがたで あらわれ、じごくの ごうかを りょうてに あつめて はなつ。',
     serifu: 'おまえの つみを かぞえよ！' },
   { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',      aura: '#ffcd75', pattern: 'cross',  shot: 'bolt',
@@ -4200,6 +4200,8 @@ function updateBoss(e, pc, ecx, ecy) {
   if (gm.includes('roar')) updateHumbabaRoar(e, pc, ecx, ecy);
   // ヴリトラ「だいじゃのとぐろ」: 移動経路を物理的に塞ぐ螺旋状の壁
   if (gm.includes('coil')) updateVritraCoil(e, pc, ecx, ecy);
+  // 汎用「じめんから柱」: スフィンクス(すな)・ハデス(ごうか)・ベヒーモス(だいち)。frost機構を流用
+  if (gm.includes('pillars')) updateBossPillars(e, pc, ecx, ecy);
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
     e.teleT = (e.teleT == null ? 240 : e.teleT) - 1;
@@ -4339,7 +4341,7 @@ function updateBoss(e, pc, ecx, ecy) {
       return;
     }
     const BOSS_SPD = 1.8; // 弾速の一律倍率（1.5から1.2倍アップ、代わりに弾数2割減）
-    const shotSpeed = (({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15) * BOSS_SPD;
+    const shotSpeed = (({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15) * BOSS_SPD * (type.shotSpMul || 1);
     const mods = type.mods || {};
     const shoot = (ang, sx = mouthX, sy = mouthY, spMul = 1) => {
       fireballs.push({
@@ -4355,6 +4357,8 @@ function updateBoss(e, pc, ecx, ecy) {
         dart: mods.dart || false, dartT: 0,
         bounce: mods.bounce ? 2 : 0,
         burst: !!(mods.burst && Math.random() < 0.5), // 破裂するのは半分だけ（弾幕が多すぎ防止）
+        homing: (mods.homing && Math.random() < 0.4) ? { turn: mods.homing.turn, dur: mods.homing.dur, t: 0 } : null,
+        curve: mods.curve || 0,
       });
     };
     const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
@@ -4981,6 +4985,24 @@ function updateBossShots(pc) {
         f.ang = a;
         burst(f.x, f.y, '#f4f4f4', 4, 1);
       }
+    }
+    // ゆるやか追尾弾(homing mod): 最初のdurフレームだけ緩く曲がる。期限切れ後は直進＝必ず振り切れる
+    if (f.homing && f.homing.t < f.homing.dur) {
+      f.homing.t++;
+      const cur = Math.atan2(f.vy, f.vx);
+      let hd = Math.atan2(pc.y - f.y, pc.x - f.x) - cur;
+      while (hd > Math.PI) hd -= Math.PI * 2;
+      while (hd < -Math.PI) hd += Math.PI * 2;
+      const na = cur + Math.max(-f.homing.turn, Math.min(f.homing.turn, hd));
+      const sp = Math.hypot(f.vx, f.vy);
+      f.vx = Math.cos(na) * sp; f.vy = Math.sin(na) * sp; f.ang = na;
+      if (gframe % 3 === 0) pushParticle({ x: f.x, y: f.y, vx: 0, vy: 0, life: 10, color: '#ff77a8' }); // 追尾中の目印
+    }
+    // カーブ弾(curve mod): 一定角速度で弧を描く。リングは風車、扇はうずしお状に曲がる
+    if (f.curve) {
+      const ca = Math.atan2(f.vy, f.vx) + f.curve;
+      const sp = Math.hypot(f.vx, f.vy);
+      f.vx = Math.cos(ca) * sp; f.vy = Math.sin(ca) * sp; f.ang = ca;
     }
     // 壁で跳ね返る弾（スルト・メガロドン）
     if (f.bounce > 0) {
@@ -5746,7 +5768,7 @@ function updateFrost(pc) {
   frost = frost.filter((ic) => {
     ic.t--;
     if (ic.t > 0) {
-      if (frame % 4 === 0) pushParticle({ x: ic.x + (Math.random() - 0.5) * ic.r, y: ic.y + (Math.random() - 0.5) * ic.r, vx: 0, vy: -0.3, life: 10, color: '#a8dadc' });
+      if (frame % 4 === 0) pushParticle({ x: ic.x + (Math.random() - 0.5) * ic.r, y: ic.y + (Math.random() - 0.5) * ic.r, vx: 0, vy: -0.3, life: 10, color: ic.fx ? ic.fx.colors[0] : '#a8dadc' });
       return true;
     }
     if (ic.t === 0) { SFX.thunder(); flashTimer = Math.max(flashTimer, 5); shakeTimer = Math.max(shakeTimer, 6); burst(ic.x, ic.y, '#f4f4f4', 12, 2.5); }
@@ -5754,11 +5776,11 @@ function updateFrost(pc) {
     ic.live--;
     if (!ic.hit && ic.rise >= 1 && invincibleTimer === 0 && state === 'playing' && (pc.x - ic.x) ** 2 + (pc.y - ic.y) ** 2 < ic.r ** 2) {
       ic.hit = true;
-      playerSlowT = ic.f2 ? 180 : 120;
-      addPopup(pc.x, pc.y - 30, 'こおった！', '#73eff7', 12);
+      const sl = ic.fx ? ic.fx.slow : (ic.f2 ? 180 : 120);
+      if (sl > 0) { playerSlowT = Math.max(playerSlowT, sl); addPopup(pc.x, pc.y - 30, ic.fx ? 'ひるんだ！' : 'こおった！', ic.fx ? ic.fx.colors[1] : '#73eff7', 12); }
       hurtPlayer();
     }
-    if (frame % 3 === 0) burst(ic.x + (Math.random() - 0.5) * ic.r, ic.y - 10 - Math.random() * 20, Math.random() < 0.5 ? '#a8dadc' : '#f4f4f4', 1, 1.2);
+    if (frame % 3 === 0) burst(ic.x + (Math.random() - 0.5) * ic.r, ic.y - 10 - Math.random() * 20, Math.random() < 0.5 ? (ic.fx ? ic.fx.colors[1] : '#a8dadc') : '#f4f4f4', 1, 1.2);
     return ic.live > 0;
   });
 }
@@ -5768,7 +5790,8 @@ function drawFrost() {
   for (const ic of frost) {
     if (ic.t > 0) {
       const blink = Math.floor(ic.t / 4) % 2 === 0;
-      ctx.strokeStyle = blink ? 'rgba(168,218,220,0.9)' : 'rgba(168,218,220,0.35)';
+      ctx.globalAlpha = blink ? 0.9 : 0.35;
+      ctx.strokeStyle = ic.fx ? ic.fx.colors[0] : '#a8dadc';
       ctx.lineWidth = 2;
       ctx.beginPath();
       for (let i = 0; i <= 6; i++) {
@@ -5777,16 +5800,17 @@ function drawFrost() {
         i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
       ctx.stroke();
+      ctx.globalAlpha = 1;
       continue;
     }
     const h = ic.rise * (ic.f2 ? 62 : 48);
     const w = ic.r * 0.7;
     ctx.globalAlpha = ic.live < 12 ? ic.live / 12 : 1; // 砕け散る直前はフェード
-    ctx.fillStyle = 'rgba(59,93,201,0.5)';             // 影（濃い青）
+    ctx.fillStyle = ic.fx ? ic.fx.colors[2] : 'rgba(59,93,201,0.5)'; // 影（濃い青）
     ctx.beginPath();
     ctx.moveTo(ic.x, ic.y - h); ctx.lineTo(ic.x + w, ic.y); ctx.lineTo(ic.x, ic.y + 6); ctx.lineTo(ic.x - w, ic.y);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#73eff7';                          // 本体（水色）
+    ctx.fillStyle = ic.fx ? ic.fx.colors[1] : '#73eff7'; // 本体（水色）
     ctx.beginPath();
     ctx.moveTo(ic.x, ic.y - h); ctx.lineTo(ic.x + w * 0.6, ic.y - h * 0.35); ctx.lineTo(ic.x, ic.y); ctx.lineTo(ic.x - w * 0.6, ic.y - h * 0.35);
     ctx.closePath(); ctx.fill();
@@ -5794,6 +5818,40 @@ function drawFrost() {
     ctx.fillRect(ic.x - 1, ic.y - h + 2, 2, h * 0.5);
     ctx.globalAlpha = 1;
   }
+}
+
+// ---------- 汎用「じめんから柱」ギミック(pillars): frost機構の色・効果ちがい版 ----------
+function updateBossPillars(e, pc, ecx, ecy) {
+  const fx = e.type.pillarFx;
+  if (!fx || e.hp > e.maxHp * (fx.hpGate ?? 0.9)) return;
+  e.pillarT = (e.pillarT == null ? 200 : e.pillarT) - 1;
+  if (e.pillarT <= 0 && frost.length === 0) {
+    e.pillarT = e.raged ? Math.round(fx.cycle * 0.75) : fx.cycle;
+    spawnPillarField(pc, fx);
+  }
+}
+
+// 柱フィールド設置: spawnFrostFieldと同じ構図（1本目は現在地狙い・残りは46px離した乱数配置）
+function spawnPillarField(pc, fx) {
+  const pts = [{ x: pc.x, y: pc.y }];
+  while (pts.length < fx.count) {
+    let sx, sy, tries = 0;
+    do {
+      sx = 30 + Math.random() * (W - 60);
+      sy = 60 + Math.random() * (H - 90);
+      tries++;
+    } while (tries < 20 && pts.some((p) => (p.x - sx) ** 2 + (p.y - sy) ** 2 < 46 ** 2));
+    pts.push({ x: sx, y: sy });
+  }
+  for (const p of pts) {
+    frost.push({
+      x: Math.max(20, Math.min(W - 20, p.x)),
+      y: Math.max(50, Math.min(H - 20, p.y)),
+      t: 50, rise: 0, live: 38, r: 26, f2: false, hit: false, fx,
+    });
+  }
+  addPopup(W / 2, 30, fx.name, fx.colors[1], 17);
+  SFX.warn();
 }
 
 // ---------- ティアマト「こんとんのうず」: 引き寄せ渦→炸裂 ----------
