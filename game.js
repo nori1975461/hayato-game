@@ -1996,7 +1996,7 @@ const SHOP_ITEMS = [
   { id: 'heal',     name: 'ライフぜんかいふく',   desc: 'ハートが まんたんに もどる',            price: 200,  repeat: true },
   { id: 'contUp',   name: 'ふしちょうのはね',     desc: 'コンティニューが 1かい ふえる',         price: 1500, repeat: true },
   { id: 'armor',    name: 'てつのよろい',         desc: '12%で こうげきを ガードする',           price: 800 },
-  { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが 10に ふえる',          price: 600 },
+  { id: 'helm',     name: 'ゆうしゃのかぶと',     desc: 'さいだいライフが 2つ ふえる',          price: 600 },
   { id: 'gauntlet', name: 'ちからのこて',         desc: 'ぶきの かいてんが 15% はやくなる',      price: 500 },
   { id: 'shield',   name: 'まほうのたて',         desc: 'てきのたまを 22%で はじきかえす',       price: 700 },
   { id: 'boots',    name: 'はやてのブーツ',       desc: 'いどうスピードが 20% アップ',           price: 400 },
@@ -2697,9 +2697,9 @@ function recordBossDefeat(idx) {
   localStorage.setItem('hayato-bosszukan', JSON.stringify([...defeatedBosses]));
 }
 
-// 最大体力(ハート数): 1-26=6, 27-28=8。かぶとで+2だが上限8(27-28はかぶとでも増えない)
-function baseLives() { return stage <= 26 ? 6 : 8; }
-function maxLives() { return Math.min(baseLives() + (gear.helm ? 2 : 0), 8); }
+// 最大体力(ハート数): 1-26=基本7(かぶと+2で最大9), 27-28=8(かぶとでも増えない)
+function baseLives() { return stage <= 26 ? 7 : 8; }
+function maxLives() { return Math.min(baseLives() + (gear.helm ? 2 : 0), stage <= 26 ? 9 : 8); }
 
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
@@ -3299,6 +3299,8 @@ function killEnemy(e, lightningDepth = 2) {
             lives = Math.min(lives + (newMax - oldMax), newMax);
             addPopup(player.x + PLAYER_SIZE / 2, player.y - 20, 'たいりょく上限アップ！', '#ff6a8f', 12);
             SFX.heart();
+          } else if (lives > newMax) {
+            lives = newMax; // 27面以降は上限8(かぶと込み9→8へ切り詰め)
           }
           bannerText = `ステージ${stage} ${currentStage().name}へ！`;
           if (cleared % 5 === 0) pendingTally = 110; // 5ステージごとにけっさん
