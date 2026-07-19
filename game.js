@@ -1913,7 +1913,7 @@ const BOSS_TYPES = [
     desc: 'にほんしんわの たいようの めがみ。あまのいわとに かくれたとき、せかいは まっくらに なった。てんのうけの そせんとも いわれる。',
     serifu: 'ひかりのまえに ひれふしなさい' },
   { name: 'ベヒーモス',     origin: 'じゃりゅうのそっきん', sprite: 'behemoth', aura: '#8b4f8b', pattern: 'mix', shot: 'ball',
-    gimmicks: ['speed', 'rage', 'callboss'], melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
+    gimmicks: ['speed', 'rage', 'callboss', 'pillars'], melee: ['punch', 'stomp', 'tail'], hpMul: 1.5, pillarFx: { name: 'だいちのキバ！！', colors: ['#b13e53', '#8b4f8b', '#5d275d'], count: 6, cycle: 300, slow: 60, hpGate: 0.92 }, ballColors: ['#5d275d', '#8b4f8b', '#b13e53'], rageRemap: { P: '#b13e53', p: '#5d1520' },
     desc: 'でんせつの りくの きょじゅうの なを もつ、じゃりゅうジギムントに つかえる そっきん。おおきな からだで あばれまわる。',
     serifu: 'ジギムントさまのもとへは いかせん！' },
   { name: 'デスサイザー',   origin: 'じゃりゅうのそっきん', sprite: 'reaper', aura: '#73eff7', pattern: 'spiral', shot: 'scythe',
@@ -1921,7 +1921,7 @@ const BOSS_TYPES = [
     desc: 'おおきな かまを もつ、しにがみのような じゃりゅうの そっきん。テレポートで あらわれ、たましいを かりとろうと おそいかかる。',
     serifu: 'ここから さきは しのせかい…' },
   { name: 'じゃりゅうジギムント', origin: 'さいきょうのじゃりゅう', sprite: 'dragon', aura: '#b13e53', pattern: 'mix', shot: 'ball',
-    gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.0, points: 10000, big: true,
+    gimmicks: ['rage', 'summon', 'weakpoint'], melee: ['punch', 'tail', 'stomp', 'dive'], mods: { homing: { turn: 0.02, dur: 50 } }, hpMul: 2.0, points: 10000, big: true,
     // 第2形態: 紫の鱗が炎色へ変わる。K=黒→暗紅, P=紫鱗→金, p=明紫→赤, V=紫陰(翼膜/鱗の陰)→暗紅。
     form2Remap: { K: '#5d1520', P: '#ffcd75', p: '#b13e53', V: '#3a0c1c' }, form2Aura: '#ff2e4d',
     deathEvent: true, // 撃破後に雷龍登場の会話イベントを挟む（ステージ20クリア演出）
@@ -1941,13 +1941,13 @@ const BOSS_TYPES = [
     remap: { S: '#1a1a2e', W: '#c9d4e0', b: '#5b6988' }, ballColors: ['#1a1a2e', '#d4f236', '#1a1a2e'],
     desc: 'アステカしんわの よると まほうの かみ。なまえは「けむりを はく かがみ」の いみ。よるの やみに ひそみ、たたかいを つかさどる。',
     serifu: 'よるのやみに ひそむ おれから にげられるか…？' },
-  { name: 'フンババ',       origin: 'メソポタミアしんわ', sprite: 'humbaba', aura: '#38b764', pattern: 'mix', shot: 'ball',
-    gimmicks: ['shield', 'roar'], melee: ['stomp', 'punch'], hpMul: 1.35,
+  { name: 'フンババ',       origin: 'メソポタミアしんわ', sprite: 'humbaba', aura: '#38b764', pattern: 'mix', shot: 'web',
+    gimmicks: ['shield', 'roar'], melee: ['stomp', 'punch'], hpMul: 1.35, shotSpMul: 0.82,
     ballColors: ['#38b764', '#257179', '#38b764'],
     desc: 'メソポタミアしんわの もりの ばんにん。すぎの もりを まもる きょじんで、えいゆう ギルガメシュと たたかった。',
     serifu: 'もりを まもるため おまえを ふみつぶす！' },
-  { name: 'ヴリトラ',       origin: 'インドしんわ',       sprite: 'vritra',   aura: '#8b4f8b', pattern: 'wide', shot: 'ball', big: true,
-    gimmicks: ['rage', 'callboss', 'coil'], melee: ['tail', 'stomp', 'punch'], hpMul: 1.8,
+  { name: 'ヴリトラ',       origin: 'インドしんわ',       sprite: 'vritra',   aura: '#8b4f8b', pattern: 'wide', shot: 'trident', big: true,
+    gimmicks: ['rage', 'callboss', 'coil'], melee: ['tail', 'stomp', 'punch'], hpMul: 1.8, shotSpMul: 0.82,
     remap: { N: '#2b2b3a', L: '#9a8a7a', P: '#6b2d8b', p: '#9a4fc9', W: '#d4b483', O: '#6b4423', V: '#3a1650', Y: '#ffd23e', R: '#ff2e4d', T: '#d4b483', C: '#41a6f6', D: '#73eff7', b: '#3b7dd8' }, ballColors: ['#41a6f6', '#9a4fc9', '#4a2c17'],
     form2Remap: { N: '#1a0f08', L: '#ff9d2e', P: '#7a2410', p: '#ff6b1a', W: '#ffcd75', O: '#3d1f0a', V: '#2a0d05', Y: '#ffcd2e', R: '#f4f4f4', T: '#c9a66b', C: '#ff9d2e', D: '#ffcd75', b: '#3d1f0a' }, form2Aura: '#ff6b1a',
     form2Serifu: 'かわいた だいちの いかりを うけよ…！',
@@ -1961,15 +1961,16 @@ const BOSS_TYPES = [
     desc: 'ちゅうごくの しじん（ほうがくを まもる せいじゅう）の ひとつ。ひがしを まもる あおい りゅうで、はると せいめいの めばえの しょうちょう。',
     serifu: 'そうりゅうの いぶきを うけてみよ！' },
   { name: 'ティアマト',     origin: 'メソポタミアしんわ', sprite: 'tiamat',   aura: '#8b4f8b', pattern: 'mix', shot: 'ball', big: true,
-    gimmicks: ['rage', 'summon', 'weakpoint', 'callboss', 'vortex'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.2, points: 15000,
+    gimmicks: ['rage', 'summon', 'weakpoint', 'callboss', 'vortex', 'breath'], melee: ['punch', 'tail', 'stomp', 'dive'], hpMul: 2.64, points: 15000,
     ballColors: ['#8b4f8b', '#ff2e4d', '#5d1520'],
+    breathName: 'こんとんのブレス！！', breathColors: ['#5d1520', '#ff2e4d', '#ff77a8'],
     form2Remap: { P: '#160a20', p: '#c9284a', H: '#5d1520', M: '#ff2e4d', b: '#73eff7', G: '#7bf05a', R: '#ff2e4d' }, form2Aura: '#ff2e4d',
     form2Serifu: 'これが こんとんの しんのすがた… すべてを むにかえす！',
     desc: 'メソポタミアしんわの げんしの うみの めがみ。「こんとん」の しょうちょうで、その きょだいな からだから てんと ちが つくられた。',
     serifu: 'こんとんの はは… すべてを のみこんでやろう！' },
   { name: 'ライリュウ',     origin: 'てんくうのはおう', sprite: 'rairyu', aura: '#ffcd75', pattern: 'spiral', shot: 'bolt', big: true,
     bossBgm: 'rairyu', // 雷太鼓＋高速ベースの専用BGM（他のドラゴン系DRAGON_CHORDSより速く鋭い）
-    gimmicks: ['rage', 'summon', 'callboss', 'storm', 'weakpoint'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 2.9, points: 20000,
+    gimmicks: ['rage', 'summon', 'callboss', 'storm', 'weakpoint'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 3.77, points: 20000,
     remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
     form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#f4f4f4', C: '#ff77a8', R: '#ff2e4d' }, form2Aura: '#b567b5',
@@ -4202,6 +4203,8 @@ function updateBoss(e, pc, ecx, ecy) {
   if (gm.includes('coil')) updateVritraCoil(e, pc, ecx, ecy);
   // 汎用「じめんから柱」: スフィンクス(すな)・ハデス(ごうか)・ベヒーモス(だいち)。frost機構を流用
   if (gm.includes('pillars')) updateBossPillars(e, pc, ecx, ecy);
+  // 汎用ブレス: ティアマト「こんとんのブレス」(beamアクト機構を流用)
+  if (gm.includes('breath')) updateBossBreath(e, pc, ecx, ecy);
   // テレポートギミック: けむりとともに消えて別の場所に現れる（ロキ・デスサイザー）
   if (gm.includes('teleport')) {
     e.teleT = (e.teleT == null ? 240 : e.teleT) - 1;
@@ -4895,7 +4898,7 @@ function runBossAct(e, pc, ecx, ecy) {
     const oy = e.y + e.size * 0.40;
     a.ox = ox; a.oy = oy; a.bcol = bcol;
     if (a.t === 1) {
-      addPopup(ecx, e.y - 14, a.gaze ? 'まがんのぎょうし！！' : 'らいこうレーザー', bcol[1], 17);
+      addPopup(ecx, e.y - 14, a.gaze ? 'まがんのぎょうし！！' : (e.type.breathName || 'らいこうレーザー'), bcol[1], 17);
       SFX.warn(); SFX.giantCharge();
       a.aimAng = Math.atan2(pc.y - oy, pc.x - ox);
     }
@@ -6055,6 +6058,17 @@ function updateBalorGaze(e, pc, ecx, ecy) {
     e.gazeT = GAZE.cycle;
     // 既存の beam アクションに gaze フラグを立てて起動（runBossAct/drawBossBeams をそのまま流用）
     e.act = { kind: 'beam', gaze: true, t: 0 };
+  }
+}
+
+// ---------- 汎用ブレス(breath): beamアクトを周期起動。ティアマト「こんとんのブレス」 ----------
+// beamアクト(薙ぎ払いレーザー)を流用。タイマーは炎ブレス(e.breathT)と別変数e.breathBeamTで衝突を防ぐ
+function updateBossBreath(e, pc, ecx, ecy) {
+  if (e.hp > e.maxHp * 0.9) return;                                     // HP90%以下で始動
+  e.breathBeamT = (e.breathBeamT == null ? 420 : e.breathBeamT) - 1;    // 初回420f: vortex初動とずらして技ラッシュを防ぐ
+  if (e.breathBeamT <= 0 && !e.act && e.giantCharge === 0 && e.y > 0) {
+    e.breathBeamT = e.form2 ? 300 : 400;
+    e.act = { kind: 'beam', t: 0 };
   }
 }
 
