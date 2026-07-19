@@ -1027,10 +1027,11 @@ const SPRITES = {
     '............ROOOR..ROOOR............',
     '...........RK.R.RKKR.R.KR...........',
   ],
-  // じゃりゅうジギムント: 最終ボス(40x36)。完全新規設計(v2)。左右対称。
-  //   上部=湾曲する黄金の角(Y/O)、頭部=黒(K)の頭骨に燃える目(R/W)と牙、
-  //   肩=骨ばった皮膜翼(暗紫Vの膜＋銀の骨梁S)。翼は肩から独立に生え先端が尖って胴体と隙間を空けて消える(ライリュウと同じ手法)。
-  //   胴=翼幅に依存しない独自の細い列(紫鱗P/pハイライト)に光る弱点コア(R/O/W)、下部=中心に隙間を空けて外側へ広がる二股の脚(K/S)。
+  // じゃりゅうジギムント: 最終ボス(40x36)。参考画像準拠の再設計(v4)。尾以外は左右対称。
+  //   頭部=黄金の角冠(W/Y/O)を戴く黒(K)の頭骨、燃える目(R/W)と牙。
+  //   肩=コウモリ状の黒膜翼(暗紫V)。外縁を橙(O)で全周縁取りし先端に白い指爪(W)。
+  //   胴=紫鱗のチェッカー(P/p)にR/Y/Oのアクセント、胸中央に単一の小型弱点コア(R/O/W)。
+  //   下部=左右へ接地する前脚・後脚(K)と白い爪(W)、中央から右下へとぐろを巻く赤い尾(R/r)。
   //   K/P/p/V は第2形態でform2Remapにより炎色へ置換される主要部位。
   dragon: [
     '.........WW..................WW.........',
@@ -1042,33 +1043,33 @@ const SPRITES = {
     '.......KKKKKKKKRWRKKKKRWRKKKKKKKK.......',
     '.........KKKKKKKKWOKKOWKKKKKKKK.........',
     '...........KKKKKKWWKKWWKKKKKK...........',
-    '..SSSSS........KKKKKKKKKK........SSSSS..',
-    'VSVVVSVVVSVV.PPKKKKKKKKKKPP.VVSVVVSVVVSV',
-    'VSVVVVSVVV..KKKKPPKKKKPPKKKK..VVVSVVVVSV',
-    '..VSVVVSV...KKKPPPKKKKPPPKKK...VSVVVSV..',
-    '....SVVV....KKKPPPPKKPPPPKKK....VVVS....',
-    '......VV....KKPPPPPKKPPPPPKK....VV......',
-    '.......S....KppppppKKppppppK....S.......',
-    '............KPPPPPPKKPPPPPPK............',
-    '............KpPPPPpKKpPPPPpK............',
-    '............KPppppPKKPppppPK............',
-    '............KppROOpKKpOORppK............',
-    '.............KPORWPKKPWROPK.............',
-    '.............KpRORpKKpRORpK.............',
-    '.............KPPPPPKKPPPPPK.............',
-    '..............KppppKKppppK..............',
-    '..............KPPPPKKPPPPK..............',
-    '...............KpppKKpppK...............',
-    '..............KPKPK..KPKPK..............',
-    '.............KpKPK....KPKpK.............',
-    '............KPKpK......KpKPK............',
-    '...........KpKPK........KPKpK...........',
-    '..........KPKpK..........KpKPK..........',
-    '.........KpKPK............KPKpK.........',
-    '........KPKpK..............KpKPK........',
-    '.......KSKKK................KKKSK.......',
-    '......SSKKK..................KKKSS......',
-    '.....SSKKS....................SKKSS.....',
+    '...........KKKKKKKKKKKKKKKKKK...........',
+    '.....OVVVVV.KKKKKKKKKKKKKKKK.VVVVVO.....',
+    '....OVVVVVV.KKKKKKKKKKKKKKKK.VVVVVVO....',
+    '..WOVVVVVVV.KKKKKKKKKKKKKKKK.VVVVVVVOW..',
+    'WOVVVVVVVV..KKKKKKKKKKKKKKKK..VVVVVVVVOW',
+    '.OVVVVVV...KPpPpPpPKKPpPpPpPK...VVVVVVO.',
+    '..OVVVVV...KPpPRPpPKKPpPRPpPK...VVVVVO..',
+    '....OVVVV...KPpOpPpKKpPpOpPK...VVVVO....',
+    '......OVV...KPpPpPpKKpPpPpPK...VVO......',
+    '..........KPpPpYpPpKKpPpYpPpPK..........',
+    '.......KPpRpPpPpPpOKKOpPpPpPpRpPK.......',
+    '......KPpPpPpPpPpPpKKpPpPpPpPpPpPK......',
+    '.....KPpPpPpPpKRROOOOOORRKpPpPpPpPK.....',
+    '.....KpPpPpPpPKRROOWWOORRKPpPpPpPpK.....',
+    '.....KPpPpPpPpKPRROOOORRPKpPpPpPpPK.....',
+    '.....KPpPpPpPpPpPpPKKPpPpPpPpPpPpPK.....',
+    '....KPprpPpPpPpPpPrKKrPpPpPpPpPprpPK....',
+    '....KPpPpPpPpPpPpPpKKpPpPpPpPpPpPpPK....',
+    '...KKKKK..KPpPpPpPpPPpPpPpPpPK..KKKKK...',
+    '..KKKK....KKPpPpPpPppPpPpPpPKK....KKKK..',
+    '.KWWK.......KKPpPpPppPpPpPKK.......KWWK.',
+    '..KKKKK.........KrRRRRrK.........KKKKK..',
+    '.KWWWK............KrRRRRK.........KWWWK.',
+    '....................KrRRRRRK............',
+    '........................KrRRRRRRK.......',
+    '............................KRRRK.KRK...',
+    '.............................KrRK.RRK...',
   ],
   // ヴリトラ: インドしんわ「水を呑む魔人ナーガ」。金の湾曲した角・赤く光る目・牙をむく口の紫の鬼、
   //           左右に広げた腕と金の三本爪、胸に水色のオーブ、腰から下は横たわる蛇のとぐろ、足元に水たまり
