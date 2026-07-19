@@ -1027,47 +1027,48 @@ const SPRITES = {
     '............ROOOR..ROOOR............',
     '...........RK.R.RKKR.R.KR...........',
   ],
-  // じゃりゅうジギムント: 最終ボス(40x36)。完全新規設計。左右対称。
-  //   上部=大きく反った稜線入りの黄角(Y/O)＋牙の光り(W)、頭部=黒(K)の盾形に燃える二重の目(R/O/W)と牙だらけの口(W/O)、
-  //   両翼=骨ばった皮膜翼(暗紫Vの膜＋銀の骨梁S＋輪郭K)、胴=紫の鱗(P主/pハイライト/V陰)に光る弱点コア(R/O/W)、
-  //   下部=鉤爪の脚(K/S)と尾。K/P/p/V は第2形態でform2Remapにより炎色へ置換される主要部位。
+  // じゃりゅうジギムント: 最終ボス(40x36)。完全新規設計(v2)。左右対称。
+  //   上部=湾曲する黄金の角(Y/O)、頭部=黒(K)の頭骨に燃える目(R/W)と牙、
+  //   肩=骨ばった皮膜翼(暗紫Vの膜＋銀の骨梁S)。翼は肩から独立に生え先端が尖って胴体と隙間を空けて消える(ライリュウと同じ手法)。
+  //   胴=翼幅に依存しない独自の細い列(紫鱗P/pハイライト)に光る弱点コア(R/O/W)、下部=中心に隙間を空けて外側へ広がる二股の脚(K/S)。
+  //   K/P/p/V は第2形態でform2Remapにより炎色へ置換される主要部位。
   dragon: [
-    '..YWo..............................oWY..',
-    '..YYo..............................oYY..',
-    '...OOo............................oOO...',
-    '....YYo..........................oYY....',
-    '.....OOo........................oOO.....',
-    '......YYo.......KKKKKKKK.......oYY......',
-    '........OOo....KKKKKKKKKK....oOO........',
-    '.........YYo..KKKKKKKKKKKK..oYY.........',
-    '....VV....OOoKKKKKKKKKKKKKKoOO....VV....',
-    '...VVVV....YYoVVVKKKKKKVVVoYY....VVVV...',
-    '..VVVVVV....KKVOOOKKKKOOOVKK....VVVVVV..',
-    '.VVVVVVVV...KKORRWOKKOWRROKK...VVVVVVVV.',
-    '.SVVVVVVVV..KKKRRRKVVKRRRKKK..VVVVVVVVS.',
-    'VSpVVVVVVV..KKKKOKVKKVKOKKKK..VVVVVVVpSV',
-    'KVSpSVVVVVVKKWOWOWOVVOWOWOWKKVVVVVVSpSVK',
-    'KVVSpSVVVVVKKOWOWOWVVWOWOWOKKVVVVVSpSVVK',
-    'KVVSVpSVVVV.KWOWOWOVVOWOWOWK.VVVVSpVSVVK',
-    '.KVVSVppVVVV.KKWKKWKKWKKWKK.VVVVppVSVVK.',
-    '.KVVSSVVpSKPpVPpVPpVPpVPpVPpVKSpVVSSVVK.',
-    '..KVVSVVVKPpVPpVPpVPpVPpVPpVPpKVVVSVVK..',
-    '...KVVSKppVPpVPpVPpVPpVPpVPpVPppKSVVK...',
-    '....KVSVKVPpVPpVPpVRRVPpVPpVPpVKVSVK....',
-    '.....KVSKpVPpVPpVPROORVPpVPpVPpKSVK.....',
-    '......KVVKPpVPpVPpRWWRPpVPpVPpKVVK......',
-    '.......KVKVPpVPpVPROORVPpVPpVPKVK.......',
-    '..........KpVPpVPpVRRVPpVPpVPK..........',
-    '...........KpVPpVPpVPpVPpVPpK...........',
-    '............KPpVPpVPpVPpVPpK............',
-    '.............KPpVPpVPpVPpVK.............',
-    '..............KVPpVPpVPpVK..............',
-    '...............KVPpVPpVPK...............',
-    '................KpVPpVPK................',
-    '...............PpVPppPVpP...............',
-    '..............KpKK.VV.KKpK..............',
-    '.............KKKK..KK..KKKK.............',
-    '............S.K.S.KKKK.S.K.S............',
+    '.........WW..................WW.........',
+    '..........YYY..............YYY..........',
+    '...........OYYO..........OYYO...........',
+    '............OOYYOKKKKKKOYYOO............',
+    '........KOYKKKKKKKKKKKKKKKKKKYOK........',
+    '.......KKKKKKKKOROKKKKOROKKKKKKKK.......',
+    '.......KKKKKKKKRWRKKKKRWRKKKKKKKK.......',
+    '.........KKKKKKKKWOKKOWKKKKKKKK.........',
+    '...........KKKKKKWWKKWWKKKKKK...........',
+    '..SSSSS........KKKKKKKKKK........SSSSS..',
+    'VSVVVSVVVSVV.PPKKKKKKKKKKPP.VVSVVVSVVVSV',
+    'VSVVVVSVVV..KKKKPPKKKKPPKKKK..VVVSVVVVSV',
+    '..VSVVVSV...KKKPPPKKKKPPPKKK...VSVVVSV..',
+    '....SVVV....KKKPPPPKKPPPPKKK....VVVS....',
+    '......VV....KKPPPPPKKPPPPPKK....VV......',
+    '.......S....KppppppKKppppppK....S.......',
+    '............KPPPPPPKKPPPPPPK............',
+    '............KpPPPPpKKpPPPPpK............',
+    '............KPppppPKKPppppPK............',
+    '............KppROOpKKpOORppK............',
+    '.............KPORWPKKPWROPK.............',
+    '.............KpRORpKKpRORpK.............',
+    '.............KPPPPPKKPPPPPK.............',
+    '..............KppppKKppppK..............',
+    '..............KPPPPKKPPPPK..............',
+    '...............KpppKKpppK...............',
+    '..............KPKPK..KPKPK..............',
+    '.............KpKPK....KPKpK.............',
+    '............KPKpK......KpKPK............',
+    '...........KpKPK........KPKpK...........',
+    '..........KPKpK..........KpKPK..........',
+    '.........KpKPK............KPKpK.........',
+    '........KPKpK..............KpKPK........',
+    '.......KSKKK................KKKSK.......',
+    '......SSKKK..................KKKSS......',
+    '.....SSKKS....................SKKSS.....',
   ],
   // ヴリトラ: インドしんわ「水を呑む魔人ナーガ」。金の湾曲した角・赤く光る目・牙をむく口の紫の鬼、
   //           左右に広げた腕と金の三本爪、胸に水色のオーブ、腰から下は横たわる蛇のとぐろ、足元に水たまり
@@ -4811,7 +4812,7 @@ function runBossAct(e, pc, ecx, ecy) {
     // a.gaze はバロール「まがんのぎょうし」: 赤い魔眼ビーム。ロックオンが長く、薙ぎ払わず単一方向に固定し大ダメージ
     const bcol = a.gaze ? ['#5d0d18', '#ff2e4d', '#ffcd75'] : (e.type.breathColors || ['#3b5dc9', '#73eff7', '#ffcd75']);
     const tel = a.gaze ? 66 : 50;                       // 収束予告（ぎょうしはロックオンが長く回避猶予を確保）
-    const fire = a.gaze ? 84 : (e.form2 ? 96 : 88);     // 発射持続
+    const fire = a.gaze ? 84 : (e.form2 ? 72 : 66);     // 発射持続（薙ぎ払いを高速化＝回避しにくく）
     const ox = ecx;
     const oy = e.y + e.size * 0.40;
     a.ox = ox; a.oy = oy; a.bcol = bcol;
@@ -4837,7 +4838,7 @@ function runBossAct(e, pc, ecx, ecy) {
     } else if (a.t === tel) {
       // 発射開始: 薙ぎ払いの開始角・回転方向を確定（予告線の向きが起点）
       a.beamAng0 = a.aimAng;
-      const range = a.gaze ? 0 : (e.form2 ? 0.95 : 0.62);   // 薙ぎ払いの総角度（ぎょうしは0＝単一方向に固定）
+      const range = a.gaze ? 0 : (e.form2 ? 1.05 : 0.70);   // 薙ぎ払いの総角度（ぎょうしは0＝単一方向に固定）
       a.beamDir = Math.random() < 0.5 ? 1 : -1;
       a.beamRange = range;
       a.beamOn = true;
@@ -5580,7 +5581,7 @@ function updateFences(pc) {
     }
     if (fc.t === 0) { SFX.thunder(); flashTimer = Math.max(flashTimer, 6); shakeTimer = Math.max(shakeTimer, 5); }
     fc.live--;
-    if (invincibleTimer === 0 && state === 'playing' && distToSegment(pc.x, pc.y, fc.x1, fc.y1, fc.x2, fc.y2) < 11) hurtPlayer();
+    if (invincibleTimer === 0 && state === 'playing' && distToSegment(pc.x, pc.y, fc.x1, fc.y1, fc.x2, fc.y2) < 11) hurtPlayer(2);
     if (frame % 3 === 0) {
       const u = Math.random();
       burst(fc.x1 + (fc.x2 - fc.x1) * u, fc.y1 + (fc.y2 - fc.y1) * u, Math.random() < 0.5 ? '#73eff7' : '#f4f4f4', 2, 1.3);
@@ -5619,7 +5620,7 @@ function updateNovas(pc) {
     if (invincibleTimer === 0 && state === 'playing') {
       const dx = pc.x - nv.cx, dy = pc.y - nv.cy;
       const dist = Math.hypot(dx, dy);
-      if (Math.abs(dist - nv.r) < nv.thick && Math.abs(angDiff(Math.atan2(dy, dx), nv.gapAng)) > nv.gapHalf) hurtPlayer();
+      if (Math.abs(dist - nv.r) < nv.thick && Math.abs(angDiff(Math.atan2(dy, dx), nv.gapAng)) > nv.gapHalf) hurtPlayer(2);
     }
     if (frame % 2 === 0) {
       const a = Math.random() * Math.PI * 2;
