@@ -2695,9 +2695,9 @@ function recordBossDefeat(idx) {
   localStorage.setItem('hayato-bosszukan', JSON.stringify([...defeatedBosses]));
 }
 
-// 最大体力(ハート数)はステージ帯で段階的に増える: 1-14=5, 15-26=6, 27-28=8
-function baseLives() { return stage <= 14 ? 5 : stage <= 26 ? 6 : 8; }
-function maxLives() { return baseLives() + (gear.helm ? 2 : 0); }
+// 最大体力(ハート数): 1-26=6, 27-28=8。かぶとで+2だが上限8(27-28はかぶとでも増えない)
+function baseLives() { return stage <= 26 ? 6 : 8; }
+function maxLives() { return Math.min(baseLives() + (gear.helm ? 2 : 0), 8); }
 
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
