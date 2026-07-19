@@ -2091,7 +2091,12 @@ const SFX = {
   fire: () => beep(300, 0.06, 'triangle', 0.02, 500),
   shoot: () => beep(700, 0.05, 'square', 0.02, 1100),
   boom: () => { beep(90, 0.4, 'sawtooth', 0.08, 40); beep(200, 0.25, 'square', 0.05, 60, 40); },
-  bossFire: () => beep(180, 0.3, 'sawtooth', 0.05, 50),
+  bossFire: () => {
+    noise(0.1, 0.09, 1500, 'bandpass');
+    beep(240, 0.16, 'square', 0.07, 80);
+    beep(95, 0.22, 'sawtooth', 0.055, 45, 30);
+    beep(1300, 0.07, 'sawtooth', 0.035, 350, 15);
+  },
   warn: () => beep(750, 0.16, 'square', 0.05, 480),
   zap: () => beep(1400, 0.08, 'sawtooth', 0.04, 200),
   thunder: () => {
@@ -4248,7 +4253,7 @@ function updateBoss(e, pc, ecx, ecy) {
       const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
       fireballs.push({
         x: mouthX, y: mouthY,
-        vx: Math.cos(aim) * 1.7, vy: Math.sin(aim) * 1.7,
+        vx: Math.cos(aim) * 2.1, vy: Math.sin(aim) * 2.1,
         life: 600, colors: type.ballColors || null, kind: type.shot,
         ang: aim, rot: 0, giant: true,
       });
@@ -4284,7 +4289,8 @@ function updateBoss(e, pc, ecx, ecy) {
       e.fireTimer = type.sprite === 'rairyu' ? 42 : (type.pattern === 'spiral' ? 55 : Math.max(70, 150 - stage * 4));
       return;
     }
-    const shotSpeed = ({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15;
+    const BOSS_SPD = 1.5; // 弾速の一律倍率（プレイテストで1.35〜1.6の間を調整）
+    const shotSpeed = (({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15) * BOSS_SPD;
     const mods = type.mods || {};
     const shoot = (ang, sx = mouthX, sy = mouthY, spMul = 1) => {
       fireballs.push({
@@ -4305,21 +4311,21 @@ function updateBoss(e, pc, ecx, ecy) {
     const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
     const lv = Math.min(Math.floor(stage / 2) + bossCount, 8);
     if (type.pattern === 'aim') {
-      const n = Math.min(3 + lv, 8);
-      for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.26);
+      const n = Math.min(3 + Math.ceil(lv / 2), 6);
+      for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.30);
     } else if (type.pattern === 'wide') {
-      const n = Math.min(5 + lv, 10);
-      for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.3);
+      const n = Math.min(4 + Math.ceil(lv / 2), 8);
+      for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.34);
     } else if (type.pattern === 'ring') {
-      const n = 10 + Math.min(lv, 4);
+      const n = 8 + Math.min(Math.ceil(lv / 2), 3);
       for (let i = 0; i < n; i++) shoot((Math.PI * 2 * i) / n);
     } else if (type.pattern === 'mix') {
       e.altRing = !e.altRing;
       if (e.altRing) {
-        for (let i = 0; i < 8; i++) shoot((Math.PI * 2 * i) / 8);
+        for (let i = 0; i < 6; i++) shoot((Math.PI * 2 * i) / 6);
       } else {
-        const n = Math.min(3 + lv, 8);
-        for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.26);
+        const n = Math.min(3 + Math.ceil(lv / 2), 6);
+        for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.30);
       }
     } else if (type.pattern === 'spiral') {
       if (type.sprite === 'rairyu') {
@@ -4351,11 +4357,14 @@ function updateBoss(e, pc, ecx, ecy) {
       const gapX = 60 + Math.random() * (W - 120);
       for (let x = 12; x < W; x += 30) {
         if (Math.abs(x - gapX) < 48) continue;
-        shoot(Math.PI / 2, x, -10, 0.75);
+        shoot(Math.PI / 2, x, -10, 0.5);
       }
     }
     e.fireTimer = type.sprite === 'rairyu' ? 38 : ((type.pattern === 'spiral' || type.pattern === 'cross') ? 55 : Math.max(70, 150 - stage * 4));
     if (type.pattern === 'wall') e.fireTimer += 60; // かべは強いので間隔ながめ
+    burst(mouthX, mouthY, type.aura || '#ffcd75', 10, 2.6, true);
+    burst(mouthX, mouthY, '#f4f4f4', 6, 1.8, true);
+    addShockwave(mouthX, mouthY, '#ffcd75', 6, 4, 12, 3);
     shakeTimer = 8;
     SFX.bossFire();
   }
