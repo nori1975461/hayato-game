@@ -4113,7 +4113,7 @@ function updateBoss(e, pc, ecx, ecy) {
     SFX.rage();
   }
 
-  // レイジバースト演出中: 行動停止して咆哮 → 0でリング弾(12発)＋衝撃波を放つ（無敵化はしない）
+  // レイジバースト演出中: 行動停止して咆哮 → 0でリング弾(10発)＋衝撃波を放つ（無敵化はしない）
   if (e.rageBurstT > 0) {
     e.rageBurstT--;
     shakeTimer = Math.max(shakeTimer, 3);
@@ -4128,9 +4128,9 @@ function updateBoss(e, pc, ecx, ecy) {
       addShockwave(ecx, ecy, '#b13e53', 8, 8, 28, 5);
       addShockwave(ecx, ecy, '#ffcd75', 8, 6, 22, 3);
       const cols = type.ballColors || ['#b13e53', '#ef7d57', '#ffcd75'];
-      for (let i = 0; i < 12; i++) {
-        const a = (Math.PI * 2 * i) / 12;
-        fireballs.push({ x: ecx, y: ecy, vx: Math.cos(a) * 2.4, vy: Math.sin(a) * 2.4, life: 150, colors: cols, kind: 'ball', ang: a, rot: 0 });
+      for (let i = 0; i < 10; i++) {
+        const a = (Math.PI * 2 * i) / 10;
+        fireballs.push({ x: ecx, y: ecy, vx: Math.cos(a) * 2.85, vy: Math.sin(a) * 2.85, life: 150, colors: cols, kind: 'ball', ang: a, rot: 0 });
       }
       flashTimer = Math.max(flashTimer, 12);
       SFX.roar();
@@ -4282,7 +4282,7 @@ function updateBoss(e, pc, ecx, ecy) {
     pushParticle({ x: ecx, y: ecy, vx: -Math.cos(angle) * 1.5, vy: -Math.sin(angle) * 1.5, life: 12, color: '#73eff7' });
   }
 
-  // ---- 射撃（チャージ→発射。4回に1回は10倍サイズの巨大な一撃！） ----
+  // ---- 射撃（チャージ→発射。5回に1回は10倍サイズの巨大な一撃！） ----
   const mouthX = ecx;
   const mouthY = e.y + e.size * 0.55;
   if (e.giantCharge > 0) {
@@ -4302,7 +4302,7 @@ function updateBoss(e, pc, ecx, ecy) {
       const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
       fireballs.push({
         x: mouthX, y: mouthY,
-        vx: Math.cos(aim) * 2.1, vy: Math.sin(aim) * 2.1,
+        vx: Math.cos(aim) * 2.5, vy: Math.sin(aim) * 2.5,
         life: 600, colors: type.ballColors || null, kind: type.shot,
         ang: aim, rot: 0, giant: true,
       });
@@ -4330,15 +4330,15 @@ function updateBoss(e, pc, ecx, ecy) {
   }
   if (e.fireTimer <= 0) {
     e.shotsFired++;
-    // 4回に1回はド派手な巨大攻撃のチャージに入る
-    if (e.shotsFired % 4 === 0) {
+    // 5回に1回はド派手な巨大攻撃のチャージに入る
+    if (e.shotsFired % 5 === 0) {
       e.giantCharge = 50;
       addPopup(ecx, e.y - 14, '！！！', '#b13e53', 20);
       SFX.giantCharge();
-      e.fireTimer = type.sprite === 'rairyu' ? 42 : (type.pattern === 'spiral' ? 55 : Math.max(70, 150 - stage * 4));
+      e.fireTimer = type.sprite === 'rairyu' ? 50 : (type.pattern === 'spiral' ? 66 : Math.max(70, 150 - stage * 4));
       return;
     }
-    const BOSS_SPD = 1.5; // 弾速の一律倍率（プレイテストで1.35〜1.6の間を調整）
+    const BOSS_SPD = 1.8; // 弾速の一律倍率（1.5から1.2倍アップ、代わりに弾数2割減）
     const shotSpeed = (({ ball: 1.15, bolt: 1.7, sword: 1.35, spear: 1.5, wind: 1.6, trident: 1.4, ice: 1.3, hammer: 1.2, light: 1.5, scythe: 1.3, fang: 1.8, snake: 1.25, web: 1.4, fire: 1.6 })[type.shot] || 1.15) * BOSS_SPD;
     const mods = type.mods || {};
     const shoot = (ang, sx = mouthX, sy = mouthY, spMul = 1) => {
@@ -4360,20 +4360,20 @@ function updateBoss(e, pc, ecx, ecy) {
     const aim = Math.atan2(pc.y - mouthY, pc.x - mouthX);
     const lv = Math.min(Math.floor(stage / 2) + bossCount, 8);
     if (type.pattern === 'aim') {
-      const n = Math.min(3 + Math.ceil(lv / 2), 6);
+      const n = Math.min(2 + Math.ceil(lv / 2), 5);
       for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.30);
     } else if (type.pattern === 'wide') {
-      const n = Math.min(4 + Math.ceil(lv / 2), 8);
+      const n = Math.min(2 + Math.ceil(lv / 2), 5);
       for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.34);
     } else if (type.pattern === 'ring') {
-      const n = 8 + Math.min(Math.ceil(lv / 2), 3);
+      const n = 6 + Math.min(Math.ceil(lv / 2), 3);
       for (let i = 0; i < n; i++) shoot((Math.PI * 2 * i) / n);
     } else if (type.pattern === 'mix') {
       e.altRing = !e.altRing;
       if (e.altRing) {
-        for (let i = 0; i < 6; i++) shoot((Math.PI * 2 * i) / 6);
+        for (let i = 0; i < 5; i++) shoot((Math.PI * 2 * i) / 5);
       } else {
-        const n = Math.min(3 + Math.ceil(lv / 2), 6);
+        const n = Math.min(2 + Math.ceil(lv / 2), 5);
         for (let i = 0; i < n; i++) shoot(aim + (i - (n - 1) / 2) * 0.30);
       }
     } else if (type.pattern === 'spiral') {
@@ -4390,7 +4390,7 @@ function updateBoss(e, pc, ecx, ecy) {
       }
     } else if (type.pattern === 'rain') {
       // 空から降りそそぐ（メテオ・羽・炎の雨）
-      const n = Math.min(5 + lv, 10);
+      const n = Math.min(4 + lv, 8);
       for (let i = 0; i < n; i++) {
         shoot(Math.PI / 2 + (Math.random() - 0.5) * 0.25, Math.random() * W, -10, 0.9 + Math.random() * 0.5);
       }
@@ -4404,12 +4404,12 @@ function updateBoss(e, pc, ecx, ecy) {
     } else if (type.pattern === 'wall') {
       // 弾のかべ！すきまをくぐりぬけろ！
       const gapX = 60 + Math.random() * (W - 120);
-      for (let x = 12; x < W; x += 30) {
+      for (let x = 12; x < W; x += 38) {
         if (Math.abs(x - gapX) < 48) continue;
         shoot(Math.PI / 2, x, -10, 0.5);
       }
     }
-    e.fireTimer = type.sprite === 'rairyu' ? 38 : ((type.pattern === 'spiral' || type.pattern === 'cross') ? 55 : Math.max(70, 150 - stage * 4));
+    e.fireTimer = type.sprite === 'rairyu' ? 46 : ((type.pattern === 'spiral' || type.pattern === 'cross') ? 66 : Math.max(70, 150 - stage * 4));
     if (type.pattern === 'wall') e.fireTimer += 60; // かべは強いので間隔ながめ
     burst(mouthX, mouthY, type.aura || '#ffcd75', 10, 2.6, true);
     burst(mouthX, mouthY, '#f4f4f4', 6, 1.8, true);
@@ -4976,8 +4976,8 @@ function updateBossShots(pc) {
         f.vy = f.svy * 0.22;
       } else if (f.dartT === 55) {
         const a = Math.atan2(pc.y - f.y, pc.x - f.x);
-        f.vx = Math.cos(a) * 3.0;
-        f.vy = Math.sin(a) * 3.0;
+        f.vx = Math.cos(a) * 3.6;
+        f.vy = Math.sin(a) * 3.6;
         f.ang = a;
         burst(f.x, f.y, '#f4f4f4', 4, 1);
       }
@@ -5033,7 +5033,7 @@ function updateBossShots(pc) {
     if (!alive && f.burst && f.life <= 0) {
       for (let i = 0; i < 3; i++) {
         const a2 = (Math.PI * 2 * i) / 3 + Math.random() * 0.6;
-        newShots.push({ x: f.x, y: f.y, vx: Math.cos(a2) * 1.3, vy: Math.sin(a2) * 1.3, life: 200, colors: f.colors, kind: 'ball', ang: a2, rot: 0 });
+        newShots.push({ x: f.x, y: f.y, vx: Math.cos(a2) * 1.55, vy: Math.sin(a2) * 1.55, life: 200, colors: f.colors, kind: 'ball', ang: a2, rot: 0 });
       }
       burst(f.x, f.y, '#f4f4f4', 10, 2);
       SFX.split();
