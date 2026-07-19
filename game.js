@@ -2558,7 +2558,7 @@ window.addEventListener('keydown', (e) => {
 function continueGame() {
   continuesLeft--;
   // ジギムント戦（最終決戦）などの巨大ボス戦でのコンティニューは特別に満タンで復帰
-  lives = enemies.some((en) => en.boss && en.type.big) ? maxLives() : 8;
+  lives = enemies.some((en) => en.boss && en.type.big) ? maxLives() : baseLives();
   player.x = W / 2 - PLAYER_SIZE / 2;
   player.y = H / 2 - PLAYER_SIZE / 2;
   fireballs = [];      // 弾は全部消える
@@ -2675,7 +2675,9 @@ function recordBossDefeat(idx) {
   localStorage.setItem('hayato-bosszukan', JSON.stringify([...defeatedBosses]));
 }
 
-function maxLives() { return 8 + (gear.helm ? 2 : 0); }
+// 最大体力(ハート数)はステージ帯で段階的に増える: 1-14=5, 15-26=6, 27-28=8
+function baseLives() { return stage <= 14 ? 5 : stage <= 26 ? 6 : 8; }
+function maxLives() { return baseLives() + (gear.helm ? 2 : 0); }
 
 function startGame() {
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
@@ -2701,7 +2703,9 @@ function startGame() {
   hitstopT = 0;
   score = 0;
   hero = defaultHero();
-  lives = 8;
+  gear = {};
+  stage = 1;
+  lives = maxLives();
   weaponIdx = 0;
   formIdx = 0;
   weaponAngle = 0;
@@ -2724,7 +2728,6 @@ function startGame() {
   nextBossScore = 3000;
   bossCount = 0;
   warningTimer = 0;
-  stage = 1;
   specialGauge = 0;
   playerSlowT = 0;
   paused = false;
@@ -2734,7 +2737,6 @@ function startGame() {
   sigmundPowerPending = false;
   bossEvent = null;
   gold = 0;
-  gear = {};
   mercenaries = [];
   lastTallyScore = 0;
   pendingTally = 0;
@@ -3262,7 +3264,14 @@ function killEnemy(e, lightningDepth = 2) {
           pendingTally = 110;
           bannerText = 'ぜんステージクリア！！';
         } else {
+          const oldMax = maxLives();
           stage++;
+          const newMax = maxLives();
+          if (newMax > oldMax) {
+            lives = Math.min(lives + (newMax - oldMax), newMax);
+            addPopup(player.x + PLAYER_SIZE / 2, player.y - 20, 'たいりょく上限アップ！', '#ff6a8f', 12);
+            SFX.heart();
+          }
           bannerText = `ステージ${stage} ${currentStage().name}へ！`;
           if (cleared % 5 === 0) pendingTally = 110; // 5ステージごとにけっさん
         }
