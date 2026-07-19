@@ -1757,28 +1757,29 @@ const WEAPONS = [
     shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 20, pierce: true, aim: true, life: 90, color: '#73eff7', r: 26 } },
   // ここから最上位4武器の「改（強化版）」「真（最強版）」。各武器を3段階にレベルアップ。
   // 段階が上がるごとに ダメージ・弾速・射撃間隔・貫通/範囲・色の派手さ を強化(hybrid は増やさない)。
-  { name: 'ロケットパンチ改', score: 223500, len: 50, width: 11, spin: 0.140, blades: 1, dmg: 6, knock: 36,
+  // 並び: マシンガン→ロケットパンチ→はどうほう改→てんていのいかずち→はどうほう真(最上位・360度リング)
+  { name: 'マシンガン改', score: 223500, len: 36, width: 6, spin: 0.135, blades: 1, dmg: 2,
+    color: '#4a5c8f', edge: '#b8e0ff', kind: 'gun', hybrid: false,
+    shoot: { kind: 'bullet', interval: 6, speed: 7.5, dmg: 2, aim: true } },
+  { name: 'マシンガン真', score: 239500, len: 38, width: 7, spin: 0.140, blades: 1, dmg: 3,
+    color: '#6b8cff', edge: '#ffffff', kind: 'gun', hybrid: false,
+    shoot: { kind: 'bullet', interval: 5, speed: 8.5, dmg: 3, aim: true, count: 2 } },
+  { name: 'ロケットパンチ改', score: 255500, len: 50, width: 11, spin: 0.140, blades: 1, dmg: 6, knock: 36,
     color: '#f0402f', edge: '#ffcd75', kind: 'fist', hybrid: false,
     shoot: { kind: 'rocketfist', interval: 30, speed: 6.0, dmg: 9, aoe: 48, aim: true } },
-  { name: 'ロケットパンチ真', score: 239500, len: 52, width: 12, spin: 0.145, blades: 1, dmg: 9, knock: 42,
+  { name: 'ロケットパンチ真', score: 271500, len: 52, width: 12, spin: 0.145, blades: 1, dmg: 9, knock: 42,
     color: '#ff2e4d', edge: '#fff275', kind: 'fist', hybrid: false,
     shoot: { kind: 'rocketfist', interval: 24, speed: 7.0, dmg: 12, aoe: 60, aim: true, count: 2 } },
-  { name: 'てんていのいかずち改', score: 255500, len: 96, width: 10, spin: 0.185, blades: 4, dmg: 13, knock: 26,
-    lightning: true, tesla: true, zapDmg: 16, zapRate: 24, color: '#faff5a', edge: '#73eff7', kind: 'boltrod', hybrid: false },
-  { name: 'てんていのいかずち真', score: 271500, len: 100, width: 11, spin: 0.195, blades: 6, dmg: 18, knock: 30,
-    lightning: true, tesla: true, zapDmg: 22, zapRate: 24, color: '#c9f5ff', edge: '#41a6f6', kind: 'boltrod', hybrid: false },
   { name: 'はどうほう改', score: 287500, len: 64, width: 16, spin: 0.132, blades: 1, dmg: 8,
     color: '#2a7db0', edge: '#a0f0ff', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 46, speed: 6.6, dmg: 28, pierce: true, aim: true, life: 100, color: '#a0f0ff', r: 30 } },
-  { name: 'はどうほう真', score: 303500, len: 70, width: 18, spin: 0.135, blades: 1, dmg: 11,
+  { name: 'てんていのいかずち改', score: 303500, len: 96, width: 10, spin: 0.185, blades: 4, dmg: 13, knock: 26,
+    lightning: true, tesla: true, zapDmg: 16, zapRate: 24, color: '#faff5a', edge: '#73eff7', kind: 'boltrod', hybrid: false },
+  { name: 'てんていのいかずち真', score: 319500, len: 100, width: 11, spin: 0.195, blades: 6, dmg: 18, knock: 30,
+    lightning: true, tesla: true, zapDmg: 22, zapRate: 24, color: '#c9f5ff', edge: '#41a6f6', kind: 'boltrod', hybrid: false },
+  { name: 'はどうほう真', score: 335500, len: 70, width: 18, spin: 0.135, blades: 1, dmg: 13,
     color: '#41a6f6', edge: '#ffffff', kind: 'wavegun', hybrid: false,
-    shoot: { kind: 'wave', interval: 38, speed: 7.2, dmg: 38, pierce: true, aim: true, life: 110, color: '#c9f5ff', r: 34 } },
-  { name: 'マシンガン改', score: 319500, len: 36, width: 6, spin: 0.135, blades: 1, dmg: 2,
-    color: '#4a5c8f', edge: '#b8e0ff', kind: 'gun', hybrid: false,
-    shoot: { kind: 'bullet', interval: 6, speed: 7.5, dmg: 2, aim: true } },
-  { name: 'マシンガン真', score: 335500, len: 38, width: 7, spin: 0.140, blades: 1, dmg: 3,
-    color: '#6b8cff', edge: '#ffffff', kind: 'gun', hybrid: false,
-    shoot: { kind: 'bullet', interval: 5, speed: 8.5, dmg: 3, aim: true, count: 2 } },
+    shoot: { kind: 'wave', interval: 44, speed: 6.8, dmg: 20, count: 8, ring: true, pierce: true, aim: true, life: 96, color: '#c9f5ff', altColor: '#ffe94a', r: 30 } },
 ];
 
 // ヨーヨーは刃の長さがリズミカルに伸び縮みする
@@ -3754,9 +3755,12 @@ function update() {
       }
       const count = sh.count || 1;
       for (let i = 0; i < count; i++) {
-        const ang = baseAng + (i - (count - 1) / 2) * 0.22;
+        const ang = sh.ring
+          ? baseAng + (i * Math.PI * 2) / count              // 全方位。1本目(i=0)は必ずロック対象へ
+          : baseAng + (i - (count - 1) / 2) * 0.22;
+        const sx = sh.ring ? pc.x : tipX, sy = sh.ring ? pc.y : tipY; // リングは主人公中心から発射
         pshots.push({
-          x: tipX, y: tipY,
+          x: sx, y: sy,
           vx: Math.cos(ang) * sh.speed,
           vy: Math.sin(ang) * sh.speed,
           life: sh.kind === 'boomerang' ? 999 : (sh.life || 90),
@@ -3766,7 +3770,7 @@ function update() {
           turn: sh.homing || 0,
           ang, rot: 0, t: 0, returning: false,
           hitSet: sh.pierce ? new Set() : null,
-          color: sh.color || null,                                     // 武器ごとの弾色（未指定なら kind 既定色）
+          color: (sh.ring && i % 2 === 1 && sh.altColor) ? sh.altColor : (sh.color || null), // リングは奇数レイを交互配色（花火感）
           trail: sh.trail !== undefined ? sh.trail : (SHOT_FX[sh.kind] && SHOT_FX[sh.kind].trail) || null, // 尾の色
         });
       }
@@ -3776,9 +3780,17 @@ function update() {
       if (sh.kind === 'wave') {
         // はどうほう: 発射の反動を示す砲口衝撃波＋水色スパーク（重い一撃感を強調）
         const wc = sh.color || '#73eff7';
-        addShockwave(tipX, tipY, wc, 8, 3.4, 15, 3);
-        addShockwave(tipX, tipY, '#f4f4f4', 4, 2.2, 10, 2);
-        burst(tipX, tipY, wc, 12, 3.2, true);
+        if (sh.ring) {
+          // はどうほう真: 全方位リング。主人公中心から三重衝撃波＋大バーストで頂点武器の派手さを出す
+          addShockwave(pc.x, pc.y, wc, 12, 5.0, 22, 4);
+          addShockwave(pc.x, pc.y, '#ffe94a', 8, 3.8, 16, 3);
+          addShockwave(pc.x, pc.y, '#f4f4f4', 4, 2.6, 12, 2);
+          burst(pc.x, pc.y, wc, 20, 3.6, true);
+        } else {
+          addShockwave(tipX, tipY, wc, 8, 3.4, 15, 3);
+          addShockwave(tipX, tipY, '#f4f4f4', 4, 2.2, 10, 2);
+          burst(tipX, tipY, wc, 12, 3.2, true);
+        }
       }
     }
   }
@@ -8102,6 +8114,18 @@ function render() {
         ctx.beginPath();
         ctx.arc(tgt.x + tgt.size / 2, tgt.y + tgt.size / 2, tgt.size * 0.7, 0, Math.PI * 2);
         ctx.stroke();
+      }
+      // はどうほう真: 全方位リングのチャージ予告。残り7方向へ伸びるティックで発射を予感させる
+      if (w.shoot && w.shoot.ring && shootTimer < 18) {
+        const n = w.shoot.count || 8, grow = (18 - shootTimer) * 1.5;
+        ctx.globalAlpha = pulse * 0.7; ctx.lineWidth = 1;
+        for (let i = 1; i < n; i++) {
+          const a = aimAng + (i * Math.PI * 2) / n;
+          ctx.beginPath();
+          ctx.moveTo(pc.x + Math.cos(a) * 14, pc.y + Math.sin(a) * 14);
+          ctx.lineTo(pc.x + Math.cos(a) * (28 + grow), pc.y + Math.sin(a) * (28 + grow));
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }
