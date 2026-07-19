@@ -1725,7 +1725,7 @@ const WEAPONS = [
   { name: 'ダブルライトセーバー', score: 78650, len: 74, width: 7,  spin: 0.175, blades: 2, dmg: 5, saber: true, saberColor: '#ff6b6b', color: '#ff6b6b', edge: '#f4f4f4' },
   { name: 'ツインミラーワンド',   score: 81600, len: 42, width: 4,  spin: 0.135, blades: 1, dmg: 3, color: '#8b4f8b', edge: '#ff77a8', kind: 'wand',
     shoot: { kind: 'orb', interval: 24, speed: 3.6, dmg: 3, count: 3, homing: 0.07 } },
-  { name: 'テスラコイル',         score: 84600, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 2, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true },
+  { name: 'テスラコイル',         score: 84600, len: 44, width: 5,  spin: 0.140, blades: 1, dmg: 3, color: '#566c86', edge: '#73eff7', kind: 'tesla', tesla: true, zapDmg: 6, zapRate: 24, zapRange: 160, zapTargets: 2 },
   { name: 'メテオハンマー',       score: 87660, len: 68, width: 6,  spin: 0.155, blades: 1, dmg: 5, color: '#333c57', edge: '#ef7d57', kind: 'chain', ballR: 15, knock: 28 },
   { name: 'ブラックホールキャノン', score: 90770, len: 40, width: 9, spin: 0.130, blades: 1, dmg: 4, color: '#333c57', edge: '#8b4f8b', kind: 'cannon',
     shoot: { kind: 'cannonball', interval: 44, speed: 3.4, dmg: 4, aoe: 48, aim: true } },
@@ -1741,7 +1741,7 @@ const WEAPONS = [
   { name: 'てんくうのつるぎ',     score: 110600, len: 88, width: 10, spin: 0.165, blades: 2, dmg: 7, knock: 20, lightning: true, ice: true, color: '#73eff7', edge: '#ffcd75' },
   { name: 'スーパーノヴァキャノン', score: 116900, len: 44, width: 10, spin: 0.140, blades: 1, dmg: 4, color: '#333c57', edge: '#ffcd75', kind: 'cannon', hybrid: false,
     shoot: { kind: 'cannonball', interval: 42, speed: 3.6, dmg: 5, aoe: 56, aim: true } },
-  { name: 'りゅうじんセーバー',   score: 126500, len: 86, width: 9, spin: 0.165, blades: 4, dmg: 7, saber: true, saberColor: '#f4f4f4', rainbowSaber: true, tesla: true, color: '#f4f4f4', edge: '#f4f4f4' },
+  { name: 'りゅうじんセーバー',   score: 126500, len: 86, width: 9, spin: 0.165, blades: 4, dmg: 7, saber: true, saberColor: '#f4f4f4', rainbowSaber: true, tesla: true, zapDmg: 8, zapRate: 24, color: '#f4f4f4', edge: '#f4f4f4' },
   // ここから「新8項目フィードバック対応」の新メカニクス武器3種（オービット刃／残像斬り／パリィ）
   { name: 'ギャラクシーツインリング', score: 137500, len: 70, width: 9, spin: 0.150, blades: 2, dmg: 6, rainbow: true, color: '#73eff7', edge: '#f4f4f4', hybrid: false, orbitals: { count: 3, r: 70, spin: -0.12 } },
   { name: 'じくうのカタナ・ムラクモ', score: 149500, len: 84, width: 8, spin: 0.170, blades: 2, dmg: 8, saber: true, saberColor: '#a685e2', color: '#a685e2', edge: '#f4f4f4', hybrid: false, echo: { delay: 18, mul: 0.5 } },
@@ -1751,7 +1751,7 @@ const WEAPONS = [
     color: '#ef7d57', edge: '#ffcd75', kind: 'fist', hybrid: false,
     shoot: { kind: 'rocketfist', interval: 36, speed: 5.2, dmg: 6, aoe: 40, aim: true } },
   { name: 'てんていのいかずち', score: 191500, len: 92, width: 9, spin: 0.175, blades: 4, dmg: 9, knock: 22,
-    lightning: true, tesla: true, color: '#ffe94a', edge: '#f4f4f4', kind: 'boltrod', hybrid: false },
+    lightning: true, tesla: true, zapDmg: 12, zapRate: 24, color: '#ffe94a', edge: '#f4f4f4', kind: 'boltrod', hybrid: false },
   { name: 'はどうほう', score: 207500, len: 60, width: 14, spin: 0.130, blades: 1, dmg: 6,
     color: '#1d5a80', edge: '#73eff7', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 55, speed: 6.0, dmg: 20, pierce: true, aim: true, life: 90, color: '#73eff7', r: 26 } },
@@ -1764,9 +1764,9 @@ const WEAPONS = [
     color: '#ff2e4d', edge: '#fff275', kind: 'fist', hybrid: false,
     shoot: { kind: 'rocketfist', interval: 24, speed: 7.0, dmg: 12, aoe: 60, aim: true, count: 2 } },
   { name: 'てんていのいかずち改', score: 255500, len: 96, width: 10, spin: 0.185, blades: 4, dmg: 13, knock: 26,
-    lightning: true, tesla: true, color: '#faff5a', edge: '#73eff7', kind: 'boltrod', hybrid: false },
+    lightning: true, tesla: true, zapDmg: 16, zapRate: 24, color: '#faff5a', edge: '#73eff7', kind: 'boltrod', hybrid: false },
   { name: 'てんていのいかずち真', score: 271500, len: 100, width: 11, spin: 0.195, blades: 6, dmg: 18, knock: 30,
-    lightning: true, tesla: true, color: '#c9f5ff', edge: '#41a6f6', kind: 'boltrod', hybrid: false },
+    lightning: true, tesla: true, zapDmg: 22, zapRate: 24, color: '#c9f5ff', edge: '#41a6f6', kind: 'boltrod', hybrid: false },
   { name: 'はどうほう改', score: 287500, len: 64, width: 16, spin: 0.132, blades: 1, dmg: 8,
     color: '#2a7db0', edge: '#a0f0ff', kind: 'wavegun', hybrid: false,
     shoot: { kind: 'wave', interval: 46, speed: 6.6, dmg: 28, pierce: true, aim: true, life: 100, color: '#a0f0ff', r: 30 } },
@@ -3774,18 +3774,27 @@ function update() {
     }
   }
 
-  // テスラコイル: 近くの敵へ自動で電撃がとぶ
-  if (weapon.tesla && frame % 38 === 0) {
-    const t = nearestEnemyTo(pc.x, pc.y);
-    if (t) {
-      const tcx = t.x + t.size / 2;
-      const tcy = t.y + t.size / 2;
-      if ((tcx - pc.x) ** 2 + (tcy - pc.y) ** 2 < 130 ** 2) {
+  // テスラ系: 近くの敵へ自動で電撃がとぶ（zapRate/zapRange/zapDmg/zapTargets でデータ駆動）
+  if (weapon.tesla && frame % (weapon.zapRate || 38) === 0) {
+    const range = weapon.zapRange || 130;
+    const zdmg = weapon.zapDmg || 2;
+    const maxTargets = weapon.zapTargets || 1;
+    const inRange = [];
+    for (const e of enemies) {
+      if (e.hp <= 0 || e.flee) continue;
+      const tcx = e.x + e.size / 2, tcy = e.y + e.size / 2;
+      const d2 = (tcx - pc.x) ** 2 + (tcy - pc.y) ** 2;
+      if (d2 < range * range) inRange.push({ e, tcx, tcy, d2 });
+    }
+    inRange.sort((a, b) => a.d2 - b.d2);
+    const targets = inRange.slice(0, maxTargets);
+    if (targets.length) {
+      SFX.zap();
+      for (const { e, tcx, tcy } of targets) {
         bolts.push({ x1: pc.x, y1: pc.y, x2: tcx, y2: tcy, life: 8 });
-        SFX.zap();
-        const dealt = t.boss ? damageBoss(t, 2, tcx, tcy) : (t.hp -= 2, 2);
-        if (t.hp <= 0) killEnemy(t);
-        else if (dealt > 0) { t.hitTimer = 12; burst(tcx, tcy, PALETTE.Y, 5); }
+        const dealt = e.boss ? damageBoss(e, zdmg, tcx, tcy) : (e.hp -= zdmg, zdmg);
+        if (e.hp <= 0) killEnemy(e);
+        else if (dealt > 0) { e.hitTimer = 12; burst(tcx, tcy, PALETTE.Y, 5); }
       }
     }
   }
