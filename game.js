@@ -3749,6 +3749,7 @@ function update() {
       if (sh.aim) {
         const target = nearestEnemyTo(pc.x, pc.y);
         if (target) baseAng = Math.atan2(target.y + target.size / 2 - pc.y, target.x + target.size / 2 - pc.x);
+        else if (sh.kind === 'wave') baseAng = lastMoveAng; // はどうほう: 敵がいなければ移動方向へ撃つ（回転任せの暴発を防ぐ）
       }
       const count = sh.count || 1;
       for (let i = 0; i < count; i++) {
@@ -3771,6 +3772,13 @@ function update() {
       shootTimer = Math.max(1, Math.round(sh.interval / hero.fireMul));
       muzzleFlash(tipX, tipY, baseAng, sh.kind); // 発射口の火花（全遠距離武器）
       shootSFX(sh.kind, sh.interval);            // kind 別の発射音
+      if (sh.kind === 'wave') {
+        // はどうほう: 発射の反動を示す砲口衝撃波＋水色スパーク（重い一撃感を強調）
+        const wc = sh.color || '#73eff7';
+        addShockwave(tipX, tipY, wc, 8, 3.4, 15, 3);
+        addShockwave(tipX, tipY, '#f4f4f4', 4, 2.2, 10, 2);
+        burst(tipX, tipY, wc, 12, 3.2, true);
+      }
     }
   }
 
@@ -7476,6 +7484,16 @@ function drawPShot(f) {
     ctx.beginPath();
     ctx.arc(0, 0, 4.5 * pulse, 0, Math.PI * 2);
     ctx.fill();
+    // 飛行中に後方へ散る火花（弾ローカル座標。x前方・後方へ尾を引く）
+    for (let s = 0; s < 3; s++) {
+      const ph = gframe * 0.6 + s * 2.1;
+      const sx = -14 - s * 7 - (Math.sin(ph) + 1) * 4;
+      const sy = Math.sin(ph * 1.7) * 9;
+      ctx.globalAlpha = 0.5 + Math.sin(ph) * 0.3;
+      ctx.fillStyle = s === 0 ? '#f4f4f4' : base;
+      ctx.fillRect(sx, sy - 1, 2, 2);
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 }
@@ -7985,6 +8003,37 @@ function render() {
 
   // らいこうレーザー（敵より上のレイヤーに極太ビームを描く）
   drawBossBeams();
+
+  // はどうほう: ロックオンの予告線（狙う敵 or 移動方向へ点線＋照準リング）
+  {
+    const w = WEAPONS[weaponIdx];
+    if (w.kind === 'wavegun' && state === 'playing') {
+      const pc = playerCenter();
+      const tgt = nearestEnemyTo(pc.x, pc.y);
+      const aimAng = tgt
+        ? Math.atan2(tgt.y + tgt.size / 2 - pc.y, tgt.x + tgt.size / 2 - pc.x)
+        : lastMoveAng;
+      const pulse = 0.22 + Math.abs(Math.sin(gframe * 0.15)) * 0.32;
+      ctx.save();
+      ctx.strokeStyle = w.edge || '#73eff7';
+      ctx.globalAlpha = pulse;
+      ctx.lineWidth = tgt ? 2 : 1;
+      ctx.setLineDash([4, 6]);
+      ctx.lineDashOffset = -gframe;
+      ctx.beginPath();
+      ctx.moveTo(pc.x, pc.y);
+      ctx.lineTo(pc.x + Math.cos(aimAng) * 200, pc.y + Math.sin(aimAng) * 200);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (tgt) {
+        ctx.globalAlpha = pulse + 0.2;
+        ctx.beginPath();
+        ctx.arc(tgt.x + tgt.size / 2, tgt.y + tgt.size / 2, tgt.size * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
 
   drawWeapon();
 
