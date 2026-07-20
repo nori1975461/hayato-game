@@ -1,0 +1,43 @@
+/* ボルモン！ テストモード — ネオン宇宙の暗い背景に発光体が映えるトーン */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #05050f;
+  overflow: hidden;
+}
+
+#game-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ドット絵をくっきり表示（拡大時にぼかさない） */
+#game-root canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* エラーバナー（window.onerror / unhandledrejection を DOM で表示。Phaser が死んでいても見える） */
+#vortex-error-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  display: none;
+  padding: 8px 12px;
+  background: #c00020;
+  color: #fff;
+  font-family: monospace, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  border-bottom: 2px solid #ff5470;
+}
