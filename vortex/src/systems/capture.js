@@ -4,6 +4,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
+const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
 
 const N_MONS = MONSTERS.filter((m) => m.rarity === 'N');
@@ -41,6 +42,12 @@ export function createCapture(run) {
   // G キー: 足元へ強制ドロップ（N からランダム）
   function forceDropCore() {
     makeCore(run.player.x, run.player.y, run.rng.pick(N_MONS));
+  }
+
+  // どうくつ報酬などから任意レアリティのコアを落とす（§10.6・items.js から呼ぶ）
+  function dropCoreAt(x, y, rarity) {
+    const pool = rarity === 'SR' ? SR_MONS : rarity === 'R' ? R_MONS : N_MONS;
+    makeCore(x, y, run.rng.pick(pool));
   }
 
   function pickupCore(core) {
@@ -90,16 +97,37 @@ export function createCapture(run) {
   function spawnAltar() {
     const x = run.player.x, y = run.player.y - 110;
     const glow = run.add.image(x, y, 'glow')
-      .setBlendMode(Phaser.BlendModes.ADD).setDepth(4)
+      .setBlendMode(ADD).setDepth(4)
       .setTint(0xff6ec7).setScale(3.5);
+    // 下から立ち上がる光柱（8×76・ADD）
+    const pillar = run.add.image(x, y + 38, 'white')
+      .setBlendMode(ADD).setDepth(3)
+      .setTint(0xff9ee0).setOrigin(0.5, 1).setDisplaySize(8, 76).setAlpha(0.85);
     const spr = run.add.image(x, y, 'core').setDepth(12)
       .setTint(0xffffff).setScale(3.2);
     const label = run.add.text(x, y - 30, 'ごうせいの さいだん', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6f0',
     }).setOrigin(0.5).setDepth(13);
-    altar = { x, y, glow, spr, label };
-    Sound.sfx('altar');
+    altar = { x, y, glow, spr, label, pillar };
+    Sound.sfx('altarFanfare');
+    if (run.fx && run.fx.setTarget) {
+      run.fx.setTarget('altar', x, y, { color: 0xff9ee0, label: 'さいだん' });
+    }
+    if (run.fx && run.fx.announce) {
+      run.fx.announce('がったいの さいだんが あらわれた！', '#ff9ee0');
+    }
     run.floatText(x, y + 26, 'さわって ごうせい！', '#ff6ec7');
+  }
+
+  function consumeAltar() {
+    if (altar) {
+      altar.glow.destroy();
+      altar.spr.destroy();
+      altar.label.destroy();
+      if (altar.pillar) altar.pillar.destroy();
+      altar = null;
+    }
+    if (run.fx && run.fx.clearTarget) run.fx.clearTarget('altar');
   }
 
   // パーティ先頭から同レアリティ2体を選び上位へ合成
@@ -118,15 +146,22 @@ export function createCapture(run) {
     }
     if (!pair) return false;
     const def = run.rng.pick(resultPool);
+    const defA = run.party[pair[0]].def;
+    const defB = run.party[pair[1]].def;
     // 素材を除去（大きいインデックスから）
     run.party.splice(pair[1], 1);
     run.party.splice(pair[0], 1);
-    run.party.push({ def });
+    run.party.push({ def, fused: true });
     run.orbit.rebuild();
-    Sound.sfx('fusion');
-    run.shake(120, 4);
-    run.spawnParticles(run.player.x, run.player.y, int(def.color), 20);
-    run.floatText(run.player.x, run.player.y - 20, def.name + ' たんじょう！', '#ff6ec7');
+    // 合成シネマティック（音・シェイク・粒子は fx 側が担当）
+    if (run.fx && run.fx.fusionCinematic) {
+      run.fx.fusionCinematic(defA, defB, def, () => {});
+    } else {
+      Sound.sfx('fusion');
+      run.shake(120, 4);
+      run.spawnParticles(run.player.x, run.player.y, int(def.color), 20);
+      run.floatText(run.player.x, run.player.y - 20, def.name + ' たんじょう！', '#ff6ec7');
+    }
     return true;
   }
 
@@ -142,8 +177,9 @@ export function createCapture(run) {
     if (dx * dx + dy * dy <= 26 * 26) {
       if (run.party.length >= BALANCE.altar.minParty) {
         if (tryFuse()) {
-          altar.glow.destroy(); altar.spr.destroy(); altar.label.destroy();
-          altar = null;
+          consumeAltar();
+        } else {
+          showMsg('おなじレアリティ2たいが ひつよう');
         }
       } else {
         const need = BALANCE.altar.minParty - run.party.length;
@@ -154,7 +190,7 @@ export function createCapture(run) {
 
   function showMsg(text) {
     if (!msg) {
-      msg = run.add.text(320, 300, '', {
+      msg = run.add.text(320, 252, '', {
         fontFamily: 'monospace', fontSize: '14px', color: '#ffffff',
         backgroundColor: '#00000088', padding: { x: 6, y: 3 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(1500);
@@ -172,5 +208,5 @@ export function createCapture(run) {
     }
   }
 
-  return { update, onEnemyKilled, forceDropCore, get coreCount() { return cores.length; } };
+  return { update, onEnemyKilled, forceDropCore, dropCoreAt, get coreCount() { return cores.length; } };
 }

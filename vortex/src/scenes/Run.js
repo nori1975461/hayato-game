@@ -7,6 +7,9 @@ import { createOrbit } from '../systems/orbit.js';
 import { createSpawner } from '../systems/spawner.js';
 import { createCapture } from '../systems/capture.js';
 import { createLevelup } from '../systems/levelup.js';
+import { createFx } from '../systems/fx.js';
+import { createBoss } from '../systems/boss.js';
+import { createItems } from '../systems/items.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
@@ -38,11 +41,14 @@ export class RunScene extends Phaser.Scene {
     this.paused = false;
     this.drafting = false;
     this.ended = false;
+    this.cinematic = false;   // 合成/ボス撃破など進行停止する演出中
+    this.freezeT = 0;         // ヒットストップ残り秒
+    this.heroShotT = BALANCE.hero.intervalSec;
 
     // 強化ステータス
     this.stats = {
       damageMult: 1, angularMult: 1, radiusMult: 1,
-      moveMult: 1, captureAdd: 0, magnetAdd: 0,
+      moveMult: 1, captureAdd: 0, magnetAdd: 0, heroMult: 1,
     };
 
     // --- プレイヤー ---
@@ -82,6 +88,9 @@ export class RunScene extends Phaser.Scene {
     this.spawner = createSpawner(this);
     this.capture = createCapture(this);
     this.levelup = createLevelup(this);
+    this.fx = createFx(this);
+    this.boss = createBoss(this);
+    this.items = createItems(this);
     this.orbit.rebuild();
 
     // --- HUD ---
@@ -89,6 +98,12 @@ export class RunScene extends Phaser.Scene {
     this.muted = false;
 
     if (this.withAudio) Sound.startBgm();
+
+    this.events.once('shutdown', () => {
+      if (this.boss) this.boss.destroy();
+      if (this.items) this.items.destroy();
+      if (this.fx && this.fx.destroy) this.fx.destroy();
+    });
 
     this.installInput();
   }
@@ -135,23 +150,43 @@ export class RunScene extends Phaser.Scene {
   // ============ メインループ ============
   update(time, delta) {
     if (this.ended) return;
-    // ポーズ / ドラフト中は時間停止（HUDのFPSだけ更新）
-    if (this.paused || this.drafting) {
+    // ポーズ中は時間停止（ドラフトはノンストップ＝止めない）
+    if (this.paused) {
       this.hud.update(delta);
       return;
     }
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
+
+    // シネマティック中（合成/ボス撃破）は進行停止。演出tweenはScene側で継続する。
+    if (this.cinematic) {
+      if (this.fx) this.fx.update(dt);
+      this.hud.update(delta);
+      return;
+    }
+    // ヒットストップ（一瞬の停止）。
+    if (this.freezeT > 0) {
+      this.freezeT -= dt;
+      if (this.fx) this.fx.update(dt);
+      this.hud.update(delta);
+      return;
+    }
+
     this.elapsed += dt;
 
     this.updatePlayer(dt);
+    this.updateHeroShot(dt);
     this.orbit.update(dt);
     this.spawner.update(dt);
+    this.boss.update(dt);
     this.capture.update(dt);
+    this.items.update(dt);
+    if (this.levelup.update) this.levelup.update(dt);
     this.updateEnemies(dt);
     this.updateBullets(dt);
     this.updateGems(dt);
     this.updateParticles(dt);
+    if (this.fx) this.fx.update(dt);
     this.updateBackground();
 
     // 死亡したものをプールへ戻して配列を詰める
@@ -162,8 +197,8 @@ export class RunScene extends Phaser.Scene {
 
     this.hud.update(delta);
 
-    if (this.player.hp <= 0) this.endRun(false);
-    else if (this.elapsed >= this.runDurationSec) this.endRun(true);
+    // クリアはボス撃破のみ（時間切れ敗北なし）。シネマ中は敗北判定を保留（撃破クリアを先取りさせる）。
+    if (!this.cinematic && this.player.hp <= 0) this.endRun(false);
   }
 
   compact(arr, onDead) {
@@ -217,6 +252,37 @@ export class RunScene extends Phaser.Scene {
     this.shake(90, 3);
   }
 
+  // 主人公の自動攻撃「スターショット」。射程内の最寄り敵へ発射（Lv8で2連・Lv16で3連）。
+  updateHeroShot(dt) {
+    const H = BALANCE.hero;
+    this.heroShotT -= dt;
+    if (this.heroShotT > 0) return;
+
+    const px = this.player.x, py = this.player.y;
+    let best = null, bestD2 = H.range * H.range;
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      const dx = e.x - px, dy = e.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; best = e; }
+    }
+    if (!best) return; // 射程内に敵がいなければ待機（タイマー維持）
+
+    this.heroShotT = H.intervalSec;
+    const dmg = (H.damageBase + Math.floor(this.level / 2) * H.damagePerTwoLevels) * this.stats.heroMult;
+    const ang = Math.atan2(best.y - py, best.x - px);
+    const spread = H.spreadDeg * Math.PI / 180;
+    let angles;
+    if (this.level >= H.tripleLevel) angles = [ang, ang - spread, ang + spread];
+    else if (this.level >= H.twinLevel) angles = [ang - spread, ang + spread];
+    else angles = [ang];
+    for (const a of angles) {
+      this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
+        0x4de1c0, dmg, H.bulletRadius);
+    }
+    Sound.sfx('shoot');
+  }
+
   // ============ 敵 ============
   spawnEnemy(def, x, y, isElite, hpMult) {
     if (this.enemies.length >= BALANCE.enemyCap) return null;
@@ -249,6 +315,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   releaseEnemy(e) {
+    if (e.isBoss) return; // ボスの表示は boss.js が破棄する（プール混入禁止）
     e.spr.setVisible(false).clearTint();
     e.glow.setVisible(false);
     this._enemyPool.push({ spr: e.spr, glow: e.glow });
@@ -259,10 +326,11 @@ export class RunScene extends Phaser.Scene {
     const F = BALANCE.archetypes.FIELD;
     for (const e of this.enemies) {
       if (!e.active) continue;
+      if (e.isBoss) continue; // ボスの移動・接触ダメージは boss.js が管理
       let dx = px - e.x, dy = py - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       const nx = dx / dist, ny = dy / dist;
-      const slow = e.slowMark === this.elapsed ? F.slowFactor : 1;
+      const slow = e.slowMark === this.elapsed && !e.isBoss ? F.slowFactor : 1;
       let vx = 0, vy = 0;
 
       if (e.movement === 'chase') {
@@ -329,6 +397,7 @@ export class RunScene extends Phaser.Scene {
 
   killEnemy(e, color) {
     if (!e.active) return;
+    if (e.isBoss) { e.active = false; this.boss.onBossKilled(e); return; } // ボス撃破は専用演出へ
     e.active = false;
     this.kills++;
     const burst = e.isElite ? 20 : (8 + Math.floor(this.rng.random() * 5));
@@ -532,7 +601,7 @@ export class RunScene extends Phaser.Scene {
     this.scene.start('Result', {
       clear,
       withAudio: this.withAudio,
-      elapsed: Math.min(this.elapsed, this.runDurationSec),
+      elapsed: this.elapsed,
       kills: this.kills,
       captures: this.captures,
       coins: this.coins,

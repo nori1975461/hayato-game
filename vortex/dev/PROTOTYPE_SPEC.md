@@ -3,6 +3,8 @@
 この文書がテストモード実装の**正典**。実装担当（builder）はコードを書く前に必ず全文を読むこと。
 数値・API・ファイル分担はこの文書に従い、独断で変更しない。この文書に無い細部（スプライトの絵柄・音色の質感など）は担当者のセンスで決めてよい。
 
+> **v2改訂（2026-07-21）**: §10「v2 大型アップグレード」が最新の正典。§1〜§9はv1（テストモード）の記録として残すが、**§10と矛盾する箇所は§10が優先**する。
+
 ## 0. 絶対規則（違反＝作業失敗）
 
 1. `vortex/` 配下以外のファイルを作成・変更・削除しない（ルートの index.html / game.js / style.css / dev/ はHAYATO本体。触らない）
@@ -22,7 +24,7 @@
 - 見た目の方向性：ネオン宇宙。暗い背景（#0a0a1e）に発光体が映える。加算合成グロー多用
 - 音の方向性：ポップで明るい（HAYATO文化を継承）。WebAudio合成のみ
 
-## 2. ファイルオーナー表
+## 2. ファイルオーナー表（v1時点。**v2の分担は§10.2**）
 
 | ファイル | 担当 | 備考 |
 |---|---|---|
@@ -104,7 +106,7 @@ sprite: {
 
 - `.` は透明。全行同じ長さ（矩形）。幅・高さとも 8〜16
 - palette に無い文字を rows に使わない（validate-data.js が検証）
-- 表示スケール：モンスター・敵・プレイヤー=2倍、エリート=4倍
+- 表示スケール：モンスター・敵・プレイヤー=2倍、エリート=4倍（**v2で改訂: §10.5のサイズ体系が正典**）
 - 各モンスターは名前と型が伝わる**個性あるデザイン**にする（例：スターパピー=星型の耳の子犬、ネオンワーム=発光する節）
 
 ### 3.4 systems の責務（builder-③内部のモジュール分割）
@@ -127,7 +129,7 @@ export const Sound = {
 }
 ```
 
-SFX名（全て実装すること）: `hit` `shoot` `beam` `pickup` `capture` `levelup` `fusion` `elite` `altar` `select` `gameover` `clear`
+SFX名（全て実装すること）: `hit` `shoot` `beam` `pickup` `capture` `levelup` `fusion` `elite` `altar` `select` `gameover` `clear`（**v2で8種追加＋BGM3曲化: §10.7**）
 
 - 音色はポップで明るく。矩形波/三角波＋短いエンベロープ基調。capture/fusion はキラキラした上昇系で気持ちよく
 - BGM：長調・約128BPM・4〜8小節ループ（アルペジオ＋ベース＋ノイズ打楽器程度）。マスターゲイン 0.25 で控えめに
@@ -137,7 +139,7 @@ SFX名（全て実装すること）: `hit` `shoot` `beam` `pickup` `capture` `l
 
 ### 4.1 balance.js のリテラル
 
-以下を `src/data/balance.js` の `export const BALANCE = {...}` として**そのまま**採用する（値の変更禁止）:
+以下はv1の値（記録）。**v2では§10.4のリテラルで全置換する**:
 
 ```js
 export const BALANCE = {
@@ -307,7 +309,7 @@ movement仕様:
 - rng決定性: `createRng(42)` を2回作り、各100個の `random()` が完全一致
 - `range` / `int` の境界（intは両端を含む）・`chance(0)`=false・`chance(1)`=true・`shuffle` が元配列を破壊しない
 - upgrades 7種の id 一意
-- MONSTERS が6種・ENEMIES が3種・開始編成（starpuppy / pikabit）の id が存在
+- MONSTERS が6種・ENEMIES が3種・開始編成（starpuppy / pikabit）の id が存在（**v2で改訂: §10.8**）
 - spawnPhases の weights のキーが全て ENEMIES の id に存在
 
 ## 9. 完成条件チェックリスト（Verifyフェーズの判定基準）
@@ -325,3 +327,343 @@ movement仕様:
 11. どのjsも `import Phaser` していない（グローバル参照）
 12. `Math.random()` を1箇所も使っていない
 13. `vortex/` 配下以外のファイルに変更がない
+
+---
+
+# 10. v2 大型アップグレード（2026-07-21・最新の正典）
+
+## 10.0 目的とフィードバック対応表
+
+ユーザー（小6の息子）の実プレイフィードバック13項目への全対応。実装は本章を正典とする。
+
+| # | フィードバック | v2での対応 | 主担当条項 |
+|---|---|---|---|
+| 1 | カードに説明文がない | 全upgradeに `desc` 追加・カードに2行表示 | §10.4, §10.6-A |
+| 2 | 合成祭壇に気づきにくい | 誘導矢印＋光柱＋ファンファーレ＋告知バナー | §10.6-F |
+| 3 | レベルアップの特別感・爽快感 | powerupFlash演出＋専用SFX＋ヒットストップ | §10.6-A, §10.7 |
+| 4 | 主人公に攻撃手段 | スターショット（自動弾・Lv連動2連/3連） | §10.6-C |
+| 5 | 仲間をかわいく・ゆるふわに | 全6種＋evo6種を新造形（SPRITE_GUIDE.md準拠） | §10.5 |
+| 6 | キャラを大きく | 仲間40px（scale2.5）・進化48px・ボス96px | §10.5 |
+| 7 | 祭壇合成を派手に＋合成キャラ強化 | fusionCinematic 2.6s＋ダメージ×2.5 | §10.6-E, §10.4 |
+| 8 | ボス戦追加 | ウズキング（276s出現・撃破=クリア） | §10.6-B |
+| 9 | レベルアップが中断する | ノンストップ・ドラフト（時間停止廃止） | §10.6-A |
+| 10 | アイテム・洞窟・宝箱 | 洞窟60s/180s出現・宝箱6種報酬 | §10.6-D |
+| 11 | 仲間レベルアップを派手に・進化 | Lv6から2Lv毎に1体ずつ進化（姿・性能変化） | §10.6-E |
+| 12 | 主人公の姿も変化 | player_1〜3・Lv5/Lv10で差し替え | §10.5 |
+| 13 | 敵の魅力アップ | 新敵2種追加＋敵対比造形ルール | §10.5 |
+
+## 10.1 v1条項の上書き宣言
+
+本章と矛盾する場合は本章が優先する。明示的に上書きするv1条項:
+
+- §2 ファイルオーナー表 → **§10.2**
+- §3.3 表示スケール → **§10.5 サイズ体系**
+- §3.5 SFX一覧 → **§10.7**（8種追加＋BGM3曲化）
+- §4.1〜§4.3 全バランス値 → **§10.4 のリテラルで全置換**
+- §4.4 合成 → §10.6-E（演出・強化倍率を追加。素材選択ロジックはv1踏襲）
+- §5 Run合格条件のうち「5:00生存でクリア」 → **クリア条件はボス撃破のみ。時間切れ敗北なし**
+- §8 検証 → **§10.8**
+- §9 完成条件 → **§10.8 完成条件v2**
+
+## 10.2 ファイルオーナー表 v2（実装Workflow分担）
+
+**Phase A（並列・相互独立）**
+
+| 担当 | ファイル |
+|---|---|
+| builder-data | `src/data/balance.js`（§10.4リテラル全置換）・`dev/validate-data.js`・`dev/test-core.js` |
+| builder-sprites | `src/data/monsters.js`・`src/data/enemies.js`・`dev/SPRITE_GUIDE.md`（新規） |
+| builder-sound | `src/audio/sound.js` |
+| builder-icons | `src/ui/icons.js`（新規） |
+
+**Phase B（Phase A成果を参照）**
+
+| 担当 | ファイル |
+|---|---|
+| builder-core | `src/scenes/Run.js`・`src/systems/boss.js`（新規）・`src/systems/items.js`（新規） |
+| builder-fx | `src/systems/fx.js`（新規）・`src/systems/levelup.js`・`src/systems/capture.js` |
+| builder-support | `src/systems/orbit.js`・`src/systems/spawner.js`・`src/ui/hud.js`・`src/scenes/Boot.js`・`src/scenes/Title.js`・`src/scenes/Result.js`・`index.html` |
+
+§0の絶対規則（vortex/外変更禁止・gitコマンド禁止・Math.random禁止・UTF-8 BOMなし・外部読み込み禁止・import Phaser禁止）はv2でも全員に適用。本章に書かれた既存コードの行番号は**参考値**であり、実装時は必ず現物を確認すること。
+
+## 10.3 新規・変更モジュール契約
+
+### 新規モジュール
+
+- **`src/systems/boss.js`**: `createBoss(run)` → `{ update(dt), get active(), get warned(), get entity(), onBossKilled(e), destroy() }`。ボスの出現・状態機械・弾・撃破シネマティックを内包。Run.jsはupdate呼び出しと `killEnemy` からの `onBossKilled` 委譲のみ
+- **`src/systems/items.js`**: `createItems(run)` → `{ update(dt), destroy(), get caveCount() }`。洞窟の出現・寿命・接触判定・宝箱開封・報酬適用
+- **`src/systems/fx.js`**: `createFx(run)` → `{ update(dt), powerupFlash(up), announce(text, color), setTarget(id, x, y, {color, label}), clearTarget(id), fusionCinematic(defA, defB, resultDef, onDone), evolveBurst(orb, newDef), bossWarning(onDone), bossVictory(x, y, onDone) }`。演出専任（ゲームロジックへの書き込み禁止。ただし `run.cinematic`/`run.freezeT` の設定のみ許可）
+- **`src/ui/icons.js`**: `UPGRADE_ICONS` — upgrade id → 12×12テキストグリッド（palette+rows・HAYATO式）7個。Boot.jsでテクスチャ化。描画失敗時はテーマ色グローで代用可
+
+### 既存モジュールの契約変更
+
+- **`src/systems/levelup.js`**: `update(dt)` を追加（ノンストップ化に伴うautoPickタイマー・カードアニメ管理）。進化トリガ（§10.6-E）もここが所有
+- **`src/systems/capture.js`**: `dropCoreAt(x, y, rarity)` を新設（洞窟報酬 `dropCore:'R'` から呼ぶ）
+- **`src/audio/sound.js`**: `startBgm(name = 'battle')` に後方互換で拡張。`SONGS = { battle, boss, result }`
+- **`src/data/monsters.js`**: 各モンスターに `evo` ネスト（`{ id, name, baseDamage, sprite, ovr }`）。`PLAYER_SPRITES = [s1, s2, s3]` 追加＋互換用 `PLAYER_SPRITE = PLAYER_SPRITES[0]` 維持
+- **`src/data/enemies.js`**: ENEMIES 5種（既存3＋ghoston/igagurin）＋ **`BOSS` を別export**（ENEMIES配列に入れない——capture抽選プール・spawnPhases weights検証への非混入を構造的に保証）
+
+## 10.4 balance.js v2 完全リテラル（全置換・値の変更禁止）
+
+```js
+// バランス数値の正典 v2。値を変更したら dev/PROTOTYPE_SPEC.md §10.4 も併せて改訂すること。
+
+export const BALANCE = {
+  view: { width: 640, height: 360 },
+  runDurationSec: 300,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）
+  player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7 },
+
+  // 主人公の自動攻撃「スターショット」
+  hero: {
+    intervalSec: 1.4, bulletSpeed: 300, range: 240, bulletRadius: 4,
+    damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
+    twinLevel: 8, tripleLevel: 16, spreadDeg: 12,
+  },
+
+  orbit: { baseRadius: 48, baseAngularDeg: 120, maxSlots: 5 },
+  archetypes: {
+    SLASH: { tickSec: 0.25, hitRadius: 18 },
+    SHOT:  { intervalSec: 0.8, bulletSpeed: 260, range: 220, bulletRadius: 3 },
+    BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 160, width: 6 },
+    FIELD: { radius: 60, slowFactor: 0.6, tickSec: 0.5, tickDamage: 1 },
+  },
+
+  // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
+  fused: {
+    damageMult: 2.5, spriteScale: 3, glowScale: 2.2,
+    slashRadiusMult: 1.5, shotIntervalMult: 0.7,
+    beamLengthMult: 1.4, beamWidthMult: 2.0,
+    fieldRadius: 90, fieldTickDamage: 3,
+  },
+
+  // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
+  evolve: { startLevel: 6, everyLevels: 2 },
+
+  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.2, spawnIntervalEnd: 0.30,
+          hpMultStart: 1.0, hpMultEnd: 6.0, spawnCountStart: 1, spawnCountEnd: 5 },
+  enemyCap: 350,
+  elite: { times: [120, 240], hpMult: 14, sizeMult: 2, speedMult: 0.8 },
+  altar: { appearSec: 150, minParty: 3 },
+  xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
+  capture: { dropRate: 0.25, eliteDropRate: 1.0, coreLifeSec: 10, fullPartyCoins: 50 },
+
+  // ノンストップ・ドラフト（時間停止なし）
+  levelupFlow: {
+    autoPickSec: 10,          // 放置時にハイライト中カードを自動決定
+    rainbowChance: 0.15,      // 3枚中1枚が虹カードに置換される確率
+    cardY: 308, cardW: 190, cardH: 60, cardXs: [115, 320, 525],
+  },
+
+  upgrades: [
+    { id: 'atk',    label: 'こうげき +25%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.25 },
+    { id: 'spin',   label: 'かいてん +30%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.30 },
+    { id: 'radius', label: 'きどう +20%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.20 },
+    { id: 'move',   label: 'いどう +15%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.15 },
+    { id: 'hp',     label: 'たいりょく +30', desc: 'さいだいHPアップ ＋ 30かいふく',   stat: 'maxHpAdd',    add: 30 },
+    { id: 'catch',  label: 'ほかく +10%',    desc: 'スターコアが おちやすくなる',      stat: 'captureAdd',  add: 0.10 },
+    { id: 'magnet', label: 'じしゃく +40px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 40 },
+  ],
+
+  // 虹カード（金枠レア。levelup.js が effects/heal を解釈する）
+  rainbowUpgrades: [
+    { id: 'rainbow_all',  label: 'にじ:オールアップ',
+      desc: 'こうげき・かいてん・いどう ぜんぶアップ！',
+      effects: [{ stat: 'damageMult', add: 0.15 }, { stat: 'angularMult', add: 0.15 },
+                { stat: 'moveMult', add: 0.10 }] },
+    { id: 'rainbow_heal', label: 'にじ:きせきのいやし',
+      desc: 'HPぜんかいふく ＋ さいだいHP+20',
+      effects: [{ stat: 'maxHpAdd', add: 20 }], heal: 'full' },
+    { id: 'rainbow_hero', label: 'にじ:ヒーローパワー',
+      desc: 'じぶんの スターショットが 1.5ばい',
+      effects: [{ stat: 'heroMult', add: 0.5 }] },
+  ],
+
+  // どうくつ・たからばこ
+  cave: {
+    times: [60, 180], lifeSec: 25, minDist: 260, maxDist: 320, touchRadius: 24,
+    rewards: [
+      { id: 'ring',   label: 'ぶき パワーリング',   weight: 3, stat: 'damageMult', add: 0.30 },
+      { id: 'shield', label: 'ぼうぐ ほしのたて',   weight: 3, stat: 'maxHpAdd',   add: 30, invulnSec: 2 },
+      { id: 'boots',  label: 'スピードブーツ',      weight: 2, stat: 'moveMult',   add: 0.20 },
+      { id: 'magnet', label: 'メガじしゃく',        weight: 2, stat: 'magnetAdd',  add: 60 },
+      { id: 'rcore',  label: 'にじのコア',          weight: 2, dropCore: 'R' },
+      { id: 'coins',  label: 'コインぶくろ',        weight: 2, coins: 100 },
+    ],
+  },
+
+  // ボス「ウズキング」（enemies.js の BOSS export と対応）
+  boss: {
+    hudBossSec: 270,                // HUDタイマーがBOSS赤表示に切替
+    warnSec: 274, spawnSec: 276, spawnDist: 220,
+    hp: 4500, radius: 40, spriteScale: 6, glowScale: 5,
+    chaseSpeed: 45, bodyDamage: 15,
+    dash: { telegraphSec: 0.9, speed: 380, durationSec: 0.8, damage: 25 },
+    ring: { telegraphSec: 0.5, count: 8, count2: 12, bulletSpeed: 110,
+            bulletRadius: 4, damage: 10, lifeSec: 3.5 },
+    summon: { count: 6, enemyId: 'zunzun', ringRadius: 60 },
+    idleSec: { afterSpawn: 3, betweenAttacks: [3, 2, 3] },  // chase→dash→chase→ring→chase→summon
+    phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
+    rewardCoins: 300, deathCinematicSec: 1.8,
+    // ボス戦中の雑魚スポーン制限（spawner.js が参照）
+    trashInterval: 1.6, trashCount: 2,
+  },
+
+  spawnPhases: [
+    { untilSec: 60,   weights: { zunzun: 0.7, fuwafuwa: 0.3 } },
+    { untilSec: 120,  weights: { zunzun: 0.5, fuwafuwa: 0.3, dashbeetle: 0.2 } },
+    { untilSec: 240,  weights: { zunzun: 0.3, fuwafuwa: 0.2, dashbeetle: 0.2,
+                                 ghoston: 0.2, igagurin: 0.1 } },
+    { untilSec: 9999, weights: { zunzun: 0.2, fuwafuwa: 0.15, dashbeetle: 0.3,
+                                 ghoston: 0.2, igagurin: 0.15 } },
+  ],
+};
+```
+
+## 10.5 スプライト・ビジュアル v2
+
+### サイズ体系（§3.3を上書き）
+
+| 対象 | グリッド | setScale | 実表示 |
+|---|---|---|---|
+| 仲間（基本形） | 16×16 | 2.5 | 40px |
+| 仲間（進化形） | 16×16 | 3.0 | 48px |
+| 仲間（合成） | 16×16 | 3.0 | 48px＋glowScale 2.2 |
+| 敵（通常） | 8〜12 | 2 | 据え置き |
+| エリート | 同上 | 4 | 据え置き |
+| ボス | 16×16 | 6 | 96px |
+| 主人公 | 12×14 | 2 | 据え置き（radius 7も据え置き） |
+
+### ゆるふわ造形ルール（詳細は `dev/SPRITE_GUIDE.md`（新規）に完成グリッド例と共に記載）
+
+1. 輪郭は丸基調（角を'.'で落とす）2. 目は2×2以上の大きな黒目＋1pxハイライト 3. ほっぺ（ピンク系1〜2px）必須 4. 口は小さく（1〜2px）5. パステル基調＋白ハイライト 6. 手足は短く胴に密着。**敵の対比ルール**: ほっぺ無し・太まゆ/つり目で「かわいいがちょっと悪そう」に描き分ける。設計完成グリッド（starpuppy/pikabit/主人公Stage3）は設計書 design-visual.md にあり、実装時はSPRITE_GUIDE.mdへ転記する
+
+### 新敵2種（movementは既存実装を流用・データ追加のみ）
+
+| id | 名 | movement | color | hp | speed | dmg | r |
+|---|---|---|---|---|---|---|---|
+| ghoston | ゴーストン | sine | #a8f2c8 | 8 | 70 | 6 | 6 |
+| igagurin | イガグリン | charge | #d88a4a | 20 | 26 | 10 | 8 |
+
+### ボス「ウズキング」（uzuking）
+
+- 2枚重ね構成: `boss_uzu_swirl`（マゼンタ#ff6ec7＋紫#7a3bf0の渦・本体エンティティ・`rotation += dt * 1.2`）＋ `boss_uzu_face`（顔＋金王冠#ffd23f・非回転・本体に追随するimage）
+- グロー2枚（scale 8 紫／scale 4.5 マゼンタ・ADD・脈動tween）。撃破時は3色×3回=60個パーティクル
+- enemies.jsで `export const BOSS = { id: 'uzuking', name: 'ウズキング', color: '#ff6ec7', sprites: { swirl: {...}, face: {...} } }`。Boot.jsは `boss_uzu_swirl` / `boss_uzu_face` でテクスチャ化
+
+### 進化6形態（`evo.ovr` は基本ステータスへの上書きフィールド。colorは基本形を継承）
+
+| 基本形 | 進化形 | 名 | baseDamage | ovr |
+|---|---|---|---|---|
+| starpuppy | comethound | コメットハウンド | 4→9 | hitRadius: 20 |
+| togeron | togeking | トゲキング（金王冠） | 5→11 | hitRadius: 20 |
+| pikabit | thunderbit | サンダービット | 3→7 | intervalSec: 0.55 |
+| samet | megasamet | メガサメット | 5→11 | bulletSpeed: 320 |
+| neonworm | neonmoth | ネオンモス | 8→16 | width: 10 |
+| aurajelly | aurorajelly | オーロラジェリー | FIELD | tickDamage: 2, radius: 80 |
+
+「貫通」「2連射」等の新メカニクスは不採用——進化強化は**数値上書き（ovr）に統一**する。
+
+### 主人公3段階
+
+`PLAYER_SPRITES = [player_1, player_2, player_3]`。Lv5でplayer_2・Lv10でplayer_3へテクスチャ差し替え（radius 7・当たり判定は不変）。Title.jsの主人公表示（参考: Title.js:35）は `player_1` を使う。
+
+## 10.6 ゲームフロー v2
+
+### A. ノンストップ・ドラフト（項目1・3・9）
+
+- **時間停止を廃止**: Run.updateの `if (this.paused || this.drafting) return;`（参考: Run.js:139）を `if (this.paused) return;` に変更。drafting中もゲームは進行する
+- カードは画面下部（cardY 308・cardXs [115,320,525]・190×60）に3枚スライドイン。各カードは label＋desc（1行）＋アイコン（icons.js）を表示
+- 選択: 1/2/3キー=即決定・カードクリック=即決定・SPACE=ハイライト中カードを決定・矢印キーでハイライト移動。autoPickSec 10秒放置でハイライト中カードを自動決定（タイマーバーをy=272に表示）
+- autotest互換: 「1→SPACE」の既存手順で1枚目が決定されること（1キーが即決定するため互換維持）
+- 決定時: powerupFlash演出＋SFX powerup＋**90msヒットストップ**（`run.freezeT = 0.09`・Run.update冒頭でdtを食う）
+- 「あと◯たい ひつよう」等の祭壇メッセージはy=252へ移動（カードUIとの衝突回避）
+- 虹カード: rainbowChance 0.15で3枚中1枚が虹カードに置換（金枠・虹グラデ枠アニメ）
+
+### B. ボス戦「ウズキング」（項目8）
+
+- タイムライン: **270s** HUDタイマーが赤「BOSS」表示 → **274s** fx.bossWarning（2.0秒・stopBgm・警告帯0xff2244・『W A R N I N G !!』4Hz点滅・shake(400,3)）→ **276s** ボスspawn（プレイヤーからspawnDist 220px）＋`startBgm('boss')`
+- 状態機械: spawn後3s chase → dash（予告0.9s白点滅→speed 380で0.8s突進）→ 3s chase → ring（予告0.5s→弾8発、phase2は12発）→ 2s chase → summon（zunzun 6体をringRadius 60で円形召喚）→ 3s chase → loop
+- HP≤50%でフェーズ2: tint赤・idle×0.7・ring 12発・dash速度×1.15
+- FIELD減速はボス無効（`&& !e.isBoss`）。hybrid弾50%減の概念はボルモンには無い（HAYATO側の原則。ボルモンは全攻撃通常ダメージ）
+- killEnemy冒頭で `if (e.isBoss) { e.active = false; this.boss.onBossKilled(e); return; }`（通常の撃破処理・コアドロップに乗せない）
+- ボス戦中はspawnerが trashInterval 1.6s / trashCount 2 の固定スポーンに切替
+- hud.jsにボスHPバー（画面上部・名前「ウズキング」付き）
+- **撃破=ゲームクリア**: fx.bossVictory（1.8秒シネマ: 150ms×10回バースト16個＋shake(400,8)＋コイン+300）→ 完了後 `endRun(true)`。**時間切れ勝利は廃止**（参考: Run.js:165-166のクリア判定を削除・Run.js:535の `Math.min` 除去）。BGMはendRunでstop→Result側でresult曲
+
+### C. 主人公スターショット（項目4）
+
+- 1.4s毎に射程240px内の最寄り敵へ自動発射。`core` テクスチャの#4de1c0 tint弾・弾速300・半径4
+- damage = (6 + floor(level/2)) × stats.heroMult。Lv8で2連（±12°）・Lv16で3連
+- `stats.heroMult: 1` をRun.js statsに追加（虹カード rainbow_hero が+0.5）
+
+### D. 洞窟と宝箱（項目10）
+
+- 60s/180sにプレイヤーから260〜320px・rng方向に洞窟出現。寿命25s（残5sで点滅）
+- fx.setTarget('cave', ...)の誘導矢印＋announce『どうくつが あらわれた！』
+- 触れる（touchRadius 24）と0.6s暗転→宝箱表示→開封演出→報酬floatText。報酬はrewards 6種のweight抽選（rng使用）
+- rcoreは `capture.dropCoreAt(px, py, 'R')`・coinsはコイン+100
+
+### E. 進化と合成（項目7・11）
+
+- **進化**: プレイヤーLv6から2レベル毎（Lv6/8/10/12/14）に、party順で未進化の先頭1体が進化。fusedキャラは進化対象外。levelup.jsのレベルアップ処理がトリガし、fx.evolveBurst（光柱＋パーティクル＋SFX evolve）→テクスチャ・数値をevo定義へ差し替え
+- **合成**: 結果は `run.party.push({def, fused: true})`。ダメージ×2.5・scale 3・専用グロー。fx.fusionCinematic 2.6s（`run.cinematic = true` で全ゲーム進行停止・クリック/SPACEでスキップ可・暗幕alpha 0.72→素材2体が中央へ収束→白フラッシュ＋shake(150,5)＋金20/結果色20パーティクル→結果がscale 0→6 Back.outで登場→『<name> たんじょう！！』）。SFXはfusionCharge→fusion（低音キック追加）
+- cinematic中のtween/timerはPhaserでScene.updateと独立駆動のため動作する想定——**実機確認必須・NG時は `this.time.delayedCall` ベースへ切替**
+
+### F. 祭壇の視認性（項目2）
+
+- fx.setTarget('altar', ...)の誘導矢印（画面端マージン18pxクランプ・脈動）
+- 祭壇に光柱（8×76・ADD・tint 0xff9ee0）
+- 出現時: SFX altarFanfare＋announceバナー『がったいの さいだんが あらわれた！』（y=120・slide-in 250ms→1.6s表示→fade）
+
+## 10.7 演出・SFX・BGM v2
+
+### SFX追加8種（§3.5に追加。全てtone()/noiseHit()合成）
+
+`draftReady`（カード到達音）・`powerup`（決定音・C5-E5-G5-C6アルペジオ）・`altarFanfare`・`fusionCharge`・`evolve`・`warning`・`bossdown`・`chest`。既存 `fusion` に低音キック `tone({type:'sine', freq:160, freqEnd:45, dur:0.25, gain:0.25})` を追加。`select` はカーソル移動音として残す。
+
+### powerupFlash（レベルアップ決定演出）
+
+白フラッシュ rect alpha 0.45→0 を200ms（**0.5超は禁止**・目に優しく）＋選択upgradeテーマ色のripple＋粒子24個＋『パワーアップ！』floatText。
+
+### BGM 3曲化
+
+`SONGS = { battle: 現行曲, boss: Am・140BPM・MELODY_BOSS, result: C・96BPM・MELODY_RESULT }`。音符列は設計書 design-fx.md の記載を使用。`startBgm()` 無引数は battle（後方互換）。
+
+### Result.js
+
+- `if (d.withAudio) Sound.startBgm('result');` を追加・toTitleに `Sound.stopBgm();`
+- `bossDefeated` 表示『ボスを たおした！』
+- 図鑑表示のidルックアップは `MONSTERS.flatMap(m => [m, m.evo])` へ差し替え（進化idが未描画になるバグの予防。参考: Result.js:82）
+
+## 10.8 検証 v2
+
+### validate-data.js 追加項目
+
+- 全MONSTERSに `evo` が存在し、evoスプライトも矩形性・幅高8〜16・palette検証を通る
+- `PLAYER_SPRITES` が3枚・各々検証を通る
+- `BOSS.sprites` が swirl/face の2枚・各々検証を通る
+- BALANCE新キー存在: hero / fused / evolve / levelupFlow / cave / boss / rainbowUpgrades・upgrades全件に `desc`
+
+### test-core.js 更新項目
+
+- 「ENEMIES が3種」→ **5種**（ghoston/igagurin含む）
+- MONSTERS 6種＋evo idを合わせて**全id一意**
+- rainbowUpgrades 3種のid一意・upgrades全件にdesc存在
+- spawnPhasesのweightsキーが全てENEMIESのidに存在（**uzukingが含まれないこと**も検証）
+- `BOSS` exportの存在（id='uzuking'）
+
+### 完成条件チェックリスト v2（Verifyフェーズの判定基準）
+
+1. v1条件のうち 1・2・3・5・6・9・10・11・12・13 は引き続き成立（4はv2仕様に読み替え・7は§10.6-E・8は廃止）
+2. ドラフト中もゲームが進行する（drafting中に elapsed が増える・敵が動く）
+3. カードに desc が表示され、1/2/3・クリック・SPACE・autoPick 10s の全決定経路が動く
+4. ボスが276sに出現し、HUD 270s赤表示・274s WARNING演出の順で前置きが入る
+5. ボス撃破で bossVictory 演出→リザルト（クリア）へ遷移。**時間切れではクリアにならない**
+6. 洞窟が60s/180sに出現し、宝箱報酬が実際にstatsへ反映される
+7. Lv6で最初の進化が発動し、姿と性能が変わる
+8. 主人公弾が発射され敵にダメージを与える。Lv8で2連になる
+9. fusedモンスターのダメージが×2.5になっている（コードパス確認）
+10. fusionCinematic中にゲーム進行が停止し、スキップが効く（**tween完走の実機確認込み**）
+11. スプライトはPNG化または実機スクリーンショットで**目視確認**（ゆるふわ造形・サイズ体系・ボス2枚重ね）
+12. seed=42でボス討伐時間を実測し45〜90秒レンジ内（外れたらboss.hpを±20%刻みで調整）
+13. 60FPS維持（追加常駐は主人公弾・ボス弾最大24・洞窟1個のみ。Tキー300体負荷で再実測）

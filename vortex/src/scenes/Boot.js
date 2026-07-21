@@ -1,6 +1,7 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
-import { MONSTERS, PLAYER_SPRITE } from '../data/monsters.js';
-import { ENEMIES } from '../data/enemies.js';
+import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES } from '../data/monsters.js';
+import { ENEMIES, BOSS } from '../data/enemies.js';
+import { UPGRADE_ICONS } from '../ui/icons.js';
 import { createRng } from '../core/rng.js';
 
 const Phaser = window.Phaser;
@@ -13,9 +14,19 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     // --- テキストグリッド → テクスチャ ---
-    for (const m of MONSTERS) this.makeGrid('mon_' + m.id, m.sprite);
+    for (const m of MONSTERS) {
+      this.makeGrid('mon_' + m.id, m.sprite);
+      if (m.evo) this.makeGrid('mon_' + m.evo.id, m.evo.sprite);   // 進化形態
+    }
     for (const e of ENEMIES) this.makeGrid('enemy_' + e.id, e.sprite);
+    // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
+    PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
+    // ボス「ウズキング」の2枚重ね（渦＋顔）
+    this.makeGrid('boss_uzu_swirl', BOSS.sprites.swirl);
+    this.makeGrid('boss_uzu_face', BOSS.sprites.face);
+    // 強化アイコン7種
+    for (const [id, ic] of Object.entries(UPGRADE_ICONS)) this.makeGrid('icon_' + id, ic);
 
     // --- 発光・エフェクト系テクスチャ（白で作り、実行時に tint） ---
     this.makeGlow('glow', 32);
@@ -24,6 +35,7 @@ export class BootScene extends Phaser.Scene {
     this.makeGem('gem', 8);                   // XPジェム（ひし形）
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
+    this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
 
     // --- 星空タイル（視差背景・決定的パターン） ---
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
@@ -115,6 +127,15 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1);
     g.fillRect(0, 0, size, size);
     g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  // 右向きの三角矢印（白）。実行時に回転・tint して方向インジケータに使う。
+  makeArrow(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffffff, 1);
+    g.fillPoints(this.toPoints([0, 0, w, h / 2, 0, h]), true);
+    g.generateTexture(key, w, h);
     g.destroy();
   }
 

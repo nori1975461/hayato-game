@@ -1,5 +1,6 @@
 // ui/hud.js — HUD（カメラ固定）とDOMエラーバナー（PROTOTYPE_SPEC §7.1）。
 // Phaser は window.Phaser をグローバル参照する。
+import { BALANCE } from '../data/balance.js';
 
 const Phaser = window.Phaser;
 
@@ -98,6 +99,12 @@ export function createHud(run) {
     slotSprites.push(spr);
   }
 
+  // ボスHPバー（画面上部・ボス出現中のみ表示）
+  const bossBar = run.add.graphics().setScrollFactor(0).setDepth(D + 2);
+  const bossName = run.add.text(320, 28, 'ウズキング', {
+    fontFamily: 'monospace', fontSize: '12px', color: '#ff8fb3', fontStyle: 'bold',
+  }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 3).setVisible(false);
+
   let fps = 60;
   let fpsAcc = 0, fpsFrames = 0;
 
@@ -127,13 +134,34 @@ export function createHud(run) {
 
     lvText.setText('Lv ' + run.level);
 
-    // タイマー（カウントダウン M:SS）
-    const left = Math.max(0, run.runDurationSec - run.elapsed);
-    const mm = Math.floor(left / 60);
-    const ss = Math.floor(left % 60);
-    timeText.setText(mm + ':' + (ss < 10 ? '0' + ss : ss));
+    // タイマー（カウントダウン M:SS）。ボス出現時刻を過ぎたら赤の「BOSS」表示へ。
+    if (run.elapsed >= BALANCE.boss.hudBossSec) {
+      timeText.setText('BOSS').setColor('#ff4d6d');
+    } else {
+      const left = Math.max(0, run.runDurationSec - run.elapsed);
+      const mm = Math.floor(left / 60);
+      const ss = Math.floor(left % 60);
+      timeText.setText(mm + ':' + (ss < 10 ? '0' + ss : ss)).setColor('#ffffff');
+    }
 
     coinText.setText('C ' + run.coins);
+
+    // ボスHPバー
+    bossBar.clear();
+    const boss = run.boss;
+    if (boss && boss.active) {
+      const bw = 360, bx = 140, by = 44;
+      const ratio = Math.max(0, Math.min(1, (boss.hp || 0) / (boss.maxHp || 1)));
+      bossBar.fillStyle(0x30060f, 0.9);
+      bossBar.fillRect(bx, by, bw, 8);
+      bossBar.fillStyle(0xff4d6d, 1);
+      bossBar.fillRect(bx, by, bw * ratio, 8);
+      bossBar.lineStyle(1, 0xffffff, 0.5);
+      bossBar.strokeRect(bx, by, bw, 8);
+      bossName.setVisible(true);
+    } else {
+      bossName.setVisible(false);
+    }
 
     // パーティ枠
     for (let i = 0; i < 5; i++) {

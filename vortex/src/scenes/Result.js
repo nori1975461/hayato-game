@@ -1,7 +1,8 @@
 // scenes/Result.js — リザルト画面（PROTOTYPE_SPEC §5.4）。
 // Run.js から { clear, elapsed, kills, captures, coins, party:[id...] } を受け取り表示。
-// clear/gameover SFX と stopBgm は Run.js 側で発火済みのため、ここでは鳴らさない（二重発火防止）。
+// clear/gameover SFX は Run.js 側で発火済み。BGM はリザルト曲へ本シーンで切り替える（withAudio 時のみ）。
 import { MONSTERS } from '../data/monsters.js';
+import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
@@ -24,7 +25,11 @@ export class ResultScene extends Phaser.Scene {
     const W = 640, H = 360;
     const d = data || {};
     const clear = !!d.clear;
+    const bossDefeated = !!d.bossDefeated;
     this.cameras.main.setBackgroundColor('#0a0a1e');
+
+    // リザルトBGM（Run.js が withAudio を渡したときだけ。二重初期化にはならない）
+    if (d.withAudio) Sound.startBgm('result');
 
     // 背景の星（Title と同じ装飾）
     const bg = this.add.tileSprite(W / 2, H / 2, W, H, 'stars1').setAlpha(0.7);
@@ -44,6 +49,16 @@ export class ResultScene extends Phaser.Scene {
     this.add.text(W / 2, 92, clear ? '5ふん いきのびた！' : 'またチャレンジしよう', {
       fontFamily: 'monospace', fontSize: '14px', color: '#7fffcf',
     }).setOrigin(0.5);
+
+    // ボス撃破の特別表示
+    if (bossDefeated) {
+      const bd = this.add.text(W / 2, 110, 'ボスを たおした！', {
+        fontFamily: 'monospace', fontSize: '15px', color: '#ffd23f',
+        fontStyle: 'bold', stroke: '#ff6ec7', strokeThickness: 4,
+      }).setOrigin(0.5);
+      this.tweens.add({ targets: bd, scale: 1.12, duration: 700,
+        yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
 
     // 成績（左寄せの4行）
     const rows = [
@@ -79,7 +94,7 @@ export class ResultScene extends Phaser.Scene {
         .setStrokeStyle(2, 0x4de1c0);
       const id = ids[i];
       if (id != null) {
-        const def = MONSTERS.find((m) => m.id === id);
+        const def = MONSTERS.flatMap((m) => [m, m.evo]).find((m) => m && m.id === id);
         if (def) {
           this.add.image(x, slotY, 'glow').setBlendMode(Phaser.BlendModes.ADD)
             .setTint(int(def.color)).setScale(1.6);
@@ -98,6 +113,7 @@ export class ResultScene extends Phaser.Scene {
     const toTitle = () => {
       if (this._done) return;
       this._done = true;
+      Sound.stopBgm();
       this.scene.start('Title');
     };
     this.input.keyboard.on('keydown-R', toTitle);

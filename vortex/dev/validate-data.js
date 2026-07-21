@@ -2,8 +2,8 @@
 // node vortex/dev/validate-data.js で実行。失敗時は理由を出力して process.exit(1)。
 // Phaser 非依存。data/ を import して純粋にチェックする。
 
-import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
-import { ENEMIES } from '../src/data/enemies.js';
+import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES } from '../src/data/monsters.js';
+import { ENEMIES, BOSS } from '../src/data/enemies.js';
 import { BALANCE } from '../src/data/balance.js';
 
 const errors = [];
@@ -58,10 +58,41 @@ for (const m of MONSTERS) {
   check(COLOR_RE.test(m.color), `${label}: color "${m.color}" が#+16進6桁でない`);
   check(typeof m.baseDamage === 'number', `${label}: baseDamage が数値でない`);
   validateSprite(m.sprite, label);
+
+  // evo（進化形）: { id, name, baseDamage, sprite, ovr }
+  const evo = m.evo;
+  const evoLabel = `${label}.evo`;
+  check(evo && typeof evo === 'object', `${evoLabel}: evo が無い`);
+  if (evo && typeof evo === 'object') {
+    check(typeof evo.id === 'string' && /^[a-z]+$/.test(evo.id), `${evoLabel}: id が英小文字でない`);
+    check(typeof evo.name === 'string' && evo.name.length > 0, `${evoLabel}: name が無い`);
+    check(typeof evo.baseDamage === 'number', `${evoLabel}: baseDamage が数値でない`);
+    validateSprite(evo.sprite, evoLabel);
+  }
 }
 
-// --- PLAYER_SPRITE ---
+// --- PLAYER_SPRITE / PLAYER_SPRITES ---
 validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE');
+check(Array.isArray(PLAYER_SPRITES) && PLAYER_SPRITES.length === 3,
+  `PLAYER_SPRITES が3枚の配列でない（len=${Array.isArray(PLAYER_SPRITES) ? PLAYER_SPRITES.length : 'not array'}）`);
+if (Array.isArray(PLAYER_SPRITES)) {
+  PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`));
+}
+
+// --- BOSS ---
+check(BOSS && typeof BOSS === 'object', 'BOSS export が無い');
+if (BOSS && typeof BOSS === 'object') {
+  check(typeof BOSS.id === 'string' && /^[a-z]+$/.test(BOSS.id), 'BOSS: id が英小文字でない');
+  check(typeof BOSS.name === 'string' && BOSS.name.length > 0, 'BOSS: name が無い');
+  check(COLOR_RE.test(BOSS.color), `BOSS: color "${BOSS.color}" が#+16進6桁でない`);
+  check(BOSS.sprites && typeof BOSS.sprites === 'object', 'BOSS: sprites が無い');
+  if (BOSS.sprites) {
+    for (const key of ['swirl', 'face']) {
+      check(key in BOSS.sprites, `BOSS.sprites.${key} が無い`);
+      validateSprite(BOSS.sprites[key], `BOSS.sprites.${key}`);
+    }
+  }
+}
 
 // --- ENEMIES ---
 check(Array.isArray(ENEMIES), 'ENEMIES が配列でない');
@@ -84,12 +115,19 @@ for (const e of ENEMIES) {
 const requiredBalanceKeys = [
   'view', 'runDurationSec', 'player', 'orbit', 'archetypes', 'wave',
   'enemyCap', 'elite', 'altar', 'xp', 'capture', 'upgrades', 'spawnPhases',
+  // v2 追加キー（§10.4）
+  'hero', 'fused', 'evolve', 'levelupFlow', 'cave', 'boss', 'rainbowUpgrades',
 ];
 for (const k of requiredBalanceKeys) {
   check(k in BALANCE, `BALANCE.${k} が存在しない`);
 }
 for (const a of ARCHETYPE) {
   check(BALANCE.archetypes && a in BALANCE.archetypes, `BALANCE.archetypes.${a} が存在しない`);
+}
+
+// --- upgrades 全件に desc（項目1）---
+for (const u of BALANCE.upgrades) {
+  check(typeof u.desc === 'string' && u.desc.length > 0, `BALANCE.upgrades[${u.id}]: desc が無い`);
 }
 
 // --- 結果 ---

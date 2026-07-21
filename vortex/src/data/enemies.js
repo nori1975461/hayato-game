@@ -1,9 +1,11 @@
-// 敵3種の定義（PROTOTYPE_SPEC §3.2/§3.3/§4.3）。
+// 敵5種＋ボスの定義（PROTOTYPE_SPEC §3.2/§3.3/§4.3/§10.5）。
 // radius は表示スケール適用後の当たり半径(px)。movement は 'chase' | 'sine' | 'charge'。
+// v2: 敵は仲間との対比を明確化（ほっぺ無し・太まゆ/つり目・トゲや暴走感）。詳細は dev/SPRITE_GUIDE.md。
+// BOSS は ENEMIES 配列に入れず別 export（出現プール/重み検証を汚さない）。
 
 export const ENEMIES = [
   {
-    // まっすぐ突っ込んでくる紫の突撃体。むすっとした顔。
+    // まっすぐ突っ込んでくる紫の突撃体。V字太まゆ＋への字口＋ぷんぷんマーク。
     id: 'zunzun',
     name: 'ズンズン',
     movement: 'chase',
@@ -13,16 +15,16 @@ export const ENEMIES = [
     damage: 8,
     radius: 7,
     sprite: {
-      palette: { a: '#a06bff', c: '#1b1030', b: '#ffffff', g: '#c9a0ff' },
+      palette: { a: '#a06bff', c: '#1b1030', b: '#ffffff' },
       rows: [
+        '.c.c....c.c.',
         '..aaaaaaaa..',
-        '.aaaaaaaaaa.',
-        '.agaaaaaaga.',
         '.aaaaaaaaaa.',
         '.accaaaacca.',
         '.acbaaaabca.',
         '.aaaaaaaaaa.',
-        '.aacccccaa..',
+        '.aaaccccaaa.',
+        '.aacaaaacaa.',
         '.aaaaaaaaaa.',
         '..aaaaaaaa..',
         '..a.a..a.a..',
@@ -30,7 +32,7 @@ export const ENEMIES = [
     },
   },
   {
-    // ふわふわ漂う水色の雲。左右に揺れて近づく（sine）。
+    // ふわふわ漂う水色のいたずらオバケ雲。片目ウインク＋ベロ出し＋下端モコモコ（sine）。
     id: 'fuwafuwa',
     name: 'フワフワ',
     movement: 'sine',
@@ -40,22 +42,23 @@ export const ENEMIES = [
     damage: 6,
     radius: 6,
     sprite: {
-      palette: { a: '#7fe8ff', b: '#ffffff', c: '#1b3b5f', w: '#c8f7ff' },
+      palette: { a: '#7fe8ff', c: '#1b3b5f', w: '#c8f7ff', t: '#ff9ec7' },
       rows: [
         '...aaaaaa...',
-        '..aawwwwaa..',
+        '..awwwwwwa..',
         '.aawwwwwwaa.',
         '.aaaaaaaaaa.',
-        '.acaaaaaaca.',
-        '.aaaabbaaaa.',
+        '.accaaaaaaa.',
+        '.accaaaacca.',
         '.aaaaaaaaaa.',
-        '..aaaaaaaa..',
-        '..a.a..a.a..',
+        '.aaaaccaaaa.',
+        'aaa.aaa.aaa.',
+        '....ttt.....',
       ],
     },
   },
   {
-    // 赤い甲虫。黄色い角を構えて溜め、猛突進する（charge）。
+    // 赤い暴走カブトあんちゃん。リーゼント風の金房角＋キリッと縦長目＋背中の炎デカール（charge）。
     id: 'dashbeetle',
     name: 'ダッシュビートル',
     movement: 'charge',
@@ -65,20 +68,126 @@ export const ENEMIES = [
     damage: 12,
     radius: 8,
     sprite: {
-      palette: { a: '#ff5e5e', c: '#3a0a0a', h: '#ffd23f', g: '#ff9a9a' },
+      palette: { a: '#ff5e5e', c: '#3a0a0a', h: '#ffd23f', b: '#ffffff' },
       rows: [
-        '.....hh.....',
-        '....hhhh....',
-        '.....hh.....',
+        '..hhhhhh....',
+        '.hhhhhhhh...',
+        '..hhhhhh....',
         '..aaaaaaaa..',
-        '.agaaaaaaga.',
-        '.acaaaaaaca.',
         '.aaaaaaaaaa.',
-        '.aaaaccaaaa.',
-        '.aaaaccaaaa.',
-        '..aaaaaaaa..',
+        '.abcaaaacba.',
+        '.abcaaaacba.',
+        '.aaaaaaaaaa.',
+        '.aaahhhhaaa.',
+        '.aahhhhhhaa.',
         '.a.a.aa.a.a.',
       ],
     },
   },
+  {
+    // 半透明の不気味カワイイおばけ。丸シーツ形＋まん丸黒目＋裾ギザ3山（sine）。
+    id: 'ghoston',
+    name: 'ゴーストン',
+    movement: 'sine',
+    color: '#a8f2c8',
+    hp: 8,
+    speed: 70,
+    damage: 6,
+    radius: 6,
+    sprite: {
+      palette: { a: '#a8f2c8', c: '#1b3b5f', w: '#ffffff' },
+      rows: [
+        '...aaaaaa...',
+        '..aaaaaaaa..',
+        '.aaaaaaaaaa.',
+        '.aaaaaaaaaa.',
+        '.awcaaaacwa.',
+        '.accaaaacca.',
+        '.aaaaaaaaaa.',
+        '.aaaaccaaaa.',
+        '.aaaaaaaaaa.',
+        '.aa..aa..aa.',
+      ],
+    },
+  },
+  {
+    // 溜めてから突進するイガ栗ボール。普段は横線の閉じ目（charge）。
+    id: 'igagurin',
+    name: 'イガグリン',
+    movement: 'charge',
+    color: '#d88a4a',
+    hp: 20,
+    speed: 26,
+    damage: 10,
+    radius: 8,
+    sprite: {
+      palette: { a: '#d88a4a', c: '#2a1505', s: '#8a5a2a' },
+      rows: [
+        '.s.s.s.s.s..',
+        '..saaaaaas..',
+        '.saaaaaaaas.',
+        's.aaaaaaaa.s',
+        '.saaaaaaaas.',
+        '.accaaaacca.',
+        '.aaaaaaaaaa.',
+        '.aaaaccaaaa.',
+        '.saaaaaaaas.',
+        '..saaaaaas..',
+        '.s.s.s.s.s..',
+      ],
+    },
+  },
 ];
+
+// ボス「ウズキング」。渦(回転)＋顔(非回転)の2枚重ねテクスチャ。ENEMIES には入れない。
+export const BOSS = {
+  id: 'uzuking',
+  name: 'ウズキング',
+  color: '#ff6ec7',
+  sprites: {
+    // 回転させる渦本体。マゼンタと紫のS字スパイラル（180°回転対称）。
+    swirl: {
+      palette: { m: '#ff6ec7', p: '#7a3bf0' },
+      rows: [
+        '......mmmp......',
+        '....mmmmmmpp....',
+        '...mmmmmmmmpp...',
+        '..mmmmmmmmmppp..',
+        '.mmmmmmmmmppppp.',
+        '.mmmmmmmmpppppp.',
+        'mmmmmmmmmppppppp',
+        'mmmmmmmmpppppppp',
+        'mmmmmmmmpppppppp',
+        'mmmmmmmppppppppp',
+        '.mmmmmmpppppppp.',
+        '.mmmmmppppppppp.',
+        '..mmmppppppppp..',
+        '...mmpppppppp...',
+        '....mmpppppp....',
+        '......mppp......',
+      ],
+    },
+    // 非回転の顔。金の王冠＋大きな目＋にやり笑い＋1本キバ＋短腕。
+    face: {
+      palette: { p: '#7a3bf0', g: '#ffd23f', w: '#ffffff', k: '#1b1030', m: '#ff6ec7' },
+      rows: [
+        '...g.g.g.g.g....',
+        '...gggggggggg...',
+        '..pppppppppppp..',
+        '.pppppppppppppp.',
+        '.pwkwppppppwkwp.',
+        '.pwwwppppppwwwp.',
+        '.pppppppppppppp.',
+        '..ppkkkkkkkkpp..',
+        '..ppkwkkkkkkpp..',
+        '..pppkkkkkkppp..',
+        'mmppppppppppppmm',
+        'mmppppppppppppmm',
+        '..mmppppppppmm..',
+        '...pppppppppp...',
+        '....pppppppp....',
+        '......pppp......',
+      ],
+    },
+  },
+};

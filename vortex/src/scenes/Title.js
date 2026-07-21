@@ -31,13 +31,14 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '16px', color: '#7fffcf',
     }).setOrigin(0.5);
 
-    // デモ的に自機とグローを回す
-    const demo = this.add.image(W / 2, 236, 'player').setScale(2.4);
+    // デモ的に自機とグローを回す。シーン再入のたびに配列を作り直す
+    // （破棄済み GameObject 参照の蓄積を防ぐ）。
+    const demo = this.add.image(W / 2, 236, 'player_1').setScale(2.4);
+    this.orbit = [];
     for (let i = 0; i < 5; i++) {
       const g = this.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD)
         .setScale(1.4).setTint(0x7fd8ff);
       const orb = this.add.image(0, 0, 'mon_starpuppy').setScale(1.6);
-      this.orbit = this.orbit || [];
       this.orbit.push({ g, orb, base: (i / 5) * Math.PI * 2, cx: W / 2, cy: 236 });
     }
 

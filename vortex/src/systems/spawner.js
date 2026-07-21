@@ -91,12 +91,14 @@ export function createSpawner(run) {
         spawnElite();
       }
     }
-    // 通常スポーン
+    // 通常スポーン。ボス戦中は固定間隔・少数に絞ってボスへ集中させる（§10.4）。
+    const bossActive = !!(run.boss && run.boss.active);
+    const interval = bossActive ? BALANCE.boss.trashInterval : currentInterval();
+    const count = bossActive ? BALANCE.boss.trashCount : currentCount();
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
-      spawnTimer += currentInterval();
-      const c = currentCount();
-      for (let i = 0; i < c; i++) {
+      spawnTimer += interval;
+      for (let i = 0; i < count; i++) {
         if (run.enemies.length >= BALANCE.enemyCap) break;
         spawnOne(false);
       }

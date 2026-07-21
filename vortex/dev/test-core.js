@@ -4,7 +4,7 @@
 import { createRng } from '../src/core/rng.js';
 import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS } from '../src/data/monsters.js';
-import { ENEMIES } from '../src/data/enemies.js';
+import { ENEMIES, BOSS } from '../src/data/enemies.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -86,16 +86,42 @@ function assert(cond, msg) {
   assert(ok, 'rng: pick が配列内の要素を返す');
 }
 
-// --- upgrades 7種の id が一意 ---
+// --- upgrades 7種の id が一意・全件に desc ---
 {
   const ids = BALANCE.upgrades.map((u) => u.id);
   const unique = new Set(ids).size === ids.length;
   assert(ids.length === 7 && unique, 'balance: upgrades 7種の id が一意');
+  const allDesc = BALANCE.upgrades.every((u) => typeof u.desc === 'string' && u.desc.length > 0);
+  assert(allDesc, 'balance: upgrades 全件に desc が存在');
 }
 
-// --- MONSTERS が6種・ENEMIES が3種 ---
+// --- rainbowUpgrades 3種の id が一意 ---
+{
+  const ids = BALANCE.rainbowUpgrades.map((u) => u.id);
+  const unique = new Set(ids).size === ids.length;
+  assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
+}
+
+// --- MONSTERS が6種・ENEMIES が5種 ---
 assert(MONSTERS.length === 6, 'data: MONSTERS が6種');
-assert(ENEMIES.length === 3, 'data: ENEMIES が3種');
+assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
+
+// --- 新敵 ghoston / igagurin が存在 ---
+{
+  const eids = new Set(ENEMIES.map((e) => e.id));
+  assert(eids.has('ghoston') && eids.has('igagurin'), 'data: 新敵 ghoston/igagurin が存在');
+}
+
+// --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---
+{
+  const ids = [];
+  for (const m of MONSTERS) {
+    ids.push(m.id);
+    if (m.evo && m.evo.id) ids.push(m.evo.id);
+  }
+  const unique = new Set(ids).size === ids.length;
+  assert(ids.length === 12 && unique, 'data: MONSTERS 6種＋evo id を合わせて全 id が一意（12件）');
+}
 
 // --- 開始編成 starpuppy / pikabit の id が存在 ---
 {
@@ -103,17 +129,23 @@ assert(ENEMIES.length === 3, 'data: ENEMIES が3種');
   assert(ids.has('starpuppy') && ids.has('pikabit'), 'data: 開始編成 starpuppy/pikabit が存在');
 }
 
-// --- spawnPhases の weights のキーが全て ENEMIES の id ---
+// --- BOSS export の存在（id='uzuking'） ---
+assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking');
+
+// --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
 {
   const enemyIds = new Set(ENEMIES.map((e) => e.id));
   let ok = true;
   let bad = '';
+  let hasBoss = false;
   for (const phase of BALANCE.spawnPhases) {
     for (const key of Object.keys(phase.weights)) {
       if (!enemyIds.has(key)) { ok = false; bad = key; }
+      if (key === 'uzuking') hasBoss = true;
     }
   }
   assert(ok, `balance: spawnPhases の weights キーが全て ENEMIES の id${ok ? '' : `（不正: ${bad}）`}`);
+  assert(!hasBoss, 'balance: spawnPhases の weights に uzuking（ボス）が含まれない');
 }
 
 // --- 結果 ---
