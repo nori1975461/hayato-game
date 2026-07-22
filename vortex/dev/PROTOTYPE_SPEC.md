@@ -1,9 +1,10 @@
-# ボルモン！ 〜VORTEX MONSTERS〜 テストモード仕様書（PROTOTYPE_SPEC）
+# クルット・モビット 仕様書（PROTOTYPE_SPEC）
 
 この文書がテストモード実装の**正典**。実装担当（builder）はコードを書く前に必ず全文を読むこと。
 数値・API・ファイル分担はこの文書に従い、独断で変更しない。この文書に無い細部（スプライトの絵柄・音色の質感など）は担当者のセンスで決めてよい。
 
-> **v2改訂（2026-07-21）**: §10「v2 大型アップグレード」が最新の正典。§1〜§9はv1（テストモード）の記録として残すが、**§10と矛盾する箇所は§10が優先**する。
+> **v3改訂（2026-07-22）**: §11「v3 爽快感アップグレード」が最新の正典。**§1〜§10と矛盾する箇所は§11が優先**する。ゲーム名は『ボルモン！ 〜VORTEX MONSTERS〜』から **『クルット・モビット』** に変更。
+> **v2改訂（2026-07-21）**: §10「v2 大型アップグレード」。§1〜§9はv1（テストモード）の記録として残すが、**§10と矛盾する箇所は§10が優先**する。
 
 ## 0. 絶対規則（違反＝作業失敗）
 
@@ -230,7 +231,7 @@ movement仕様:
 
 ### 5.2 Title
 
-- ロゴ「ボルモン！」＋サブタイトル「〜VORTEX MONSTERS〜」＋「SPACE か クリックで スタート」
+- ロゴ「クルット・モビット」＋サブタイトル「〜 KURUTTO MOBIT 〜」＋「SPACE か クリックで スタート」（**v3で改名**。index.html の `<title>` も同じ）
 - **最初のユーザー入力で `Sound.init()`** を呼んでから Run へ（ブラウザの自動再生制限対策）
 - `?autotest=1` のときは入力を待たず即 Run へ（Sound.init は呼ばない。sfxは無音無視される契約）
 
@@ -277,8 +278,8 @@ movement仕様:
 | キー | 動作 |
 |---|---|
 | 矢印 / WASD | 移動 |
-| SPACE / クリック | タイトル開始・リザルト操作・ドラフト決定 |
-| 1 / 2 / 3 またはクリック | ドラフト選択 |
+| SPACE | **ひっさつわざ発動（v3）**／タイトル開始・リザルト操作 |
+| クリック | タイトル開始・リザルト操作・シネマスキップ |
 | P | ポーズ |
 | M | ミュート切替 |
 | R | やり直し（**ポーズ中とリザルトのみ有効**） |
@@ -311,6 +312,7 @@ movement仕様:
 - upgrades 7種の id 一意
 - MONSTERS が6種・ENEMIES が3種・開始編成（starpuppy / pikabit）の id が存在（**v2で改訂: §10.8**）
 - spawnPhases の weights のキーが全て ENEMIES の id に存在
+- **v3追加**: weapon / special / autoUpgrade のキー検証・敵の量の上限検証・`levelupFlow` 廃止の検証（詳細は §10.8 / §11.7）
 
 ## 9. 完成条件チェックリスト（Verifyフェーズの判定基準）
 
@@ -403,10 +405,10 @@ movement仕様:
 - **`src/data/monsters.js`**: 各モンスターに `evo` ネスト（`{ id, name, baseDamage, sprite, ovr }`）。`PLAYER_SPRITES = [s1, s2, s3]` 追加＋互換用 `PLAYER_SPRITE = PLAYER_SPRITES[0]` 維持
 - **`src/data/enemies.js`**: ENEMIES 5種（既存3＋ghoston/igagurin）＋ **`BOSS` を別export**（ENEMIES配列に入れない——capture抽選プール・spawnPhases weights検証への非混入を構造的に保証）
 
-## 10.4 balance.js v2 完全リテラル（全置換・値の変更禁止）
+## 10.4 balance.js 完全リテラル（**v3の現行値**・balance.js の写し）
 
 ```js
-// バランス数値の正典 v2。値を変更したら dev/PROTOTYPE_SPEC.md §10.4 も併せて改訂すること。
+// バランス数値の正典 v3。値を変更したら dev/PROTOTYPE_SPEC.md §10.4 も併せて改訂すること。
 
 export const BALANCE = {
   view: { width: 640, height: 360 },
@@ -439,29 +441,45 @@ export const BALANCE = {
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
   evolve: { startLevel: 6, everyLevels: 2 },
 
-  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.2, spawnIntervalEnd: 0.30,
-          hpMultStart: 1.0, hpMultEnd: 6.0, spawnCountStart: 1, spawnCountEnd: 5 },
-  enemyCap: 350,
-  elite: { times: [120, 240], hpMult: 14, sizeMult: 2, speedMult: 0.8 },
+  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.6, spawnIntervalEnd: 0.55,
+          hpMultStart: 1.0, hpMultEnd: 3.2, spawnCountStart: 1, spawnCountEnd: 3 },
+  enemyCap: 150,
+  elite: { times: [120, 240], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
   altar: { appearSec: 150, minParty: 3 },
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
   capture: { dropRate: 0.25, eliteDropRate: 1.0, coreLifeSec: 10, fullPartyCoins: 50 },
 
-  // ノンストップ・ドラフト（時間停止なし）
-  levelupFlow: {
-    autoPickSec: 10,          // 放置時にハイライト中カードを自動決定
-    rainbowChance: 0.15,      // 3枚中1枚が虹カードに置換される確率
-    cardY: 308, cardW: 190, cardH: 60, cardXs: [115, 320, 525],
+  // 武器レベル（★取得でなかまの攻撃そのものが成長する）
+  weapon: {
+    maxLevel: 12,
+    damageAddPerLevel: 0.28,
+    slash: { hitRadiusAdd: 2.2, tickSecMult: 0.955, tickSecMin: 0.10 },
+    shot:  { intervalMult: 0.945, intervalMin: 0.18, bulletSpeedAdd: 9, bulletRadiusAdd: 0.32,
+             extraShotEvery: 3, maxShots: 5, spreadDeg: 10 },
+    beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 13, widthAdd: 1.1 },
+    field: { radiusAdd: 5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
+  },
+
+  // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
+  special: {
+    killsPerCharge: 35, maxUses: 3, radius: 300, damage: 9999, bossDamage: 350,
+    cinematicSec: 1.5, startCharge: 0.5,
+  },
+
+  // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
+  autoUpgrade: {
+    cycle: ['atk', 'spin', 'hp', 'move', 'atk', 'magnet', 'radius', 'catch'],
+    bonusEveryLevels: 5,
   },
 
   upgrades: [
-    { id: 'atk',    label: 'こうげき +25%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.25 },
-    { id: 'spin',   label: 'かいてん +30%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.30 },
-    { id: 'radius', label: 'きどう +20%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.20 },
-    { id: 'move',   label: 'いどう +15%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.15 },
-    { id: 'hp',     label: 'たいりょく +30', desc: 'さいだいHPアップ ＋ 30かいふく',   stat: 'maxHpAdd',    add: 30 },
+    { id: 'atk',    label: 'こうげき +30%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
+    { id: 'spin',   label: 'かいてん +35%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.35 },
+    { id: 'radius', label: 'きどう +22%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.22 },
+    { id: 'move',   label: 'いどう +16%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.16 },
+    { id: 'hp',     label: 'たいりょく +35', desc: 'さいだいHPアップ ＋ 35かいふく',   stat: 'maxHpAdd',    add: 35 },
     { id: 'catch',  label: 'ほかく +10%',    desc: 'スターコアが おちやすくなる',      stat: 'captureAdd',  add: 0.10 },
-    { id: 'magnet', label: 'じしゃく +40px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 40 },
+    { id: 'magnet', label: 'じしゃく +50px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 50 },
   ],
 
   // 虹カード（金枠レア。levelup.js が effects/heal を解釈する）
@@ -505,7 +523,7 @@ export const BALANCE = {
     phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
     rewardCoins: 300, deathCinematicSec: 1.8,
     // ボス戦中の雑魚スポーン制限（spawner.js が参照）
-    trashInterval: 1.6, trashCount: 2,
+    trashInterval: 2.4, trashCount: 1,
   },
 
   spawnPhases: [
@@ -642,7 +660,7 @@ export const BALANCE = {
 - 全MONSTERSに `evo` が存在し、evoスプライトも矩形性・幅高8〜16・palette検証を通る
 - `PLAYER_SPRITES` が3枚・各々検証を通る
 - `BOSS.sprites` が swirl/face の2枚・各々検証を通る
-- BALANCE新キー存在: hero / fused / evolve / levelupFlow / cave / boss / rainbowUpgrades・upgrades全件に `desc`
+- BALANCE新キー存在: hero / fused / evolve / cave / boss / rainbowUpgrades・upgrades全件に `desc`（**v3で `levelupFlow` は必須キーから除外**。ドラフト廃止に伴い balance.js から削除済み）
 
 ### test-core.js 更新項目
 
@@ -651,6 +669,16 @@ export const BALANCE = {
 - rainbowUpgrades 3種のid一意・upgrades全件にdesc存在
 - spawnPhasesのweightsキーが全てENEMIESのidに存在（**uzukingが含まれないこと**も検証）
 - `BOSS` exportの存在（id='uzuking'）
+
+### test-core.js 追加項目 v3（全33項目）
+
+- `BALANCE.weapon` の maxLevel / damageAddPerLevel が数値・maxLevel が2以上・slash/shot/beam/field の全キーが有限数
+- 武器Lv最大時の SHOT 弾数が `1..maxShots` に収まる（orbit.js と同じ式 `min(maxShots, 1 + floor(wl / extraShotEvery))` を再現）
+- 武器Lv最大時の SLASH/SHOT/BEAM/FIELD の間隔が下限クランプを下回らない（`max(min, base * mult^wl)`・`0 < mult < 1` と `min <= base` も検証）
+- `special.maxUses === 3`（**ユーザー要望「1ステージで3回が限度」の回帰防止**）・special の各数値キーが有限数
+- `autoUpgrade.cycle` が非空配列で、全 id が `upgrades` に実在・`bonusEveryLevels` が数値
+- `levelupFlow` が BALANCE から消えている（ドラフト廃止の確認）
+- 敵の量: `wave.spawnCountEnd <= 3` / `enemyCap <= 200` / `wave.hpMultEnd <= 4`（**要望「敵が多すぎる」の回帰防止**）
 
 ### 完成条件チェックリスト v2（Verifyフェーズの判定基準）
 
@@ -667,3 +695,106 @@ export const BALANCE = {
 11. スプライトはPNG化または実機スクリーンショットで**目視確認**（ゆるふわ造形・サイズ体系・ボス2枚重ね）
 12. seed=42でボス討伐時間を実測し45〜90秒レンジ内（外れたらboss.hpを±20%刻みで調整）
 13. 60FPS維持（追加常駐は主人公弾・ボス弾最大24・洞窟1個のみ。Tキー300体負荷で再実測）
+
+---
+
+# 11. v3 爽快感アップグレード（2026-07-22・最新の正典）
+
+**§1〜§10と矛盾する箇所は本章が優先する。**
+
+## 11.0 ユーザー要望とv3対応表
+
+| # | 要望（原文） | 実装 | 主なファイル |
+| --- | --- | --- | --- |
+| 1 | 公転する仲間の攻撃が次々レベルアップ・エフェクト派手に | 武器レベル成長（§11.1）＋ `fx.weaponLevelUp()`（§11.2） | `src/data/balance.js`(weapon) / `src/systems/orbit.js` / `src/systems/fx.js` / `src/systems/levelup.js` |
+| 2 | 集まってくる敵の数を少なく | wave/enemyCap の下方修正（§11.5） | `src/data/balance.js`(wave, enemyCap, elite, boss.trash*) |
+| 3 | レベルアップの1/2/3選択が操作中うざい → ★取得で自動強化 | ドラフトUI全廃・`autoUpgrade.cycle` 順の自動適用（§11.4） | `src/systems/levelup.js` / `src/data/balance.js`(autoUpgrade) / `src/scenes/Run.js` |
+| 4 | 一定数撃破でゲージ→必殺技（派手・広範囲）・1ステージ3回限度 | ボルテックスバースト（§11.3） | `src/systems/special.js` / `src/systems/fx.js` / `src/ui/hud.js` / `src/scenes/Run.js` |
+| 5 | 敵を倒す爽快感第一（逃げ回るゲームにしない） | 武器レベル成長＋必殺技＋敵量削減の合わせ技（§11.1・§11.3・§11.5） | 上記すべて |
+| 6 | BGMを明るくノリのよいポップに | battle曲をC major・150BPM・8小節へ刷新（§11.6） | `src/audio/sound.js` |
+| 7 | タイトルを「クルット・モビット」に | ロゴ・`<title>`・仕様書タイトルを改名（§5.2） | `src/scenes/Title.js` / `index.html` / 本書 |
+
+## 11.1 なかまの武器レベル成長（要望1・5）
+
+- `run.orbit` が **パーティ共通の `weaponLevel`（初期1・上限 `BALANCE.weapon.maxLevel`=12）** を持つ。
+- API: `orbit.levelUp()`（上限到達時 `false` を返す）・`orbit.setWeaponLevel(n)`・getter `orbit.weaponLevel`。
+- ダメージ: `lvMult = 1 + weapon.damageAddPerLevel * (weaponLevel - 1)` を `memberDamage()` に乗算。
+- アーキタイプ別の成長（`wl = weaponLevel - 1`・`rebuild()` の**最後**に適用）:
+  - SLASH: `hitRadius += hitRadiusAdd*wl` / `tickSec = max(tickSecMin, tickSec * tickSecMult^wl)`
+  - SHOT: `interval = max(intervalMin, interval * intervalMult^wl)` / `bulletSpeed += bulletSpeedAdd*wl` / `bulletRadius += bulletRadiusAdd*wl` / **弾数 `shots = min(maxShots, 1 + floor(wl / extraShotEvery))`**（`spreadDeg` 間隔で扇状）
+  - BEAM: `interval = max(intervalMin, interval * intervalMult^wl)` / `length += lengthAdd*wl` / `width += widthAdd*wl`
+  - FIELD: `radius += radiusAdd*wl` / `tickDamage += tickDamageAdd*wl` / `tickSec = max(tickSecMin, tickSec * tickSecMult^wl)`
+- 見た目もレベルで育つ: `lvGrow = wl / (maxLevel-1)` を使い、スプライト `scale *= 1 + lvGrow*0.12`・グロー `scale *= 1 + lvGrow*0.35`。
+
+## 11.2 fx.weaponLevelUp（要望1）
+
+`run.fx.weaponLevelUp(level, names)`。**シネマティックにはしない**（操作を止めないのがv3の方針）。
+
+- SFX `weaponUp`・`run.shake(180, 4)`・`run.freezeT = 0.12`（ごく短いヒットストップ）
+- 公転円上に **60ms ずつずらした光柱**をなかま人数ぶん立ち上げ、リング状のripple＋粒子を重ねる
+- `announce('ぶきレベル N ！', '#7fffcf')` ＋ なかま名の floatText
+
+## 11.3 ひっさつわざ「ボルテックスバースト」（要望4・5）
+
+**モジュール**: `src/systems/special.js` — `createSpecial(run)` → `{ update(dt), addKill(), fire(), destroy(), get charge, get usesLeft, get ready }`
+
+- ゲージ: 開始時 `special.startCharge`（0.5）。敵撃破ごと `addKill()` が `1 / killsPerCharge`（35体で満タン）を加算。満タン時に `Sound.sfx('gaugeFull')` ＋ `run.fx.specialReady()`。
+- **使用回数は1ステージ `special.maxUses` = 3 回まで**（要望「3回が限度」）。`usesLeft` が0になったらゲージは溜まらない。
+- 発動: SPACEキー（`Run.js` の `keydown-SPACE` → `special.fire()`）。`run.cinematic || run.paused || run.ended` の間は発動しない。
+- 効果: 主人公中心 半径 `special.radius`(300) 内の雑魚を `run.killEnemy()` で**即死**、ボスには `special.bossDamage`(350) を `run.dealDamage()`。
+- 演出 `fx.specialBlast(x, y, radius, onImpact, onDone)`:
+  - `run.cinematic = true` ＋ `run.shake(500, 10)` ＋ announce『ボルテックスバースト！！』
+  - 180ms で `onImpact()`（`impacted` フラグで**必ず1回だけ**）
+  - 白フラッシュ rect **alpha 0.45**（§10.7同様 **0.5超は禁止**）
+  - 3枚の拡大リングを時間差で展開＋8方向の tween 駆動 `burstUI()`（**`run.spawnParticles` はシネマ中に凍結するため画面座標=scrollFactor 0 の tween で描く**）
+  - `special.cinematicSec`(1.5) 後に `run.cinematic = false` と `onDone()`（`finished` フラグで**必ず1回だけ**）
+- HUD（`ui/hud.js`）: XPバーの下 `fillRect(8, 48, 120, 6)` にゲージ。満タン時は `Math.floor(run.elapsed*6)%2` で `0xff6ec7` に決定的点滅。テキストは `ひっさつ x{usesLeft}`、満タン時は末尾に `  SPACE!`。
+
+## 11.4 レベルアップ自動強化（要望3・**§10.6-A ノンストップ・ドラフトを廃止**）
+
+- **3択ドラフトUI・カード・1/2/3キー・autoPick は全廃**。`BALANCE.levelupFlow` も削除済み（test-core が不在を検証）。
+- ★（XP）でレベルが上がった瞬間に `levelup.js` が自動で強化を適用する:
+  1. `up = upgrades[ autoUpgrade.cycle[(level-2) mod cycle.length] ]` を適用（Lv2 で `cycle[0]`。cycle は `atk, spin, hp, move, atk, magnet, radius, catch` の8種一巡）
+  2. `level % autoUpgrade.bonusEveryLevels`(5) === 0 なら **ご褒美**として `rainbow_all`（オールアップ）＋ HP全回復
+  3. `orbit.levelUp()` が成功したら `fx.weaponLevelUp()`、上限到達なら `fx.powerupFlash(up)`
+  4. `announce('{label} アップ！', '#ffe066')` ＋ SFX `powerup` ＋ `run.freezeT = 0.06`（シネマ中は設定しない）
+- 進化（§10.6-E）は従来どおり Lv6以降2レベル毎に先に判定してから自動強化を行う。
+- `createLevelup()` の戻り値は互換のため `select()` / `confirm()` を no-op として残し、`open` は常に `false`。
+
+## 11.5 敵の量の調整（要望2・5）
+
+「逃げ回るゲーム」にしないため、湧き量とHP倍率を下げ、1体あたりの手応えを残す。
+
+| キー | v3の現行値（balance.js の写し） |
+| --- | --- |
+| `wave.spawnIntervalStart` / `End` | 1.6 / 0.55 |
+| `wave.spawnCountStart` / `End` | 1 / 3 |
+| `wave.hpMultStart` / `End` | 1.0 / 3.2 |
+| `enemyCap` | 150 |
+| `elite.hpMult` / `sizeMult` / `speedMult` | 9 / 2 / 0.8 |
+| `boss.trashInterval` / `trashCount` | 2.4 / 1 |
+
+test-core が `spawnCountEnd <= 3` / `enemyCap <= 200` / `hpMultEnd <= 4` を回帰テストする。
+
+## 11.6 BGM刷新（要望6）
+
+`SONGS.battle` を **C major・150BPM・8小節**（王道進行 C-G-Am-F / C-G-F-G）へ刷新し、明るくノリのよいポップに:
+
+- ベース: `BASS_STEPS` のオフビート込みで triangle＋square（オクターブ上）を重ねて跳ねさせる
+- コードスタブ: `STAB_STEPS`（8分裏）に square の和音を短く刺す
+- アルペジオ: **後半4小節のみ**8分で追加し、前半はメロディを立たせる
+- リード: 16分解像度の square 主旋律＋detune 9 の triangle と1オクターブ下の薄い重ね
+- ドラム: 四つ打ちキック（+ 14ステップ目に食い込み）・2/4拍のスネア＋ハンドクラップ・8分ハット（後半は16分）・小節終わりのオープンハット・最終小節後半のスネアロール
+
+`boss` は Am・152BPM・4小節、`result` は C・96BPM・4小節（**§10.7 の「boss 140BPM」は本節が上書き**）。SFXは `weaponUp` / `special` / `gaugeFull` の3種を追加。
+
+## 11.7 検証 v3
+
+- `node vortex/dev/test-core.js` — **全33項目**（v3追加項目は §10.8「test-core.js 追加項目 v3」を参照）
+- `node vortex/dev/validate-data.js` — `requiredBalanceKeys` から `levelupFlow` を外し、`weapon` / `special` / `autoUpgrade` を追加すること
+- 完成条件 v3（v2チェックリストの 2・3 は廃止し、以下に読み替える）:
+  1. レベルアップで操作が中断されない（UIが開かず、自動で強化が適用されて演出だけ走る）
+  2. なかまの武器レベルが上がるたびに攻撃が目に見えて強くなる（SHOTの弾数増加を実機確認）
+  3. 撃破35体でゲージ満タン→SPACEでボルテックスバーストが発動し、画面内の雑魚が消える
+  4. ひっさつは1ステージ3回で打ち止めになり、HUDの `ひっさつ x0` で確認できる
+  5. タイトル・ブラウザタブが「クルット・モビット」表記になっている

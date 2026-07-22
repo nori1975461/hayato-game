@@ -148,6 +148,92 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(!hasBoss, 'balance: spawnPhases の weights に uzuking（ボス）が含まれない');
 }
 
+// --- weapon: 全キーが存在し型が正しい／maxLevel が2以上 ---
+{
+  const W = BALANCE.weapon;
+  const okRoot = W && typeof W.maxLevel === 'number' && typeof W.damageAddPerLevel === 'number';
+  assert(okRoot, 'balance: weapon の maxLevel/damageAddPerLevel が数値');
+  assert(!!W && W.maxLevel >= 2, 'balance: weapon.maxLevel が2以上');
+  const shape = {
+    slash: ['hitRadiusAdd', 'tickSecMult', 'tickSecMin'],
+    shot:  ['intervalMult', 'intervalMin', 'bulletSpeedAdd', 'bulletRadiusAdd',
+            'extraShotEvery', 'maxShots', 'spreadDeg'],
+    beam:  ['intervalMult', 'intervalMin', 'lengthAdd', 'widthAdd'],
+    field: ['radiusAdd', 'tickDamageAdd', 'tickSecMult', 'tickSecMin'],
+  };
+  let ok = true;
+  let bad = '';
+  for (const [group, keys] of Object.entries(shape)) {
+    const g = W && W[group];
+    if (!g || typeof g !== 'object') { ok = false; bad = group; break; }
+    for (const k of keys) {
+      if (typeof g[k] !== 'number' || !Number.isFinite(g[k])) { ok = false; bad = `${group}.${k}`; }
+    }
+  }
+  assert(ok, `balance: weapon の全アーキタイプキーが数値${ok ? '' : `（不正: ${bad}）`}`);
+}
+
+// --- weapon: 最大レベルでも SHOT の弾数が maxShots を超えない（orbit.js と同じ式） ---
+{
+  const W = BALANCE.weapon;
+  const wl = W.maxLevel - 1;
+  const shots = Math.min(W.shot.maxShots, 1 + Math.floor(wl / W.shot.extraShotEvery));
+  assert(shots <= W.shot.maxShots && shots >= 1,
+    `balance: 武器Lv最大の SHOT 弾数 ${shots} が 1..${W.shot.maxShots} に収まる`);
+}
+
+// --- weapon: 最大レベルでも各アーキタイプの間隔が下限クランプを下回らない ---
+{
+  const W = BALANCE.weapon;
+  const A = BALANCE.archetypes;
+  const wl = W.maxLevel - 1;
+  const cases = [
+    ['SLASH.tickSec',  A.SLASH.tickSec,     W.slash.tickSecMult,    W.slash.tickSecMin],
+    ['SHOT.interval',  A.SHOT.intervalSec,  W.shot.intervalMult,    W.shot.intervalMin],
+    ['BEAM.interval',  A.BEAM.intervalSec,  W.beam.intervalMult,    W.beam.intervalMin],
+    ['FIELD.tickSec',  A.FIELD.tickSec,     W.field.tickSecMult,    W.field.tickSecMin],
+  ];
+  let ok = true;
+  let bad = '';
+  for (const [name, base, mult, min] of cases) {
+    const v = Math.max(min, base * Math.pow(mult, wl));
+    if (!(min > 0 && min <= base && mult > 0 && mult < 1 && v >= min)) { ok = false; bad = name; }
+  }
+  assert(ok, `balance: 武器Lv最大でも間隔が下限を下回らない${ok ? '' : `（不正: ${bad}）`}`);
+}
+
+// --- special: 1ステージ3回制限（ユーザー要望の回帰防止） ---
+{
+  const S = BALANCE.special;
+  assert(!!S && S.maxUses === 3, 'balance: special.maxUses が 3（1ステージ3回まで）');
+  const nums = ['killsPerCharge', 'radius', 'damage', 'bossDamage', 'cinematicSec', 'startCharge'];
+  const ok = !!S && nums.every((k) => typeof S[k] === 'number' && Number.isFinite(S[k]));
+  assert(ok, 'balance: special の各数値キーが存在し数値');
+}
+
+// --- autoUpgrade: cycle の全要素が upgrades の id に実在 ---
+{
+  const ids = new Set(BALANCE.upgrades.map((u) => u.id));
+  const cycle = BALANCE.autoUpgrade && BALANCE.autoUpgrade.cycle;
+  assert(Array.isArray(cycle) && cycle.length > 0, 'balance: autoUpgrade.cycle が非空の配列');
+  const missing = Array.isArray(cycle) ? cycle.filter((id) => !ids.has(id)) : ['(cycle なし)'];
+  assert(missing.length === 0,
+    `balance: autoUpgrade.cycle の全 id が upgrades に実在${missing.length ? `（不明: ${missing.join(',')}）` : ''}`);
+  assert(typeof (BALANCE.autoUpgrade && BALANCE.autoUpgrade.bonusEveryLevels) === 'number',
+    'balance: autoUpgrade.bonusEveryLevels が数値');
+}
+
+// --- levelupFlow（ドラフトUI）が廃止されている ---
+assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されている（自動強化へ移行）');
+
+// --- 敵の量が v2 より減っている（要望2「敵が多すぎる」の回帰防止） ---
+{
+  const w = BALANCE.wave;
+  assert(w.spawnCountEnd <= 3, `balance: wave.spawnCountEnd が 3 以下（実測 ${w.spawnCountEnd}）`);
+  assert(BALANCE.enemyCap <= 200, `balance: enemyCap が 200 以下（実測 ${BALANCE.enemyCap}）`);
+  assert(w.hpMultEnd <= 4, `balance: wave.hpMultEnd が 4 以下（実測 ${w.hpMultEnd}）`);
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);

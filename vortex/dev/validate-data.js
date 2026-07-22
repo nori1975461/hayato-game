@@ -116,7 +116,9 @@ const requiredBalanceKeys = [
   'view', 'runDurationSec', 'player', 'orbit', 'archetypes', 'wave',
   'enemyCap', 'elite', 'altar', 'xp', 'capture', 'upgrades', 'spawnPhases',
   // v2 追加キー（§10.4）
-  'hero', 'fused', 'evolve', 'levelupFlow', 'cave', 'boss', 'rainbowUpgrades',
+  'hero', 'fused', 'evolve', 'cave', 'boss', 'rainbowUpgrades',
+  // v3 追加キー（武器レベルアップ・必殺技・自動強化）
+  'weapon', 'special', 'autoUpgrade',
 ];
 for (const k of requiredBalanceKeys) {
   check(k in BALANCE, `BALANCE.${k} が存在しない`);
