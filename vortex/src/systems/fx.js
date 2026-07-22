@@ -2,6 +2,7 @@
 // 契約: ゲームロジックへは書き込まない。例外として run.cinematic / run.freezeT のみ設定可。
 // 乱数は run.rng（Math.random 禁止）。Phaser は window.Phaser のグローバル参照。
 import { Sound } from '../audio/sound.js';
+import { BALANCE } from '../data/balance.js';
 
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
@@ -23,6 +24,16 @@ function themeColor(up) {
 export function createFx(run) {
   const W = 640, H = 360;
   const targets = {};   // id → { wx, wy, color, arrow, text, phase }
+
+  // ---- cinematic のトークン方式（多重シネマ対策・§10.6） ----
+  // 複数のシネマが入れ子になっても「先に始まった側が終わった順に false」で
+  // 踏み潰されないよう、最後に始めたシネマのトークンだけが解除できる。
+  // 例: 必殺技でボスを倒すと specialBlast の中で bossVictory が始まる。
+  //     specialBlast が先に終端しても、後発の bossVictory のトークンが有効な間は
+  //     cinematic=false にせず、ボス撃破シネマ→endRun(true) を守る。
+  let cineSeq = 0;
+  function cineBegin() { run.cinematic = true; run._cineToken = ++cineSeq; return run._cineToken; }
+  function cineEnd(token) { if (run._cineToken === token) run.cinematic = false; }
 
   // ---- 汎用ヘルパ ----
   function worldToScreen(wx, wy) {
@@ -157,7 +168,7 @@ export function createFx(run) {
   }
 
   function fusionCinematic(defA, defB, resultDef, onDone) {
-    run.cinematic = true;
+    const cineTok = cineBegin();
     Sound.sfx('fusionCharge');
     const cx = W / 2, cy = 160;
     const objs = [];
@@ -211,7 +222,7 @@ export function createFx(run) {
       if (run.input.keyboard) run.input.keyboard.off('keydown-SPACE', finish);
       for (const t of timers) if (t) t.remove(false);
       for (const o of objs) { run.tweens.killTweensOf(o); o.destroy(); }
-      run.cinematic = false;
+      cineEnd(cineTok);
       if (onDone) onDone();
     }
 
@@ -272,7 +283,7 @@ export function createFx(run) {
 
   // ---- ボス撃破シネマ（§10.6-B・1.8s。コイン加算/bossdown音は boss.js の責務） ----
   function bossVictory(x, y, onDone) {
-    run.cinematic = true;
+    const cineTok = cineBegin();
     run.shake(400, 8);
     let finished = false;
     const colors = [0xffd23f, 0xff6ec7, 0x7a3bf0];
@@ -287,9 +298,114 @@ export function createFx(run) {
     run.time.delayedCall(1800, () => {
       if (finished) return;
       finished = true;
-      run.cinematic = false;
+      cineEnd(cineTok);
       if (onDone) onDone();
     });
+  }
+
+  // ---- 武器レベルアップ演出（v3・仲間全員が一斉に強くなる瞬間） ----
+  // プレイを止めないため cinematic にはしない（freezeT で一瞬だけ溜めを作る）。
+  function weaponLevelUp(level, names) {
+    const list = Array.isArray(names) ? names : [];
+    Sound.sfx('weaponUp');
+    run.shake(180, 4);
+    run.freezeT = 0.12;
+
+    // 公転体の座標は orbit の外からは取れないため、公転半径の円周上に等間隔で出す
+    const px = run.player.x, py = run.player.y;
+    const radius = BALANCE.orbit.baseRadius * run.stats.radiusMult;
+    const n = Math.max(1, (run.party && run.party.length) || list.length || 1);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const x = px + Math.cos(a) * radius;
+      const y = py + Math.sin(a) * radius;
+      run.time.delayedCall(i * 60, () => {
+        const pillar = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(1400)
+          .setTint(0x7fffcf).setOrigin(0.5, 1).setDisplaySize(12, 4).setAlpha(0.95);
+        run.tweens.add({ targets: pillar, displayHeight: 120, duration: 200, ease: 'Cubic.out' });
+        run.tweens.add({
+          targets: pillar, alpha: 0, delay: 240, duration: 360,
+          onComplete: () => pillar.destroy(),
+        });
+        ripple(x, y, 0xffd23f, 1);
+      });
+    }
+
+    ripple(px, py, 0x7fffcf, 1);
+    run.time.delayedCall(120, () => ripple(run.player.x, run.player.y, 0xffd23f, 1));
+    run.spawnParticles(px, py, 0xffd23f, 20);
+    run.spawnParticles(px, py, 0x7fd8ff, 18);
+    announce('ぶきレベル ' + level + ' ！', '#7fffcf');
+    run.floatText(px, py - 30, 'ぶきパワーアップ！', '#7fffcf');
+  }
+
+  // ---- 必殺技「ボルテックスバースト」（v3・cinematic・onImpact/onDone は各1回保証） ----
+  function specialBlast(x, y, radius, onImpact, onDone) {
+    const cineTok = cineBegin();
+    run.shake(500, 10);
+    Sound.sfx('special');
+    announce('ボルテックスバースト！！', '#ffd23f');
+
+    const objs = [];
+    let impacted = false, finished = false;
+    const s0 = worldToScreen(x, y);
+
+    // 溜め（内側へ吸い込むリング）
+    const charge = run.add.image(s0.x, s0.y, 'glow').setScrollFactor(0).setDepth(2062)
+      .setBlendMode(ADD).setTint(0x7fd8ff).setScale(radius / 16).setAlpha(0.5);
+    objs.push(charge);
+    run.tweens.add({ targets: charge, scale: 1, alpha: 0.95, duration: 180, ease: 'Cubic.in' });
+
+    // 閃光ピーク（180ms）＝ダメージ判定タイミング
+    run.time.delayedCall(180, () => {
+      if (!impacted) { impacted = true; if (onImpact) onImpact(); }
+      run.tweens.add({ targets: charge, alpha: 0, scale: 3, duration: 220, ease: 'Cubic.out' });
+
+      const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.45)
+        .setScrollFactor(0).setDepth(2090);
+      run.tweens.add({ targets: flash, alpha: 0, duration: 260, onComplete: () => flash.destroy() });
+
+      // radius まで広がる巨大リングを時間差で3枚重ねる
+      const s = worldToScreen(x, y);
+      const tints = [0xffd23f, 0xff6ec7, 0x7fd8ff];
+      for (let i = 0; i < 3; i++) {
+        run.time.delayedCall(i * 90, () => {
+          const ring = run.add.image(s.x, s.y, 'glow').setScrollFactor(0).setDepth(2063)
+            .setBlendMode(ADD).setTint(tints[i]).setScale(0.6).setAlpha(0.9);
+          run.tweens.add({
+            targets: ring, scale: (radius * 2) / 32, alpha: 0, duration: 620, ease: 'Cubic.out',
+            onComplete: () => ring.destroy(),
+          });
+        });
+      }
+    });
+
+    // 粒子は cinematic 中に凍結しないよう tween 駆動の burstUI（bossVictory と同手法）
+    const colors = [0xffd23f, 0xff6ec7, 0x7a3bf0, 0x7fd8ff];
+    for (let i = 0; i < 8; i++) {
+      run.time.delayedCall(180 + i * 110, () => {
+        const s = worldToScreen(x, y);
+        const off = run.rng.range(-40, 40);
+        burstUI(s.x + off, s.y + run.rng.range(-40, 40), colors[i % 4], 18, 2065);
+      });
+    }
+
+    const cineMs = Math.round((BALANCE.special.cinematicSec || 1.5) * 1000);
+    run.time.delayedCall(cineMs, () => {
+      if (finished) return;
+      finished = true;
+      if (!impacted) { impacted = true; if (onImpact) onImpact(); }
+      for (const o of objs) { run.tweens.killTweensOf(o); o.destroy(); }
+      cineEnd(cineTok);
+      if (onDone) onDone();
+    });
+  }
+
+  // ---- 必殺ゲージ満タン通知（v3・軽め） ----
+  function specialReady() {
+    Sound.sfx('gaugeFull');
+    announce('ひっさつ じゅんび OK！ SPACEキー！', '#ffd23f');
+    ripple(run.player.x, run.player.y, 0xffd23f, 1);
   }
 
   function update(dt) {
@@ -299,5 +415,6 @@ export function createFx(run) {
   return {
     update, powerupFlash, announce, setTarget, clearTarget,
     fusionCinematic, evolveBurst, bossWarning, bossVictory,
+    weaponLevelUp, specialBlast, specialReady,
   };
 }

@@ -1,4 +1,4 @@
-// バランス数値の正典 v2。値を変更したら dev/PROTOTYPE_SPEC.md §10.4 も併せて改訂すること。
+// バランス数値の正典 v3。値を変更したら dev/PROTOTYPE_SPEC.md §10.4 も併せて改訂すること。
 
 export const BALANCE = {
   view: { width: 640, height: 360 },
@@ -31,29 +31,45 @@ export const BALANCE = {
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
   evolve: { startLevel: 6, everyLevels: 2 },
 
-  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.2, spawnIntervalEnd: 0.30,
-          hpMultStart: 1.0, hpMultEnd: 6.0, spawnCountStart: 1, spawnCountEnd: 5 },
-  enemyCap: 350,
-  elite: { times: [120, 240], hpMult: 14, sizeMult: 2, speedMult: 0.8 },
+  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.6, spawnIntervalEnd: 0.55,
+          hpMultStart: 1.0, hpMultEnd: 3.2, spawnCountStart: 1, spawnCountEnd: 3 },
+  enemyCap: 150,
+  elite: { times: [120, 240], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
   altar: { appearSec: 150, minParty: 3 },
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
   capture: { dropRate: 0.25, eliteDropRate: 1.0, coreLifeSec: 10, fullPartyCoins: 50 },
 
-  // ノンストップ・ドラフト（時間停止なし）
-  levelupFlow: {
-    autoPickSec: 10,          // 放置時にハイライト中カードを自動決定
-    rainbowChance: 0.15,      // 3枚中1枚が虹カードに置換される確率
-    cardY: 308, cardW: 190, cardH: 60, cardXs: [115, 320, 525],
+  // 武器レベル（★取得でなかまの攻撃そのものが成長する）
+  weapon: {
+    maxLevel: 12,
+    damageAddPerLevel: 0.28,
+    slash: { hitRadiusAdd: 2.2, tickSecMult: 0.955, tickSecMin: 0.10 },
+    shot:  { intervalMult: 0.945, intervalMin: 0.18, bulletSpeedAdd: 9, bulletRadiusAdd: 0.32,
+             extraShotEvery: 3, maxShots: 5, spreadDeg: 10 },
+    beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 13, widthAdd: 1.1 },
+    field: { radiusAdd: 5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
+  },
+
+  // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
+  special: {
+    killsPerCharge: 35, maxUses: 3, radius: 300, damage: 9999, bossDamage: 350,
+    cinematicSec: 1.5, startCharge: 0.5,
+  },
+
+  // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
+  autoUpgrade: {
+    cycle: ['atk', 'spin', 'hp', 'move', 'atk', 'magnet', 'radius', 'catch'],
+    bonusEveryLevels: 5,
   },
 
   upgrades: [
-    { id: 'atk',    label: 'こうげき +25%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.25 },
-    { id: 'spin',   label: 'かいてん +30%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.30 },
-    { id: 'radius', label: 'きどう +20%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.20 },
-    { id: 'move',   label: 'いどう +15%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.15 },
-    { id: 'hp',     label: 'たいりょく +30', desc: 'さいだいHPアップ ＋ 30かいふく',   stat: 'maxHpAdd',    add: 30 },
+    { id: 'atk',    label: 'こうげき +30%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
+    { id: 'spin',   label: 'かいてん +35%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.35 },
+    { id: 'radius', label: 'きどう +22%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.22 },
+    { id: 'move',   label: 'いどう +16%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.16 },
+    { id: 'hp',     label: 'たいりょく +35', desc: 'さいだいHPアップ ＋ 35かいふく',   stat: 'maxHpAdd',    add: 35 },
     { id: 'catch',  label: 'ほかく +10%',    desc: 'スターコアが おちやすくなる',      stat: 'captureAdd',  add: 0.10 },
-    { id: 'magnet', label: 'じしゃく +40px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 40 },
+    { id: 'magnet', label: 'じしゃく +50px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 50 },
   ],
 
   // 虹カード（金枠レア。levelup.js が effects/heal を解釈する）
@@ -97,7 +113,7 @@ export const BALANCE = {
     phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
     rewardCoins: 300, deathCinematicSec: 1.8,
     // ボス戦中の雑魚スポーン制限（spawner.js が参照）
-    trashInterval: 1.6, trashCount: 2,
+    trashInterval: 2.4, trashCount: 1,
   },
 
   spawnPhases: [

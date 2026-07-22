@@ -10,8 +10,10 @@ const int = (c) => parseInt(c.slice(1), 16);
 export function createOrbit(run) {
   const A = BALANCE.archetypes;
   const F = BALANCE.fused;
+  const W = BALANCE.weapon;
   const orbs = [];          // 公転体の内部状態（run.party と1:1で同期）
   let angle = 0;            // 全体の公転位相（ラジアン）
+  let weaponLevel = 1;      // ★取得で上がる武器レベル（全なかま共通・1..W.maxLevel）
 
   // run.party の増減・進化・合成に合わせて公転体スプライトと戦闘値を作り直す
   function rebuild() {
@@ -49,18 +51,42 @@ export function createOrbit(run) {
       o.dmgBase = src.baseDamage;
       o.fusedDmgMult = fused ? F.damageMult : 1;
 
-      // アーキタイプ別の実効パラメータ（進化ovr → 合成倍率 の順で適用）
+      // アーキタイプ別の実効パラメータ（進化ovr → 合成倍率 → 武器レベル の順で適用）
       o.hitRadius    = (ovr.hitRadius   ?? A.SLASH.hitRadius)  * (fused ? F.slashRadiusMult : 1);
+      o.slashTick    = A.SLASH.tickSec;
       o.shotInterval = (ovr.intervalSec ?? A.SHOT.intervalSec) * (fused ? F.shotIntervalMult : 1);
       o.bulletSpeed  =  ovr.bulletSpeed ?? A.SHOT.bulletSpeed;
+      o.bulletRadius = A.SHOT.bulletRadius;
+      o.shots        = 1;
       o.beamLength   = (ovr.length      ?? A.BEAM.length)      * (fused ? F.beamLengthMult : 1);
       o.beamWidth    = (ovr.width       ?? A.BEAM.width)       * (fused ? F.beamWidthMult : 1);
+      o.beamInterval = A.BEAM.intervalSec;
       o.fieldRadius  = fused ? F.fieldRadius     : (ovr.radius     ?? A.FIELD.radius);
       o.fieldTick    = fused ? F.fieldTickDamage : (ovr.tickDamage ?? A.FIELD.tickDamage);
+      o.fieldTickSec = A.FIELD.tickSec;
 
+      // 武器レベル成長（必ず最後に適用）
+      const wl = weaponLevel - 1;
+      if (wl > 0) {
+        o.hitRadius   += W.slash.hitRadiusAdd * wl;
+        o.slashTick    = Math.max(W.slash.tickSecMin, o.slashTick * Math.pow(W.slash.tickSecMult, wl));
+        o.shotInterval = Math.max(W.shot.intervalMin, o.shotInterval * Math.pow(W.shot.intervalMult, wl));
+        o.bulletSpeed  += W.shot.bulletSpeedAdd * wl;
+        o.bulletRadius += W.shot.bulletRadiusAdd * wl;
+        o.beamInterval = Math.max(W.beam.intervalMin, o.beamInterval * Math.pow(W.beam.intervalMult, wl));
+        o.beamLength  += W.beam.lengthAdd * wl;
+        o.beamWidth   += W.beam.widthAdd * wl;
+        o.fieldRadius += W.field.radiusAdd * wl;
+        o.fieldTick   += W.field.tickDamageAdd * wl;
+        o.fieldTickSec = Math.max(W.field.tickSecMin, o.fieldTickSec * Math.pow(W.field.tickSecMult, wl));
+      }
+      o.shots = Math.min(W.shot.maxShots, 1 + Math.floor(wl / W.shot.extraShotEvery));
+
+      const lvGrow = wl / (W.maxLevel - 1);     // 0..1。レベルが上がるほど僅かに大きく光る
       o.spr.setTexture('mon_' + o.textureId)
-        .setScale(big ? F.spriteScale : 2.5).clearTint();
-      o.glow.setTint(o.color).setScale(fused ? F.glowScale : (big ? 1.9 : 1.5));
+        .setScale((big ? F.spriteScale : 2.5) * (1 + lvGrow * 0.12)).clearTint();
+      o.glow.setTint(o.color)
+        .setScale((fused ? F.glowScale : (big ? 1.9 : 1.5)) * (1 + lvGrow * 0.35));
 
       if (o.archetype === 'FIELD') {
         if (!o.aura) {
@@ -75,7 +101,8 @@ export function createOrbit(run) {
   }
 
   function memberDamage(o) {
-    return Math.max(1, Math.round(o.dmgBase * run.stats.damageMult * o.fusedDmgMult));
+    const lvMult = 1 + W.damageAddPerLevel * (weaponLevel - 1);
+    return Math.max(1, Math.round(o.dmgBase * run.stats.damageMult * o.fusedDmgMult * lvMult));
   }
 
   function update(dt) {
@@ -113,7 +140,7 @@ export function createOrbit(run) {
       const dx = e.x - o.x, dy = e.y - o.y;
       if (dx * dx + dy * dy <= rr * rr) {
         const last = o.slash.get(e.id);
-        if (last == null || run.elapsed - last >= A.SLASH.tickSec) {
+        if (last == null || run.elapsed - last >= o.slashTick) {
           o.slash.set(e.id, run.elapsed);
           run.dealDamage(e, dmg, o.color);
         }
@@ -138,15 +165,22 @@ export function createOrbit(run) {
     if (!best) return;
     const ang = Math.atan2(best.y - o.y, best.x - o.x);
     const sp = o.bulletSpeed;
-    run.spawnBullet(o.x, o.y, Math.cos(ang) * sp, Math.sin(ang) * sp,
-      o.color, memberDamage(o), A.SHOT.bulletRadius);
+    const dmg = memberDamage(o);
+    const n = o.shots;
+    const step = Phaser.Math.DegToRad(W.shot.spreadDeg);
+    // 狙い角を中心に左右対称の扇状（1発なら従来どおり真っ直ぐ）
+    for (let i = 0; i < n; i++) {
+      const a = ang + (i - (n - 1) / 2) * step;
+      run.spawnBullet(o.x, o.y, Math.cos(a) * sp, Math.sin(a) * sp,
+        o.color, dmg, o.bulletRadius);
+    }
     Sound.sfx('shoot');
   }
 
   function updateBeam(o, aimAngle, dt) {
     o.beamT -= dt;
     if (o.beamT > 0) return;
-    o.beamT = A.BEAM.intervalSec;
+    o.beamT = o.beamInterval;
     // プレイヤー→公転体の延長方向（radial 外向き）
     run.activateBeam(o.x, o.y, aimAngle, o.beamLength, o.beamWidth,
       o.color, memberDamage(o));
@@ -160,7 +194,7 @@ export function createOrbit(run) {
     // 減速マークと tick ダメージ
     o.fieldT -= dt;
     const doTick = o.fieldT <= 0;
-    if (doTick) o.fieldT = A.FIELD.tickSec;
+    if (doTick) o.fieldT = o.fieldTickSec;
     for (const e of run.enemies) {
       if (!e.active) continue;
       const dx = e.x - px, dy = e.y - py;
@@ -181,5 +215,22 @@ export function createOrbit(run) {
     orbs.length = 0;
   }
 
-  return { rebuild, update, destroy, get count() { return orbs.length; } };
+  // ★取得で呼ばれる。上限に達していたら false
+  function levelUp() {
+    if (weaponLevel >= W.maxLevel) return false;
+    weaponLevel++;
+    rebuild();
+    return true;
+  }
+
+  function setWeaponLevel(n) {
+    weaponLevel = Phaser.Math.Clamp(Math.floor(n), 1, W.maxLevel);
+    rebuild();
+  }
+
+  return {
+    rebuild, update, destroy, levelUp, setWeaponLevel,
+    get count() { return orbs.length; },
+    get weaponLevel() { return weaponLevel; },
+  };
 }

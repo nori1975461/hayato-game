@@ -64,6 +64,10 @@ export function createHud(run) {
     fontFamily: 'monospace', fontSize: '11px', color: '#ffffff',
   }).setScrollFactor(0).setDepth(D + 1);
 
+  const spText = run.add.text(8, 56, '', {
+    fontFamily: 'monospace', fontSize: '10px', color: '#ffd23f',
+  }).setScrollFactor(0).setDepth(D + 1);
+
   const timeText = run.add.text(320, 6, '5:00', {
     fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
   }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 1);
@@ -132,7 +136,26 @@ export function createHud(run) {
     bar.fillStyle(0x66ccff, 1);
     bar.fillRect(8, 38, xpW * xpRatio, 4);
 
-    lvText.setText('Lv ' + run.level);
+    // ひっさつゲージ（XPバーの下）
+    const sp = run.special;
+    const spW = 120;
+    bar.fillStyle(0x101a30, 0.9);
+    bar.fillRect(8, 48, spW, 6);
+    if (sp) {
+      const spRatio = Math.max(0, Math.min(1, sp.charge));
+      // 満タン時は elapsed ベースで決定的に点滅させて「押せる」ことを主張する
+      const spColor = (sp.ready && Math.floor(run.elapsed * 6) % 2 === 0) ? 0xff6ec7 : 0xffd23f;
+      bar.fillStyle(spColor, 1);
+      bar.fillRect(8, 48, spW * spRatio, 6);
+      spText.setText(sp.ready
+        ? 'ひっさつ x' + sp.usesLeft + '  SPACE!'
+        : 'ひっさつ x' + sp.usesLeft);
+    } else {
+      spText.setText('');
+    }
+
+    const wLv = (run.orbit && run.orbit.weaponLevel) || 0;
+    lvText.setText(wLv ? 'Lv ' + run.level + '  ぶき Lv' + wLv : 'Lv ' + run.level);
 
     // タイマー（カウントダウン M:SS）。ボス出現時刻を過ぎたら赤の「BOSS」表示へ。
     if (run.elapsed >= BALANCE.boss.hudBossSec) {
@@ -150,8 +173,10 @@ export function createHud(run) {
     bossBar.clear();
     const boss = run.boss;
     if (boss && boss.active) {
+      // run.boss はシステムオブジェクト。HP は公転エンティティ側（boss.entity）が持つ。
+      const ent = boss.entity;
       const bw = 360, bx = 140, by = 44;
-      const ratio = Math.max(0, Math.min(1, (boss.hp || 0) / (boss.maxHp || 1)));
+      const ratio = ent ? Math.max(0, Math.min(1, (ent.hp || 0) / (ent.maxHp || 1))) : 0;
       bossBar.fillStyle(0x30060f, 0.9);
       bossBar.fillRect(bx, by, bw, 8);
       bossBar.fillStyle(0xff4d6d, 1);

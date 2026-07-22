@@ -10,6 +10,7 @@ import { createLevelup } from '../systems/levelup.js';
 import { createFx } from '../systems/fx.js';
 import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
+import { createSpecial } from '../systems/special.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
@@ -39,7 +40,7 @@ export class RunScene extends Phaser.Scene {
     this.xp = 0;
     this.xpNeed = BALANCE.xp.firstLevelNeed + BALANCE.xp.needStep * (2 - 2); // Lv2まで=5
     this.paused = false;
-    this.drafting = false;
+    this.drafting = false;    // v3: ドラフト廃止。検証スクリプト互換のため常に false で保持
     this.ended = false;
     this.cinematic = false;   // 合成/ボス撃破など進行停止する演出中
     this.freezeT = 0;         // ヒットストップ残り秒
@@ -91,6 +92,7 @@ export class RunScene extends Phaser.Scene {
     this.fx = createFx(this);
     this.boss = createBoss(this);
     this.items = createItems(this);
+    this.special = createSpecial(this);   // hud が run.special を参照するため createHud より前
     this.orbit.rebuild();
 
     // --- HUD ---
@@ -103,6 +105,7 @@ export class RunScene extends Phaser.Scene {
       if (this.boss) this.boss.destroy();
       if (this.items) this.items.destroy();
       if (this.fx && this.fx.destroy) this.fx.destroy();
+      if (this.special) this.special.destroy();
     });
 
     this.installInput();
@@ -117,15 +120,12 @@ export class RunScene extends Phaser.Scene {
     });
 
     const kb = this.input.keyboard;
-    kb.on('keydown-P', () => { if (!this.drafting && !this.ended) this.togglePause(); });
+    kb.on('keydown-P', () => { if (!this.ended) this.togglePause(); });
     kb.on('keydown-M', () => this.toggleMute());
     kb.on('keydown-R', () => { if (this.paused) this.restartRun(); });
-    kb.on('keydown-T', () => { if (!this.paused && !this.drafting) this.spawner.spawnBurst(300); });
-    kb.on('keydown-G', () => { if (!this.paused && !this.drafting) this.capture.forceDropCore(); });
-    kb.on('keydown-ONE', () => { if (this.drafting) this.levelup.select(0); });
-    kb.on('keydown-TWO', () => { if (this.drafting) this.levelup.select(1); });
-    kb.on('keydown-THREE', () => { if (this.drafting) this.levelup.select(2); });
-    kb.on('keydown-SPACE', () => { if (this.drafting) this.levelup.confirm(); });
+    kb.on('keydown-T', () => { if (!this.paused) this.spawner.spawnBurst(300); });
+    kb.on('keydown-G', () => { if (!this.paused) this.capture.forceDropCore(); });
+    kb.on('keydown-SPACE', () => { if (!this.paused && !this.ended) this.special.fire(); });
   }
 
   togglePause() {
@@ -143,14 +143,15 @@ export class RunScene extends Phaser.Scene {
     this.scene.restart({ withAudio: this.withAudio });
   }
 
-  setDrafting(on) {
-    this.drafting = on;
+  // v3でドラフトUIは廃止（★は自動強化）。外部参照の保険として no-op で残す。
+  setDrafting() {
+    this.drafting = false;
   }
 
   // ============ メインループ ============
   update(time, delta) {
     if (this.ended) return;
-    // ポーズ中は時間停止（ドラフトはノンストップ＝止めない）
+    // ポーズ中のみ時間停止（v3: ドラフトは廃止）
     if (this.paused) {
       this.hud.update(delta);
       return;
@@ -181,6 +182,7 @@ export class RunScene extends Phaser.Scene {
     this.boss.update(dt);
     this.capture.update(dt);
     this.items.update(dt);
+    this.special.update(dt);
     if (this.levelup.update) this.levelup.update(dt);
     this.updateEnemies(dt);
     this.updateBullets(dt);
@@ -400,6 +402,10 @@ export class RunScene extends Phaser.Scene {
     if (e.isBoss) { e.active = false; this.boss.onBossKilled(e); return; } // ボス撃破は専用演出へ
     e.active = false;
     this.kills++;
+    this.special.addKill();
+    // シネマ中はcompactが回らないので、その場で見た目を消す（撃破の手応えを遅らせない）
+    e.spr.setVisible(false);
+    e.glow.setVisible(false);
     const burst = e.isElite ? 20 : (8 + Math.floor(this.rng.random() * 5));
     this.spawnParticles(e.x, e.y, e.color, burst);
     if (e.isElite) this.shake(100, 4);
@@ -600,6 +606,7 @@ export class RunScene extends Phaser.Scene {
     Sound.sfx(clear ? 'clear' : 'gameover');
     this.scene.start('Result', {
       clear,
+      bossDefeated: clear, // クリアはボス撃破のみ（202行）＝クリア時は必ずボス撃破
       withAudio: this.withAudio,
       elapsed: this.elapsed,
       kills: this.kills,
