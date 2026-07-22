@@ -461,9 +461,10 @@ export const BALANCE = {
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
+  // v4: テンポ改善（cinematicSec短縮=すぐ操作に戻れる・killsPerCharge減=撃ちやすい・startCharge増=序盤から1発目が近い）
   special: {
-    killsPerCharge: 35, maxUses: 3, radius: 300, damage: 9999, bossDamage: 350,
-    cinematicSec: 1.5, startCharge: 0.5,
+    killsPerCharge: 26, maxUses: 3, radius: 320, damage: 9999, bossDamage: 360,
+    cinematicSec: 0.7, startCharge: 0.6,
   },
 
   // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
@@ -738,16 +739,17 @@ export const BALANCE = {
 
 **モジュール**: `src/systems/special.js` — `createSpecial(run)` → `{ update(dt), addKill(), fire(), destroy(), get charge, get usesLeft, get ready }`
 
-- ゲージ: 開始時 `special.startCharge`（0.5）。敵撃破ごと `addKill()` が `1 / killsPerCharge`（35体で満タン）を加算。満タン時に `Sound.sfx('gaugeFull')` ＋ `run.fx.specialReady()`。
+- ゲージ: 開始時 `special.startCharge`（**v4: 0.6**）。敵撃破ごと `addKill()` が `1 / killsPerCharge`（**v4: 26体で満タン**）を加算。満タン時に `Sound.sfx('gaugeFull')` ＋ `run.fx.specialReady()`。
 - **使用回数は1ステージ `special.maxUses` = 3 回まで**（要望「3回が限度」）。`usesLeft` が0になったらゲージは溜まらない。
 - 発動: SPACEキー（`Run.js` の `keydown-SPACE` → `special.fire()`）。`run.cinematic || run.paused || run.ended` の間は発動しない。
-- 効果: 主人公中心 半径 `special.radius`(300) 内の雑魚を `run.killEnemy()` で**即死**、ボスには `special.bossDamage`(350) を `run.dealDamage()`。
-- 演出 `fx.specialBlast(x, y, radius, onImpact, onDone)`:
-  - `run.cinematic = true` ＋ `run.shake(500, 10)` ＋ announce『ボルテックスバースト！！』
-  - 180ms で `onImpact()`（`impacted` フラグで**必ず1回だけ**）
-  - 白フラッシュ rect **alpha 0.45**（§10.7同様 **0.5超は禁止**）
-  - 3枚の拡大リングを時間差で展開＋8方向の tween 駆動 `burstUI()`（**`run.spawnParticles` はシネマ中に凍結するため画面座標=scrollFactor 0 の tween で描く**）
-  - `special.cinematicSec`(1.5) 後に `run.cinematic = false` と `onDone()`（`finished` フラグで**必ず1回だけ**）
+- 効果: 主人公中心 半径 `special.radius`(**v4: 320**) 内の雑魚を `run.killEnemy()` で**即死**、ボスには `special.bossDamage`(**v4: 360**) を `run.dealDamage()`。
+- 演出 `fx.specialBlast(x, y, radius, onImpact, onDone)`（**v4で派手さ全面強化**・要望#1/#2）:
+  - `cineBegin()` トークン方式で `run.cinematic = true` ＋ `run.shake(500, 10)` ＋ `Sound.sfx('specialCharge')`（溜め上昇音）＋ `Sound.sfx('special')` ＋ announce『ボルテックスバースト！！』＋ 6色虹の放射
+  - 溜めフェーズ: `convergeLines`（外周→中心へ集束する光線）＋ glow core
+  - 180ms で炸裂 `onImpact()`（`impacted` フラグで**必ず1回だけ**）＝ `Sound.sfx('bigBoom')`（重低音の大爆発）＋ `run.shake(360, 12)`
+  - 白フラッシュ rect **alpha 0.45**（§10.7同様 **0.5超は禁止**）＋ `goldWash`（金の加算フラッシュ alpha 0.5・着色済みなので可）
+  - 7枚の虹リングを時間差で展開＋衝撃波＋`radialStreaks`（放射状の光条）＋スパーク（**`run.spawnParticles` はシネマ中に凍結するため画面座標=scrollFactor 0 の tween で描く**）
+  - `special.cinematicSec`(**v4: 0.7**) 後に `cineEnd(token)` で `run.cinematic = false` と `onDone()`（`finished` フラグで**必ず1回だけ**）＝短縮でテンポ改善、すぐ操作に戻れる
 - HUD（`ui/hud.js`）: XPバーの下 `fillRect(8, 48, 120, 6)` にゲージ。満タン時は `Math.floor(run.elapsed*6)%2` で `0xff6ec7` に決定的点滅。テキストは `ひっさつ x{usesLeft}`、満タン時は末尾に `  SPACE!`。
 
 ## 11.4 レベルアップ自動強化（要望3・**§10.6-A ノンストップ・ドラフトを廃止**）
@@ -787,6 +789,8 @@ test-core が `spawnCountEnd <= 3` / `enemyCap <= 200` / `hpMultEnd <= 4` を回
 - ドラム: 四つ打ちキック（+ 14ステップ目に食い込み）・2/4拍のスネア＋ハンドクラップ・8分ハット（後半は16分）・小節終わりのオープンハット・最終小節後半のスネアロール
 
 `boss` は Am・152BPM・4小節、`result` は C・96BPM・4小節（**§10.7 の「boss 140BPM」は本節が上書き**）。SFXは `weaponUp` / `special` / `gaugeFull` の3種を追加。
+
+**v4 派手化（要望1・2）**: `MASTER_VOL` を 0.30→**0.33**（子ども安全上限 0.34 以内）へ引き上げ、必殺技用に2種のSFXを新設。`specialCharge`（溜め上昇スイープ＋ノイズライザー＋きらめきアルペジオ＋頂点チャイム、約0.6秒）と `bigBoom`（重低音2層の大爆発＋ノイズバースト＋C majorブラスト和音＋余韻スパークル、約0.8秒）。いずれも LCG 決定ノイズで合成し `Math.random` は使わない。
 
 ## 11.7 検証 v3
 
