@@ -1,8 +1,10 @@
 // audio/sound.js — ボルモン！ 効果音・BGM合成（WebAudio・外部ファイルなし）
 // 仕様書 §3.5 のAPI契約を厳守。init前に sfx() が呼ばれても無音で無視する。
 
+const MASTER_VOL = 0.30; // 全体音量。ポップに聴かせるため0.25から微増（眩しすぎない範囲）
+
 let ctx = null;         // AudioContext
-let masterGain = null;  // 全体音量（0.25基調）
+let masterGain = null;  // 全体音量（MASTER_VOL基調）
 let sfxGain = null;     // SFX用サブバス
 let bgmGain = null;     // BGM用サブバス
 let muted = false;
@@ -244,6 +246,51 @@ const SFX = {
     });
     tone({ type: 'sawtooth', freq: noteFreq(NOTE.C3), start: 0.6, dur: 0.5, gain: 0.14 });
   },
+  // 仲間の武器レベルアップ：上昇アルペジオ2オクターブ＋きらめき＋和音で締め（levelupより豪華・約0.8秒）
+  weaponUp() {
+    const seq = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6];
+    seq.forEach((n, i) => {
+      tone({ type: 'square', freq: noteFreq(n), start: i * 0.045, dur: 0.13, gain: 0.2 });
+      tone({ type: 'triangle', freq: noteFreq(n) * 2, start: i * 0.045, dur: 0.09, gain: 0.07 });
+    });
+    // 到達点の和音（C-E-G-Cを一気に鳴らして華やかに）
+    [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((n, i) => {
+      tone({ type: 'square', freq: noteFreq(n), start: 0.3 + i * 0.02, dur: 0.34, gain: 0.15 });
+    });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.34, dur: 0.4, gain: 0.12 });
+    noiseHit({ start: 0.3, dur: 0.22, gain: 0.07, hpFreq: 5000 });
+    noiseHit({ start: 0.5, dur: 0.18, gain: 0.05, hpFreq: 7000 });
+  },
+  // 必殺技発動：低音ドーン＋上昇スイープ＋ノイズバースト＋炸裂和音（約1.2秒）
+  special() {
+    // 予備動作：低く沈む唸り
+    tone({ type: 'sine', freq: 180, freqEnd: 40, dur: 0.5, gain: 0.32 });
+    tone({ type: 'sawtooth', freq: 90, freqEnd: 30, dur: 0.45, gain: 0.12 });
+    // チャージスイープ（0.55秒かけて一気に上昇）
+    tone({ type: 'triangle', freq: 140, freqEnd: 2600, dur: 0.55, gain: 0.16 });
+    tone({ type: 'square', freq: 70, freqEnd: 1300, dur: 0.55, gain: 0.08 });
+    noiseHit({ dur: 0.5, gain: 0.07, hpFreq: 300, lpFreq: 4000 });
+    // 炸裂（0.55秒地点）：ノイズバースト＋低音インパクト
+    noiseHit({ start: 0.55, dur: 0.45, gain: 0.26, hpFreq: 120, lpFreq: 9000 });
+    tone({ type: 'sine', freq: 220, freqEnd: 32, dur: 0.5, start: 0.55, gain: 0.34 });
+    // 炸裂和音（Cメジャー・広い音域で派手に）
+    [NOTE.C4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((n, i) => {
+      tone({ type: 'square', freq: noteFreq(n), start: 0.57 + i * 0.015, dur: 0.42, gain: 0.13 });
+    });
+    // 余韻：高音チャイムが残る
+    tone({ type: 'triangle', freq: noteFreq(NOTE.G6), start: 0.8, dur: 0.4, gain: 0.14 });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.88, dur: 0.32, gain: 0.1 });
+    noiseHit({ start: 0.8, dur: 0.35, gain: 0.05, hpFreq: 6000 });
+  },
+  // 必殺技ゲージ満タン：短い「チャリン↑」3音（約0.25秒）
+  gaugeFull() {
+    const seq = [NOTE.G5, NOTE.C6, NOTE.E6];
+    seq.forEach((n, i) => {
+      tone({ type: 'triangle', freq: noteFreq(n), start: i * 0.055, dur: 0.13, gain: 0.2 });
+      tone({ type: 'square', freq: noteFreq(n) * 2, start: i * 0.055, dur: 0.07, gain: 0.05 });
+    });
+    noiseHit({ start: 0.11, dur: 0.1, gain: 0.05, hpFreq: 7000 });
+  },
   // クリア：明るい勝利ファンファーレ
   clear() {
     const seq = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6];
@@ -263,29 +310,37 @@ const SFX = {
 // STEPS_PER_BAR は共通16。STEP_SEC・小節数・声部は曲ごとに切替える。
 const STEPS_PER_BAR = 16;
 
-// --- 曲1: 通常戦闘 battle（現行曲そのまま・長調・128BPM・8小節・C-Am-F-G×2巡）---
+// --- 曲1: 通常戦闘 battle（Cメジャー・150BPM・8小節・王道進行 C-G-Am-F / C-G-F-G）---
+// 四つ打ちキック＋オフビートのコードスタブ＋16分ハットで踊れるポップに。
+// 前半4小節はメロディ主体、後半4小節はアルペジオを重ねて盛り上げる。
 const CHORDS = [
-  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 }, // C
-  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], bass: NOTE.A2 }, // Am
-  { arp: [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F4], bass: NOTE.F2 }, // F
-  { arp: [NOTE.G4, NOTE.B4, NOTE.D5, NOTE.G4], bass: NOTE.G2 }, // G
-  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 }, // C
-  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], bass: NOTE.A2 }, // Am
-  { arp: [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F4], bass: NOTE.F2 }, // F
-  { arp: [NOTE.G4, NOTE.B4, NOTE.D5, NOTE.G4], bass: NOTE.G2 }, // G
+  { arp: [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], stab: [NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 }, // C
+  { arp: [NOTE.D5, NOTE.G5, NOTE.B5, NOTE.D6], stab: [NOTE.D4, NOTE.G4, NOTE.B4], bass: NOTE.G2 }, // G
+  { arp: [NOTE.A4, NOTE.C5, NOTE.E5, NOTE.A5], stab: [NOTE.E4, NOTE.A4, NOTE.C5], bass: NOTE.A2 }, // Am
+  { arp: [NOTE.F5, NOTE.A5, NOTE.C6, NOTE.F5], stab: [NOTE.F4, NOTE.A4, NOTE.C5], bass: NOTE.F2 }, // F
+  { arp: [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], stab: [NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 }, // C
+  { arp: [NOTE.D5, NOTE.G5, NOTE.B5, NOTE.D6], stab: [NOTE.D4, NOTE.G4, NOTE.B4], bass: NOTE.G2 }, // G
+  { arp: [NOTE.F5, NOTE.A5, NOTE.C6, NOTE.F5], stab: [NOTE.F4, NOTE.A4, NOTE.C5], bass: NOTE.F2 }, // F
+  { arp: [NOTE.D5, NOTE.G5, NOTE.B5, NOTE.D6], stab: [NOTE.D4, NOTE.G4, NOTE.B4], bass: NOTE.G2 }, // G
 ];
 
-// 明るいリードメロディ（小節ごとに8ステップ分・-1は休符）
+// 明るいリードメロディ（battleのみ16分解像度＝1小節16ステップ・-1は休符）。
+// 付点8分（3ステップ）を軸にしたシンコペーションで跳ねさせる。
 const MELODY = [
-  [NOTE.C5, -1, NOTE.E5, -1, NOTE.G5, -1, NOTE.E5, -1],
-  [NOTE.A4, -1, NOTE.C5, -1, NOTE.E5, -1, NOTE.C5, -1],
-  [NOTE.F5, -1, NOTE.A5, -1, NOTE.C6, -1, NOTE.A5, -1],
-  [NOTE.G5, -1, NOTE.B5, -1, NOTE.D6, -1, NOTE.B5, -1],
-  [NOTE.E5, NOTE.G5, NOTE.C6, -1, NOTE.G5, -1, NOTE.E5, -1],
-  [NOTE.C5, NOTE.E5, NOTE.A5, -1, NOTE.E5, -1, NOTE.C5, -1],
-  [NOTE.A5, NOTE.C6, NOTE.F5, -1, NOTE.A5, -1, NOTE.C6, -1],
-  [NOTE.D6, NOTE.B5, NOTE.G5, -1, NOTE.D6, -1, NOTE.G5, -1],
+  [NOTE.G5, -1, -1, NOTE.C6, -1, -1, NOTE.B5, -1, NOTE.G5, -1, NOTE.E5, -1, NOTE.G5, -1, -1, -1],
+  [NOTE.A5, -1, -1, NOTE.B5, -1, -1, NOTE.D6, -1, NOTE.B5, -1, NOTE.G5, -1, NOTE.A5, -1, NOTE.B5, -1],
+  [NOTE.C6, -1, -1, NOTE.A5, -1, -1, NOTE.E5, -1, NOTE.A5, -1, NOTE.C6, -1, NOTE.B5, -1, -1, -1],
+  [NOTE.A5, -1, NOTE.C6, -1, -1, NOTE.F5, -1, -1, NOTE.A5, -1, NOTE.G5, -1, NOTE.F5, -1, NOTE.E5, -1],
+  [NOTE.C6, -1, -1, NOTE.E6, -1, -1, NOTE.D6, -1, NOTE.C6, -1, NOTE.G5, -1, NOTE.C6, -1, -1, -1],
+  [NOTE.B5, -1, -1, NOTE.D6, -1, -1, NOTE.B5, -1, NOTE.G5, -1, NOTE.A5, -1, NOTE.B5, -1, NOTE.D6, -1],
+  [NOTE.C6, -1, -1, NOTE.A5, -1, NOTE.F5, -1, -1, NOTE.A5, -1, NOTE.C6, -1, NOTE.D6, -1, NOTE.C6, -1],
+  [NOTE.B5, -1, NOTE.A5, -1, NOTE.G5, -1, NOTE.A5, -1, NOTE.B5, -1, NOTE.C6, -1, NOTE.D6, -1, -1, -1],
 ];
+
+// ベースのオフビート位置（1小節16ステップ中）。3・11の食い込みでノリを出す。
+const BASS_STEPS = [0, 3, 6, 8, 11, 14];
+// コードスタブは8分裏（&）に置く
+const STAB_STEPS = [2, 6, 10, 14];
 
 // --- 曲2: ボス戦 boss（Aマイナー・140BPM・4小節・Am-F-G-Am）---
 const CHORDS_BOSS = [
@@ -317,8 +372,8 @@ const MELODY_RESULT = [
 
 // 曲テーブル。style で声部・ドラムパターンを分岐する。
 const SONGS = {
-  battle: { bpm: 128, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
-  boss:   { bpm: 140, bars: 4, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
+  battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
+  boss:   { bpm: 152, bars: 4, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
 let currentSong = SONGS.battle;   // 現在再生中の曲定義
@@ -332,35 +387,63 @@ function playBgmStep(step) {
   const chord = song.chords[bar];
 
   if (song.style === 'battle') {
-    // ベース：小節頭と8ステップ目に鳴らす
-    if (inBar === 0 || inBar === 8) {
-      tone({ type: 'triangle', freq: noteFreq(chord.bass), dur: stepSec * 7,
-             gain: 0.22, dest: bgmGain, attack: 0.01 });
+    // ベース：オフビート込みの跳ねるパターン（triangle＋squareで芯を出す）
+    if (BASS_STEPS.indexOf(inBar) >= 0) {
+      const bf = noteFreq(chord.bass);
+      tone({ type: 'triangle', freq: bf, dur: stepSec * 1.9,
+             gain: 0.22, dest: bgmGain, attack: 0.005 });
+      tone({ type: 'square', freq: bf * 2, dur: stepSec * 1.2,
+             gain: 0.05, dest: bgmGain, attack: 0.005 });
     }
-    // アルペジオ：8分音符（偶数ステップ）に順番に
-    if (inBar % 2 === 0) {
+    // コードスタブ：8分裏に和音を短く刺してポップな推進力を作る
+    if (STAB_STEPS.indexOf(inBar) >= 0) {
+      chord.stab.forEach((n) => {
+        tone({ type: 'square', freq: noteFreq(n), dur: stepSec * 1.1,
+               gain: 0.075, dest: bgmGain, attack: 0.004 });
+      });
+    }
+    // アルペジオ：後半4小節だけ8分で重ねて盛り上げる（前半はメロディを立たせる）
+    if (bar >= 4 && inBar % 2 === 0) {
       const arpIdx = (inBar / 2) % chord.arp.length;
-      tone({ type: 'square', freq: noteFreq(chord.arp[arpIdx]), dur: stepSec * 1.6,
-             gain: 0.1, dest: bgmGain, attack: 0.005 });
+      tone({ type: 'triangle', freq: noteFreq(chord.arp[arpIdx]), dur: stepSec * 1.4,
+             gain: 0.05, dest: bgmGain, attack: 0.004 });
     }
-    // リードメロディ：8分音符解像度
-    if (inBar % 2 === 0) {
-      const m = song.melody[bar][inBar / 2];
-      if (m !== -1) {
-        tone({ type: 'triangle', freq: noteFreq(m), dur: stepSec * 1.8,
-               gain: 0.16, dest: bgmGain, attack: 0.005 });
-      }
+    // リードメロディ：16分解像度。squareの主旋律にdetuneした薄い重ねで厚みを出す
+    const m = song.melody[bar][inBar];
+    if (m !== undefined && m !== -1) {
+      const mf = noteFreq(m);
+      tone({ type: 'square', freq: mf, dur: stepSec * 2.4,
+             gain: 0.17, dest: bgmGain, attack: 0.005 });
+      tone({ type: 'triangle', freq: mf, dur: stepSec * 2.2,
+             gain: 0.07, dest: bgmGain, attack: 0.005, detune: 9 });
+      tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 2.0,
+             gain: 0.05, dest: bgmGain, attack: 0.006 });
     }
-    // ドラム：ハイハット裏・キック小節頭・スネア中間
-    if (inBar % 4 === 2) {
-      noiseHit({ dur: 0.04, gain: 0.05, hpFreq: 6000, lpFreq: 12000, dest: bgmGain });
-    }
-    if (inBar % 8 === 0) {
-      tone({ type: 'sine', freq: 140, freqEnd: 50, dur: 0.12, gain: 0.2,
+    // キック：四つ打ち＋小節終盤に食い込み1発
+    if (inBar % 4 === 0 || inBar === 14) {
+      tone({ type: 'sine', freq: 150, freqEnd: 48, dur: 0.13, gain: 0.24,
              dest: bgmGain, attack: 0.002 });
     }
+    // スネア＋ハンドクラップ：2拍4拍
     if (inBar === 4 || inBar === 12) {
-      noiseHit({ dur: 0.1, gain: 0.09, hpFreq: 1500, lpFreq: 8000, dest: bgmGain });
+      noiseHit({ dur: 0.1, gain: 0.1, hpFreq: 1500, lpFreq: 8000, dest: bgmGain });
+      noiseHit({ start: 0.014, dur: 0.09, gain: 0.07, hpFreq: 1100, lpFreq: 6000, dest: bgmGain });
+    }
+    // ハット：8分でキープしオフビートにアクセント。小節後半は16分で刻んで疾走感
+    if (inBar % 2 === 0) {
+      const acc = (inBar % 4 === 2) ? 0.055 : 0.028;
+      noiseHit({ dur: 0.035, gain: acc, hpFreq: 6500, lpFreq: 13000, dest: bgmGain });
+    } else if (inBar >= 8) {
+      noiseHit({ dur: 0.025, gain: 0.02, hpFreq: 7000, lpFreq: 13000, dest: bgmGain });
+    }
+    // オープンハット：小節終わりの抜け
+    if (inBar === 14) {
+      noiseHit({ dur: 0.11, gain: 0.045, hpFreq: 5000, lpFreq: 12000, dest: bgmGain });
+    }
+    // 最終小節の後半はスネアロールでループへ繋ぐ
+    if (bar === song.bars - 1 && inBar >= 12) {
+      noiseHit({ dur: 0.05, gain: 0.05 + (inBar - 12) * 0.015,
+                 hpFreq: 1800, lpFreq: 9000, dest: bgmGain });
     }
   } else if (song.style === 'boss') {
     // ベース：8分刻みで駆動感。6・14ステップ目はオクターブ上
@@ -383,13 +466,14 @@ function playBgmStep(step) {
                gain: 0.11, dest: bgmGain, attack: 0.005 });
       }
     }
-    // ドラム：キック4つ打ち・スネア中間・ハット16分裏
-    if (inBar % 4 === 0) {
+    // ドラム：キック4つ打ち＋食い込み・スネア中間＋クラップ・ハット16分裏
+    if (inBar % 4 === 0 || inBar === 10) {
       tone({ type: 'sine', freq: 150, freqEnd: 45, dur: 0.12, gain: 0.22,
              dest: bgmGain, attack: 0.002 });
     }
     if (inBar === 4 || inBar === 12) {
       noiseHit({ dur: 0.1, gain: 0.1, hpFreq: 1500, lpFreq: 8000, dest: bgmGain });
+      noiseHit({ start: 0.014, dur: 0.08, gain: 0.06, hpFreq: 1100, lpFreq: 6000, dest: bgmGain });
     }
     if (inBar % 2 === 1) {
       noiseHit({ dur: 0.03, gain: 0.035, hpFreq: 6000, lpFreq: 12000, dest: bgmGain });
@@ -450,7 +534,7 @@ export const Sound = {
       return;
     }
     masterGain = ctx.createGain();
-    masterGain.gain.value = muted ? 0 : 0.25;
+    masterGain.gain.value = muted ? 0 : MASTER_VOL;
     masterGain.connect(ctx.destination);
 
     sfxGain = ctx.createGain();
@@ -458,7 +542,7 @@ export const Sound = {
     sfxGain.connect(masterGain);
 
     bgmGain = ctx.createGain();
-    bgmGain.gain.value = 0.7; // BGMはSFXよりやや控えめ
+    bgmGain.gain.value = 0.78; // BGMはSFXよりやや控えめ（ノリを出すため0.7から微増）
     bgmGain.connect(masterGain);
 
     if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
@@ -513,7 +597,7 @@ export const Sound = {
       const now = ctx.currentTime;
       masterGain.gain.cancelScheduledValues(now);
       masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-      masterGain.gain.linearRampToValueAtTime(muted ? 0 : 0.25, now + 0.05);
+      masterGain.gain.linearRampToValueAtTime(muted ? 0 : MASTER_VOL, now + 0.05);
     }
     return muted;
   },
