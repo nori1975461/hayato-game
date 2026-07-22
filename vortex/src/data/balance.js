@@ -51,9 +51,10 @@ export const BALANCE = {
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
+  // v4: テンポ改善（cinematicSec短縮=すぐ操作に戻れる・killsPerCharge減=撃ちやすい・startCharge増=序盤から1発目が近い）
   special: {
-    killsPerCharge: 35, maxUses: 3, radius: 300, damage: 9999, bossDamage: 350,
-    cinematicSec: 1.5, startCharge: 0.5,
+    killsPerCharge: 26, maxUses: 3, radius: 320, damage: 9999, bossDamage: 360,
+    cinematicSec: 0.7, startCharge: 0.6,
   },
 
   // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
