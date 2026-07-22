@@ -20,14 +20,14 @@ export class TitleScene extends Phaser.Scene {
     this.bg = bg;
 
     // ロゴ
-    const logo = this.add.text(W / 2, 118, 'ボルモン！', {
-      fontFamily: 'monospace', fontSize: '46px', color: '#ffe066',
+    const logo = this.add.text(W / 2, 112, 'クルット・モビット', {
+      fontFamily: 'monospace', fontSize: '34px', color: '#ffe066',
       fontStyle: 'bold', stroke: '#ff6ec7', strokeThickness: 6,
     }).setOrigin(0.5);
     this.tweens.add({ targets: logo, scale: 1.06, duration: 900,
       yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(W / 2, 166, '〜 VORTEX MONSTERS 〜', {
+    this.add.text(W / 2, 156, '〜 KURUTTO MOBIT 〜', {
       fontFamily: 'monospace', fontSize: '16px', color: '#7fffcf',
     }).setOrigin(0.5);
 
