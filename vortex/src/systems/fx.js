@@ -66,6 +66,40 @@ export function createFx(run) {
     });
   }
 
+  // 中心（画面座標）から放射状に伸びる光の筋。origin(0,0.5) で外側へ伸びる。
+  // colorFn(i) で筋ごとに色を変えられる（色相の波用）。シネマ用に scrollFactor0。
+  function radialStreaks(sx, sy, count, colorFn, len, depth, dur, baseAng) {
+    for (let i = 0; i < count; i++) {
+      const ang = (baseAng || 0) + (i / count) * Math.PI * 2 + run.rng.range(-0.12, 0.12);
+      const col = typeof colorFn === 'function' ? colorFn(i) : colorFn;
+      const st = run.add.image(sx, sy, 'white').setScrollFactor(0).setDepth(depth)
+        .setBlendMode(ADD).setTint(col).setOrigin(0, 0.5).setRotation(ang)
+        .setDisplaySize(8, run.rng.range(2.5, 5)).setAlpha(0.95);
+      run.tweens.add({
+        targets: st, displayWidth: len * run.rng.range(0.7, 1.2), alpha: 0,
+        duration: dur * run.rng.range(0.8, 1.15), ease: 'Cubic.out',
+        onComplete: () => st.destroy(),
+      });
+    }
+  }
+
+  // 外周から中心へ吸い込まれる集中線（渦の溜め演出）。画面座標・scrollFactor0。
+  function convergeLines(sx, sy, count, color, dist, depth, dur) {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + run.rng.range(-0.15, 0.15);
+      const ox = sx + Math.cos(ang) * dist;
+      const oy = sy + Math.sin(ang) * dist;
+      const line = run.add.image(ox, oy, 'white').setScrollFactor(0).setDepth(depth)
+        .setBlendMode(ADD).setTint(color).setOrigin(0.5).setRotation(ang)
+        .setDisplaySize(dist * 0.55, 3).setAlpha(0);
+      run.tweens.add({ targets: line, alpha: 0.85, duration: dur * 0.4 });
+      run.tweens.add({
+        targets: line, x: sx, y: sy, displayWidth: 4, alpha: 0,
+        duration: dur, ease: 'Cubic.in', onComplete: () => line.destroy(),
+      });
+    }
+  }
+
   // ---- 誘導矢印（祭壇・洞窟） ----
   function ensureArrow() {
     if (run.textures.exists('fxArrow')) return;
@@ -121,12 +155,26 @@ export function createFx(run) {
   // ---- レベルアップ決定演出（§10.7） ----
   function powerupFlash(up) {
     const color = themeColor(up);
-    // 白フラッシュ（alpha 0.45→0・0.5超は禁止）
+    // 白フラッシュ（alpha 0.45→0・0.45超は禁止）
     const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.45)
       .setScrollFactor(0).setDepth(2100);
     run.tweens.add({ targets: flash, alpha: 0, duration: 200, onComplete: () => flash.destroy() });
+    // テーマ色の加算ウォッシュ＋二重リングで色をしっかり見せる（有色は上限なし）
+    const wash = run.add.rectangle(W / 2, H / 2, W, H, color, 0.28)
+      .setScrollFactor(0).setDepth(2099).setBlendMode(ADD);
+    run.tweens.add({ targets: wash, alpha: 0, duration: 320, onComplete: () => wash.destroy() });
     ripple(W / 2, H / 2, color, 0);
-    run.spawnParticles(run.player.x, run.player.y, color, 24);
+    run.time.delayedCall(90, () => ripple(W / 2, H / 2, 0xffffff, 0));
+    // 足元から立ち上る光柱＋粒子で「強くなった」手応え
+    const pillar = run.add.image(run.player.x, run.player.y, 'white').setBlendMode(ADD)
+      .setDepth(1400).setTint(color).setOrigin(0.5, 1).setDisplaySize(10, 4).setAlpha(0.9);
+    run.tweens.add({ targets: pillar, displayHeight: 90, duration: 200, ease: 'Cubic.out' });
+    run.tweens.add({
+      targets: pillar, alpha: 0, delay: 220, duration: 340,
+      onComplete: () => pillar.destroy(),
+    });
+    run.spawnParticles(run.player.x, run.player.y, color, 30);
+    run.spawnParticles(run.player.x, run.player.y, 0xffffff, 12);
     run.floatText(run.player.x, run.player.y - 30, 'パワーアップ！', '#ffe066');
   }
 
@@ -192,7 +240,8 @@ export function createFx(run) {
       sprA.setVisible(false); sprB.setVisible(false);
       Sound.sfx('fusion');
       run.shake(150, 5);
-      const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.7)
+      // 白フラッシュは子ども向け安全上限 alpha 0.45 を厳守（0.45超は禁止）
+      const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.45)
         .setScrollFactor(0).setDepth(2060);
       objs.push(flash);
       run.tweens.add({ targets: flash, alpha: 0, duration: 350, onComplete: () => flash.destroy() });
@@ -246,9 +295,22 @@ export function createFx(run) {
       targets: pillar, alpha: 0, delay: 260, duration: 380,
       onComplete: () => pillar.destroy(),
     });
+    // 二重リング＋色替えの追いリングで昇華感を強める
     ripple(x, y, 0x7fe8ff, 1);
-    run.spawnParticles(x, y, 0xffffff, 16);
-    run.spawnParticles(x, y, 0x7fe8ff, 14);
+    run.time.delayedCall(90, () => ripple(x, y, 0xffffff, 1));
+    run.time.delayedCall(180, () => ripple(x, y, 0xffd23f, 1));
+    // 光の粒を華やかに（白＋水色＋金）
+    run.spawnParticles(x, y, 0xffffff, 20);
+    run.spawnParticles(x, y, 0x7fe8ff, 18);
+    run.spawnParticles(x, y, 0xffd23f, 12);
+    // 細い光柱をもう1本重ねて太く見せる
+    const pillar2 = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(1401)
+      .setTint(0xffffff).setOrigin(0.5, 1).setDisplaySize(4, 4).setAlpha(0.85);
+    run.tweens.add({ targets: pillar2, displayHeight: 80, duration: 200, ease: 'Cubic.out' });
+    run.tweens.add({
+      targets: pillar2, alpha: 0, delay: 220, duration: 340,
+      onComplete: () => pillar2.destroy(),
+    });
     const t = run.add.text(x, y - 40, 'しんか！ ' + newDef.name, {
       fontFamily: 'monospace', fontSize: '13px', color: '#8fffff', fontStyle: 'bold',
       stroke: '#003344', strokeThickness: 4,
@@ -286,13 +348,21 @@ export function createFx(run) {
     const cineTok = cineBegin();
     run.shake(400, 8);
     let finished = false;
-    const colors = [0xffd23f, 0xff6ec7, 0x7a3bf0];
+    const colors = [0xffd23f, 0xff6ec7, 0x7a3bf0, 0x7fd8ff, 0x36e0ff, 0x66ff88];
     // cinematic 中は updateParticles が回らず run.spawnParticles は凍結するため、
     // tween 駆動の burstUI を画面座標で使う（fusionCinematic と同じ手法・§10.6-B）。
-    for (let i = 0; i < 10; i++) {
-      run.time.delayedCall(i * 150, () => {
+    // 撃破点の大花火＋画面各所に打ち上がる連発花火で「勝った！」感を強化。
+    for (let i = 0; i < 12; i++) {
+      run.time.delayedCall(i * 130, () => {
         const s = worldToScreen(x, y);
-        burstUI(s.x, s.y, colors[i % 3], 16, 2062);
+        // 撃破点の本花火
+        burstUI(s.x, s.y, colors[i % colors.length], 20, 2062);
+        // 画面各所に散る打ち上げ花火＋リング
+        const fx = run.rng.range(W * 0.15, W * 0.85);
+        const fy = run.rng.range(H * 0.2, H * 0.7);
+        const col = colors[(i + 2) % colors.length];
+        burstUI(fx, fy, col, 14, 2062);
+        ripple(fx, fy, col, 0);
       });
     }
     run.time.delayedCall(1800, () => {
@@ -328,69 +398,134 @@ export function createFx(run) {
           onComplete: () => pillar.destroy(),
         });
         ripple(x, y, 0xffd23f, 1);
+        run.spawnParticles(x, y, 0x7fffcf, 10);
       });
     }
 
+    // 中心から広がる二重リング＋足元の大粒子で全員強化の一体感を出す
     ripple(px, py, 0x7fffcf, 1);
     run.time.delayedCall(120, () => ripple(run.player.x, run.player.y, 0xffd23f, 1));
-    run.spawnParticles(px, py, 0xffd23f, 20);
-    run.spawnParticles(px, py, 0x7fd8ff, 18);
+    run.time.delayedCall(220, () => ripple(run.player.x, run.player.y, 0xff6ec7, 1));
+    run.spawnParticles(px, py, 0xffd23f, 26);
+    run.spawnParticles(px, py, 0x7fd8ff, 22);
+    run.spawnParticles(px, py, 0xff6ec7, 14);
     announce('ぶきレベル ' + level + ' ！', '#7fffcf');
     run.floatText(px, py - 30, 'ぶきパワーアップ！', '#7fffcf');
   }
 
   // ---- 必殺技「ボルテックスバースト」（v3・cinematic・onImpact/onDone は各1回保証） ----
+  // "やりすぎ"級の派手さ：渦の溜め→全画面炸裂→色相を回す多重リング＋放射ストリーク
+  // ＋火花の嵐＋ショックウェーブ→きらめきの余韻。テンポは balance.special.cinematicSec で決まる。
   function specialBlast(x, y, radius, onImpact, onDone) {
     const cineTok = cineBegin();
     run.shake(500, 10);
+    Sound.sfx('specialCharge');   // 溜めの唸り（新SFX・音響担当が追加）
     Sound.sfx('special');
     announce('ボルテックスバースト！！', '#ffd23f');
+
+    // 色相の波（金→ピンク→水色→紫→シアン→橙）。i で回して虹の渦を作る。
+    const HUES = [0xffd23f, 0xff6ec7, 0x7fd8ff, 0x9b6bff, 0x36e0ff, 0xff9e3f];
+    const hue = (i) => HUES[((i % HUES.length) + HUES.length) % HUES.length];
 
     const objs = [];
     let impacted = false, finished = false;
     const s0 = worldToScreen(x, y);
 
-    // 溜め（内側へ吸い込むリング）
+    // ── 溜め（0〜180ms）：内へ吸い込む渦 ──
+    // 中心の輝きコア＋逆回転する2枚の渦リング＋外周から吸い込む集中線。
     const charge = run.add.image(s0.x, s0.y, 'glow').setScrollFactor(0).setDepth(2062)
       .setBlendMode(ADD).setTint(0x7fd8ff).setScale(radius / 16).setAlpha(0.5);
     objs.push(charge);
     run.tweens.add({ targets: charge, scale: 1, alpha: 0.95, duration: 180, ease: 'Cubic.in' });
 
-    // 閃光ピーク（180ms）＝ダメージ判定タイミング
+    for (let v = 0; v < 2; v++) {
+      const vr = run.add.image(s0.x, s0.y, 'glow').setScrollFactor(0).setDepth(2061)
+        .setBlendMode(ADD).setTint(v === 0 ? 0xff6ec7 : 0xffd23f)
+        .setScale((radius * 1.6) / 32).setAlpha(0.55).setRotation(run.rng.range(0, 6.28));
+      objs.push(vr);
+      run.tweens.add({
+        targets: vr, scale: 0.5, alpha: 0.9, rotation: vr.rotation + (v ? 4 : -4),
+        duration: 200, ease: 'Cubic.in',
+      });
+    }
+    convergeLines(s0.x, s0.y, 14, 0x9becff, radius * 1.3, 2060, 200);
+
+    // ── 炸裂（180ms）＝ダメージ判定タイミング ──
     run.time.delayedCall(180, () => {
       if (!impacted) { impacted = true; if (onImpact) onImpact(); }
-      run.tweens.add({ targets: charge, alpha: 0, scale: 3, duration: 220, ease: 'Cubic.out' });
+      Sound.sfx('bigBoom');   // 特大の炸裂音（新SFX・音響担当が追加）
+      run.shake(360, 12);     // 炸裂の追い足しシェイク
+      run.tweens.add({ targets: charge, alpha: 0, scale: 3.4, duration: 240, ease: 'Cubic.out' });
 
+      // 白フラッシュ（子ども向け安全上限 alpha 0.45・厳守）
       const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.45)
-        .setScrollFactor(0).setDepth(2090);
-      run.tweens.add({ targets: flash, alpha: 0, duration: 260, onComplete: () => flash.destroy() });
+        .setScrollFactor(0).setDepth(2092);
+      run.tweens.add({ targets: flash, alpha: 0, duration: 280, onComplete: () => flash.destroy() });
+      // 有色グロー幕は派手にしてよい（金の全画面加算フラッシュ）
+      const goldWash = run.add.rectangle(W / 2, H / 2, W, H, 0xffd23f, 0.5)
+        .setScrollFactor(0).setDepth(2091).setBlendMode(ADD);
+      run.tweens.add({ targets: goldWash, alpha: 0, duration: 420, onComplete: () => goldWash.destroy() });
 
-      // radius まで広がる巨大リングを時間差で3枚重ねる
       const s = worldToScreen(x, y);
-      const tints = [0xffd23f, 0xff6ec7, 0x7fd8ff];
-      for (let i = 0; i < 3; i++) {
-        run.time.delayedCall(i * 90, () => {
+
+      // 色相を回す多重巨大リングを7枚、時間差で重ねる
+      for (let i = 0; i < 7; i++) {
+        run.time.delayedCall(i * 55, () => {
           const ring = run.add.image(s.x, s.y, 'glow').setScrollFactor(0).setDepth(2063)
-            .setBlendMode(ADD).setTint(tints[i]).setScale(0.6).setAlpha(0.9);
+            .setBlendMode(ADD).setTint(hue(i)).setScale(0.6).setAlpha(0.9);
           run.tweens.add({
-            targets: ring, scale: (radius * 2) / 32, alpha: 0, duration: 620, ease: 'Cubic.out',
-            onComplete: () => ring.destroy(),
+            targets: ring, scale: (radius * 2.2) / 32 * run.rng.range(0.85, 1.1), alpha: 0,
+            duration: 680, ease: 'Cubic.out', onComplete: () => ring.destroy(),
           });
         });
       }
+
+      // 全画面リング状ショックウェーブ（画面を突き抜ける1枚）
+      const shock = run.add.image(s.x, s.y, 'glow').setScrollFactor(0).setDepth(2064)
+        .setBlendMode(ADD).setTint(0xffffff).setScale(0.4).setAlpha(0.6);
+      run.tweens.add({
+        targets: shock, scale: (W * 1.3) / 32, alpha: 0, duration: 520, ease: 'Cubic.out',
+        onComplete: () => shock.destroy(),
+      });
+
+      // 放射状ストリーク（中心から外へ伸びる光の筋を2波・色相の波）
+      radialStreaks(s.x, s.y, 20, hue, radius * 1.9, 2066, 460, run.rng.range(0, 1));
+      run.time.delayedCall(140, () => {
+        const s2 = worldToScreen(x, y);
+        radialStreaks(s2.x, s2.y, 16, (i) => hue(i + 3), radius * 2.3, 2066, 520, run.rng.range(0, 1));
+      });
+
+      // 火花の嵐：中心の大爆発＋周囲の飛び火を一気に
+      burstUI(s.x, s.y, 0xffd23f, 26, 2068);
+      burstUI(s.x, s.y, 0xff6ec7, 22, 2068);
+      for (let k = 0; k < 6; k++) {
+        const ka = (k / 6) * Math.PI * 2;
+        const kd = radius * run.rng.range(0.5, 1.0);
+        burstUI(s.x + Math.cos(ka) * kd, s.y + Math.sin(ka) * kd, hue(k), 14, 2067);
+      }
     });
 
-    // 粒子は cinematic 中に凍結しないよう tween 駆動の burstUI（bossVictory と同手法）
-    const colors = [0xffd23f, 0xff6ec7, 0x7a3bf0, 0x7fd8ff];
-    for (let i = 0; i < 8; i++) {
-      run.time.delayedCall(180 + i * 110, () => {
+    // 火花の追い撃ち：炸裂後に広範囲へ連続で撒く（cinematic 中は burstUI で）
+    for (let i = 0; i < 10; i++) {
+      run.time.delayedCall(200 + i * 85, () => {
         const s = worldToScreen(x, y);
-        const off = run.rng.range(-40, 40);
-        burstUI(s.x + off, s.y + run.rng.range(-40, 40), colors[i % 4], 18, 2065);
+        const off = run.rng.range(-radius * 0.9, radius * 0.9);
+        burstUI(s.x + off, s.y + run.rng.range(-radius * 0.7, radius * 0.7), hue(i), 16, 2065);
       });
     }
 
     const cineMs = Math.round((BALANCE.special.cinematicSec || 1.5) * 1000);
+
+    // ── 余韻：終端手前できらめきを漂わせて締める ──
+    run.time.delayedCall(Math.max(300, cineMs - 420), () => {
+      const s = worldToScreen(x, y);
+      for (let k = 0; k < 5; k++) {
+        const ka = run.rng.range(0, Math.PI * 2);
+        const kd = run.rng.range(0, radius * 0.8);
+        burstUI(s.x + Math.cos(ka) * kd, s.y + Math.sin(ka) * kd, hue(k + 2), 6, 2065);
+      }
+    });
+
     run.time.delayedCall(cineMs, () => {
       if (finished) return;
       finished = true;
