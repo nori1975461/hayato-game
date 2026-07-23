@@ -865,3 +865,28 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 - `node vortex/dev/test-core.js` — ENEMIES 8種／mochimo split／pyonpi hop／kururin spiral／回帰上限 `spawnCountEnd <= 5` `enemyCap <= 220` `hpMultEnd <= 4` をアサート（§10.8 の旧 `<= 3` / `<= 200` は本章が上書き）
 - `node vortex/dev/validate-data.js` — MOVEMENT に `hop`／`spiral`、`split` 構造、v5必須キーを検証
 - **CDP 実機検証**（`dev/` 外の一時スクリプトで実施）: ①序盤fps ②capStep（50/130/200秒で cap 昇格）④mochimo 分裂（子2体・子は再分裂なし・子hp≒0.3倍）⑤hop/spiral（画面内で移動・非等方 scale・可視）⑥負荷fps（cap 220 まで満たして 60fps）。**全項目 PASS・例外0件を実測**。
+
+# 13. Wave D 拡張（要望⑥小/中/大ボス＋⑦爽快感の限界突破）
+
+大型拡張 Wave A〜D の最終段。これまでボスは大ボス（uzuking）1体のみで、300秒プレイの山場が終盤に一度きりだった。**時間軸に3つの山場を作る**ため、小→中→大の3段ボスへ再構成する。設計方針＝「倒す達成感を3回味わえる」「かわいさとのギャップで派手に」。
+
+## 13.1 3段ボス（要望⑥）
+
+`enemies.js`: `export const BOSSES = [KOROTAMA, UZUKING, MAOU]`。後方互換のため `export const BOSS = UZUKING` を維持（既存の単一ボス参照が壊れないように）。各ボスに専用 `sprites.swirl`（回転渦本体）／`sprites.face`（非回転の顔）を持たせる。
+
+| tier | id | 名前 | 色 | spawnSec | HP | rewardCoins | deathCinematicSec | final |
+|---|---|---|---|---|---|---|---|---|
+| 小 | korotama | コロたま | #ff9ec4 | 90 | 1200 | 120 | 1.0 | – |
+| 中 | uzuking | ウズキング | #ff6ec7 | 185 | 3200 | 250 | 1.5 | – |
+| 大 | maou | マオウ | #ffcb3d | 278 | 6000 | 400 | 1.8 | ✓ |
+
+- `balance.js`: `boss.tiers` を3段化。tier別に `bossId/warnSec/spawnSec/hp/radius/chaseSpeed/bodyDamage/rewardCoins/deathCinematicSec/attacks/idleSec/summon/final` を定義。`final:true` はちょうど1つ（クリア判定の分岐を一意にする）。`spawnSec` は tier 昇順で単調増加（出現の重なり防止）。
+- `boss.js`: 多段スケジューラ化。tier 順に warn→spawnFight。撃破 `onBossKilled`→`awardKillRewards`（コイン加算＋`killsPerCharge` 回 `addKill` で必殺ゲージ満タン化）→**非finalは `finishMini`（通常戦BGM 'battle' へ復帰・プレイ続行）／finalは `finishFinal`→クリア→Result 遷移**。BGMは spawnFight で 'boss' へ（`run.withAudio` ガード）。
+- `Boot.js`: `BOSSES` をループして全ボス分 `boss_<id>_swirl`／`boss_<id>_face` をテクスチャ化（`makeGrid` は既存キーがあればスキップ）。
+- `hud.js`: ボス名を `entity.def.name` から動的表示（3ボスで自動切替）。
+
+## 13.2 検証 v6（Wave D）
+
+- `node vortex/dev/test-core.js` — `BOSS export が存在し id=uzuking`／`boss.tiers が3段（小/中/大）`／`final:true がちょうど1つ`／`spawnSec が単調増加`／回帰上限（enemyCap ≤ 220・capSteps 最終段一致）をアサート
+- `node vortex/dev/validate-data.js` — `BOSSES` 各体の id/name/color/sprites.swirl・face を検証。`boss.tiers` の bossId 実在・warnSec<spawnSec・spawnSec 単調増加・attacks 非空・idleSec 長さ一致・summon.enemyId 実在・hp/radius/chaseSpeed/bodyDamage 正数・final ちょうど1つ
+- **CDP 実機検証**（`dev/` 外の一時スクリプト・`run.elapsed` を各 tier の spawnSec 直前へワープ→実ダメージ経路 `dealDamage→killEnemy→onBossKilled` で撃破）: 3段すべて出現→ID/名前/maxHp 検証→実撃破→コイン加算＋必殺満タン化→非finalは通常戦復帰・finalは Result 遷移。**24/24 PASS・例外0件を実測**。
