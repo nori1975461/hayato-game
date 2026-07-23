@@ -78,6 +78,8 @@ export class RunScene extends Phaser.Scene {
     this._bulletPool = [];
     this._gemPool = [];
     this._sparkPool = [];
+    this._pawPool = [];
+    this._pawT = -1;             // 肉球ヒットマークの表示スロットル（elapsed基準・-1で初回を必ず出す）
     this._eid = 0;
 
     // --- カメラ ---
@@ -280,7 +282,7 @@ export class RunScene extends Phaser.Scene {
     else angles = [ang];
     for (const a of angles) {
       this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
-        0x4de1c0, dmg, H.bulletRadius);
+        0x4de1c0, dmg, H.bulletRadius, 'w_star2');   // Wave B: きらきらスター弾
     }
     Sound.sfx('shoot');
   }
@@ -394,7 +396,23 @@ export class RunScene extends Phaser.Scene {
     if (!e.active) return;
     e.hp -= dmg;
     e.flashT = 0.08;
+    this.spawnHitMark(e.x, e.y, color);
     if (e.hp <= 0) this.killEnemy(e, color);
+  }
+
+  // Wave B: 肉球のヒットマーク。連続ヒットで埋め尽くさないよう時間で間引く。
+  // rng は使わない（autotest の乱数消費順が変わると決定性が壊れるため）。
+  spawnHitMark(x, y, color) {
+    if (this.elapsed - this._pawT < 0.06) return;
+    this._pawT = this.elapsed;
+    const spr = this._pawPool.pop() || this.add.image(0, 0, 'w_paw').setBlendMode(ADD);
+    spr.setTexture('w_paw').setVisible(true).setActive(true).setDepth(13)
+      .setTint(color ?? 0xffffff).setPosition(x, y)
+      .setScale(0.7).setAlpha(0.9).setRotation(0);
+    this.tweens.add({
+      targets: spr, scale: 1.5, alpha: 0, duration: 220,
+      onComplete: () => { spr.setVisible(false); this._pawPool.push(spr); },
+    });
   }
 
   killEnemy(e, color) {
@@ -416,11 +434,13 @@ export class RunScene extends Phaser.Scene {
   }
 
   // ============ 弾 ============
-  spawnBullet(x, y, vx, vy, color, damage, radius) {
+  spawnBullet(x, y, vx, vy, color, damage, radius, tex = 'bullet') {
     const disp = this._bulletPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'bullet'),
     };
+    // プールから使い回すので、テクスチャは毎回入れ直す（前の弾の見た目が残るのを防ぐ）
+    disp.spr.setTexture(tex);
     disp.spr.setVisible(true).setDepth(12).setTint(color)
       .setDisplaySize(radius * 2.4, radius * 2.4).setPosition(x, y);
     disp.glow.setVisible(true).setDepth(6).setTint(color)
@@ -475,9 +495,10 @@ export class RunScene extends Phaser.Scene {
       if (dx * dx + dy * dy <= rr * rr) this.dealDamage(e, damage, color);
     }
     // 見た目（durationSec でフェード消滅）
-    const beam = this.add.image(x, y, 'white')
+    // Wave B: にじビーム。w_rainbow は彩色済みなので tint は白（＝色を潰さない）
+    const beam = this.add.image(x, y, 'w_rainbow')
       .setOrigin(0, 0.5).setDepth(12).setBlendMode(ADD)
-      .setTint(color).setAlpha(0.9).setPosition(x, y).setRotation(angle)
+      .setTint(0xffffff).setAlpha(0.9).setPosition(x, y).setRotation(angle)
       .setDisplaySize(length, width);
     this.tweens.add({
       targets: beam, alpha: 0, duration: BALANCE.archetypes.BEAM.durationSec * 1000,

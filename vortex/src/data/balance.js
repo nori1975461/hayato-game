@@ -18,6 +18,9 @@ export const BALANCE = {
     SHOT:  { intervalSec: 0.8, bulletSpeed: 260, range: 220, bulletRadius: 3 },
     BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 160, width: 6 },
     FIELD: { radius: 60, slowFactor: 0.6, tickSec: 0.5, tickDamage: 1 },
+    // Wave B: かわいい武器の新アーキタイプ
+    BOOMERANG: { intervalSec: 1.6, speed: 260, maxDist: 120, hitRadius: 14, tickSec: 0.25 },
+    RINGWAVE:  { intervalSec: 1.5, maxRadius: 95, expandSpeed: 220, thickness: 16 },
   },
 
   // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
@@ -26,6 +29,8 @@ export const BALANCE = {
     slashRadiusMult: 1.5, shotIntervalMult: 0.7,
     beamLengthMult: 1.4, beamWidthMult: 2.0,
     fieldRadius: 90, fieldTickDamage: 3,
+    boomerangDistMult: 1.4, boomerangRadiusMult: 1.6,
+    ringwaveRadiusMult: 1.5, ringwaveThicknessMult: 1.8,
   },
 
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
@@ -48,6 +53,8 @@ export const BALANCE = {
              extraShotEvery: 3, maxShots: 5, spreadDeg: 10 },
     beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 13, widthAdd: 1.1 },
     field: { radiusAdd: 5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
+    boomerang: { intervalMult: 0.955, intervalMin: 0.5, maxDistAdd: 6, hitRadiusAdd: 0.8, speedAdd: 8 },
+    ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 5, expandSpeedAdd: 8, thicknessAdd: 0.6 },
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）

@@ -12,7 +12,7 @@ function check(cond, msg) {
 }
 
 const RARITY = ['N', 'R', 'SR'];
-const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD'];
+const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
 const MOVEMENT = ['chase', 'sine', 'charge'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 

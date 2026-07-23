@@ -75,7 +75,7 @@ export function createRng(seed) // seed: 正の整数
   id: 'starpuppy',          // 英小文字
   name: 'スターパピー',
   rarity: 'N',              // 'N' | 'R' | 'SR'
-  archetype: 'SLASH',       // 'SLASH' | 'SHOT' | 'BEAM' | 'FIELD'
+  archetype: 'SLASH',       // 'SLASH' | 'SHOT' | 'BEAM' | 'FIELD' | 'BOOMERANG' | 'RINGWAVE'
   color: '#7fd8ff',         // テーマ色（グロー・パーティクルに使用）
   baseDamage: 4,
   sprite: { palette: {...}, rows: [...] },   // §3.3
@@ -112,7 +112,7 @@ sprite: {
 
 ### 3.4 systems の責務（builder-③内部のモジュール分割）
 
-- `orbit.js` — 仲間の公転位置更新・SLASH接触判定・SHOT発射・BEAM発動・FIELD適用。パーティ配列を受け取り毎フレーム更新
+- `orbit.js` — 仲間の公転位置更新・SLASH接触判定・SHOT発射・BEAM発動・FIELD適用・BOOMERANG往復・RINGWAVE拡大リング。パーティ配列を受け取り毎フレーム更新
 - `spawner.js` — ウェーブ進行（§4 wave）・敵の出現位置（カメラ外周20〜60px）・種別抽選（§4 spawnPhases）・エリート出現・敵cap制御
 - `capture.js` — スターコアのドロップ抽選・拾得処理（仲間化 or 満員時コイン）・合成祭壇のロジック
 - `levelup.js` — XP管理・レベルアップ判定・3択ドラフト抽選と適用
@@ -191,9 +191,9 @@ export const BALANCE = {
 | id | 名前 | rarity | archetype | color | baseDamage | 備考 |
 |---|---|---|---|---|---|---|
 | starpuppy | スターパピー | N | SLASH | #7fd8ff | 4 | 星型の耳の子犬 |
-| togeron | トゲロン | N | SLASH | #9dff70 | 5 | トゲトゲのやんちゃ坊主 |
+| togeron | トゲロン | N | BOOMERANG | #9dff70 | 5 | トゲトゲのやんちゃ坊主。クッキーブーメランを投げて戻す |
 | pikabit | ピカビット | N | SHOT | #ffe066 | 3 | 電気ウサギ。弾は黄色 |
-| samet | サメット | R | SHOT | #66a3ff | 5 | 小さなサメ。弾は水色 |
+| samet | サメット | R | RINGWAVE | #66a3ff | 5 | 小さなサメ。おんぷリングが広がる |
 | neonworm | ネオンワーム | R | BEAM | #ff9e66 | 8 | 発光する節を持つ虫 |
 | aurajelly | オーラジェリー | SR | FIELD | #ff6ec7 | — | FIELDはtickDamage=1固定＋減速。baseDamageは1を入れておく |
 
@@ -318,7 +318,7 @@ movement仕様:
 
 1. `?autotest=1&seed=42` でロード後3秒以内に戦闘画面が始まり、エラーバナーが出ていない
 2. 同一seedで敵の出現順・ドロップが再現する
-3. 4アーキタイプ全てが実際に敵へダメージを与える（SLASH接触・SHOT弾・BEAM線・FIELD減速+tick）
+3. 6アーキタイプ全てが実際に敵へダメージを与える（SLASH接触・SHOT弾・BEAM線・FIELD減速+tick・BOOMERANG往復・RINGWAVE拡大リング）
 4. レベルアップでドラフトが開き、選択で効果が反映される
 5. コア拾得で仲間が増える。満員時はコイン+50
 6. エリートが 2:00 / 4:00 に出る
@@ -428,6 +428,9 @@ export const BALANCE = {
     SHOT:  { intervalSec: 0.8, bulletSpeed: 260, range: 220, bulletRadius: 3 },
     BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 160, width: 6 },
     FIELD: { radius: 60, slowFactor: 0.6, tickSec: 0.5, tickDamage: 1 },
+    // Wave B: かわいい武器の新アーキタイプ
+    BOOMERANG: { intervalSec: 1.6, speed: 260, maxDist: 120, hitRadius: 14, tickSec: 0.25 },
+    RINGWAVE:  { intervalSec: 1.5, maxRadius: 95, expandSpeed: 220, thickness: 16 },
   },
 
   // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
@@ -436,6 +439,8 @@ export const BALANCE = {
     slashRadiusMult: 1.5, shotIntervalMult: 0.7,
     beamLengthMult: 1.4, beamWidthMult: 2.0,
     fieldRadius: 90, fieldTickDamage: 3,
+    boomerangDistMult: 1.4, boomerangRadiusMult: 1.6,
+    ringwaveRadiusMult: 1.5, ringwaveThicknessMult: 1.8,
   },
 
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
@@ -458,6 +463,8 @@ export const BALANCE = {
              extraShotEvery: 3, maxShots: 5, spreadDeg: 10 },
     beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 13, widthAdd: 1.1 },
     field: { radiusAdd: 5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
+    boomerang: { intervalMult: 0.955, intervalMin: 0.5, maxDistAdd: 6, hitRadiusAdd: 0.8, speedAdd: 8 },
+    ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 5, expandSpeedAdd: 8, thicknessAdd: 0.6 },
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
@@ -576,7 +583,7 @@ export const BALANCE = {
 | starpuppy | comethound | コメットハウンド | 4→9 | hitRadius: 20 |
 | togeron | togeking | トゲキング（金王冠） | 5→11 | hitRadius: 20 |
 | pikabit | thunderbit | サンダービット | 3→7 | intervalSec: 0.55 |
-| samet | megasamet | メガサメット | 5→11 | bulletSpeed: 320 |
+| samet | megasamet | メガサメット | 5→11 | expandSpeed: 300 |
 | neonworm | neonmoth | ネオンモス | 8→16 | width: 10 |
 | aurajelly | aurorajelly | オーロラジェリー | FIELD | tickDamage: 2, radius: 80 |
 
@@ -675,7 +682,7 @@ export const BALANCE = {
 
 - `BALANCE.weapon` の maxLevel / damageAddPerLevel が数値・maxLevel が2以上・slash/shot/beam/field の全キーが有限数
 - 武器Lv最大時の SHOT 弾数が `1..maxShots` に収まる（orbit.js と同じ式 `min(maxShots, 1 + floor(wl / extraShotEvery))` を再現）
-- 武器Lv最大時の SLASH/SHOT/BEAM/FIELD の間隔が下限クランプを下回らない（`max(min, base * mult^wl)`・`0 < mult < 1` と `min <= base` も検証）
+- 武器Lv最大時の SLASH/SHOT/BEAM/FIELD/BOOMERANG/RINGWAVE の間隔が下限クランプを下回らない（`max(min, base * mult^wl)`・`0 < mult < 1` と `min <= base` も検証）
 - `special.maxUses === 3`（**ユーザー要望「1ステージで3回が限度」の回帰防止**）・special の各数値キーが有限数
 - `autoUpgrade.cycle` が非空配列で、全 id が `upgrades` に実在・`bonusEveryLevels` が数値
 - `levelupFlow` が BALANCE から消えている（ドラフト廃止の確認）
@@ -725,6 +732,8 @@ export const BALANCE = {
   - SHOT: `interval = max(intervalMin, interval * intervalMult^wl)` / `bulletSpeed += bulletSpeedAdd*wl` / `bulletRadius += bulletRadiusAdd*wl` / **弾数 `shots = min(maxShots, 1 + floor(wl / extraShotEvery))`**（`spreadDeg` 間隔で扇状）
   - BEAM: `interval = max(intervalMin, interval * intervalMult^wl)` / `length += lengthAdd*wl` / `width += widthAdd*wl`
   - FIELD: `radius += radiusAdd*wl` / `tickDamage += tickDamageAdd*wl` / `tickSec = max(tickSecMin, tickSec * tickSecMult^wl)`
+  - BOOMERANG: `interval = max(intervalMin, interval * intervalMult^wl)` / `maxDist += maxDistAdd*wl` / `hitRadius += hitRadiusAdd*wl` / `speed += speedAdd*wl`
+  - RINGWAVE: `interval = max(intervalMin, interval * intervalMult^wl)` / `maxRadius += maxRadiusAdd*wl` / `expandSpeed += expandSpeedAdd*wl` / `thickness += thicknessAdd*wl`
 - 見た目もレベルで育つ: `lvGrow = wl / (maxLevel-1)` を使い、スプライト `scale *= 1 + lvGrow*0.12`・グロー `scale *= 1 + lvGrow*0.35`。
 
 ## 11.2 fx.weaponLevelUp（要望1）

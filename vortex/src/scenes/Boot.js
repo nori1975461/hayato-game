@@ -37,6 +37,14 @@ export class BootScene extends Phaser.Scene {
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
 
+    // --- Wave B: かわいい武器テクスチャ（w_rainbow 以外は白＝実行時に tint） ---
+    this.makeStar('w_star2', 10, 5, 2.0, 5);  // 主人公のスター弾（きらきら系）
+    this.makeCookie('w_cookie', 12);          // クッキーブーメラン（スイーツ系）
+    this.makeRing('w_ring', 48, 5);           // おんぷリングの輪（おもちゃ系）
+    this.makeBubble('w_bubble', 16);          // シャボン（フィールド系）
+    this.makePaw('w_paw', 14);                // 肉球ヒットマーク（どうぶつ系）
+    this.makeRainbow('w_rainbow', 4, 12);     // にじビーム（唯一の彩色テクスチャ）
+
     // --- 星空タイル（視差背景・決定的パターン） ---
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
     this.makeStarfield('stars2', 160, 16, 2, 0.5);
@@ -135,6 +143,101 @@ export class BootScene extends Phaser.Scene {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0xffffff, 1);
     g.fillPoints(this.toPoints([0, 0, w, h / 2, 0, h]), true);
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // --- Wave B: かわいい武器テクスチャ ---
+
+  // 1px走査で白テクスチャを作る。Graphics には「消しゴム」がないため、
+  // クッキーのチョコチップやリングの中心は fn が false を返す＝透明で表現する。
+  makeMask(key, size, fn) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffffff, 1);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (fn(x + 0.5, y + 0.5)) g.fillRect(x, y, 1, 1);
+      }
+    }
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  // クッキーブーメラン（スイーツ系）。丸い生地にチョコチップの穴を3つ空ける。
+  makeCookie(key, size) {
+    const c = size / 2;
+    const r = c - 0.5;
+    const chipR = size * 0.13;
+    const chips = [
+      [c - r * 0.35, c - r * 0.30],
+      [c + r * 0.40, c],
+      [c - r * 0.10, c + r * 0.45],
+    ];
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      if (dx * dx + dy * dy > r * r) return false;
+      for (const ch of chips) {
+        const cx = x - ch[0], cy = y - ch[1];
+        if (cx * cx + cy * cy <= chipR * chipR) return false;
+      }
+      return true;
+    });
+  }
+
+  // おんぷリングの輪（おもちゃ系）。中心は透明な円環。
+  makeRing(key, size, thickness) {
+    const c = size / 2;
+    const outer = c - 0.5;
+    const inner = outer - thickness;
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      const d2 = dx * dx + dy * dy;
+      return d2 <= outer * outer && d2 >= inner * inner;
+    });
+  }
+
+  // シャボン（フィールド系）。細い輪＋左上のハイライト。
+  makeBubble(key, size) {
+    const c = size / 2;
+    const outer = c - 0.5;
+    const inner = outer - 1.6;
+    const hx = c - outer * 0.42, hy = c - outer * 0.42;
+    const hr = size * 0.13;
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= outer * outer && d2 >= inner * inner) return true;
+      const gx = x - hx, gy = y - hy;
+      return gx * gx + gy * gy <= hr * hr;
+    });
+  }
+
+  // 肉球ヒットマーク（どうぶつ系）。パッド楕円＋指4つ。
+  makePaw(key, size) {
+    const s = size / 14;   // 基準サイズ14pxからのスケール
+    const padX = 7 * s, padY = 9 * s, rx = 4.2 * s, ry = 3.4 * s;
+    const toeR = 1.7 * s;
+    const toes = [[2.6 * s, 4.4 * s], [5.4 * s, 3.0 * s], [8.6 * s, 3.0 * s], [11.4 * s, 4.4 * s]];
+    this.makeMask(key, size, (x, y) => {
+      const dx = (x - padX) / rx, dy = (y - padY) / ry;
+      if (dx * dx + dy * dy <= 1) return true;
+      for (const t of toes) {
+        const tx = x - t[0], ty = y - t[1];
+        if (tx * tx + ty * ty <= toeR * toeR) return true;
+      }
+      return false;
+    });
+  }
+
+  // にじビーム。白＋tintでは虹にならないため、ここだけ彩色済みテクスチャを作る。
+  makeRainbow(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cols = [0xff6b6b, 0xffb46b, 0xffe66b, 0x7bdc7b, 0x6bc4ff, 0xc38bff];
+    const bh = h / cols.length;
+    for (let i = 0; i < cols.length; i++) {
+      g.fillStyle(cols[i], 1);
+      g.fillRect(0, i * bh, w, bh);
+    }
     g.generateTexture(key, w, h);
     g.destroy();
   }

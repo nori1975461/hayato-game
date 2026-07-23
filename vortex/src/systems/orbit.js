@@ -23,13 +23,15 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      releaseWeaponVisuals(o);
     }
     // 不足を追加
     while (orbs.length < run.party.length) {
       const glow = run.add.image(0, 0, 'glow')
         .setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
       const spr = run.add.image(0, 0, 'white').setDepth(11);
-      orbs.push({ glow, spr, aura: null, shotT: 0, beamT: 0, fieldT: 0, slash: new Map() });
+      orbs.push({ glow, spr, aura: null, shotT: 0, beamT: 0, fieldT: 0, slash: new Map(),
+                  boomT: 0, ringT: 0, boomerang: null, ringwave: null });
     }
     // 定義を各公転体へ割り当て
     for (let i = 0; i < orbs.length; i++) {
@@ -64,6 +66,15 @@ export function createOrbit(run) {
       o.fieldRadius  = fused ? F.fieldRadius     : (ovr.radius     ?? A.FIELD.radius);
       o.fieldTick    = fused ? F.fieldTickDamage : (ovr.tickDamage ?? A.FIELD.tickDamage);
       o.fieldTickSec = A.FIELD.tickSec;
+      o.boomInterval = (ovr.intervalSec ?? A.BOOMERANG.intervalSec);
+      o.boomSpeed    =  ovr.speed       ?? A.BOOMERANG.speed;
+      o.boomDist     = (ovr.maxDist     ?? A.BOOMERANG.maxDist)   * (fused ? F.boomerangDistMult : 1);
+      o.boomRadius   = (ovr.hitRadius   ?? A.BOOMERANG.hitRadius) * (fused ? F.boomerangRadiusMult : 1);
+      o.boomTick     = A.BOOMERANG.tickSec;
+      o.ringInterval = (ovr.intervalSec ?? A.RINGWAVE.intervalSec);
+      o.ringMaxR     = (ovr.maxRadius   ?? A.RINGWAVE.maxRadius)  * (fused ? F.ringwaveRadiusMult : 1);
+      o.ringSpeed    =  ovr.expandSpeed ?? A.RINGWAVE.expandSpeed;
+      o.ringThick    = (ovr.thickness   ?? A.RINGWAVE.thickness)  * (fused ? F.ringwaveThicknessMult : 1);
 
       // 武器レベル成長（必ず最後に適用）
       const wl = weaponLevel - 1;
@@ -79,6 +90,14 @@ export function createOrbit(run) {
         o.fieldRadius += W.field.radiusAdd * wl;
         o.fieldTick   += W.field.tickDamageAdd * wl;
         o.fieldTickSec = Math.max(W.field.tickSecMin, o.fieldTickSec * Math.pow(W.field.tickSecMult, wl));
+        o.boomInterval = Math.max(W.boomerang.intervalMin, o.boomInterval * Math.pow(W.boomerang.intervalMult, wl));
+        o.boomDist    += W.boomerang.maxDistAdd * wl;
+        o.boomRadius  += W.boomerang.hitRadiusAdd * wl;
+        o.boomSpeed   += W.boomerang.speedAdd * wl;
+        o.ringInterval = Math.max(W.ringwave.intervalMin, o.ringInterval * Math.pow(W.ringwave.intervalMult, wl));
+        o.ringMaxR    += W.ringwave.maxRadiusAdd * wl;
+        o.ringSpeed   += W.ringwave.expandSpeedAdd * wl;
+        o.ringThick   += W.ringwave.thicknessAdd * wl;
       }
       o.shots = Math.min(W.shot.maxShots, 1 + Math.floor(wl / W.shot.extraShotEvery));
 
@@ -90,10 +109,12 @@ export function createOrbit(run) {
 
       if (o.archetype === 'FIELD') {
         if (!o.aura) {
-          o.aura = run.add.image(0, 0, 'glow')
+          // Wave B: フィールドはシャボン玉の輪で見せる（glowのぼんやり円より範囲が分かりやすい）
+          o.aura = run.add.image(0, 0, 'w_bubble')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(3);
         }
-        o.aura.setTint(o.color).setScale((o.fieldRadius * 2) / 32).setVisible(true);
+        o.aura.setTint(o.color).setAlpha(0.75)
+          .setDisplaySize(o.fieldRadius * 2, o.fieldRadius * 2).setVisible(true);
       } else if (o.aura) {
         o.aura.setVisible(false);
       }
@@ -127,6 +148,8 @@ export function createOrbit(run) {
         case 'SHOT':  updateShot(o, dt); break;
         case 'BEAM':  updateBeam(o, a, dt); break;
         case 'FIELD': updateField(o, dt); break;
+        case 'BOOMERANG': updateBoomerang(o, dt); break;
+        case 'RINGWAVE':  updateRingwave(o, dt); break;
       }
     }
   }
@@ -206,11 +229,133 @@ export function createOrbit(run) {
     }
   }
 
+  // クッキーブーメラン（BOOMERANG）。最寄り敵の方へ投げ、maxDist で折り返して
+  // 「移動中の」なかまへ戻る。往路・復路の両方でヒットする（敵ごとに tickSec でゲート）。
+  function updateBoomerang(o, dt) {
+    const dmg = memberDamage(o);
+    if (!o.boomerang) {
+      o.boomT -= dt;
+      if (o.boomT > 0) return;
+      // 射程内の最寄り敵（往復ぶんの余裕を見て maxDist の1.5倍まで探す）
+      const range = o.boomDist * 1.5;
+      let best = null, bestD = range * range;
+      for (const e of run.enemies) {
+        if (!e.active) continue;
+        const dx = e.x - o.x, dy = e.y - o.y;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; best = e; }
+      }
+      if (!best) return;
+      o.boomT = o.boomInterval;
+      const ang = Math.atan2(best.y - o.y, best.x - o.x);
+      const spr = run.add.image(o.x, o.y, 'w_cookie').setDepth(12).setTint(o.color);
+      const glow = run.add.image(o.x, o.y, 'glow')
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(6).setTint(o.color).setScale(0.7);
+      o.boomerang = {
+        x: o.x, y: o.y, dirx: Math.cos(ang), diry: Math.sin(ang),
+        phase: 'out', dist: 0, hit: new Map(), spr, glow,
+      };
+      Sound.sfx('boomerang');
+      return;
+    }
+
+    const b = o.boomerang;
+    const sp = o.boomSpeed;
+    if (b.phase === 'out') {
+      b.x += b.dirx * sp * dt;
+      b.y += b.diry * sp * dt;
+      b.dist += sp * dt;
+      if (b.dist >= o.boomDist) b.phase = 'back';
+    } else {
+      const dx = o.x - b.x, dy = o.y - b.y;   // なかまは公転で動くので毎フレーム狙い直す
+      const d = Math.hypot(dx, dy);
+      if (d <= 12) {                           // 回収
+        b.spr.destroy();
+        b.glow.destroy();
+        o.boomerang = null;
+        return;
+      }
+      b.x += (dx / d) * sp * dt;
+      b.y += (dy / d) * sp * dt;
+    }
+    b.spr.setPosition(b.x, b.y);
+    b.spr.rotation += 12 * dt;
+    b.glow.setPosition(b.x, b.y);
+
+    const hr = o.boomRadius;
+    for (const e of run.enemies) {
+      if (!e.active) continue;
+      const rr = hr + e.radius;
+      const ex = e.x - b.x, ey = e.y - b.y;
+      if (ex * ex + ey * ey <= rr * rr) {
+        const last = b.hit.get(e.id);
+        if (last == null || run.elapsed - last >= o.boomTick) {
+          b.hit.set(e.id, run.elapsed);
+          run.dealDamage(e, dmg, o.color);
+        }
+      }
+    }
+  }
+
+  // おんぷリング（RINGWAVE）。周期的に広がる輪。輪の前面が通った敵に1回だけ当たる。
+  function updateRingwave(o, dt) {
+    if (!o.ringwave) o.ringwave = { rings: [] };
+    const rings = o.ringwave.rings;
+
+    o.ringT -= dt;
+    if (o.ringT <= 0) {
+      o.ringT = o.ringInterval;
+      const spr = run.add.image(o.x, o.y, 'w_ring')
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setTint(o.color);
+      rings.push({ cx: o.x, cy: o.y, r: 0, hitSet: new Set(), spr });
+      Sound.sfx('ringwave');
+    }
+
+    const dmg = memberDamage(o);
+    const halfT = o.ringThick / 2;
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const g = rings[i];
+      g.r += o.ringSpeed * dt;
+      if (g.r >= o.ringMaxR) {
+        g.spr.destroy();
+        rings.splice(i, 1);
+        continue;
+      }
+      const size = Math.max(2, g.r * 2);
+      g.spr.setPosition(g.cx, g.cy).setDisplaySize(size, size)
+        .setAlpha(Math.max(0, 1 - g.r / o.ringMaxR));
+      for (const e of run.enemies) {
+        if (!e.active || g.hitSet.has(e.id)) continue;
+        const dx = e.x - g.cx, dy = e.y - g.cy;
+        const d = Math.hypot(dx, dy);
+        if (Math.abs(d - g.r) <= halfT + e.radius) {
+          g.hitSet.add(e.id);
+          run.dealDamage(e, dmg, o.color);
+        }
+      }
+    }
+  }
+
+  // 武器ビジュアルの後始末。rebuild() の pop ループと destroy() の「両方」から呼ぶ
+  // （片方だけだとなかま入替時にスプライトが残ってリークする）。
+  function releaseWeaponVisuals(o) {
+    if (o.boomerang) {
+      o.boomerang.spr.destroy();
+      o.boomerang.glow.destroy();
+      o.boomerang = null;
+    }
+    if (o.ringwave) {
+      for (const g of o.ringwave.rings) g.spr.destroy();
+      o.ringwave = null;
+    }
+  }
+
   function destroy() {
     for (const o of orbs) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      releaseWeaponVisuals(o);
     }
     orbs.length = 0;
   }

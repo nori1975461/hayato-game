@@ -69,7 +69,7 @@ export const MONSTERS = [
     id: 'togeron',
     name: 'トゲロン',
     rarity: 'N',
-    archetype: 'SLASH',
+    archetype: 'BOOMERANG',   // クッキーブーメラン（スイーツ系）
     color: '#9dff70',
     baseDamage: 5,
     sprite: {
@@ -185,7 +185,7 @@ export const MONSTERS = [
     id: 'samet',
     name: 'サメット',
     rarity: 'R',
-    archetype: 'SHOT',
+    archetype: 'RINGWAVE',    // おんぷリング（おもちゃ系）
     color: '#66a3ff',
     baseDamage: 5,
     sprite: {
@@ -214,7 +214,7 @@ export const MONSTERS = [
       id: 'megasamet',
       name: 'メガサメット',
       baseDamage: 11,
-      ovr: { bulletSpeed: 320 },
+      ovr: { expandSpeed: 300 },   // RINGWAVE化に伴い bulletSpeed から置換
       sprite: {
         palette: { a: '#66a3ff', d: '#2f6fd8', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', o: '#ff9e66' },
         rows: [
