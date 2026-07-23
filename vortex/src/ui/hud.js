@@ -183,6 +183,7 @@ export function createHud(run) {
       bossBar.fillRect(bx, by, bw * ratio, 8);
       bossBar.lineStyle(1, 0xffffff, 0.5);
       bossBar.strokeRect(bx, by, bw, 8);
+      if (ent && ent.def && ent.def.name) bossName.setText(ent.def.name);
       bossName.setVisible(true);
     } else {
       bossName.setVisible(false);

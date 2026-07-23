@@ -1,6 +1,6 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES } from '../data/monsters.js';
-import { ENEMIES, BOSS } from '../data/enemies.js';
+import { ENEMIES, BOSSES } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { createRng } from '../core/rng.js';
 
@@ -22,9 +22,11 @@ export class BootScene extends Phaser.Scene {
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
-    // ボス「ウズキング」の2枚重ね（渦＋顔）
-    this.makeGrid('boss_uzu_swirl', BOSS.sprites.swirl);
-    this.makeGrid('boss_uzu_face', BOSS.sprites.face);
+    // ボス（Wave D：小/中/大の3段）の2枚重ね（渦＋顔）。boss.js とキー命名を合わせる。
+    for (const d of BOSSES) {
+      this.makeGrid('boss_' + d.id + '_swirl', d.sprites.swirl);
+      this.makeGrid('boss_' + d.id + '_face', d.sprites.face);
+    }
     // 強化アイコン7種
     for (const [id, ic] of Object.entries(UPGRADE_ICONS)) this.makeGrid('icon_' + id, ic);
 

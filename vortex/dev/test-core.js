@@ -144,6 +144,19 @@ assert(ENEMIES.length === 8, 'data: ENEMIES が8種');
 // --- BOSS export の存在（id='uzuking'） ---
 assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking');
 
+// --- Wave D: 多段ボス（boss.tiers）が3段・final:true が1つ・出現順が単調増加 ---
+{
+  const tiers = BALANCE.boss && BALANCE.boss.tiers;
+  assert(Array.isArray(tiers) && tiers.length === 3, 'balance: boss.tiers が3段（小/中/大）');
+  if (Array.isArray(tiers)) {
+    const finals = tiers.filter((t) => t.final).length;
+    assert(finals === 1, `balance: boss.tiers の final:true がちょうど1つ（${finals}個）`);
+    let mono = true, prev = -1;
+    for (const t of tiers) { if (!(t.spawnSec > prev)) mono = false; prev = t.spawnSec; }
+    assert(mono, 'balance: boss.tiers の spawnSec が単調増加（出現が重ならない）');
+  }
+}
+
 // --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
 {
   const enemyIds = new Set(ENEMIES.map((e) => e.id));

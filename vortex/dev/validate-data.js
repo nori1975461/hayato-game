@@ -3,7 +3,7 @@
 // Phaser 非依存。data/ を import して純粋にチェックする。
 
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES } from '../src/data/monsters.js';
-import { ENEMIES, BOSS } from '../src/data/enemies.js';
+import { ENEMIES, BOSSES } from '../src/data/enemies.js';
 import { BALANCE } from '../src/data/balance.js';
 
 const errors = [];
@@ -79,17 +79,23 @@ if (Array.isArray(PLAYER_SPRITES)) {
   PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`));
 }
 
-// --- BOSS ---
-check(BOSS && typeof BOSS === 'object', 'BOSS export が無い');
-if (BOSS && typeof BOSS === 'object') {
-  check(typeof BOSS.id === 'string' && /^[a-z]+$/.test(BOSS.id), 'BOSS: id が英小文字でない');
-  check(typeof BOSS.name === 'string' && BOSS.name.length > 0, 'BOSS: name が無い');
-  check(COLOR_RE.test(BOSS.color), `BOSS: color "${BOSS.color}" が#+16進6桁でない`);
-  check(BOSS.sprites && typeof BOSS.sprites === 'object', 'BOSS: sprites が無い');
-  if (BOSS.sprites) {
+// --- BOSSES（Wave D：小/中/大の3段）---
+check(Array.isArray(BOSSES) && BOSSES.length >= 1, 'BOSSES が配列でない/空');
+const bossIds = new Set();
+for (const b of BOSSES) {
+  const label = `BOSS ${b && b.id}`;
+  check(b && typeof b === 'object', `${label}: オブジェクトでない`);
+  if (!b || typeof b !== 'object') continue;
+  check(typeof b.id === 'string' && /^[a-z]+$/.test(b.id), `${label}: id が英小文字でない`);
+  check(!bossIds.has(b.id), `${label}: id が重複`);
+  bossIds.add(b.id);
+  check(typeof b.name === 'string' && b.name.length > 0, `${label}: name が無い`);
+  check(COLOR_RE.test(b.color), `${label}: color "${b.color}" が#+16進6桁でない`);
+  check(b.sprites && typeof b.sprites === 'object', `${label}: sprites が無い`);
+  if (b.sprites) {
     for (const key of ['swirl', 'face']) {
-      check(key in BOSS.sprites, `BOSS.sprites.${key} が無い`);
-      validateSprite(BOSS.sprites[key], `BOSS.sprites.${key}`);
+      check(key in b.sprites, `${label}: sprites.${key} が無い`);
+      validateSprite(b.sprites[key], `${label}.sprites.${key}`);
     }
   }
 }
@@ -144,6 +150,41 @@ for (const a of ARCHETYPE) {
 // --- upgrades 全件に desc（項目1）---
 for (const u of BALANCE.upgrades) {
   check(typeof u.desc === 'string' && u.desc.length > 0, `BALANCE.upgrades[${u.id}]: desc が無い`);
+}
+
+// --- BALANCE.boss.tiers（Wave D：多段ボスのスケジュール整合）---
+const B = BALANCE.boss;
+check(B && Array.isArray(B.tiers) && B.tiers.length >= 1, 'BALANCE.boss.tiers が配列でない/空');
+if (B && Array.isArray(B.tiers)) {
+  let prevSpawn = -1;
+  let finalCount = 0;
+  B.tiers.forEach((t, i) => {
+    const label = `boss.tiers[${i}]`;
+    // bossId は BOSSES に実在すること（テクスチャキー boss_<id>_swirl/_face と一致）
+    check(bossIds.has(t.bossId), `${label}: bossId "${t.bossId}" が BOSSES に無い`);
+    // 出現時刻は warn < spawn、かつ tier 昇順で単調増加（出現の重なり防止）
+    check(typeof t.warnSec === 'number' && typeof t.spawnSec === 'number' && t.warnSec < t.spawnSec,
+      `${label}: warnSec < spawnSec でない`);
+    check(t.spawnSec > prevSpawn, `${label}: spawnSec が前 tier 以下（出現順が単調でない）`);
+    prevSpawn = t.spawnSec;
+    // attacks と idleSec.betweenAttacks の長さ一致（AI のインデックス循環が破綻しない）
+    check(Array.isArray(t.attacks) && t.attacks.length >= 1, `${label}: attacks が空`);
+    check(t.idleSec && Array.isArray(t.idleSec.betweenAttacks)
+      && t.idleSec.betweenAttacks.length === t.attacks.length,
+      `${label}: idleSec.betweenAttacks の長さが attacks と不一致`);
+    // summon を使うなら enemyId が ENEMIES に実在すること
+    if (t.attacks && t.attacks.includes('summon')) {
+      check(t.summon && enemyIds.has(t.summon.enemyId),
+        `${label}: summon.enemyId "${t.summon && t.summon.enemyId}" が ENEMIES に無い`);
+    }
+    // hp/radius は正の数値
+    for (const k of ['hp', 'radius', 'chaseSpeed', 'bodyDamage']) {
+      check(typeof t[k] === 'number' && t[k] > 0, `${label}: ${k} が正の数値でない`);
+    }
+    if (t.final) finalCount++;
+  });
+  // 最終ボス（final:true）はちょうど1体（クリア判定の分岐が一意になる）
+  check(finalCount === 1, `boss.tiers: final:true がちょうど1つでない（${finalCount}個）`);
 }
 
 // --- 結果 ---

@@ -221,8 +221,64 @@ export const ENEMIES = [
   },
 ];
 
-// ボス「ウズキング」。渦(回転)＋顔(非回転)の2枚重ねテクスチャ。ENEMIES には入れない。
-export const BOSS = {
+// === ボス群（Wave D：小/中/大の3段） ===
+// いずれも 渦(回転)＋顔(非回転) の2枚重ねテクスチャ。ENEMIES には入れない。
+
+// 小ボス「コロたま」。パステルの可愛い王冠ぷに。序盤(~90秒)の最初の山場。
+export const KOROTAMA = {
+  id: 'korotama',
+  name: 'コロたま',
+  color: '#ff9ec4',
+  sprites: {
+    // 回転させる本体。パステルピンク×ミントの丸い風車（180°回転対称）。
+    swirl: {
+      palette: { a: '#ffc2e0', b: '#b8f0d8' },
+      rows: [
+        '......aabb......',
+        '....aaaabbbb....',
+        '...aaaaabbbbb...',
+        '..aaaaaabbbbbb..',
+        '.aaaaaaabbbbbbb.',
+        '.aaaaaaabbbbbbb.',
+        'aaaaaaaabbbbbbbb',
+        'aaaaaaaabbbbbbbb',
+        'bbbbbbbbaaaaaaaa',
+        'bbbbbbbbaaaaaaaa',
+        '.bbbbbbbaaaaaaa.',
+        '.bbbbbbbaaaaaaa.',
+        '..bbbbbbaaaaaa..',
+        '...bbbbbaaaaa...',
+        '....bbbbaaaa....',
+        '......bbaa......',
+      ],
+    },
+    // 非回転の顔。小さな金冠＋つぶらな目＋ほっぺ＋にっこり。
+    face: {
+      palette: { g: '#ffd85e', p: '#ffd6ee', w: '#ffffff', k: '#5a2a4a', c: '#ff9ec4' },
+      rows: [
+        '...g.g.g.g.g....',
+        '...gggggggggg...',
+        '..pppppppppppp..',
+        '.pppppppppppppp.',
+        '.pwwkppppppkwwp.',
+        '.pwwkppppppkwwp.',
+        '.pppppppppppppp.',
+        '.pcpppppppppcpp.',
+        '.ppppkkkkkppppp.',
+        '..pppkkkkkkppp..',
+        '..pppppppppppp..',
+        '...pppppppppp...',
+        '....pppppppp....',
+        '.....pppppp.....',
+        '......pppp......',
+        '.......pp.......',
+      ],
+    },
+  },
+};
+
+// 中ボス「ウズキング」。渦(回転)＋顔(非回転)の2枚重ねテクスチャ。
+export const UZUKING = {
   id: 'uzuking',
   name: 'ウズキング',
   color: '#ff6ec7',
@@ -273,3 +329,62 @@ export const BOSS = {
     },
   },
 };
+
+// 大ボス「マオウ」。金×黒・放射状の棘/角・多眼・赤紫の宝石・砲身状突起。
+// 威圧的な見た目 → 撃破すると可愛い顔でぽよん、の「かわいさとのギャップ」担当。
+export const MAOU = {
+  id: 'maou',
+  name: 'マオウ',
+  color: '#ffcb3d',
+  sprites: {
+    // 回転させる本体。黒い核から金の棘が8方向に放射（回転対称）。
+    swirl: {
+      palette: { g: '#ffcb3d', k: '#1a1015' },
+      rows: [
+        '.......gg.......',
+        '...g...gg...g...',
+        '....g..gg..g....',
+        '.g...gkkkkg...g.',
+        '..g.gkkkkkkg.g..',
+        '...gkkkkkkkkg...',
+        '.gggkkkkkkkkggg.',
+        'ggkkkkkkkkkkkkgg',
+        'ggkkkkkkkkkkkkgg',
+        '.gggkkkkkkkkggg.',
+        '...gkkkkkkkkg...',
+        '..g.gkkkkkkg.g..',
+        '.g...gkkkkg...g.',
+        '....g..gg..g....',
+        '...g...gg...g...',
+        '.......gg.......',
+      ],
+    },
+    // 非回転の顔。金の角・多眼(赤紫の宝石)・中央の大宝石・左右の砲身。
+    face: {
+      palette: { k: '#1a1015', g: '#ffcb3d', r: '#c9187e', w: '#ff6ec7', d: '#5c4a2a' },
+      rows: [
+        '..g..g....g..g..',
+        '..gg.gg..gg.gg..',
+        '.kkkkkkkkkkkkkk.',
+        '.kwkkkkkkkkkkwk.',
+        '.krkkkkkkkkkkrk.',
+        'dkkkkgggggkkkkkd',
+        'dkkkgrrrrrgkkkkd',
+        'dkkkgrrwrrgkkkkd',
+        'dkkkgrrrrrgkkkkd',
+        'dkkkkgggggkkkkkd',
+        '.kkkkkkkkkkkkkk.',
+        '.kkrkkkkkkkkrkk.',
+        '..kkkkkkkkkkkk..',
+        '...gkkkkkkkkg...',
+        '...g.gkkkkg.g...',
+        '......gkkg......',
+      ],
+    },
+  },
+};
+
+// 出現順（小→中→大）。Boot/validate はこの配列を走査してテクスチャ生成・検証する。
+export const BOSSES = [KOROTAMA, UZUKING, MAOU];
+// 後方互換：単一ボス参照(test-core / 既存コード)は中ボス=ウズキングを指す。
+export const BOSS = UZUKING;
