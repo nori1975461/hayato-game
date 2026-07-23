@@ -343,6 +343,29 @@ export function createFx(run) {
     });
   }
 
+  // ---- ラッシュ予告（Wave C・1.2s。音は spawner.js が所有するため fx は視覚のみ） ----
+  function rushWarning() {
+    run.shake(260, 2);
+    const band = run.add.rectangle(W / 2, H / 2, W, 64, 0xffa020, 0)
+      .setScrollFactor(0).setDepth(1850);
+    const txt = run.add.text(W / 2, H / 2, 'ラッシュ！', {
+      fontFamily: 'monospace', fontSize: '30px', color: '#fff3c4', fontStyle: 'bold',
+      stroke: '#7a3b00', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1851).setScale(0.6);
+    run.tweens.add({ targets: band, alpha: 0.45, duration: 160 });
+    run.tweens.add({ targets: txt, scale: 1.15, duration: 200, ease: 'Back.Out' });
+    // プレイヤー周囲に警告リングを広げて「囲まれる」ことを予告する
+    ripple(run.player.x, run.player.y, 0xffa020, 1);
+    run.time.delayedCall(180, () => ripple(run.player.x, run.player.y, 0xffd23f, 1));
+    const blink = run.time.addEvent({
+      delay: 110, repeat: 9, callback: () => txt.setVisible(!txt.visible),
+    });
+    run.time.delayedCall(1200, () => {
+      if (blink) blink.remove();
+      band.destroy(); txt.destroy();
+    });
+  }
+
   // ---- ボス撃破シネマ（§10.6-B・1.8s。コイン加算/bossdown音は boss.js の責務） ----
   function bossVictory(x, y, onDone) {
     const cineTok = cineBegin();
@@ -549,7 +572,7 @@ export function createFx(run) {
 
   return {
     update, powerupFlash, announce, setTarget, clearTarget,
-    fusionCinematic, evolveBurst, bossWarning, bossVictory,
+    fusionCinematic, evolveBurst, bossWarning, bossVictory, rushWarning,
     weaponLevelUp, specialBlast, specialReady,
   };
 }

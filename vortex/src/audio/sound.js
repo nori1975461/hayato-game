@@ -115,6 +115,19 @@ const SFX = {
   shoot() {
     tone({ type: 'triangle', freq: 620, freqEnd: 1040, dur: 0.09, gain: 0.16 });
   },
+  // 雑魚撃破の「ポンっ」（Wave C）。多発するので極短＋控えめゲインで耳に痛くしない
+  pop() {
+    tone({ type: 'sine', freq: 880, freqEnd: 1320, dur: 0.06, gain: 0.12 });
+  },
+  // ラッシュ予告（Wave C）。capture と同じ上昇アルペジオ型で「来るぞ！」感を出す
+  rush() {
+    const seq = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6];
+    seq.forEach((n, i) => {
+      tone({ type: 'square', freq: noteFreq(n), start: i * 0.1, dur: 0.14, gain: 0.14 });
+      tone({ type: 'triangle', freq: noteFreq(n) * 2, start: i * 0.1, dur: 0.1, gain: 0.07 });
+    });
+    noiseHit({ start: 0.3, dur: 0.14, gain: 0.06, hpFreq: 5000 });
+  },
   // ビーム：太い持続＋倍音（矩形＋のこぎり）
   beam() {
     tone({ type: 'sawtooth', freq: 180, freqEnd: 90, dur: 0.32, gain: 0.14 });

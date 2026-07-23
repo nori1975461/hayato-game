@@ -13,7 +13,7 @@ function check(cond, msg) {
 
 const RARITY = ['N', 'R', 'SR'];
 const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
-const MOVEMENT = ['chase', 'sine', 'charge'];
+const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 function validateSprite(sprite, label) {
@@ -109,6 +109,18 @@ for (const e of ENEMIES) {
     check(typeof e[k] === 'number' && e[k] > 0, `${label}: ${k} が正の数値でない`);
   }
   validateSprite(e.sprite, label);
+  // split（分裂）は任意。あるなら無限分裂しない形になっているか（hpMult<1）を確認する
+  if (e.split !== undefined) {
+    check(e.split && typeof e.split === 'object', `${label}: split がオブジェクトでない`);
+    if (e.split && typeof e.split === 'object') {
+      check(Number.isInteger(e.split.count) && e.split.count >= 1 && e.split.count <= 4,
+        `${label}: split.count が1〜4の整数でない`);
+      for (const k of ['hpMult', 'scaleMult', 'speedMult']) {
+        check(typeof e.split[k] === 'number' && e.split[k] > 0, `${label}: split.${k} が正の数値でない`);
+      }
+      check(e.split.hpMult < 1, `${label}: split.hpMult が1未満でない（分裂で強くなってしまう）`);
+    }
+  }
 }
 
 // --- BALANCE 必須キー ---
@@ -119,6 +131,8 @@ const requiredBalanceKeys = [
   'hero', 'fused', 'evolve', 'cave', 'boss', 'rainbowUpgrades',
   // v3 追加キー（武器レベルアップ・必殺技・自動強化）
   'weapon', 'special', 'autoUpgrade',
+  // v5 追加キー（Wave C: 敵数増・ラッシュ・雑魚の演出）
+  'capSteps', 'rush', 'enemyFx',
 ];
 for (const k of requiredBalanceKeys) {
   check(k in BALANCE, `BALANCE.${k} が存在しない`);

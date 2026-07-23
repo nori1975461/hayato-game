@@ -71,6 +71,7 @@ export class RunScene extends Phaser.Scene {
 
     // --- プール ---
     this.enemies = [];
+    this.enemyCap = BALANCE.capSteps[0].cap;   // 同時出現上限（spawner が経過時間で引き上げる）
     this.bullets = [];
     this.gems = [];
     this.particles = [];
@@ -79,6 +80,7 @@ export class RunScene extends Phaser.Scene {
     this._gemPool = [];
     this._sparkPool = [];
     this._pawPool = [];
+    this._popPool = [];
     this._pawT = -1;             // 肉球ヒットマークの表示スロットル（elapsed基準・-1で初回を必ず出す）
     this._eid = 0;
 
@@ -289,7 +291,7 @@ export class RunScene extends Phaser.Scene {
 
   // ============ 敵 ============
   spawnEnemy(def, x, y, isElite, hpMult) {
-    if (this.enemies.length >= BALANCE.enemyCap) return null;
+    if (this.enemies.length >= (this.enemyCap || BALANCE.enemyCap)) return null;
     const E = BALANCE.elite;
     const disp = this._enemyPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
@@ -308,7 +310,7 @@ export class RunScene extends Phaser.Scene {
       speed: def.speed * (isElite ? E.speedMult : 1),
       damage: def.damage,
       radius: def.radius * (isElite ? E.sizeMult : 1),
-      isElite, slowMark: -1, flashT: 0,
+      isElite, slowMark: -1, flashT: 0, baseScale: scale,
       sinePhase: this.rng.range(0, Math.PI * 2),
       chargeState: 'approach', chargeT: 0, dashX: 0, dashY: 0,
       glow: disp.glow, spr: disp.spr,
@@ -328,6 +330,7 @@ export class RunScene extends Phaser.Scene {
   updateEnemies(dt) {
     const px = this.player.x, py = this.player.y;
     const F = BALANCE.archetypes.FIELD;
+    const X = BALANCE.enemyFx;
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (e.isBoss) continue; // ボスの移動・接触ダメージは boss.js が管理
@@ -344,6 +347,18 @@ export class RunScene extends Phaser.Scene {
         const lat = Math.cos(e.sinePhase) * 40 * (Math.PI * 2 / 1.2);
         vx = nx * e.speed - ny * lat;
         vy = ny * e.speed + nx * lat;
+      } else if (e.movement === 'hop') {
+        // ぴょんぴょん：着地の一瞬だけ止まり、跳ねている間だけ前へ進む
+        e.sinePhase += dt * (Math.PI * 2 / 0.75);
+        const jump = Math.max(0, Math.sin(e.sinePhase));
+        vx = nx * e.speed * jump * 1.6;
+        vy = ny * e.speed * jump * 1.6;
+        e.hopLift = jump;
+      } else if (e.movement === 'spiral') {
+        // くるくる：近いほど強く回り込みながら寄る（正面から来ないので避けにくい）
+        const swirl = Math.min(1.1, 140 / dist);
+        vx = (nx * 0.75 - ny * swirl) * e.speed;
+        vy = (ny * 0.75 + nx * swirl) * e.speed;
       } else { // charge
         const r = this.updateCharge(e, dt, nx, ny, dist);
         vx = r.vx; vy = r.vy;
@@ -351,7 +366,12 @@ export class RunScene extends Phaser.Scene {
 
       e.x += vx * slow * dt;
       e.y += vy * slow * dt;
-      e.spr.setPosition(e.x, e.y);
+      // ぷるぷる：生成時に消費済みの sinePhase を位相ずらしに流用する（乱数を追加消費しない）
+      const bob = Math.sin(this.elapsed * X.bobHz + e.sinePhase);
+      const bs = e.baseScale || 2;
+      e.spr.setScale(bs * (1 + bob * X.bobAmp), bs * (1 - bob * X.bobAmp));
+      e.spr.setRotation(bob * X.tiltAmp);
+      e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6);
       e.glow.setPosition(e.x, e.y);
 
       // フラッシュ・点滅
@@ -431,6 +451,40 @@ export class RunScene extends Phaser.Scene {
     this.spawnGem(e.x, e.y, e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue, e.isElite);
     // スターコア抽選
     this.capture.onEnemyKilled(e);
+    this.popFx(e.x, e.y, e.color);
+    // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
+    const sp = e.def && e.def.split;
+    if (sp && !e.noSplit && !e.isElite) {
+      for (let i = 0; i < sp.count; i++) {
+        const a = (Math.PI * 2 / sp.count) * i + this.rng.range(0, 1);
+        const c = this.spawnEnemy(e.def, e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, false, 1);
+        if (!c) break;   // cap 到達
+        c.noSplit = true;
+        c.hp = Math.max(1, Math.round(e.maxHp * sp.hpMult));
+        c.maxHp = c.hp;
+        c.speed = e.def.speed * sp.speedMult;
+        c.radius = e.def.radius * sp.scaleMult;
+        c.baseScale = c.baseScale * sp.scaleMult;
+        c.spr.setScale(c.baseScale);
+      }
+    }
+  }
+
+  // 雑魚撃破の「ポンっ」（Wave C）。多発するのでプール＋短命tweenで軽く済ませる
+  popFx(x, y, color) {
+    const spr = this._popPool.pop() || this.add.image(0, 0, 'w_star2').setBlendMode(ADD);
+    spr.setTexture('w_star2').setVisible(true).setActive(true).setDepth(13)
+      .setTint(color ?? 0xffffff).setPosition(x, y)
+      .setScale(1.2).setAlpha(0.95).setRotation(0);
+    this.tweens.add({
+      targets: spr, scale: 3.2, alpha: 0, duration: 180,
+      onComplete: () => { spr.setVisible(false); this._popPool.push(spr); },
+    });
+    // 同時多発でも耳に痛くならないよう、音は 0.05 秒に1回だけ
+    if (this.elapsed - (this._lastPopSfx ?? -1) >= 0.05) {
+      this._lastPopSfx = this.elapsed;
+      Sound.sfx('pop');
+    }
   }
 
   // ============ 弾 ============

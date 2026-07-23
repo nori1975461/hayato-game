@@ -5,9 +5,13 @@ import { Sound } from '../audio/sound.js';
 
 export function createSpawner(run) {
   const W = BALANCE.wave;
+  const R = BALANCE.rush;
   const totalSec = W.stepSec * W.steps;      // 補間の終端（300s）
   let spawnTimer = 0;
+  let countAcc = 0;                          // 湧き数の小数を持ち越す（切り捨てで湧きが痩せるのを防ぐ）
   const eliteFired = BALANCE.elite.times.map(() => false);
+  const rushWarned = R.counts.map(() => false);
+  const rushFired = R.counts.map(() => false);
   const byId = {};
   for (const e of ENEMIES) byId[e.id] = e;
 
@@ -19,7 +23,15 @@ export function createSpawner(run) {
 
   function currentInterval() { return lerp(W.spawnIntervalStart, W.spawnIntervalEnd, waveT()); }
   function currentHpMult() { return lerp(W.hpMultStart, W.hpMultEnd, waveT()); }
-  function currentCount() { return Math.round(lerp(W.spawnCountStart, W.spawnCountEnd, waveT())); }
+  function currentCount() { return lerp(W.spawnCountStart, W.spawnCountEnd, waveT()); }
+
+  // 同時出現上限は時間で段階的に上がる（序盤から220体だと画面が潰れるため）
+  function currentCap() {
+    for (const s of BALANCE.capSteps) {
+      if (run.elapsed < s.untilSec) return s.cap;
+    }
+    return BALANCE.enemyCap;
+  }
 
   // 現在フェーズの重みで敵種別を1つ抽選
   function pickEnemyDef() {
@@ -75,15 +87,17 @@ export function createSpawner(run) {
     return e;
   }
 
-  // T キー: 一気に count 体（cap を超えない）
+  // T キー / ラッシュ: 一気に count 体（cap を超えない）
   function spawnBurst(count) {
+    const cap = run.enemyCap || BALANCE.enemyCap;
     for (let i = 0; i < count; i++) {
-      if (run.enemies.length >= BALANCE.enemyCap) break;
+      if (run.enemies.length >= cap) break;
       spawnOne(false);
     }
   }
 
   function update(dt) {
+    run.enemyCap = currentCap();
     // エリート（2:00 / 4:00）
     for (let i = 0; i < BALANCE.elite.times.length; i++) {
       if (!eliteFired[i] && run.elapsed >= BALANCE.elite.times[i]) {
@@ -95,11 +109,32 @@ export function createSpawner(run) {
     const bossActive = !!(run.boss && run.boss.active);
     const interval = bossActive ? BALANCE.boss.trashInterval : currentInterval();
     const count = bossActive ? BALANCE.boss.trashCount : currentCount();
+
+    // ラッシュ（山場）。ボス戦中は起こさない＝ボスへの集中を壊さないため（§10.4）
+    if (!bossActive) {
+      for (let i = 0; i < R.counts.length; i++) {
+        const at = R.startSec + i * R.intervalSec;
+        if (!rushWarned[i] && run.elapsed >= at - R.warnSec) {
+          rushWarned[i] = true;
+          Sound.sfx('rush');
+          if (run.fx && run.fx.rushWarning) run.fx.rushWarning();
+        }
+        if (!rushFired[i] && run.elapsed >= at) {
+          rushFired[i] = true;
+          spawnBurst(R.counts[i]);
+        }
+      }
+    }
+
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnTimer += interval;
-      for (let i = 0; i < count; i++) {
-        if (run.enemies.length >= BALANCE.enemyCap) break;
+      countAcc += count;
+      const n = Math.floor(countAcc);
+      countAcc -= n;
+      const cap = run.enemyCap || BALANCE.enemyCap;
+      for (let i = 0; i < n; i++) {
+        if (run.enemies.length >= cap) break;
         spawnOne(false);
       }
     }

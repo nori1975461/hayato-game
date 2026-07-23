@@ -1,5 +1,5 @@
-// 敵5種＋ボスの定義（PROTOTYPE_SPEC §3.2/§3.3/§4.3/§10.5）。
-// radius は表示スケール適用後の当たり半径(px)。movement は 'chase' | 'sine' | 'charge'。
+// 敵8種＋ボスの定義（PROTOTYPE_SPEC §3.2/§3.3/§4.3/§10.5）。
+// radius は表示スケール適用後の当たり半径(px)。movement は 'chase' | 'sine' | 'charge' | 'hop' | 'spiral'。
 // v2: 敵は仲間との対比を明確化（ほっぺ無し・太まゆ/つり目・トゲや暴走感）。詳細は dev/SPRITE_GUIDE.md。
 // BOSS は ENEMIES 配列に入れず別 export（出現プール/重み検証を汚さない）。
 
@@ -134,6 +134,88 @@ export const ENEMIES = [
         '.saaaaaaaas.',
         '..saaaaaas..',
         '.s.s.s.s.s..',
+      ],
+    },
+  },
+  {
+    // Wave C: 跳ねて距離を詰めるバネ足。着地の一瞬だけ止まるので避けやすい。
+    id: 'pyonpi',
+    name: 'ピョンピ',
+    movement: 'hop',
+    color: '#ffd36e',
+    hp: 7,
+    speed: 90,
+    damage: 6,
+    radius: 6,
+    sprite: {
+      palette: { a: '#ffd36e', c: '#3a2400', b: '#ffffff', f: '#e0952b' },
+      rows: [
+        '..a......a..',
+        '..a.aaaa.a..',
+        '..aaaaaaaa..',
+        '.aaaaaaaaaa.',
+        '.acc.aa.cca.',
+        '.acbaaaabca.',
+        '.aaaaaaaaaa.',
+        '.aaaccccaaa.',
+        '..aaaaaaaa..',
+        '...ffffff...',
+        '..ff....ff..',
+      ],
+    },
+  },
+  {
+    // Wave C: まっすぐ来ずに渦を巻きながら寄る。囲まれる感を作る担当。
+    id: 'kururin',
+    name: 'クルリン',
+    movement: 'spiral',
+    color: '#8affc1',
+    hp: 12,
+    speed: 50,
+    damage: 7,
+    radius: 7,
+    sprite: {
+      palette: { a: '#8affc1', c: '#0f3a24', b: '#ffffff', s: '#3fd98c' },
+      rows: [
+        '...ssssss...',
+        '..saaaaaas..',
+        '.saaaaaaaas.',
+        'saaaaaaaaaas',
+        's.accaacca.s',
+        '.aacbaabcaa.',
+        '.aaaaaaaaaa.',
+        'saaaaccaaaas',
+        '.saaaaaaaas.',
+        '..saaaaaas..',
+        '...ssssss...',
+      ],
+    },
+  },
+  {
+    // Wave C: 倒すと小さいのが2体に分かれる餅。split は Run.killEnemy が解釈する。
+    id: 'mochimo',
+    name: 'モチモ',
+    movement: 'chase',
+    color: '#ffb3d9',
+    hp: 16,
+    speed: 34,
+    damage: 9,
+    radius: 8,
+    split: { count: 2, hpMult: 0.3, scaleMult: 0.7, speedMult: 1.4 },
+    sprite: {
+      palette: { a: '#ffb3d9', c: '#4a1030', b: '#ffffff', d: '#ff7fbf' },
+      rows: [
+        '...aaaaaa...',
+        '..aaaaaaaa..',
+        '.aaaaaaaaaa.',
+        'aaccaaaaccaa',
+        'aacbaaaabcaa',
+        'aaaaaaaaaaaa',
+        'aaaaddddaaaa',
+        '.aaaddddaaa.',
+        '.aaaaaaaaaa.',
+        '..daaaaaad..',
+        '..d.d..d.d..',
       ],
     },
   },

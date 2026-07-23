@@ -102,14 +102,26 @@ function assert(cond, msg) {
   assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
 }
 
-// --- MONSTERS が6種・ENEMIES が5種 ---
+// --- MONSTERS が6種・ENEMIES が8種（Wave C で3種追加） ---
 assert(MONSTERS.length === 6, 'data: MONSTERS が6種');
-assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
+assert(ENEMIES.length === 8, 'data: ENEMIES が8種');
 
 // --- 新敵 ghoston / igagurin が存在 ---
 {
   const eids = new Set(ENEMIES.map((e) => e.id));
   assert(eids.has('ghoston') && eids.has('igagurin'), 'data: 新敵 ghoston/igagurin が存在');
+}
+
+// --- Wave C の新敵3種と分裂定義 ---
+{
+  const byId = {};
+  for (const e of ENEMIES) byId[e.id] = e;
+  assert(byId.pyonpi && byId.pyonpi.movement === 'hop', 'data: pyonpi が hop で存在');
+  assert(byId.kururin && byId.kururin.movement === 'spiral', 'data: kururin が spiral で存在');
+  assert(byId.mochimo && byId.mochimo.split && byId.mochimo.split.count === 2,
+    'data: mochimo が split(2体) を持つ');
+  assert(byId.mochimo && byId.mochimo.split.hpMult < 1,
+    'data: mochimo の split.hpMult < 1（分裂で強化されない）');
 }
 
 // --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---
@@ -226,12 +238,44 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
 // --- levelupFlow（ドラフトUI）が廃止されている ---
 assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されている（自動強化へ移行）');
 
-// --- 敵の量が v2 より減っている（要望2「敵が多すぎる」の回帰防止） ---
+// --- 敵の量の上限ガード（Wave C で承認済みの上限まで緩和。硬さ hpMultEnd は据え置き） ---
 {
   const w = BALANCE.wave;
-  assert(w.spawnCountEnd <= 3, `balance: wave.spawnCountEnd が 3 以下（実測 ${w.spawnCountEnd}）`);
-  assert(BALANCE.enemyCap <= 200, `balance: enemyCap が 200 以下（実測 ${BALANCE.enemyCap}）`);
+  assert(w.spawnCountEnd <= 6, `balance: wave.spawnCountEnd が 6 以下（実測 ${w.spawnCountEnd}）`);
+  assert(BALANCE.enemyCap <= 260, `balance: enemyCap が 260 以下（実測 ${BALANCE.enemyCap}）`);
   assert(w.hpMultEnd <= 4, `balance: wave.hpMultEnd が 4 以下（実測 ${w.hpMultEnd}）`);
+}
+
+// --- capSteps は単調増加で最後は enemyCap と一致 ---
+{
+  const cs = BALANCE.capSteps;
+  assert(Array.isArray(cs) && cs.length >= 2, 'balance: capSteps が2要素以上の配列');
+  let okAsc = true;
+  for (let i = 1; i < cs.length; i++) {
+    if (cs[i].untilSec <= cs[i - 1].untilSec || cs[i].cap < cs[i - 1].cap) okAsc = false;
+  }
+  assert(okAsc, 'balance: capSteps の untilSec / cap が単調増加');
+  assert(cs[cs.length - 1].cap === BALANCE.enemyCap,
+    `balance: capSteps 最終段が enemyCap と一致（実測 ${cs[cs.length - 1].cap} / ${BALANCE.enemyCap}）`);
+}
+
+// --- ラッシュは予告付き・ボス出現前に始まる ---
+{
+  const r = BALANCE.rush;
+  assert(r && r.warnSec >= 1, `balance: rush.warnSec が1秒以上（実測 ${r && r.warnSec}）`);
+  assert(r.startSec < BALANCE.boss.spawnSec, 'balance: rush.startSec がボス出現より前');
+  assert(Array.isArray(r.counts) && r.counts.every((c) => c > 0 && c <= 40),
+    'balance: rush.counts が全て1〜40');
+}
+
+// --- spawnPhases の重みが ENEMIES に存在する id だけを参照している ---
+{
+  const eids = new Set(ENEMIES.map((e) => e.id));
+  let allKnown = true;
+  for (const p of BALANCE.spawnPhases) {
+    for (const id of Object.keys(p.weights)) if (!eids.has(id)) allKnown = false;
+  }
+  assert(allKnown, 'balance: spawnPhases の敵idが全て ENEMIES に存在');
 }
 
 // --- 結果 ---

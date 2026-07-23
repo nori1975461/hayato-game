@@ -213,6 +213,10 @@ movement仕様:
 - `chase` — プレイヤーへ直進（speed）
 - `sine` — プレイヤー方向へ進みつつ、進行方向と直交に sin 振幅40px・周期1.2秒で揺れる
 - `charge` — speed=30で接近 → プレイヤーとの距離140px以内で0.6秒停止（点滅で予告）→ プレイヤー方向へ速度260で1.0秒突進 → クールダウン1.5秒 → 繰り返し
+- `hop` — Wave C。プレイヤー方向へ「跳ねる」。速度を周期的に強弱させ、着地の一瞬（谷）はほぼ静止するため避けやすい。scale を上下に伸縮（ぷるぷる／非等方）させて着地感を出す
+- `spiral` — Wave C。プレイヤーへ寄る直進成分に接線方向の回り込み成分を加え、渦を巻きながら接近する。単体では避けやすいが、複数湧くと「囲まれる」圧を作る担当
+
+> **敵の総数**: §4.3 の3種＋§10.5 の2種（ghoston/igagurin）＋Wave C の3種（pyonpi/kururin/mochimo・§12.2）＝**計8種**（`ENEMIES` 配列）。ボス `uzuking` は別 export で本数に含めない。
 
 ### 4.4 捕獲と合成
 
@@ -686,7 +690,7 @@ export const BALANCE = {
 - `special.maxUses === 3`（**ユーザー要望「1ステージで3回が限度」の回帰防止**）・special の各数値キーが有限数
 - `autoUpgrade.cycle` が非空配列で、全 id が `upgrades` に実在・`bonusEveryLevels` が数値
 - `levelupFlow` が BALANCE から消えている（ドラフト廃止の確認）
-- 敵の量: `wave.spawnCountEnd <= 3` / `enemyCap <= 200` / `wave.hpMultEnd <= 4`（**要望「敵が多すぎる」の回帰防止**）
+- 敵の量: `wave.spawnCountEnd <= 5` / `enemyCap <= 220` / `wave.hpMultEnd <= 4`（**§12 Wave C でユーザー承認のもと上限を引き上げた**。爽快感重視への方針転換。旧 `<= 3` / `<= 200` は v3 の値）
 
 ### 完成条件チェックリスト v2（Verifyフェーズの判定基準）
 
@@ -785,7 +789,7 @@ export const BALANCE = {
 | `elite.hpMult` / `sizeMult` / `speedMult` | 9 / 2 / 0.8 |
 | `boss.trashInterval` / `trashCount` | 2.4 / 1 |
 
-test-core が `spawnCountEnd <= 3` / `enemyCap <= 200` / `hpMultEnd <= 4` を回帰テストする。
+test-core が `spawnCountEnd <= 5` / `enemyCap <= 220` / `hpMultEnd <= 4` を回帰テストする（**上限は §12 Wave C で承認のうえ引き上げ済み**。本節の 150 / 3 は v3 時点の値で、現行値は §12 が正典）。
 
 ## 11.6 BGM刷新（要望6）
 
@@ -811,3 +815,53 @@ test-core が `spawnCountEnd <= 3` / `enemyCap <= 200` / `hpMultEnd <= 4` を回
   3. 撃破35体でゲージ満タン→SPACEでボルテックスバーストが発動し、画面内の雑魚が消える
   4. ひっさつは1ステージ3回で打ち止めになり、HUDの `ひっさつ x0` で確認できる
   5. タイトル・ブラウザタブが「クルット・モビット」表記になっている
+
+---
+
+# 12. Wave C 拡張（要望④敵数増＋⑤雑魚魅力化）
+
+大型拡張は Wave A〜D の4段で進める。Wave A（派手化・必殺技テンポ）／Wave B（かわいい武器 BOOMERANG・RINGWAVE）は実装済み。本章は **Wave C**。設計の正典ブリーフは `dev/WAVE_C_BRIEF.md`。
+
+## 12.0 方針転換（v3「敵を減らす」→ Wave C「爽快に増やす」）
+
+v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵数を絞った。Wave C はユーザー承認（3問すべて推奨案）のもと、**爽快感の底上げ**のため上限を引き上げる方向へ転じる。減らして避けやすくするのではなく、**魅力的な雑魚を増やして「たくさん倒す気持ちよさ」を作る**のが狙い。
+
+- **判断**: `enemyCap` を 220、`wave.spawnCountEnd` を 5、`wave.hpMultEnd` を 3.2 まで許容する。
+- **根拠**: CDP 実機（headless Chrome・`?autotest=1&seed=42`）で cap 到達まで敵を満たして実測。
+- **事実**: 画面内 **216体で min/avg ともに 60fps**、例外0件（`LOGS` 空）。180へ落とす必要はないと判断し 220 を維持。
+
+## 12.1 敵数の増加（要望④）
+
+段階的に上限が上がる `capSteps` を導入。序盤は少なく、時間経過で密度が上がる。
+
+| 項目 | 値 | 備考 |
+|---|---|---|
+| `enemyCap`（最終上限） | **220** | v3 の 150 を上書き |
+| `wave.spawnCountEnd` | **5** | 1湧きの最大数。v3 の 3 を上書き |
+| `wave.spawnCountStart` | 1 | |
+| `wave.hpMultStart` / `hpMultEnd` | 1.0 / **3.2** | |
+| `capSteps` | 経過秒で cap を段階昇格（最終段が `enemyCap` 220） | `spawner.currentCap()` が走査 |
+
+- **ラッシュウェーブ**（承認「入れる」）: ボス非戦闘中のみ、`balance.js` の `rush`（`startSec` ＋ `intervalSec` 間隔）で予告→一斉湧き。予告は SFX `rush`（C5-E5-G5-C6 アルペジオ）＋ `fx.rushWarning()`（画面端リップル）。発火で `spawnBurst(counts[i])`。湧き数の小数は `countAcc` で持ち越す。
+
+## 12.2 雑魚の魅力化（要望⑤）
+
+**Wave C 敵3種**（`ENEMIES` に追加）:
+
+| id | 名前 | movement | color | hp | speed | damage | radius | 特徴 |
+|---|---|---|---|---|---|---|---|---|
+| pyonpi | ピョンピ | hop | #ffd36e | 7 | 90 | 6 | 6 | 跳ねて距離を詰める。着地の一瞬止まるので避けやすい |
+| kururin | クルリン | spiral | #8affc1 | 12 | 50 | 7 | 7 | 渦を巻いて寄る。囲まれる感の担当 |
+| mochimo | モチモ | chase | #ffb3d9 | 16 | 34 | 9 | 8 | 倒すと小さいのが2体に分裂する餅 |
+
+- movement `hop` / `spiral` の挙動は §4.3 movement仕様を参照。
+- **mochimo の分裂**（承認「入れる」）: `mochimo.split = { count:2, hpMult:0.3, scaleMult:0.7, speedMult:1.4 }`。`Run.killEnemy` が解釈し、撃破位置に子2体を生成。
+  - 子は `noSplit=true`（**再分裂しない**＝無限増殖を防ぐ）、`hp = max(1, round(親maxHp × hpMult))`、`speed = def.speed × speedMult`、表示 scale × scaleMult。
+  - エリート個体（`isElite`）は分裂しない。
+- **撃破ぷちフィードバック**: `Run.popFx(x,y,color)` を撃破時に発火。`w_star2`（ADD合成）を scale 1.2→3.2・alpha 0.95→0・180ms でぱっと弾く。SFX `pop`（sine 880→1320・gain 0.12）は 0.05秒に1回へ間引き（大量撃破時の音割れ防止）。
+
+## 12.3 検証 v5（Wave C）
+
+- `node vortex/dev/test-core.js` — ENEMIES 8種／mochimo split／pyonpi hop／kururin spiral／回帰上限 `spawnCountEnd <= 5` `enemyCap <= 220` `hpMultEnd <= 4` をアサート（§10.8 の旧 `<= 3` / `<= 200` は本章が上書き）
+- `node vortex/dev/validate-data.js` — MOVEMENT に `hop`／`spiral`、`split` 構造、v5必須キーを検証
+- **CDP 実機検証**（`dev/` 外の一時スクリプトで実施）: ①序盤fps ②capStep（50/130/200秒で cap 昇格）④mochimo 分裂（子2体・子は再分裂なし・子hp≒0.3倍）⑤hop/spiral（画面内で移動・非等方 scale・可視）⑥負荷fps（cap 220 まで満たして 60fps）。**全項目 PASS・例外0件を実測**。

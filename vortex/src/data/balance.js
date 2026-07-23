@@ -36,9 +36,21 @@ export const BALANCE = {
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
   evolve: { startLevel: 6, everyLevels: 2 },
 
-  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.6, spawnIntervalEnd: 0.55,
-          hpMultStart: 1.0, hpMultEnd: 3.2, spawnCountStart: 1, spawnCountEnd: 3 },
-  enemyCap: 150,
+  // v5(Wave C): 中盤以降の密度不足を解消。湧き数は小数のまま累積するので階段状に増えない。
+  // 硬さ(hpMultEnd)は据え置き＝倒す手応えは変えずに「数」だけで山場を作る。
+  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.6, spawnIntervalEnd: 0.45,
+          hpMultStart: 1.0, hpMultEnd: 3.2, spawnCountStart: 1, spawnCountEnd: 5 },
+  enemyCap: 220,
+  // 敵数上限は時間で段階的に上がる（序盤はむしろ軽く、後半で「囲まれる」密度になる）
+  capSteps: [
+    { untilSec: 90,   cap: 90 },
+    { untilSec: 180,  cap: 140 },
+    { untilSec: 9999, cap: 220 },
+  ],
+  // ラッシュ（山場）。warnSec前にテロップ＋警告リングで必ず予告する
+  rush: { startSec: 100, intervalSec: 70, counts: [14, 20, 26, 32], warnSec: 1.2 },
+  // 雑魚の“ぷるぷる”。生成時に消費済みのsinePhaseを流用するので乱数を追加消費しない
+  enemyFx: { bobHz: 7, bobAmp: 0.09, tiltAmp: 0.10 },
   elite: { times: [120, 240], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
   altar: { appearSec: 150, minParty: 3 },
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
@@ -124,12 +136,14 @@ export const BALANCE = {
     trashInterval: 2.4, trashCount: 1,
   },
 
+  // 序盤はかわいい系、後半に突進・分裂が混ざるよう再構成（Wave C）
   spawnPhases: [
-    { untilSec: 60,   weights: { zunzun: 0.7, fuwafuwa: 0.3 } },
-    { untilSec: 120,  weights: { zunzun: 0.5, fuwafuwa: 0.3, dashbeetle: 0.2 } },
-    { untilSec: 240,  weights: { zunzun: 0.3, fuwafuwa: 0.2, dashbeetle: 0.2,
-                                 ghoston: 0.2, igagurin: 0.1 } },
-    { untilSec: 9999, weights: { zunzun: 0.2, fuwafuwa: 0.15, dashbeetle: 0.3,
-                                 ghoston: 0.2, igagurin: 0.15 } },
+    { untilSec: 60,   weights: { zunzun: 0.55, fuwafuwa: 0.30, pyonpi: 0.15 } },
+    { untilSec: 120,  weights: { zunzun: 0.35, fuwafuwa: 0.20, pyonpi: 0.15,
+                                 dashbeetle: 0.20, kururin: 0.10 } },
+    { untilSec: 240,  weights: { zunzun: 0.20, fuwafuwa: 0.12, pyonpi: 0.12, dashbeetle: 0.18,
+                                 kururin: 0.13, ghoston: 0.12, igagurin: 0.08, mochimo: 0.05 } },
+    { untilSec: 9999, weights: { zunzun: 0.12, fuwafuwa: 0.08, pyonpi: 0.12, dashbeetle: 0.20,
+                                 kururin: 0.14, ghoston: 0.14, igagurin: 0.10, mochimo: 0.10 } },
   ],
 };
