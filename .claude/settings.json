@@ -4,6 +4,11 @@
       "Bash(node dev/smoke-test.js:*)",
       "Bash(node dev/validate-sprites.js:*)",
       "Bash(node dev/sigmund-death-test.js:*)"
+    ],
+    "deny": [
+      "Read(/vortex/lib/phaser.min.js)",
+      "Read(/.claude/worktrees/**)",
+      "Read(~/.claude/projects/**/*.jsonl)"
     ]
   }
 }
