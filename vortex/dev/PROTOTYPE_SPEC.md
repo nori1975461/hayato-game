@@ -204,9 +204,9 @@ export const BALANCE = {
 
 | id | 名前 | movement | color | hp | speed | damage | radius |
 |---|---|---|---|---|---|---|---|
-| zunzun | ズンズン | chase | #a06bff | 10 | 40 | 8 | 7 |
-| fuwafuwa | フワフワ | sine | #7fe8ff | 6 | 55 | 6 | 6 |
-| dashbeetle | ダッシュビートル | charge | #ff5e5e | 14 | 30 | 12 | 8 |
+| zunzun | ズンズン | chase | #a06bff | 14 | 40 | 11 | 7 |
+| fuwafuwa | フワフワ | sine | #7fe8ff | 9 | 55 | 9 | 6 |
+| dashbeetle | ダッシュビートル | charge | #ff5e5e | 20 | 30 | 17 | 8 |
 
 movement仕様:
 
@@ -571,8 +571,8 @@ export const BALANCE = {
 
 | id | 名 | movement | color | hp | speed | dmg | r |
 |---|---|---|---|---|---|---|---|
-| ghoston | ゴーストン | sine | #a8f2c8 | 8 | 70 | 6 | 6 |
-| igagurin | イガグリン | charge | #d88a4a | 20 | 26 | 10 | 8 |
+| ghoston | ゴーストン | sine | #a8f2c8 | 11 | 70 | 9 | 6 |
+| igagurin | イガグリン | charge | #d88a4a | 28 | 26 | 14 | 8 |
 
 ### ボス「ウズキング」（uzuking）
 
@@ -850,9 +850,9 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 
 | id | 名前 | movement | color | hp | speed | damage | radius | 特徴 |
 |---|---|---|---|---|---|---|---|---|
-| pyonpi | ピョンピ | hop | #ffd36e | 7 | 90 | 6 | 6 | 跳ねて距離を詰める。着地の一瞬止まるので避けやすい |
-| kururin | クルリン | spiral | #8affc1 | 12 | 50 | 7 | 7 | 渦を巻いて寄る。囲まれる感の担当 |
-| mochimo | モチモ | chase | #ffb3d9 | 16 | 34 | 9 | 8 | 倒すと小さいのが2体に分裂する餅 |
+| pyonpi | ピョンピ | hop | #ffd36e | 10 | 90 | 9 | 6 | 跳ねて距離を詰める。着地の一瞬止まるので避けやすい |
+| kururin | クルリン | spiral | #8affc1 | 17 | 50 | 10 | 7 | 渦を巻いて寄る。囲まれる感の担当 |
+| mochimo | モチモ | chase | #ffb3d9 | 22 | 34 | 13 | 8 | 倒すと小さいのが2体に分裂する餅 |
 
 - movement `hop` / `spiral` の挙動は §4.3 movement仕様を参照。
 - **mochimo の分裂**（承認「入れる」）: `mochimo.split = { count:2, hpMult:0.3, scaleMult:0.7, speedMult:1.4 }`。`Run.killEnemy` が解釈し、撃破位置に子2体を生成。
