@@ -521,30 +521,59 @@ export const BALANCE = {
     ],
   },
 
-  // ボス「ウズキング」（enemies.js の BOSS export と対応）
+  // ボス（Wave D：小/中/大の3段スケジュール）。boss.js が tiers を時間順に処理する。
+  // top-level はHUD/spawner/test-core 互換の代表値（＝最終ボス=マオウ基準）を残す。
   boss: {
-    hudBossSec: 270,                // HUDタイマーがBOSS赤表示に切替
-    warnSec: 274, spawnSec: 276, spawnDist: 220,
-    hp: 4500, radius: 40, spriteScale: 6, glowScale: 5,
-    chaseSpeed: 45, bodyDamage: 15,
-    dash: { telegraphSec: 0.9, speed: 380, durationSec: 0.8, damage: 25 },
-    ring: { telegraphSec: 0.5, count: 8, count2: 12, bulletSpeed: 110,
-            bulletRadius: 4, damage: 10, lifeSec: 3.5 },
-    summon: { count: 6, enemyId: 'zunzun', ringRadius: 60 },
-    idleSec: { afterSpawn: 3, betweenAttacks: [3, 2, 3] },  // chase→dash→chase→ring→chase→summon
-    phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
-    rewardCoins: 300, deathCinematicSec: 1.8,
-    // ボス戦中の雑魚スポーン制限（spawner.js が参照）
-    trashInterval: 2.4, trashCount: 1,
+    hudBossSec: 270,                // HUDタイマーがBOSS赤表示に切替（最終ボス接近の合図）
+    warnSec: 276, spawnSec: 278, spawnDist: 220,  // ← spawnSec は最終ボス=クリア条件時刻
+    trashInterval: 2.4, trashCount: 1,            // ボス戦中の雑魚スポーン制限（spawner.js が参照）
+    tiers: [
+      // 小ボス「コロたま」（~90秒）。突進のみ・phase2なし・撃破でプレイ続行。
+      { tier: 'small', bossId: 'korotama', final: false,
+        warnSec: 88, spawnSec: 90, spawnDist: 200,
+        hp: 2600, radius: 30, spriteScale: 5, glowScale: 4,
+        chaseSpeed: 72, bodyDamage: 15,
+        dash: { telegraphSec: 1.0, speed: 300, durationSec: 0.7, damage: 24 },
+        ring: { telegraphSec: 0.5, count: 6, count2: 8, bulletSpeed: 100,
+                bulletRadius: 4, damage: 12, lifeSec: 3.0 },
+        summon: { count: 4, enemyId: 'zunzun', ringRadius: 50 },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.5] },
+        phase2: false, rewardCoins: 120, deathCinematicSec: 1.0 },
+      // 中ボス「ウズキング」（~185秒）。突進/放射弾/召喚＋phase2「ぶちギレ」。撃破でプレイ続行。
+      { tier: 'mid', bossId: 'uzuking', final: false,
+        warnSec: 183, spawnSec: 185, spawnDist: 220,
+        hp: 7200, radius: 40, spriteScale: 6, glowScale: 5,
+        chaseSpeed: 64, bodyDamage: 23,
+        dash: { telegraphSec: 0.9, speed: 380, durationSec: 0.8, damage: 38 },
+        ring: { telegraphSec: 0.5, count: 8, count2: 12, bulletSpeed: 110,
+                bulletRadius: 4, damage: 15, lifeSec: 3.5 },
+        summon: { count: 6, enemyId: 'zunzun', ringRadius: 60 },
+        idleSec: { afterSpawn: 3, betweenAttacks: [3, 2, 3] },
+        phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
+        rewardCoins: 250, deathCinematicSec: 1.5 },
+      // 大ボス「マオウ」（~278秒＝クリア条件）。全攻撃を強化＋phase2「かくせい」。撃破でクリア。
+      { tier: 'final', bossId: 'maou', final: true,
+        warnSec: 276, spawnSec: 278, spawnDist: 240,
+        hp: 14000, radius: 46, spriteScale: 7, glowScale: 6,
+        chaseSpeed: 72, bodyDamage: 27,
+        dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 42 },
+        ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 125,
+                bulletRadius: 4, damage: 18, lifeSec: 3.8 },
+        summon: { count: 8, enemyId: 'zunzun', ringRadius: 70 },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.5, 1.8, 2.5] },
+        phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
+        rewardCoins: 400, deathCinematicSec: 1.8 },
+    ],
   },
 
   spawnPhases: [
-    { untilSec: 60,   weights: { zunzun: 0.7, fuwafuwa: 0.3 } },
-    { untilSec: 120,  weights: { zunzun: 0.5, fuwafuwa: 0.3, dashbeetle: 0.2 } },
-    { untilSec: 240,  weights: { zunzun: 0.3, fuwafuwa: 0.2, dashbeetle: 0.2,
-                                 ghoston: 0.2, igagurin: 0.1 } },
-    { untilSec: 9999, weights: { zunzun: 0.2, fuwafuwa: 0.15, dashbeetle: 0.3,
-                                 ghoston: 0.2, igagurin: 0.15 } },
+    { untilSec: 60,   weights: { zunzun: 0.55, fuwafuwa: 0.30, pyonpi: 0.15 } },
+    { untilSec: 120,  weights: { zunzun: 0.35, fuwafuwa: 0.20, pyonpi: 0.15,
+                                 dashbeetle: 0.20, kururin: 0.10 } },
+    { untilSec: 240,  weights: { zunzun: 0.20, fuwafuwa: 0.12, pyonpi: 0.12, dashbeetle: 0.18,
+                                 kururin: 0.13, ghoston: 0.12, igagurin: 0.08, mochimo: 0.05 } },
+    { untilSec: 9999, weights: { zunzun: 0.12, fuwafuwa: 0.08, pyonpi: 0.12, dashbeetle: 0.20,
+                                 kururin: 0.14, ghoston: 0.14, igagurin: 0.10, mochimo: 0.10 } },
   ],
 };
 ```
@@ -876,9 +905,9 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 
 | tier | id | 名前 | 色 | spawnSec | HP | rewardCoins | deathCinematicSec | final |
 |---|---|---|---|---|---|---|---|---|
-| 小 | korotama | コロたま | #ff9ec4 | 90 | 1200 | 120 | 1.0 | – |
-| 中 | uzuking | ウズキング | #ff6ec7 | 185 | 3200 | 250 | 1.5 | – |
-| 大 | maou | マオウ | #ffcb3d | 278 | 6000 | 400 | 1.8 | ✓ |
+| 小 | korotama | コロたま | #ff9ec4 | 90 | 2600 | 120 | 1.0 | – |
+| 中 | uzuking | ウズキング | #ff6ec7 | 185 | 7200 | 250 | 1.5 | – |
+| 大 | maou | マオウ | #ffcb3d | 278 | 14000 | 400 | 1.8 | ✓ |
 
 - `balance.js`: `boss.tiers` を3段化。tier別に `bossId/warnSec/spawnSec/hp/radius/chaseSpeed/bodyDamage/rewardCoins/deathCinematicSec/attacks/idleSec/summon/final` を定義。`final:true` はちょうど1つ（クリア判定の分岐を一意にする）。`spawnSec` は tier 昇順で単調増加（出現の重なり防止）。
 - `boss.js`: 多段スケジューラ化。tier 順に warn→spawnFight。撃破 `onBossKilled`→`awardKillRewards`（コイン加算＋`killsPerCharge` 回 `addKill` で必殺ゲージ満タン化）→**非finalは `finishMini`（通常戦BGM 'battle' へ復帰・プレイ続行）／finalは `finishFinal`→クリア→Result 遷移**。BGMは spawnFight で 'boss' へ（`run.withAudio` ガード）。
