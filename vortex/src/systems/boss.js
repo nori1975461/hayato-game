@@ -10,6 +10,14 @@ const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
 
+// #3: ボス別の公転パーツ定義（見た目のみ＝数値バランスではないので balance.js でなくここで保持）。
+// tex=ボス個性（ハート/宝石/棘）, count=個数, spin=公転角速度, selfSpin=自転, bob=軌道半径の揺れ, ringN=オーラリング枚数。
+const ORBITS = {
+  korotama: { tex: 'boss_orb_heart',   count: 4, spin: 2.4, selfSpin: 0, bob: 5, ringN: 1 },
+  uzuking:  { tex: 'boss_orb_diamond', count: 6, spin: 1.8, selfSpin: 3, bob: 4, ringN: 1 },
+  maou:     { tex: 'boss_orb_spike',   count: 8, spin: 1.4, selfSpin: 0, bob: 3, ringN: 2 },
+};
+
 export function createBoss(run) {
   const B = BALANCE.boss;
   const W = BALANCE.wave;
@@ -46,6 +54,11 @@ export function createBoss(run) {
       makeSprite(`boss_${d.id}_swirl`, d.sprites.swirl);
       makeSprite(`boss_${d.id}_face`, d.sprites.face);
     }
+    // #3: 公転オーブ＆オーラリング（白テクスチャ→実行時 tint で各ボス色に染める）
+    makeHeart('boss_orb_heart', 12);
+    makeDiamond('boss_orb_diamond', 12);
+    makeSpike('boss_orb_spike', 14);
+    makeAuraRing('boss_aura_ring', 64, 7);
   }
   function makeSprite(key, sprite) {
     if (run.textures.exists(key)) return;
@@ -62,6 +75,65 @@ export function createBoss(run) {
       }
     }
     g.generateTexture(key, w, h);
+    g.destroy();
+  }
+  // newG/P は関数宣言にする（巻き上げされ、上の ensureTextures() 呼び出し時点で初期化済みになる＝TDZ回避）
+  function newG() { return run.make.graphics({ x: 0, y: 0, add: false }); }
+  function P(x, y) { return new Phaser.Geom.Point(x, y); }
+  function makeHeart(key, s) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    g.fillStyle(0xffffff, 1);
+    const r = s * 0.26;
+    g.fillCircle(s * 0.32, s * 0.34, r);
+    g.fillCircle(s * 0.68, s * 0.34, r);
+    g.fillPoints([P(s * 0.06, s * 0.40), P(s * 0.94, s * 0.40), P(s * 0.5, s * 0.96)], true);
+    g.generateTexture(key, s, s);
+    g.destroy();
+  }
+  function makeDiamond(key, s) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const c = s / 2;
+    g.fillStyle(0xffffff, 1);
+    g.fillPoints([P(c, 0), P(s * 0.82, s * 0.32), P(c, s), P(s * 0.18, s * 0.32)], true);
+    // カット面の白ハイライト（宝石らしさ）
+    g.fillStyle(0xffffff, 0.55);
+    g.fillPoints([P(c, s * 0.06), P(s * 0.7, s * 0.32), P(c, s * 0.5), P(s * 0.3, s * 0.32)], true);
+    g.generateTexture(key, s, s);
+    g.destroy();
+  }
+  function makeSpike(key, s) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const c = s / 2, o = c, inr = c * 0.34, pts = [];
+    for (let i = 0; i < 8; i++) {
+      const rad = i % 2 === 0 ? o : inr;
+      const a = (Math.PI * i) / 4 - Math.PI / 2;
+      pts.push(P(c + Math.cos(a) * rad, c + Math.sin(a) * rad));
+    }
+    g.fillStyle(0xffffff, 1);
+    g.fillPoints(pts, true);
+    g.generateTexture(key, s, s);
+    g.destroy();
+  }
+  function makeAuraRing(key, s, thick) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const c = s / 2, outer = c - 0.5, inner = outer - thick;
+    g.fillStyle(0xffffff, 1);
+    for (let y = 0; y < s; y++) {
+      for (let x = 0; x < s; x++) {
+        const dx = x + 0.5 - c, dy = y + 0.5 - c, d2 = dx * dx + dy * dy;
+        if (d2 <= outer * outer && d2 >= inner * inner) g.fillRect(x, y, 1, 1);
+      }
+    }
+    // 4つのコブ＝回転が視認できるようにする
+    for (let k = 0; k < 4; k++) {
+      const a = (Math.PI * k) / 2;
+      g.fillCircle(c + Math.cos(a) * (outer - thick / 2), c + Math.sin(a) * (outer - thick / 2), thick * 0.9);
+    }
+    g.generateTexture(key, s, s);
     g.destroy();
   }
 
@@ -87,9 +159,31 @@ export function createBoss(run) {
       .setTint(int(cfg.glowOuter)).setScale(cfg.glowScale * 1.6);
     const glowM = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(7)
       .setTint(int(cfg.glowInner)).setScale(cfg.glowScale * 0.9);
-    const swirl = run.add.image(x, y, `boss_${def.id}_swirl`).setDepth(9).setScale(cfg.spriteScale);
+    // 本体(swirl)を顔より一回り大きく＝顔の周りに本体のふちを覗かせて「顔だけ」感を消す
+    const swirl = run.add.image(x, y, `boss_${def.id}_swirl`).setDepth(9).setScale(cfg.spriteScale * 1.22);
     const face = run.add.image(x, y, `boss_${def.id}_face`).setDepth(10).setScale(cfg.spriteScale);
-    disp = { swirl, face, glowP, glowM };
+
+    // #3: 本体の周りを公転する個性パーツ＋回転オーラリングを重ねる
+    const ob = ORBITS[def.id] || ORBITS.uzuking;
+    const bodyR = 8 * cfg.spriteScale * 1.22;      // swirl の表示半径
+    const orbSize = cfg.spriteScale * 2.2;
+    const orbitR = bodyR + orbSize * 0.6;          // 本体スプライトの外側を回す
+    const orbCols = [int(cfg.glowInner), int(cfg.glowOuter)];
+    const orbs = [];
+    for (let i = 0; i < ob.count; i++) {
+      const baseA = (Math.PI * 2 * i) / ob.count;
+      const img = run.add.image(x, y, ob.tex).setBlendMode(ADD).setDepth(11)
+        .setTint(orbCols[i % orbCols.length]).setDisplaySize(orbSize, orbSize);
+      orbs.push({ img, baseA, phase: baseA });
+    }
+    const rings = [];
+    for (let i = 0; i < ob.ringN; i++) {
+      const d = bodyR * 2 * (1.15 + i * 0.28);
+      rings.push(run.add.image(x, y, 'boss_aura_ring').setBlendMode(ADD).setDepth(6)
+        .setTint(i === 0 ? int(cfg.glowOuter) : int(cfg.glowInner))
+        .setDisplaySize(d, d).setAlpha(0.85));
+    }
+    disp = { swirl, face, glowP, glowM, orbs, rings, ob, orbitR };
 
     boss = {
       active: true, isBoss: true, id: ++run._eid, def,
@@ -250,6 +344,22 @@ export function createBoss(run) {
     disp.glowP.setScale(cfg.glowScale * 1.6 * pulse);
     disp.glowM.setScale(cfg.glowScale * 0.9 * pulse);
 
+    // #3: 公転オーブ＝本体の外周を回りながら半径を上下にバウンド（＋任意で自転）
+    const ob = disp.ob;
+    const spin = run.elapsed * ob.spin;
+    for (const o of disp.orbs) {
+      const a = o.baseA + spin;
+      const r = disp.orbitR + Math.sin(run.elapsed * 3 + o.baseA) * ob.bob;
+      o.img.setPosition(boss.x + Math.cos(a) * r, boss.y + Math.sin(a) * r);
+      if (ob.selfSpin) o.img.rotation += dt * ob.selfSpin;
+    }
+    // オーラリング＝本体中心で内外が逆向きにゆっくり回転
+    for (let i = 0; i < disp.rings.length; i++) {
+      const ring = disp.rings[i];
+      ring.setPosition(boss.x, boss.y);
+      ring.rotation += dt * (i % 2 === 0 ? 0.8 : -1.1);
+    }
+
     boss.flashT -= dt;
     let tint = null;
     if (boss.flashT > 0) tint = 0xffffff;
@@ -338,9 +448,10 @@ export function createBoss(run) {
   function startDeathSpin() {
     if (!disp) return;
     const ms = cfg.deathCinematicSec * 1000;
+    const orbImgs = disp.orbs.map((o) => o.img);
     run.tweens.add({ targets: [disp.swirl, disp.face], angle: '+=540', duration: ms, ease: 'Cubic.in' });
     run.tweens.add({
-      targets: [disp.swirl, disp.face, disp.glowP, disp.glowM],
+      targets: [disp.swirl, disp.face, disp.glowP, disp.glowM, ...orbImgs, ...disp.rings],
       alpha: 0, duration: ms, ease: 'Cubic.in',
     });
   }
@@ -348,6 +459,8 @@ export function createBoss(run) {
   function destroyDisp() {
     if (!disp) return;
     for (const o of [disp.swirl, disp.face, disp.glowP, disp.glowM]) { if (o) o.destroy(); }
+    for (const o of disp.orbs) { if (o.img) o.img.destroy(); }
+    for (const r of disp.rings) { if (r) r.destroy(); }
     disp = null;
   }
 
