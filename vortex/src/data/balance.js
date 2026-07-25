@@ -260,12 +260,13 @@ export const BALANCE = {
       //    扇状の"斉射"に） ③ 重力弾幕ノヴァ（nova＝新規／全方位弾を回転させながら連続波で放つ弾幕）。この3つが
       //    attacks ローテーション。phase2 では laser の後に vulcan を割り込ませる（beginAttack が cfg.vulcan を参照）。
       //    armslam は近接データとして保持するがローテーションには載せない（3特別攻撃に集中させる）。撃破でクリア。
-      //    巨大化：spriteScale 5→10（通常ボス≈8-9の視覚1.5倍級／360px高を埋め切らない範囲）・radius/glow/spawnDist も比例拡大。
+      //    サイズ：spriteScale 8（縦長人型のため通常ボス≈8-9 に対し素の大きさで約1.2倍・画面占有を抑え「大きすぎ」を解消）・
+      //    radius/glow/spawnDist も追随縮小（通常ボスの radius 64〜76 帯へ）。
       {
         tier: 'final', bossId: 'maou', final: true,
-        warnSec: 358, spawnSec: 360, spawnDist: 340,
-        hp: 28000, radius: 82, spriteScale: 10, glowScale: 11.5,
-        glowOuter: '#e03028', glowInner: '#38e1ff',
+        warnSec: 358, spawnSec: 360, spawnDist: 320,
+        hp: 28000, radius: 68, spriteScale: 8, glowScale: 9.5,
+        glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
         attacks: ['laser', 'missile', 'nova'],
         laser: { chargeSec: 1.0, beamWidth: 46, beamLength: 420, damage: 42,
