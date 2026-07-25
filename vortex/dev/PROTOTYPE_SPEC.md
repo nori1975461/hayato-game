@@ -1199,3 +1199,23 @@ maou の attacks ローテーション＝3特別攻撃 `[laser, missile, nova]`�
 - **色（#4）**：白ロボ脱却。enemies.js `MAOU_PAL` を w本体 `#f2f4f8→#3a4150`(ダークガンメタル)・s縁 `#9aa0ab→#aeb6c4`(明シルバー)・k影 `#20242c→#171b22`(近黒鋼)・r炉心 `#e03028→#c8202c`(深紅)。c炉心シアン `#46e6ff`・y金冠は威厳アクセントとして残す。glow: outer `#e03028→#b01c22`・inner `#38e1ff→#4ad4ff`。濃淡3段で暗背景からシルエット分離。`bulletTint` は弾バッチ領域のため未変更。
 - **サイズ（#5）**：spriteScale `10→8`・radius `82→68`・glowScale `11.5→9.5`・spawnDist `340→320`。CDP実寸 329×294→**263×235px**（通常ボス最大 uzuking 217×184 の幅1.21倍・高1.28倍＝約1.2倍）・縦占有 82%→65%。rig の ox/oy はスケール乗算で相似縮小（boss.js L677-678）＝配置破綻なし。
 - 検証：validate-data/test-core 全PASS・`node --check`OK・CDP実機（`scratchpad/cdp-r3-boss-giant.mjs`）で**重厚色が暗背景で潰れず**（赤炉心/金冠/シアンのアクセントが映え）・**実寸が通常ボスの約1.2倍**・例外0を確認。
+
+## 20.2 必殺技8回化・弾/ハート色の判別微調整（#2必殺・#1弾色フォロー）
+
+- **必殺 maxUses 5→8**（他 special 値は据え置き）。test-core ガードを `=== 8` に更新。HUD は数値表示「ひっさつ x{usesLeft}」で 1桁のまま破綻なし（special.js は `BALANCE.special.maxUses` を動的参照）。
+- **弾/ハート色**（Run.js に `lightenC`/`darkenC` ヘルパー追加）：ハート本体を4隅グラデ tint（上 `0xffd0ec` 白桃／下 `0xff4da6` マゼンタ桃）＋glow `0xff9edf` 明桃で「明るい桃ハート」に、敵弾 foe_orb 本体を `darkenC(color,0.18)`＋フチ glow `0xcc1420` 深紅で「濃く重い危険弾」に＝赤同士を分離。味方弾を4隅 tint（上 `lightenC(color,0.5)`／下 `0.22`）で常時白コア化＋glow `0xfff8d0` 金白強化で、赤系 tint 武器でも「明るい星＝味方」。
+- 検証：test-core「maxUses8」PASS・CDP実機で弾/ハート色反映・例外0。
+
+## 20.3 最終ボス マオウレクス 登場イベント（ユーザー要望）
+
+- 対象は final(maou) のみ。`spawnFight` 末尾で `state='maouIntro'`（3.6s）へ分岐（他5体は不変）。**フリーズ不使用**（`run.cinematic`/`freezeT` 中は Run.update 早期return で boss.update と elapsed が止まり演出タイマーも破綻するため）＝boss内部 state で実時間自動進行。
+- シーケンス（intro開始からの経過）：t0 `bigBoom`+shake+`startBgm('boss')`＝**BGM切替**・パーツ alpha≈0 →t0-1.8 フェードイン＋スケールイン(0.55→1.0)＋降下(-26→0)で**ゆっくり登場** →t1.0 セリフ1「オマエタチ・・・ハ・・・キケン・・・」(シアン) →t2.0 セリフ2「ハイジョ・・・スル・・・」(赤) →t2.9 テロップ「【マオウレクスが現れた】」(白)+shake+bigBoom →t3.6 `chase` 復帰。
+- テキストは `run.add.text` を boss.js から直接生成・`setScrollFactor(0)` で画面固定（必ず画面内）・depth1500・機械的明滅→自壊、`introEls` 追跡で `destroyDisp` 時に掃除（リーク/二重発火なし）。
+- autotest/CDP非阻害：`boss.active`/`entity`/`state('maouIntro')` が spawn 直後から立つ・3.6s で必ず chase 復帰・intro中も `dealDamage` で撃破可能・`Math.random` 不使用・白フラッシュ不使用（MASTER_VOL据え置き）。
+- 検証：CDP実機（`scratchpad/cdp-r8-verify.mjs`）8/8（maouIntro発火・セリフ2行/テロップが画面内・chase復帰・撃破可能・例外0）。
+- **既知の改善余地（要ユーザー判断・未実装）**：終盤は雑魚（最大220体）＋敵弾が画面に多く、ゆっくり登場する maou 本体・セリフ・テロップが埋もれ気味＋プレイヤーのレベルアップテロップと重なることがある。登場の荘厳さを出すには intro 中の暗幕/雑魚フェード等の追加演出が有効。
+
+## 20.4 未対応の提案（ユーザー確認待ち）
+
+1. **「ボスが自分の腕で殴る」の主役化**：腕(armR/armL)パーツを持つのは maou のみ（enemies.js）だが、maou は §18.2 で armslam をローテから外し[laser,missile,nova]に。armslam を持つ uzuking(4足)/wavelord(戦車) は腕がなく前脚/代替で叩くため「腕で殴る」絵にならない。→ **maou に armslam（腕の叩きつけ）を復活・大きく可視化**する提案。
+2. **登場イベントの荘厳化**：§20.3 の雑魚埋もれ対策（暗幕/雑魚フェード）。
