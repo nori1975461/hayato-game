@@ -293,9 +293,12 @@ export class RunScene extends Phaser.Scene {
     if (this.player.invuln > 0) return;
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
-    this.player.flashT = 0.08;
-    Sound.sfx('hit');
-    this.shake(90, 3);
+    this.player.flashT = 0.12;
+    // FB#7: 被弾の手応え。専用の被弾音＋強めシェイク＋赤フラッシュ＋ごく短いヒットストップを重ねる。
+    Sound.sfx('hurt');
+    this.shake(180, 5);
+    if (this.fx && this.fx.playerHurt) this.fx.playerHurt();
+    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05);
   }
 
   // 主人公の自動攻撃「スターショット」。射程内の最寄り敵へ発射（Lv8で2連・Lv16で3連）。
@@ -330,7 +333,7 @@ export class RunScene extends Phaser.Scene {
       this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
         shotColor, dmg, H.bulletRadius, 'w_star2', pierce);   // Wave B: きらきらスター弾
     }
-    Sound.sfx('shoot');
+    Sound.sfx('starShot');   // FB#6: 主人公専用の派手な発射音（攻撃してる感触）
   }
 
   // R4(#4/#8): 主人公の常時スターオーラ。周囲radius内の敵へ auraTickSec ごとに自動近接ダメージ。
@@ -726,8 +729,11 @@ export class RunScene extends Phaser.Scene {
     disp.spr.setTexture(tex);
     disp.spr.setVisible(true).setDepth(12).setTint(color)
       .setDisplaySize(radius * 2.4, radius * 2.4).setPosition(x, y);
+    // FB#4: 進行方向へ伸ばした加算グローの尾で「速くて気持ちいい」スピード線を出す。
+    // プレイヤー/仲間の弾は直進なので、生成時に一度だけ向き・長さを決めれば毎フレームのコストは増えない。
+    const ang = Math.atan2(vy, vx);
     disp.glow.setVisible(true).setDepth(6).setTint(color)
-      .setScale(0.7).setPosition(x, y);
+      .setRotation(ang).setDisplaySize(radius * 6.5, radius * 2.8).setPosition(x, y);
     this.bullets.push({
       active: true, x, y, vx, vy, color, damage, radius,
       // R4(#8): pierce>0 の弾は貫通。既に当てた敵は hit で記録して二重ヒットを防ぐ。

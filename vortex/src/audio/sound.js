@@ -111,9 +111,19 @@ const SFX = {
     noiseHit({ dur: 0.05, gain: 0.13, hpFreq: 1200 });
     noiseHit({ dur: 0.03, gain: 0.06, hpFreq: 4000, lpFreq: 12000 });
   },
-  // 弾発射：軽い上昇ピュン（三角波）
+  // 弾発射：軽い上昇ピュン（三角波）。FB#6: 芯の矩形＋極短ノイズで「撃った」当たりを足して派手に。
   shoot() {
-    tone({ type: 'triangle', freq: 620, freqEnd: 1040, dur: 0.09, gain: 0.16 });
+    tone({ type: 'triangle', freq: 620, freqEnd: 1160, dur: 0.10, gain: 0.16 });
+    tone({ type: 'square', freq: 320, freqEnd: 520, dur: 0.05, gain: 0.06 });
+    noiseHit({ dur: 0.02, gain: 0.03, hpFreq: 3000, lpFreq: 12000 });
+  },
+  // FB#6: 主人公スターショットの発射音。ピシュン！と抜ける明るい発射（攻撃してる感触を強く）。
+  // 手数が多いので極短＋控えめゲインで連射しても耳に痛くしない。
+  starShot() {
+    tone({ type: 'triangle', freq: 720, freqEnd: 1320, dur: 0.11, gain: 0.16 });
+    tone({ type: 'square', freq: 360, freqEnd: 720, dur: 0.06, gain: 0.06 });
+    tone({ type: 'sine', freq: 1500, freqEnd: 2200, start: 0.02, dur: 0.06, gain: 0.05 });
+    noiseHit({ dur: 0.025, gain: 0.04, hpFreq: 3500, lpFreq: 13000 });
   },
   // 雑魚撃破の「ポンっ」（Wave C）。多発するので極短＋控えめゲインで耳に痛くしない
   pop() {
@@ -292,6 +302,19 @@ const SFX = {
     tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.34, dur: 0.4, gain: 0.12 });
     noiseHit({ start: 0.3, dur: 0.22, gain: 0.07, hpFreq: 5000 });
     noiseHit({ start: 0.5, dur: 0.18, gain: 0.05, hpFreq: 7000 });
+  },
+  // FB#5: 武器レベルアップの上昇スティンガー。weaponUp のファンファーレに重ねる短い駆け上がり（約0.3秒）。
+  // 「段が1つ上がった！」の瞬間を鋭く強調する。単体でも上昇感が出る。
+  weaponTier() {
+    tone({ type: 'triangle', freq: 300, freqEnd: 1600, dur: 0.28, gain: 0.12 });
+    tone({ type: 'square', freq: 150, freqEnd: 800, dur: 0.26, gain: 0.05 });
+    noiseHit({ start: 0.18, dur: 0.12, gain: 0.05, hpFreq: 5000 });
+  },
+  // FB#7: 被弾（プレイヤー）。効いたのが伝わるが怖すぎない、短い低音のインパクト＋やわらかいノイズ。
+  hurt() {
+    tone({ type: 'sine', freq: 260, freqEnd: 90, dur: 0.14, gain: 0.2, attack: 0.002 });
+    tone({ type: 'triangle', freq: 400, freqEnd: 180, dur: 0.10, gain: 0.08 });
+    noiseHit({ dur: 0.08, gain: 0.09, hpFreq: 300, lpFreq: 2600 });
   },
   // 必殺技発動：溜め→特大炸裂→余韻のフル演出（テンポよく派手に・約1.2秒）
   // 溜めを0.45秒に詰めてテンポを上げ、きらめきライザーで「来るぞ！」感を強化。

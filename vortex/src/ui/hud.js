@@ -111,6 +111,8 @@ export function createHud(run) {
 
   let fps = 60;
   let fpsAcc = 0, fpsFrames = 0;
+  let lastWLv = 0;      // FB#5: 直前の武器レベル（上昇検知用）
+  let wLvPulse = 0;     // FB#5: ぶきLv 表示の強調パルス残り秒
 
   function draw() {
     // HPバー
@@ -155,10 +157,20 @@ export function createHud(run) {
     }
 
     const wLv = (run.orbit && run.orbit.weaponLevel) || 0;
+    // FB#5: 武器レベルが上がった瞬間だけ表示をパルスさせる（初期化時 lastWLv=0 は光らせない）。
+    if (wLv > lastWLv && lastWLv > 0) wLvPulse = 0.6;
+    lastWLv = wLv;
     // R4: 武器フォーム種別（きんせつ/えんきょり）を併記。全なかま共通なので1つの表示でよい。
     const form = run.orbit && run.orbit.currentForm;
     const formTag = form ? (form.kind === 'melee' ? ' ‹きんせつ›' : ' ‹えんきょり›') : '';
     lvText.setText(wLv ? 'Lv ' + run.level + '  ぶき Lv' + wLv + formTag : 'Lv ' + run.level);
+    // FB#5: パルス中は色（ミント）とスケールを一瞬強調して「上がった」を主張する。
+    if (wLvPulse > 0) {
+      const p = wLvPulse / 0.6;
+      lvText.setColor('#7fffcf').setScale(1 + p * 0.45);
+    } else {
+      lvText.setColor('#ffffff').setScale(1);
+    }
 
     // タイマー（カウントダウン M:SS）。ボス出現時刻を過ぎたら赤の「BOSS」表示へ。
     if (run.elapsed >= BALANCE.boss.hudBossSec) {
@@ -219,6 +231,7 @@ export function createHud(run) {
           fps = Math.round(1000 / (fpsAcc / fpsFrames));
           fpsAcc = 0; fpsFrames = 0;
         }
+        if (wLvPulse > 0) wLvPulse = Math.max(0, wLvPulse - delta / 1000);   // FB#5: パルス減衰
       }
       draw();
     },

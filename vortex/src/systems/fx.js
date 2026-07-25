@@ -401,8 +401,20 @@ export function createFx(run) {
   function weaponLevelUp(level, names) {
     const list = Array.isArray(names) ? names : [];
     Sound.sfx('weaponUp');
+    Sound.sfx('weaponTier');   // FB#5: 上昇スティンガーを重ねて「段が上がった！」を鋭く強調
     run.shake(180, 4);
     run.freezeT = 0.12;
+
+    // FB#5: 中央に大きめのテロップをポップさせ「1段上がった」を一目で伝える（親ゲームHAYATO参考）。
+    const tele = run.add.text(W / 2, 150, 'ぶき レベルアップ！', {
+      fontFamily: 'monospace', fontSize: '22px', color: '#7fffcf', fontStyle: 'bold',
+      stroke: '#003322', strokeThickness: 6, align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1860).setScale(0.4).setAlpha(0);
+    run.tweens.add({ targets: tele, scale: 1.1, alpha: 1, duration: 220, ease: 'Back.out' });
+    run.tweens.add({
+      targets: tele, alpha: 0, y: 132, delay: 720, duration: 380,
+      onComplete: () => tele.destroy(),
+    });
 
     // 公転体の座標は orbit の外からは取れないため、公転半径の円周上に等間隔で出す
     const px = run.player.x, py = run.player.y;
@@ -559,6 +571,16 @@ export function createFx(run) {
     });
   }
 
+  // ---- 被弾フィードバック（FB#7・赤フラッシュ。子ども安全: 加算・alpha<0.5・短命） ----
+  // 全画面を一瞬だけ赤く縁取り、Run.hitPlayer のシェイク＋被弾音＋ヒットストップと重ねて
+  // 「効いた！」手応えを出す。萎縮させないよう alpha は控えめ・220ms で消す。
+  function playerHurt() {
+    const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xff2b2b, 0.30)
+      .setScrollFactor(0).setDepth(2080).setBlendMode(ADD);
+    run.tweens.add({ targets: flash, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
+    ripple(run.player.x, run.player.y, 0xff5a5a, 1);
+  }
+
   // ---- 必殺ゲージ満タン通知（v3・軽め） ----
   function specialReady() {
     Sound.sfx('gaugeFull');
@@ -573,6 +595,6 @@ export function createFx(run) {
   return {
     update, powerupFlash, announce, setTarget, clearTarget,
     fusionCinematic, evolveBurst, bossWarning, bossVictory, rushWarning,
-    weaponLevelUp, specialBlast, specialReady,
+    weaponLevelUp, specialBlast, specialReady, playerHurt,
   };
 }

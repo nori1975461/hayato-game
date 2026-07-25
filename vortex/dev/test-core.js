@@ -291,10 +291,10 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(ok, `balance: 武器Lv最大でも間隔が下限を下回らない${ok ? '' : `（不正: ${bad}）`}`);
 }
 
-// --- special: 1ステージ3回制限（ユーザー要望の回帰防止） ---
+// --- special: 1ステージ5回制限（実プレイFB#1で3→5へ・回帰防止） ---
 {
   const S = BALANCE.special;
-  assert(!!S && S.maxUses === 3, 'balance: special.maxUses が 3（1ステージ3回まで）');
+  assert(!!S && S.maxUses === 5, 'balance: special.maxUses が 5（1ステージ5回まで）');
   const nums = ['killsPerCharge', 'radius', 'damage', 'bossDamage', 'cinematicSec', 'startCharge'];
   const ok = !!S && nums.every((k) => typeof S[k] === 'number' && Number.isFinite(S[k]));
   assert(ok, 'balance: special の各数値キーが存在し数値');

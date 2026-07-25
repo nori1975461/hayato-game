@@ -7,7 +7,7 @@ export const BALANCE = {
 
   // 主人公の自動攻撃「スターショット」
   hero: {
-    intervalSec: 1.4, bulletSpeed: 300, range: 240, bulletRadius: 4,
+    intervalSec: 1.55, bulletSpeed: 360, range: 240, bulletRadius: 4,   // FB#4: 弾速+20%・手数-約1割（intervalSec+約10%）
     damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
     spreadDeg: 12,   // R4: 旧 twinLevel/tripleLevel（プレイヤーLv基準の2連/3連）は shotByStage（playerStage基準）へ移行し削除
     // R4(#4/#8): 主人公にも「攻撃してる感覚」を。常時スターオーラ（周囲の敵へ自動近接ダメージ）。
@@ -24,7 +24,7 @@ export const BALANCE = {
   },
   archetypes: {
     SLASH: { tickSec: 0.25, hitRadius: 18 },
-    SHOT:  { intervalSec: 0.8, bulletSpeed: 260, range: 220, bulletRadius: 3 },
+    SHOT:  { intervalSec: 0.88, bulletSpeed: 315, range: 220, bulletRadius: 3 },  // FB#4: 弾速+20%・手数-約1割
     BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 160, width: 6 },
     FIELD: { radius: 60, slowFactor: 0.6, tickSec: 0.5, tickDamage: 1 },
     // Wave B: かわいい武器の新アーキタイプ
@@ -34,7 +34,8 @@ export const BALANCE = {
 
   // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
   fused: {
-    damageMult: 2.5, spriteScale: 3, glowScale: 2.2,
+    // FB#2: 合成なかまは「実効武器レベル」に+3のボーナス（レベル起因の成長。damageMult 等の固定倍率とは別枠）。
+    damageMult: 2.5, spriteScale: 3, glowScale: 2.2, weaponLevelBonus: 3,
     slashRadiusMult: 1.5, shotIntervalMult: 0.7,
     beamLengthMult: 1.4, beamWidthMult: 2.0,
     fieldRadius: 90, fieldTickDamage: 3,
@@ -85,8 +86,9 @@ export const BALANCE = {
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
   // v4: テンポ改善（cinematicSec短縮=すぐ操作に戻れる・killsPerCharge減=撃ちやすい・startCharge増=序盤から1発目が近い）
   special: {
-    killsPerCharge: 26, maxUses: 3, radius: 320, damage: 9999, bossDamage: 360,
-    cinematicSec: 0.7, startCharge: 0.6,
+    // FB#1: 最大5回・ゲージ約3割速く・1発目をさらに近く
+    killsPerCharge: 18, maxUses: 5, radius: 320, damage: 9999, bossDamage: 360,
+    cinematicSec: 0.7, startCharge: 0.7,
   },
 
   // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
@@ -152,10 +154,10 @@ export const BALANCE = {
         glowOuter: '#8a8f98', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 12,
         attacks: ['machinegun', 'dash'],
-        machinegun: { telegraphSec: 0.5, burstSec: 1.0, shotInterval: 0.08, bulletSpeed: 220,
+        machinegun: { telegraphSec: 0.5, burstSec: 0.9, shotInterval: 0.08, bulletSpeed: 264,
                       bulletRadius: 3, damage: 6, spreadDeg: 14, lifeSec: 1.6 },
         dash: { telegraphSec: 1.0, speed: 300, durationSec: 0.7, damage: 20 },
-        ring: { telegraphSec: 0.5, count: 6, count2: 8, bulletSpeed: 100,
+        ring: { telegraphSec: 0.5, count: 5, count2: 7, bulletSpeed: 120,
                 bulletRadius: 4, damage: 12, lifeSec: 3.0 },
         summon: { count: 4, enemyId: 'chibit', ringRadius: 50 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2] },
@@ -171,10 +173,10 @@ export const BALANCE = {
         glowOuter: '#2a6bff', glowInner: '#7fd0ff',
         chaseSpeed: 70, bodyDamage: 15,
         attacks: ['cutter', 'dash'],
-        cutter: { telegraphSec: 0.6, count: 3, speed: 150, spreadDeg: 40, bladeRadius: 9,
+        cutter: { telegraphSec: 0.6, count: 2, speed: 180, spreadDeg: 40, bladeRadius: 9,
                   damage: 20, spinSpeed: 12, lifeSec: 2.4, returns: true },
         dash: { telegraphSec: 0.9, speed: 340, durationSec: 0.75, damage: 28 },
-        ring: { telegraphSec: 0.5, count: 8, count2: 10, bulletSpeed: 110,
+        ring: { telegraphSec: 0.5, count: 7, count2: 9, bulletSpeed: 132,
                 bulletRadius: 4, damage: 14, lifeSec: 3.2 },
         summon: { count: 5, enemyId: 'chibit', ringRadius: 55 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.0, 2.0] },
@@ -190,12 +192,12 @@ export const BALANCE = {
         glowOuter: '#e8720c', glowInner: '#ffd23f',
         chaseSpeed: 66, bodyDamage: 18,
         attacks: ['vulcan', 'armslam'],
-        vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 10, sweepDeg: 14, bulletSpeed: 115,
+        vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 14, bulletSpeed: 138,
                   bulletRadius: 4, damage: 15, lifeSec: 3.2 },
-        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 10, shockSpeed: 120,
+        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 46, meleeDamage: 34 },
         dash: { telegraphSec: 0.9, speed: 360, durationSec: 0.8, damage: 34 },
-        ring: { telegraphSec: 0.5, count: 8, count2: 12, bulletSpeed: 110,
+        ring: { telegraphSec: 0.5, count: 7, count2: 11, bulletSpeed: 132,
                 bulletRadius: 4, damage: 15, lifeSec: 3.5 },
         summon: { count: 6, enemyId: 'chibit', ringRadius: 60 },
         idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.5] },
@@ -213,10 +215,10 @@ export const BALANCE = {
         attacks: ['wavecannon', 'armslam', 'summon'],
         wavecannon: { chargeSec: 1.2, beamWidth: 44, beamLength: 260, damage: 34,
                       sweepDeg: 18, activeSec: 0.5 },
-        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 10, shockSpeed: 120,
+        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 46, meleeDamage: 34 },
         dash: { telegraphSec: 0.85, speed: 370, durationSec: 0.8, damage: 40 },
-        ring: { telegraphSec: 0.5, count: 10, count2: 14, bulletSpeed: 118,
+        ring: { telegraphSec: 0.5, count: 9, count2: 13, bulletSpeed: 142,
                 bulletRadius: 4, damage: 16, lifeSec: 3.6 },
         summon: { count: 6, enemyId: 'chibit', ringRadius: 65, telegraphSec: 0.6 },
         idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.0, 2.5] },
@@ -232,12 +234,12 @@ export const BALANCE = {
         glowOuter: '#e8720c', glowInner: '#ff4d4d',
         chaseSpeed: 60, bodyDamage: 26,
         attacks: ['missile', 'vulcan', 'summon'],
-        missile: { telegraphSec: 0.6, count: 5, launchSpeed: 180, homingRate: 2.4, maxTurnDeg: 70,
-                   speed: 150, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
-        vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 10, sweepDeg: 14, bulletSpeed: 115,
+        missile: { telegraphSec: 0.6, count: 4, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
+                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 14, bulletSpeed: 138,
                   bulletRadius: 4, damage: 15, lifeSec: 3.2 },
         dash: { telegraphSec: 0.85, speed: 380, durationSec: 0.85, damage: 46 },
-        ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 120,
+        ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 144,
                 bulletRadius: 4, damage: 17, lifeSec: 3.6 },
         summon: { count: 7, enemyId: 'chibit', ringRadius: 68, telegraphSec: 0.6 },
         idleSec: { afterSpawn: 2.8, betweenAttacks: [2.2, 2.2, 2.2] },
@@ -256,14 +258,14 @@ export const BALANCE = {
         attacks: ['laser', 'armslam', 'missile'],
         laser: { chargeSec: 1.0, beamWidth: 34, beamLength: 340, damage: 42,
                  sweepFromDeg: -35, sweepToDeg: 35, activeSec: 0.6 },
-        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 10, shockSpeed: 120,
+        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 50, meleeDamage: 38 },
-        missile: { telegraphSec: 0.6, count: 5, launchSpeed: 180, homingRate: 2.4, maxTurnDeg: 70,
-                   speed: 150, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
-        vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 10, sweepDeg: 16, bulletSpeed: 125,
+        missile: { telegraphSec: 0.6, count: 4, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
+                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },
-        ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 125,
+        ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 1.8, 2.2] },

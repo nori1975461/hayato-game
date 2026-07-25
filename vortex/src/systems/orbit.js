@@ -40,6 +40,10 @@ export function createOrbit(run) {
   let angle = 0;            // 全体の公転位相（ラジアン）
   let weaponLevel = 1;      // ★取得で上がる武器レベル（全なかま共通・1..W.maxLevel）
 
+  // FB#2: 合成なかまだけ「実効武器レベル」に +weaponLevelBonus（レベル起因の成長を上乗せ）。
+  // 固定倍率 fusedDmgMult（damageMult 由来）とは別枠なので二重取りにはならない。
+  const effLevel = (o) => Math.min(W.maxLevel, weaponLevel + (o && o.fused ? (F.weaponLevelBonus || 0) : 0));
+
   ensureDecoTextures();     // 装飾テクスチャを一度だけ内製（textures.exists でガード）
 
   // run.party の増減・進化・合成に合わせて公転体スプライトと戦闘値を作り直す
@@ -62,7 +66,7 @@ export function createOrbit(run) {
       orbs.push({ glow, spr, aura: null, deco: [], glowBase: 1.5, glowMul: 1, decoTier: null,
                   shotT: 0, beamT: 0, fieldT: 0, slash: new Map(),
                   boomT: 0, ringT: 0, boomerang: null, ringwave: null,
-                  form: null, weaponSpr: null, meleeSfxT: -1 });
+                  form: null, weaponSpr: null, meleeSfxT: -1, levelPulseT: 0 });
     }
     // 定義を各公転体へ割り当て
     for (let i = 0; i < orbs.length; i++) {
@@ -80,9 +84,11 @@ export function createOrbit(run) {
       o.idx = i;                               // 脈動などの位相ずらしに使う
       o.fused = fused;
       o.evolved = evolved;
+      const el = effLevel(o);   // FB#2: このなかまの実効武器レベル（合成なら +weaponLevelBonus）
       // R4: 現フォームを決定（進化体に forms が無ければ基本形から継承）。実効 archetype はフォーム側。
+      // FB#2: フォーム帯も実効レベル基準（合成なかまは別フォーム帯になりうる）。
       const forms = src.forms || base.forms;
-      o.form = forms ? forms[formIndexFor(weaponLevel)] : null;
+      o.form = forms ? forms[formIndexFor(el)] : null;
       o.archetype = o.form ? o.form.archetype : base.archetype;
       // R4: フォーム帯切替で archetype が別物へ変わったら、旧 archetype の飛翔中スプライト
       //     (boomerang/ringwave) を破棄する（どの update からも参照されず画面に固着＋リークするため）。
@@ -115,8 +121,8 @@ export function createOrbit(run) {
       o.ringSpeed    =  ovr.expandSpeed ?? A.RINGWAVE.expandSpeed;
       o.ringThick    = (ovr.thickness   ?? A.RINGWAVE.thickness)  * (fused ? F.ringwaveThicknessMult : 1);
 
-      // 武器レベル成長（必ず最後に適用）
-      const wl = weaponLevel - 1;
+      // 武器レベル成長（必ず最後に適用）。FB#2: 実効レベル el 基準（合成なかまは強く伸びる）。
+      const wl = el - 1;
       if (wl > 0) {
         o.hitRadius   += W.slash.hitRadiusAdd * wl;
         o.slashTick    = Math.max(W.slash.tickSecMin, o.slashTick * Math.pow(W.slash.tickSecMult, wl));
@@ -176,12 +182,14 @@ export function createOrbit(run) {
       }
 
       // ★武器レベルに応じた「まとう装飾」を再構築（ティアが上がるほど別物の見た目へ）
-      buildDeco(o, weaponLevel, big);
+      // FB#2: 実効レベル el で選ぶので、合成なかまは装飾ティアも一段上がって見た目でも強さが伝わる。
+      buildDeco(o, el, big);
     }
   }
 
   function memberDamage(o) {
-    const lvMult = 1 + W.damageAddPerLevel * (weaponLevel - 1);
+    // FB#2: レベル倍率は実効レベル基準（合成なかまは +weaponLevelBonus ぶん上乗せ）。
+    const lvMult = 1 + W.damageAddPerLevel * (effLevel(o) - 1);
     return Math.max(1, Math.round(o.dmgBase * run.stats.damageMult * o.fusedDmgMult * lvMult));
   }
 
@@ -537,10 +545,16 @@ export function createOrbit(run) {
   // 装飾の追従・アニメ。決定的（run.elapsed と idx のみ・Math.random不使用）。
   function updateDeco(o, dt) {
     if (o.glowBase == null) return;
+    // FB#5: レベルアップ直後の一瞬だけグローを強く膨らませる（段が上がった手応え）。
+    let lvPop = 1;
+    if (o.levelPulseT > 0) {
+      o.levelPulseT = Math.max(0, o.levelPulseT - dt);
+      lvPop = 1 + (o.levelPulseT / 0.5) * 0.6;   // 立ち上がりで最大約1.6倍→1へ減衰
+    }
     // グロー脈動（ティアが上がるほど大きく強く脈打つ）
     const pulse = o.decoTier ? o.decoTier.pulse : 0;
     const beat = 1 + Math.sin(run.elapsed * 6 + (o.idx || 0)) * pulse;
-    o.glow.setScale(o.glowBase * (o.glowMul || 1) * beat);
+    o.glow.setScale(o.glowBase * (o.glowMul || 1) * beat * lvPop);
 
     if (!o.deco.length) return;
     const bodyR = (o.spr.displayWidth * 0.5) || 20;
@@ -683,6 +697,13 @@ export function createOrbit(run) {
     if (weaponLevel >= W.maxLevel) return false;
     weaponLevel++;
     rebuild();
+    // FB#5: 段が上がった瞬間を体感させる。本体をポンッと膨らませ、装飾のグローを一瞬強く脈打たせる。
+    for (const o of orbs) {
+      o.levelPulseT = 0.5;
+      const base = o.spr.scaleX || 1;
+      run.tweens.add({ targets: o.spr, scaleX: base * 1.4, scaleY: base * 1.4,
+        duration: 140, yoyo: true, ease: 'Quad.out' });
+    }
     return true;
   }
 
