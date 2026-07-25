@@ -1044,3 +1044,41 @@ form-mechanism／hero-aura-shot／completeness-integration の3次元でレビ�
 
 - `node --check` 全9ファイル OK・`validate-data` OK（monsters=6・enemies=5・bosses=6・forms検証）・`test-core` 全PASS（R1/R2/R3ガード維持＋forms構造/帯交互性/hero設定の新ガード）
 - **CDP実機**（`scratchpad/cdp-r4-weapons.mjs`・PORT 8798/DBG 9340）：weaponLevel 1/3/5/7/9/11 で近接↔遠距離が反転（Lv1/5/9=melee・Lv3/7/11=ranged）／近接で敵HP減／遠距離で飛び道具出現／主人公オーラ常時ダメージ＋ショット弾数[1,2,3]／例外0。**修正後も 13/13 PASS・例外0を再実測**（修正で近接帯の可視武器テクスチャ 4→3＝aurajelly の二重表示解消も確認）。
+
+# 16. Wave R5（実プレイFB8件：手応え・爽快感・ボス外見差別化）
+
+実機プレイのFB8件を2エージェント並行で実装（体感/演出＝balance/orbit/Run/sound/fx/hud、敵/ボス＝enemies/boss）。ファイル無衝突で分担しメインが統合。
+
+## 16.1 手応え・バランス調整（FB#1/#3/#4）
+
+- **#1 必殺技**: `special.maxUses 3→5`・`killsPerCharge 26→18`（約3割速い）・`startCharge 0.6→0.7`。test-core の回帰ガードも 3→5 へ更新。
+- **#3 雑魚3発撃破**: 「当初5発で不満」の主因 gareon を中心にHPを下げ、序盤(weaponLevel=1)の近接1ヒット（starpuppy4/pikabit3）で概ね3ヒット撃破へ。gareon 42→14・chibit 6→4・bomba 9→8・snipa 12→9・turret 16→12。攻撃力/頻度は据え置き（脅威は維持）。
+- **#4 弾を速く・数を1割減**: プレイヤー hero.bulletSpeed 300→360・intervalSec 1.4→1.55、SHOT 260→315・0.8→0.88。ボス6段の弾速+20%（ring/vulcan/missile/machinegun/cutter/armslam）・発射数-約1割（ring.count/count2・vulcan.perBurst 10→9・missile 5→4・cutter 3→2・armslam.shockCount 10→9）。雑魚 snipa 240→288・turret 150→180。ビーム系(laser/wavecannon)は弾速概念なしで据え置き。
+
+## 16.2 爽快感の可視化（FB#2/#5/#6/#7）
+
+- **#2 合成なかま強化**: `fused.weaponLevelBonus:3`。orbit.js に `effLevel(o)=min(maxLevel, weaponLevel+(fused?3:0))` を新設し、ダメージ倍率・フォーム選択・武器成長・deco の全てで実効レベルを使用。既存の固定倍率(fusedDmgMult 2.5)は別枠のまま＝二重取りなし。祭壇で苦労して作った仲間が武器3Lvぶん強い。
+- **#5 武器LvUp体感（HAYATO参考）**: レベルアップ瞬間に各orb本体をポップ（scale×1.4 yoyo）＋グロー脈動（levelPulseT）＋中央テロップ「ぶき レベルアップ！」（fx.js）＋上昇スティンガー `weaponTier`。hud.js の「ぶき LvN」表示もミント色スケールで0.6秒パルス。
+- **#6 発射音を派手に**: 新規 `starShot`（主人公）追加・既存 `shoot` 強化。近接/遠距離/主人公で音色差（water/psychic/note/starShot）。
+- **#7 被弾の手応え**: hitPlayer に `Sound.sfx('hurt')`＋`shake(180,5)`＋赤の全画面加算フラッシュ(alpha0.30・<0.5厳守)＋リップル＋ヒットストップ0.05s。
+- 新規SFX: `starShot`/`weaponTier`/`hurt`。MASTER_VOL 0.33 維持。
+
+## 16.3 ボス6体の外見差別化（FB#8）
+
+「6体中4体が似すぎ」→ 共通7パーツ人型リグを廃し、rig構造そのものをボディタイプ別に再設計。単眼センサー(core)の「らしさ」は各型に合う位置で残す。機械質感は維持。
+
+| ボス | 型 | rig（パーツ） | アニメ出し分け |
+|---|---|---|---|
+| korotama | UFO/円盤 | pod×2 / body(円盤) / dome / cannon / core | dome=浮遊のみ・脚なし |
+| jetviper | 戦闘機 | wing×2 / thruster / body / cannon / core | wing=cutter予告でバンク |
+| uzuking | 4足砲台 | qleg×4 / body / cannon(砲塔) / core | 対角交互ステップ・armslamで踏ん張り |
+| wavelord | 戦車/履帯 | track×2 / body / cannon(主砲) / core | 車体沈み込み(armslam) |
+| missilga | ミサイル車 | base×2 / body / rack(4連ポッド) / cannon / core | rack=missile予告で上昇 |
+| maou | 大型2足 | leg×2 / armR×2 / body(冠+赤炉心) / cannon / core | 既存armslam/legstep継承 |
+
+boss.js: `PART_DEPTH`/`PART_ORIGIN` に新role追加（未知roleは depth9/中心/静止に安全フォールバック）。`updateDisp` に dome/qleg/wing/rack のアニメ分岐追加。balance.js の boss.tiers（HP/攻撃）は不変＝**見た目だけ**変更。partCount はボスごと 5〜7 で可変（固定7でなくなった）。
+
+## 16.4 検証 v10（Wave R5）
+
+- `validate-data` OK（monsters=6・enemies=5・bosses=6）・`test-core` 全PASS（special.maxUses 5 へ更新、boss.tiers 6段・bossId順など既存ガード維持）・全編集ファイル `node --check` OK・両エージェントの擬似DOMスモークで例外0（6体 spawn→全攻撃→撃破シネマまで）。
+- **CDP実機**（`scratchpad/cdp-fb8-boss-shots.mjs`・PORT 8801/DBG 9343）：6体を順に出現→中央ズームでPNGスクショ→撃破で次段、19/19 PASS・例外0。rig構成が6体で相異＋PNG目視で6体が別物（円盤/戦闘機/4足/戦車/ミサイル車/2足）であることを確認（教訓：完了報告前にPNG化・目視比較）。
