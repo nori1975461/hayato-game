@@ -6,7 +6,7 @@ import { Sound } from '../audio/sound.js';
 export function createSpawner(run) {
   const W = BALANCE.wave;
   const R = BALANCE.rush;
-  const totalSec = W.stepSec * W.steps;      // 補間の終端（300s）
+  const totalSec = W.stepSec * W.steps;      // 補間の終端（Wave R2: 30×14=420s）
   let spawnTimer = 0;
   let countAcc = 0;                          // 湧き数の小数を持ち越す（切り捨てで湧きが痩せるのを防ぐ）
   const eliteFired = BALANCE.elite.times.map(() => false);

@@ -281,6 +281,34 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `balance: capSteps 最終段が enemyCap と一致（実測 ${cs[cs.length - 1].cap} / ${BALANCE.enemyCap}）`);
 }
 
+// --- Wave R2: 公転仲間は最大3人（火力過多の回帰防止） ---
+{
+  const o = BALANCE.orbit;
+  assert(o.maxSlots <= 3, `balance: orbit.maxSlots が 3 以下（実測 ${o.maxSlots}）`);
+  const sc = o.slotSchedule;
+  assert(Array.isArray(sc) && sc.length >= 1, 'balance: orbit.slotSchedule が配列');
+  let okAsc = true;
+  for (let i = 1; i < sc.length; i++) {
+    if (sc[i].untilSec <= sc[i - 1].untilSec || sc[i].slots < sc[i - 1].slots) okAsc = false;
+  }
+  assert(okAsc, 'balance: orbit.slotSchedule の untilSec / slots が単調増加');
+  assert(sc[sc.length - 1].slots === o.maxSlots,
+    `balance: slotSchedule 末尾の slots が maxSlots と一致（実測 ${sc[sc.length - 1].slots} / ${o.maxSlots}）`);
+}
+
+// --- Wave R2: 合成祭壇は3回出現（appearSecs・単調増加） ---
+{
+  const a = BALANCE.altar;
+  assert(Array.isArray(a.appearSecs) && a.appearSecs.length === 3,
+    `balance: altar.appearSecs が3回（実測 ${a.appearSecs && a.appearSecs.length}）`);
+  let okAsc = true;
+  for (let i = 1; i < a.appearSecs.length; i++) {
+    if (a.appearSecs[i] <= a.appearSecs[i - 1]) okAsc = false;
+  }
+  assert(okAsc, 'balance: altar.appearSecs が単調増加');
+  assert(!('appearSec' in a), 'balance: 旧 altar.appearSec が廃止されている（appearSecs へ移行）');
+}
+
 // --- ラッシュは予告付き・ボス出現前に始まる ---
 {
   const r = BALANCE.rush;

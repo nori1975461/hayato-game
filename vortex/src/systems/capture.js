@@ -16,9 +16,20 @@ export function createCapture(run) {
   const C = BALANCE.capture;
   const cores = [];
   let altar = null;
-  let altarSpawned = false;
+  // Wave R2: 祭壇は複数回（appearSecs）出現。各時刻の発火済みフラグをインデックスで持つ
+  const altarFired = BALANCE.altar.appearSecs.map(() => false);
   let msg = null;         // 「あと◯たい ひつよう」表示
   let msgT = 0;
+
+  // Wave R2: 経過時間で解禁される現在の公転スロット数（spawner.currentCap と同型）。
+  // slotSchedule を走査し、maxSlots を絶対上限としてクランプする。
+  function currentSlots() {
+    let slots = BALANCE.orbit.maxSlots;
+    for (const s of BALANCE.orbit.slotSchedule) {
+      if (run.elapsed < s.untilSec) { slots = s.slots; break; }
+    }
+    return Math.min(slots, BALANCE.orbit.maxSlots);
+  }
 
   function makeCore(x, y, def) {
     const glow = run.add.image(x, y, 'glow')
@@ -51,7 +62,7 @@ export function createCapture(run) {
   }
 
   function pickupCore(core) {
-    if (run.party.length < BALANCE.orbit.maxSlots) {
+    if (run.party.length < currentSlots()) {
       run.party.push({ def: core.def });
       run.orbit.rebuild();
       run.captures++;
@@ -166,9 +177,18 @@ export function createCapture(run) {
   }
 
   function updateAltar(dt) {
-    if (!altarSpawned && run.elapsed >= BALANCE.altar.appearSec) {
-      altarSpawned = true;
-      spawnAltar();
+    // Wave R2: 祭壇は3回（appearSecs）出す。前の祭壇を使い切ってから次を出すので、
+    // 合成素材が揃わず滞っても「3回のチャンス」は失われない（厳密な時刻より回数を優先）。
+    if (!altar) {
+      for (let i = 0; i < BALANCE.altar.appearSecs.length; i++) {
+        if (!altarFired[i]) {
+          if (run.elapsed >= BALANCE.altar.appearSecs[i]) {
+            altarFired[i] = true;
+            spawnAltar();
+          }
+          break;   // 最も早い未消費の時刻だけを対象にする（順番に発火・回を飛ばさない）
+        }
+      }
     }
     if (!altar) return;
     altar.spr.rotation += dt * 1.5;
@@ -208,5 +228,13 @@ export function createCapture(run) {
     }
   }
 
-  return { update, onEnemyKilled, forceDropCore, dropCoreAt, get coreCount() { return cores.length; } };
+  return {
+    update, onEnemyKilled, forceDropCore, dropCoreAt,
+    get coreCount() { return cores.length; },
+    // 検証用（Wave R2）: 現在の解禁スロット数・祭壇の発火済み回数・祭壇存在を観測できるようにする
+    currentSlots,
+    get altarFiredCount() { return altarFired.filter(Boolean).length; },
+    get altarActive() { return !!altar; },
+    get altarPos() { return altar ? { x: altar.x, y: altar.y } : null; },
+  };
 }

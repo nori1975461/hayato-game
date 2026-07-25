@@ -2,7 +2,7 @@
 
 export const BALANCE = {
   view: { width: 640, height: 360 },
-  runDurationSec: 300,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）
+  runDurationSec: 420,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）。Wave R2でステージ尺を延長
   player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7 },
 
   // 主人公の自動攻撃「スターショット」
@@ -12,7 +12,11 @@ export const BALANCE = {
     twinLevel: 8, tripleLevel: 16, spreadDeg: 12,
   },
 
-  orbit: { baseRadius: 48, baseAngularDeg: 120, maxSlots: 5 },
+  // Wave R2: 公転仲間は最大3人（火力過多防止）。開始2人・180秒で3人目を解禁（強さカーブを緩やかに）
+  orbit: {
+    baseRadius: 48, baseAngularDeg: 120, maxSlots: 3,
+    slotSchedule: [{ untilSec: 180, slots: 2 }, { untilSec: 9999, slots: 3 }],
+  },
   archetypes: {
     SLASH: { tickSec: 0.25, hitRadius: 18 },
     SHOT:  { intervalSec: 0.8, bulletSpeed: 260, range: 220, bulletRadius: 3 },
@@ -37,22 +41,26 @@ export const BALANCE = {
   evolve: { startLevel: 6, everyLevels: 2 },
 
   // v5(Wave C): 中盤以降の密度不足を解消。湧き数は小数のまま累積するので階段状に増えない。
-  // 硬さ(hpMultEnd)は据え置き＝倒す手応えは変えずに「数」だけで山場を作る。
-  wave: { stepSec: 30, steps: 10, spawnIntervalStart: 1.6, spawnIntervalEnd: 0.45,
-          hpMultStart: 1.0, hpMultEnd: 3.2, spawnCountStart: 1, spawnCountEnd: 5 },
+  // Wave R2: ステージ尺420sへ合わせて強さカーブを14ステップ(=420s)に延長。開幕を易しく(hpMultStart0.9,
+  // spawnIntervalStart1.9)し、終盤の硬さは微増(hpMultEnd3.4)。
+  wave: { stepSec: 30, steps: 14, spawnIntervalStart: 1.9, spawnIntervalEnd: 0.45,
+          hpMultStart: 0.9, hpMultEnd: 3.4, spawnCountStart: 1, spawnCountEnd: 5 },
   enemyCap: 220,
-  // 敵数上限は時間で段階的に上がる（序盤はむしろ軽く、後半で「囲まれる」密度になる）
+  // 敵数上限は時間で段階的に上がる（序盤はむしろ軽く、後半で「囲まれる」密度になる）。Wave R2で5段化
   capSteps: [
-    { untilSec: 90,   cap: 90 },
-    { untilSec: 180,  cap: 140 },
+    { untilSec: 60,   cap: 50 },
+    { untilSec: 150,  cap: 90 },
+    { untilSec: 260,  cap: 140 },
+    { untilSec: 360,  cap: 190 },
     { untilSec: 9999, cap: 220 },
   ],
-  // ラッシュ（山場）。warnSec前にテロップ＋警告リングで必ず予告する
-  rush: { startSec: 100, intervalSec: 70, counts: [14, 20, 26, 32], warnSec: 1.2 },
+  // ラッシュ（山場）。warnSec前にテロップ＋警告リングで必ず予告する。Wave R2で早め・6波化
+  rush: { startSec: 40, intervalSec: 50, counts: [12, 16, 20, 26, 30, 36], warnSec: 1.2 },
   // 雑魚の“ぷるぷる”。生成時に消費済みのsinePhaseを流用するので乱数を追加消費しない
   enemyFx: { bobHz: 7, bobAmp: 0.09, tiltAmp: 0.10 },
-  elite: { times: [120, 240], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
-  altar: { appearSec: 150, minParty: 3 },
+  elite: { times: [110, 200, 290], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
+  // Wave R2: 合成祭壇は3回出現（150/250/340s）。開始2人スタートに合わせ最低人数を2へ
+  altar: { appearSecs: [150, 250, 340], minParty: 2 },
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
   capture: { dropRate: 0.25, eliteDropRate: 1.0, coreLifeSec: 10, fullPartyCoins: 50 },
 

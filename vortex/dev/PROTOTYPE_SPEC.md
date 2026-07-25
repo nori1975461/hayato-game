@@ -925,6 +925,18 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 
 **検証 v6（Wave R1）**: `test-core`（ENEMIES=5／snipa=spiral／turret=hover／全種 attack.telegraphSec>0／summon=chibit）・`validate-data`（MOVEMENT に `hover`、attack type enum／telegraphSec>0）・CDP実機（5種テクスチャ存在／250s ワープで5種可視スポーン／各攻撃タイプ発火／60秒相当で例外0件）。
 
+## 12.5 Wave R2（バランス再調整：仲間人数・祭壇回数・ステージ尺・強さカーブ）
+
+ステージが短く（300s）中盤で編成・強化が飽和していた課題へ、進行と火力の伸びを緩やかに再設計。**数値のみの調整で、敵5種・ボス3段の定義は不変**（ボス6段化は Wave R3 が担当）。
+
+- **公転仲間は最大3人**（`orbit.maxSlots` 5→3・火力過多防止）。`orbit.slotSchedule = [{untilSec:180,slots:2},{untilSec:9999,slots:3}]` で**開始2人・180秒で3人目を解禁**。`capture.pickupCore` は固定 `maxSlots` ではなく `currentSlots()`（slotSchedule を `run.elapsed` で走査し maxSlots でクランプ）を上限に使う。満員時のコイン化処理は不変。
+- **合成祭壇は3回出現**（`altar.appearSecs = [150,250,340]`・旧 `appearSec` 単発を廃止）。`capture` は `altarFired = appearSecs.map(()=>false)` のインデックス方式で各時刻を順に発火（前の祭壇が残存中は多重生成しない）。`altar.minParty` 3→2（開始2人に合わせる）。
+- **ステージ尺 420s へ延長**（`runDurationSec` 300→420）。強さカーブ `wave.steps` 10→14（`totalSec = stepSec×steps = 420` へ補間終端が伸びる／`spawner` はコード変更不要）。開幕を易しく（`hpMultStart` 1.0→0.9・`spawnIntervalStart` 1.6→1.9）、終盤の硬さは微増（`hpMultEnd` 3.2→3.4）。
+- **同時出現上限 `capSteps` を5段化**（`[60→50, 150→90, 260→140, 360→190, 9999→220]`・末尾 = `enemyCap` 220）。
+- **ラッシュ早め・6波化**（`rush.startSec` 100→40・`intervalSec` 70→50・`counts` [14,20,26,32]→[12,16,20,26,30,36]）。エリートは3体化（`elite.times` [120,240]→[110,200,290]）。
+
+**検証 v7（Wave R2）**: `test-core`（`orbit.maxSlots≤3`／`slotSchedule` 単調増加・末尾 slots=maxSlots／`altar.appearSecs` 3回・単調増加・旧 appearSec 廃止／既存の capSteps 単調増加・末尾一致・rush.counts≤40 も新値で成立）・`validate-data`（monsters=6・enemies=5 不変）・CDP実機（開始 party=2／179s は2人上限・180s超で捕獲すると3人まで（3を超えない）／祭壇 150・250・340s で各1回出現／`runDurationSec=420`・hpMult が 420s 補間で終盤3.4付近／60秒相当で例外0件）。
+
 # 13. Wave D 拡張（要望⑥小/中/大ボス＋⑦爽快感の限界突破）
 
 大型拡張 Wave A〜D の最終段。これまでボスは大ボス（uzuking）1体のみで、300秒プレイの山場が終盤に一度きりだった。**時間軸に3つの山場を作る**ため、小→中→大の3段ボスへ再構成する。設計方針＝「倒す達成感を3回味わえる」「かわいさとのギャップで派手に」。
