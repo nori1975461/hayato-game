@@ -1,7 +1,8 @@
 // systems/boss.js — ボス（Wave R3：ロボット6体・6段）の出現・状態機械・弾/ビーム・撃破シネマティック。
 // BALANCE.boss.tiers を時間順に処理する。同時に戦うボスは常に1体（前のボスを倒すまで次は出ない）。
 // ボスは run.enemies に isBoss エンティティとして載せる（弾/ビーム/dealDamage/killEnemy 経路を流用）。
-// 見た目は def.rig（body/core/armR/armL/legR/legL/cannon の7パーツリグ）で組み、本体そのものが動く。
+// 見た目は def.rig で組み、本体そのものが動く。FB#8 で rig 構造をボディタイプ別（UFO/戦闘機/多脚/戦車/
+// ミサイルキャリア/大型人型）に作り分けたため、role も型ごとに増えている（dome/wing/qleg/track/rack/pod/base/thruster）。
 import { BALANCE } from '../data/balance.js';
 import { BOSSES, ENEMIES } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
@@ -11,13 +12,21 @@ const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
 const D2R = Math.PI / 180;
 
-// パーツ role → 描画depth / origin / アニメ役割。rig.origin があればそちらを優先。
-const PART_DEPTH  = { body: 8, core: 12, armR: 11, armL: 11, legR: 7, legL: 7, cannon: 10 };
+// パーツ role → 描画depth / origin / アニメ役割。rig.origin があればそちらを優先。未知 role は depth9/中心。
+// FB#8: ボディタイプ別 role を追加。背面(履帯/脚/翼/台座=6〜7) → 胴(8) → 天蓋/ラック(9) → 砲(10) → 腕(11) → 単眼(12)。
+const PART_DEPTH  = {
+  body: 8, core: 12, armR: 11, armL: 11, legR: 7, legL: 7, cannon: 10,
+  dome: 9, rack: 9,
+  wingR: 7, wingL: 7, trackR: 7, trackL: 7, baseR: 7, baseL: 7, podR: 7, podL: 7, thruster: 6,
+  qlegFL: 7, qlegFR: 7, qlegBL: 7, qlegBR: 7,
+};
 const PART_ORIGIN = {
   body: [0.5, 0.5], core: [0.5, 0.5],
   armR: [0.5, 0.12], armL: [0.5, 0.12],
   legR: [0.5, 0.1], legL: [0.5, 0.1],
   cannon: [0.15, 0.5],
+  // 4脚は付け根(上)を支点に振る。翼/天蓋/ラック等はそのまま中心。
+  qlegFL: [0.5, 0.1], qlegFR: [0.5, 0.1], qlegBL: [0.5, 0.1], qlegBR: [0.5, 0.1],
 };
 
 export function createBoss(run) {
@@ -624,16 +633,39 @@ export function createBoss(run) {
       switch (p.role) {
         case 'body': rot = tilt + upperSpin * 0.3; py += bodySink; break;
         case 'core': rot = tilt + upperSpin; py += bodySink; break;
+        // UFO の天蓋グラス。胴と一緒に僅かに沈む（脚のステップは無い＝浮遊）。
+        case 'dome': rot = tilt; py += bodySink * 0.5; break;
         case 'legR': case 'legL': {
           const ph = p.mirror ? Math.PI : 0;
           py += Math.abs(Math.sin(run.elapsed * 3 + ph)) * 1.2;
           rot = tilt; break;
+        }
+        // 4足歩行の交互ステップ。対角（FL+BR / FR+BL）を同位相にして「歩いている」感を出す。
+        // armslam を持つボス（uzuking）は前脚が踏ん張る＝armPose を前脚だけ足で受ける。
+        case 'qlegFL': case 'qlegFR': case 'qlegBL': case 'qlegBR': {
+          const gaitPh = (p.role === 'qlegFL' || p.role === 'qlegBR') ? 0 : Math.PI;
+          py += Math.abs(Math.sin(run.elapsed * 3.4 + gaitPh)) * 1.4;
+          const front = (p.role === 'qlegFL' || p.role === 'qlegFR');
+          if (front && armPose !== 0) py += armPose * 2.0;   // 溜め＝脚を上げ、叩き＝踏み込む
+          rot = tilt; break;
+        }
+        // 戦闘機の後退翼。カッター溜め(cutterTele で armPose)中は翼を上へバンクさせて予告に見せる。
+        case 'wingR': case 'wingL': {
+          const bank = armPose !== 0 ? armPose * 0.5 : Math.sin(run.elapsed * 2.2) * 0.06;
+          rot = bank * m + tilt; break;
         }
         case 'armR': case 'armL': {
           const base = armPose !== 0 ? armPose : Math.sin(run.elapsed * 3) * 0.08;
           rot = base * m + tilt; break;
         }
         case 'cannon': rot = aim - tilt; break;
+        // ミサイルキャリアの発射ポッド。missile 予告中にせり上がる（発射管を立てる動き）。
+        case 'rack': {
+          if (state === 'missileTele' && cfg.missile) {
+            py -= clamp01(1 - stateT / cfg.missile.telegraphSec) * 3;
+          }
+          rot = tilt; break;
+        }
         default: rot = tilt; break;
       }
       p.img.setPosition(px, py).setRotation(rot);

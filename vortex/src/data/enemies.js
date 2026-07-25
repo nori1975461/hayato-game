@@ -12,7 +12,7 @@ export const ENEMIES = [
     name: 'ガレオン',
     movement: 'chase',
     color: '#d5382f',
-    hp: 42,
+    hp: 14,   // FB#3: 序盤の近接1ヒット(≈4dmg)で3〜4発。壁役なので雑魚内では最も硬いまま
     speed: 22,
     damage: 16,
     radius: 9,
@@ -41,7 +41,7 @@ export const ENEMIES = [
     name: 'チビット',
     movement: 'sine',
     color: '#ffcf3d',
-    hp: 6,
+    hp: 4,   // FB#3: 手数役の量産機。近接1〜2発で弾ける（最弱）
     speed: 62,
     damage: 7,
     radius: 5,
@@ -70,7 +70,7 @@ export const ENEMIES = [
     name: 'ボンバ',
     movement: 'charge',
     color: '#ff8a2a',
-    hp: 9,
+    hp: 8,   // FB#3: 特攻役。近接2〜3発で倒せる紙装甲（自爆前に処理できる）
     speed: 46,
     damage: 8,
     radius: 7,
@@ -99,11 +99,12 @@ export const ENEMIES = [
     name: 'スナイパ',
     movement: 'spiral',
     color: '#ff3b3b',
-    hp: 12,
+    hp: 9,   // FB#3: 狙撃役。近接3発前後
     speed: 40,
     damage: 10,
     radius: 6,
-    attack: { type: 'lockbeam', intervalSec: 4.5, telegraphSec: 0.9, range: 230, bulletSpeed: 240, bulletRadius: 3, damage: 12 },
+    // FB#4: 狙撃弾を +20%（240→288）で速く＝避けにくく。弾数は1発なので据え置き
+    attack: { type: 'lockbeam', intervalSec: 4.5, telegraphSec: 0.9, range: 230, bulletSpeed: 288, bulletRadius: 3, damage: 12 },
     sprite: {
       palette: { k: '#14171d', m: '#6b6f78', l: '#9a9ea6', e: '#ff3b3b', b: '#42454c', j: '#2e3138' },
       rows: [
@@ -128,12 +129,14 @@ export const ENEMIES = [
     name: 'タレット',
     movement: 'hover',
     color: '#7fe8ff',
-    hp: 16,
+    hp: 12,   // FB#3: 砲台役。雑魚内では硬め＝近接3発前後
     speed: 30,
     damage: 9,
     radius: 7,
     hoverDist: 150,
-    attack: { type: 'spread', intervalSec: 3.8, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 150, bulletRadius: 4, damage: 9 },
+    // FB#4: 扇状弾を +20%（150→180）で速く。count は3（唯一の複数弾攻撃だが、-10%だと2.7で3へ丸まり、
+    //       2発は約-33%で「約1割減」を超え唯一の弾幕を過度に弱めるため3のまま維持）
+    attack: { type: 'spread', intervalSec: 3.8, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 9 },
     sprite: {
       palette: { k: '#14171d', w: '#e2e6ea', l: '#f4f6f8', y: '#ffd23f', r: '#ff3b2f', c: '#7fe8ff' },
       rows: [
@@ -154,56 +157,47 @@ export const ENEMIES = [
   },
 ];
 
-// === ボス群（Wave R3：ロボット6体・7パーツリグ） ===
-// 「顔だけ」を脱却し、body(胴)/core(顔=単眼センサー)/armR(腕＋手)/cannon(砲身)/leg(脚) の
-// パーツドット絵に分割。テクスチャキーは boss_<id>_<part>。左右対称パーツ(armL/legL)は armR/leg を
-// setScale(-s,s) でミラー表示する（rig.mirror）。rig の ox/oy はスプライト元px（表示時に spriteScale 倍）。
-// role によって depth/origin/アニメ役割(hover/step/arm/aim)を boss.js が決める。ENEMIES には入れない。
+// === ボス群（Wave R3→FB#8：ロボット6体・ボディタイプ別リグ） ===
+// FB#8「6体が似すぎ」への対応。共通7パーツ人型リグをやめ、各ボスの rig 構造そのものを
+// ボディタイプ別に作り分けてシルエットを別物にする（UFO/戦闘機/多脚/戦車/ミサイルキャリア/大型人型）。
+// テクスチャキーは boss_<id>_<part>。左右対称パーツは setScale(-s,s) でミラー（rig.mirror）。
+// rig の ox/oy はスプライト元px（表示時に spriteScale 倍）。role によって boss.js が depth/origin/アニメ
+// （dome=浮遊天蓋 / wing=バンク / qleg=4脚交互 / track=履帯 / rack=ミサイル上昇 / cannon=照準）を出し分ける。
+// 全ボス共通の「らしさ」＝単眼センサー(core) は各型に合う位置に残す。ENEMIES には入れない。
 
-// 小ボス「コロガンナー」（②グレー小型人型・マシンガン）。序盤(~60秒)の最初の山場。
+// 1. 小ボス「コロガンナー」＝UFO/ホバー円盤型（脚なし・浮遊）。マシンガン。序盤(~60秒)の最初の山場。
+//    パーツ：saucer(円盤胴) / dome(天蓋グラス) / pod(左右スラスター) / cannon(機銃バレル) / core(下部単眼センサー)。
 const KORO_PAL = { g: '#8a8f98', d: '#5a606b', k: '#1a1d24', c: '#38e1ff', b: '#e8edf5', o: '#e8720c' };
 export const KOROTAMA = {
   id: 'korotama',
   name: 'コロガンナー',
   color: '#8a9098',
   sprites: {
+    // 円盤（レンズ状の胴）。上に天蓋、下に単眼。脚は一切持たない＝UFOシルエット。
     body: { palette: KORO_PAL, rows: [
-      '....gggggggg....',
-      '..gggggggggggg..',
-      '.gggggggggggggg.',
-      'gggggkcccckggggg',
-      'ggggkccbbcckgggg',
-      'gggggkcccckggggg',
-      '.ggggddddddgggg.',
-      '.gggddddddddggg.',
-      '.gggddddddddggg.',
-      '..ggddddddddgg..',
-      '..ggddddddddgg..',
-      '...gkk....kkg...',
+      '......gggggggg......',
+      '...ggggddddddgggg...',
+      '.ggggddddddddddgggg.',
+      'ggggddddddddddddgggg',
+      'bgggddddddddddddgggb',
+      'ggggddddddddddddgggg',
+      '.gggkddddddddddkggg.',
+      '...ggkkddddddkkgg...',
+      '......ggkkkkgg......',
     ] },
-    core: { palette: KORO_PAL, rows: [
-      '..gggggggg..',
-      '.gggggggggg.',
-      'gggggggggggg',
-      'gkkkkkkkkkkg',
-      'gkcccccccckg',
-      'gkkkkkkkkkkg',
-      '.gggggggggg.',
-      '..gg....gg..',
+    dome: { palette: KORO_PAL, rows: [
+      '...cccc...',
+      '..cbbbbc..',
+      '.cbbbbbbc.',
+      '.cbbccbbc.',
+      '.cccccccc.',
+      '..gkkkkg..',
     ] },
-    armR: { palette: KORO_PAL, rows: [
-      '.kggk.',
-      '.gggg.',
-      '.gddg.',
-      '.gddg.',
-      '.kkkk.',
-      '.gddg.',
-      '.gddg.',
-      'gggggg',
-      'gggggg',
-      'gkgkgk',
-      'gkgkgk',
-      'k.k.k.',
+    pod: { palette: KORO_PAL, rows: [
+      '.kkk.',
+      'kdddk',
+      'kccck',
+      '.kkk.',
     ] },
     cannon: { palette: KORO_PAL, rows: [
       '.kkkkk.',
@@ -212,115 +206,138 @@ export const KOROTAMA = {
       'kdddddo',
       '.kkkkk.',
     ] },
-    leg: { palette: KORO_PAL, rows: [
-      '.kkkk.',
-      '.gddg.',
-      '.gddg.',
-      '.kkkk.',
-      '.gddg.',
-      'kkkkkk',
+    // 下部の単眼センサー（大きな青い目）。
+    core: { palette: KORO_PAL, rows: [
+      '..gggggg..',
+      '.gkkkkkkg.',
+      'gkcccccckg',
+      'gkccbbcckg',
+      'gkcccccckg',
+      'gkkkkkkkkg',
+      '.gkkkkkkg.',
+      '..gggggg..',
     ] },
   },
   rig: [
     { role: 'body',   tex: 'body',   ox: 0,  oy: 0 },
-    { role: 'legL',   tex: 'leg',    ox: -5, oy: 9,  mirror: true },
-    { role: 'legR',   tex: 'leg',    ox: 5,  oy: 9 },
-    { role: 'armL',   tex: 'armR',   ox: -9, oy: -1, mirror: true },
-    { role: 'armR',   tex: 'armR',   ox: 9,  oy: -1 },
-    { role: 'cannon', tex: 'cannon', ox: 0,  oy: 2 },
-    { role: 'core',   tex: 'core',   ox: 0,  oy: -2 },
+    { role: 'dome',   tex: 'dome',   ox: 0,  oy: -6 },
+    { role: 'podL',   tex: 'pod',    ox: -9, oy: 2,  mirror: true },
+    { role: 'podR',   tex: 'pod',    ox: 9,  oy: 2 },
+    { role: 'cannon', tex: 'cannon', ox: 0,  oy: 6 },
+    { role: 'core',   tex: 'core',   ox: 0,  oy: 1 },
   ],
 };
 
-// 小+ボス「ジェットバイパー」（③白装甲メカ・青単眼・カッター）。刃アームから円鋸を投げる。
+// 2. 小+ボス「ジェットバイパー」＝飛行機/ジェット戦闘機型（機首を下＝プレイヤー側へ・後退翼）。円鋸カッター。
+//    パーツ：fuselage(機体・機首下向き) / wing(後退翼・左右) / thruster(尾部エンジン炎) / cannon(機首カッター射出口) / core(コックピット単眼)。
 const JET_PAL = { w: '#eef2f7', s: '#aab2bd', k: '#181b22', b: '#2a6bff', c: '#7fd0ff', r: '#ff4d4d' };
 export const JETVIPER = {
   id: 'jetviper',
   name: 'ジェットバイパー',
   color: '#2a6bff',
   sprites: {
+    // ダート状の細長い機体。上が尾部、下が尖った機首。中央にコックピット。
     body: { palette: JET_PAL, rows: [
-      '....wwwwwwww....',
-      '...wwwwwwwwww...',
-      '..wwkwwwwwwkww..',
-      '..wwwwwwwwwwww..',
-      '.wwwwwbbbbwwwww.',
-      '.wwwwbccccbwwww.',
-      '.wwwwbccccbwwww.',
-      '.wwwwwbbbbwwwww.',
-      '.swwwwwwwwwwwws.',
-      '.swwwwwwwwwwwws.',
-      '..wwwwwwwwwwww..',
-      '..wwkwwwwwwkww..',
-      '..ww........ww..',
-      '.kkw........wkk.',
+      '...wwww...',
+      '..swwwws..',
+      '..wwwwww..',
+      '.wwwwwwww.',
+      '.wwwwwwww.',
+      '.wwwwwwww.',
+      'swwwwwwwws',
+      'swwwwwwwws',
+      '.wwwwwwww.',
+      '.wwwwwwww.',
+      '..wwwwww..',
+      '..wwwwww..',
+      '...wwww...',
+      '...wwww...',
+      '....ww....',
+      '....kk....',
+    ] },
+    // 後退翼（付け根＝上内側、翼端＝下外側へ後退）。左翼はミラー。
+    wing: { palette: JET_PAL, rows: [
+      'sswwwww..',
+      '.swwwwww.',
+      '..swwwwww',
+      '...swwwww',
+      '....swwww',
+      '.....swww',
+      '......sww',
+    ] },
+    thruster: { palette: JET_PAL, rows: [
+      '..cc..',
+      '.crrc.',
+      '.crrc.',
+      '..cc..',
+    ] },
+    cannon: { palette: JET_PAL, rows: [
+      '.sssss.',
+      'skkkkkr',
+      'skkkkrr',
+      'skkkkkr',
+      '.sssss.',
     ] },
     core: { palette: JET_PAL, rows: [
-      '..wwwwww..',
-      '.wwwwwwww.',
-      'wwkkkkkkww',
-      'wkbbbbbbkw',
-      'wkbccccbkw',
-      'wkbbbbbbkw',
-      '.wwwwwwww.',
-      '..wwwwww..',
-    ] },
-    armR: { palette: JET_PAL, rows: [
-      '.swwws.',
-      'skwwwks',
-      'skwwwks',
-      '.swwws.',
-      '..www..',
-      '..www..',
-      '..sws..',
-      '..www..',
-      '.wwwww.',
-      'wwwwwww',
-      'kkrrrkk',
-      '.krrrk.',
-      '..krk..',
-    ] },
-    leg: { palette: JET_PAL, rows: [
-      '.kwwk.',
-      '.wwww.',
-      '.wssw.',
-      '.kwwk.',
-      '.wwww.',
-      '..wwk.',
-      '..kkk.',
-      '.kkkk.',
+      '.wwwwww.',
+      'wkkkkkkw',
+      'wkbbbbkw',
+      'wkbccbkw',
+      'wkbbbbkw',
+      '.wwwwww.',
     ] },
   },
   rig: [
-    { role: 'body', tex: 'body', ox: 0,  oy: 0 },
-    { role: 'legL', tex: 'leg',  ox: -4, oy: 11, mirror: true },
-    { role: 'legR', tex: 'leg',  ox: 4,  oy: 11 },
-    { role: 'armL', tex: 'armR', ox: -8, oy: -1, mirror: true },
-    { role: 'armR', tex: 'armR', ox: 8,  oy: -1 },
-    { role: 'core', tex: 'core', ox: 0,  oy: -2 },
+    { role: 'body',     tex: 'body',     ox: 0,  oy: 0 },
+    { role: 'wingL',    tex: 'wing',     ox: -6, oy: 0,  mirror: true },
+    { role: 'wingR',    tex: 'wing',     ox: 6,  oy: 0 },
+    { role: 'thruster', tex: 'thruster', ox: 0,  oy: -8 },
+    { role: 'cannon',   tex: 'cannon',   ox: 0,  oy: 8 },
+    { role: 'core',     tex: 'core',     ox: 0,  oy: -2 },
   ],
 };
 
-// 中ボス「ウズバルカン」（①工業アーム・クランプ手・バルカン砲）。円盤ベースで旋回。
+// 3. 中ボス「ウズバルカン」＝4足歩行/多脚砲台型（甲虫状の車体＋4本脚）。背部にバルカン砲塔。
+//    パーツ：body(甲虫車体) / leg(角ばった脚・4本をミラー配置) / cannon(背部バルカン砲塔) / core(前部単眼)。phase2「ぶちギレ」。
 const UZU_PAL = { o: '#e8720c', d: '#a8500a', k: '#1a1d24', s: '#c9ced6', y: '#ffd23f', c: '#38e1ff' };
 export const UZUKING = {
   id: 'uzuking',
   name: 'ウズバルカン',
   color: '#e8720c',
   sprites: {
+    // 横に張り出した甲虫状の車体（縦より横に広い）。四隅から脚が生える。
     body: { palette: UZU_PAL, rows: [
       '....oooooooo....',
-      '..ooddddddddoo..',
-      '.oyoddddddddoyo.',
-      '.osddddddddddso.',
-      '.oddkddddddkddo.',
-      '.oddddddddddddo.',
-      '.osddddddddddso.',
-      '.oddkddddddkddo.',
-      '.oyoddddddddoyo.',
+      '..oooddddddooo..',
+      '.ooddddddddddoo.',
       'ooddddddddddddoo',
-      'oykkkkkkkkkkkkyo',
-      '.oooooooooooooo.',
+      'oddddddddddddddo',
+      'odddkddddddddkdo',
+      'oyddddddddddddyo',
+      'ooddddddddddddoo',
+      '.ooddddddddddoo.',
+      '..oookkkkkkooo..',
+      '...oooooooooo...',
+    ] },
+    // 角ばった昆虫脚（付け根＝上、足先＝下外へ）。右側用に描き、左側はミラー。
+    leg: { palette: UZU_PAL, rows: [
+      'ooo...',
+      'oddo..',
+      '.oddo.',
+      '..oddo',
+      '..oddo',
+      '..okko',
+      '...kkk',
+      '...kk.',
+    ] },
+    // 背部のバルカン砲塔（複数バレルが下に突き出す）。
+    cannon: { palette: UZU_PAL, rows: [
+      '.oooooo.',
+      'oykkkkyo',
+      'okkkkkko',
+      'okkkkkko',
+      '.oooooo.',
+      '..kkkk..',
     ] },
     core: { palette: UZU_PAL, rows: [
       '.oooooooo.',
@@ -331,63 +348,62 @@ export const UZUKING = {
       'oykkkkkkyo',
       '.oooooooo.',
     ] },
-    armR: { palette: UZU_PAL, rows: [
-      '.oooooo.',
-      'oskkkkso',
-      'osddddso',
-      '.oddddo.',
-      '.oddddo.',
-      '.skkkks.',
-      '.oddddo.',
-      '.oddddo.',
-      '.oddddo.',
-      'sokkkkos',
-      'oo....oo',
-      'ok....ko',
-      'ok....ko',
-      'kk....kk',
-    ] },
-    cannon: { palette: UZU_PAL, rows: [
-      '.oooooo.',
-      'okkkkkko',
-      'okkkkkko',
-      'okkkkkko',
-      '.oooooo.',
-      '..dddd..',
-    ] },
   },
   rig: [
-    { role: 'body',   tex: 'body',   ox: 0,  oy: 0 },
-    { role: 'armL',   tex: 'armR',   ox: -9, oy: -2, mirror: true },
-    { role: 'armR',   tex: 'armR',   ox: 9,  oy: -2 },
-    { role: 'cannon', tex: 'cannon', ox: 0,  oy: 1 },
-    { role: 'core',   tex: 'core',   ox: 0,  oy: -3 },
+    { role: 'body',    tex: 'body',   ox: 0,  oy: 0 },
+    { role: 'qlegBL',  tex: 'leg',    ox: -9, oy: 6, mirror: true },
+    { role: 'qlegBR',  tex: 'leg',    ox: 9,  oy: 6 },
+    { role: 'qlegFL',  tex: 'leg',    ox: -7, oy: 2, mirror: true },
+    { role: 'qlegFR',  tex: 'leg',    ox: 7,  oy: 2 },
+    { role: 'cannon',  tex: 'cannon', ox: 0,  oy: -4 },
+    { role: 'core',    tex: 'core',   ox: 0,  oy: 1 },
   ],
 };
 
-// 中+ボス「ウェイブロード」（②③組合せ・胸に大型シアン波動炉・波動砲）。
+// 4. 中+ボス「ウェイブロード」＝キャタピラ/戦車型（低く幅広の車体＋左右履帯＋巨大波動主砲）。
+//    パーツ：body(戦車ハル) / track(履帯・左右) / cannon(前方へ伸びる極太波動砲＝照準回転) / core(砲塔前面の単眼ビューポート)。phase2「かくせい」。
 const WAVE_PAL = { w: '#eef2f7', g: '#7d838d', k: '#181b22', c: '#38e1ff', b: '#a8f0ff', y: '#ffd23f' };
 export const WAVELORD = {
   id: 'wavelord',
   name: 'ウェイブロード',
   color: '#38e1ff',
   sprites: {
+    // 低く幅広の戦車ハル。左右に履帯が付く。
     body: { palette: WAVE_PAL, rows: [
-      '.....wwwwwwww.....',
-      '....wwwwwwwwww....',
-      '...wwkwwwwwwkww...',
       '..wwwwwwwwwwwwww..',
       '.wwwwwwwwwwwwwwww.',
-      'wwwww..cccc..wwwww',
-      'wwwww.cbbbbc.wwwww',
-      'wwwwwcbbyybbcwwwww',
-      'wwwwwcbbyybbcwwwww',
-      'wwwww.cbbbbc.wwwww',
-      'wwwww..cccc..wwwww',
+      'wwwwwwwwwwwwwwwwww',
+      'wggwwwwwwwwwwwwggw',
+      'wgwwwwwwwwwwwwwwgw',
+      'wwwwwwwwwwwwwwwwww',
       '.wwwwwwwwwwwwwwww.',
-      '..wwkwwwwwwwwkww..',
-      '..www........www..',
-      '..kkw........wkk..',
+      '..wwwwwwwwwwwwww..',
+      '.kkwwwwwwwwwwwwkk.',
+      '..wwwwwwwwwwwwww..',
+    ] },
+    // 履帯（リンクが上下に連なる）。左右で同一・ミラー不要だが対称配置。
+    track: { palette: WAVE_PAL, rows: [
+      'kkkkk',
+      'kgggk',
+      'kkkkk',
+      'kgggk',
+      'kkkkk',
+      'kgggk',
+      'kkkkk',
+      'kgggk',
+      'kkkkk',
+      'kgggk',
+      'kkkkk',
+      'kgggk',
+    ] },
+    // 極太の波動砲身（左端が砲基部＝origin付近、右へ長く伸び照準方向へ回る）。
+    cannon: { palette: WAVE_PAL, rows: [
+      '.gggggg.....',
+      'gkcccccccccc',
+      'gkcccccccccc',
+      'gkcccccccccc',
+      'gkcccccccccc',
+      '.gggggg.....',
     ] },
     core: { palette: WAVE_PAL, rows: [
       '..wwwwwwww..',
@@ -399,71 +415,61 @@ export const WAVELORD = {
       '.wwwwwwwwww.',
       '..wwwwwwww..',
     ] },
-    armR: { palette: WAVE_PAL, rows: [
-      '.wwwww.',
-      'wwkkkww',
-      'wwwwwww',
-      '.wwwww.',
-      '.wwwww.',
-      '.wgggw.',
-      '.wwwww.',
-      '.wwwww.',
-      'wwwwwww',
-      'wkwkwkw',
-      'wkwkwkw',
-      'kwkwkwk',
-      'k.k.k.k',
-    ] },
-    cannon: { palette: WAVE_PAL, rows: [
-      '.gggggg..',
-      'gkccccccc',
-      'gkccccccc',
-      'gkccccccc',
-      'gkccccccc',
-      '.gggggg..',
-    ] },
-    leg: { palette: WAVE_PAL, rows: [
-      '.wwww.',
-      'wggggw',
-      'wwwwww',
-      '.kwwk.',
-      '.wwww.',
-      '.wggw.',
-      '.kkkk.',
-      'kkkkkk',
-    ] },
   },
   rig: [
-    { role: 'body',   tex: 'body',   ox: 0,   oy: 0 },
-    { role: 'legL',   tex: 'leg',    ox: -5,  oy: 13, mirror: true },
-    { role: 'legR',   tex: 'leg',    ox: 5,   oy: 13 },
-    { role: 'armL',   tex: 'armR',   ox: -10, oy: -2, mirror: true },
-    { role: 'armR',   tex: 'armR',   ox: 10,  oy: -2 },
-    { role: 'cannon', tex: 'cannon', ox: 0,   oy: 2 },
-    { role: 'core',   tex: 'core',   ox: 0,   oy: -3 },
+    { role: 'body',    tex: 'body',   ox: 0,  oy: 0 },
+    { role: 'trackL',  tex: 'track',  ox: -9, oy: 1, mirror: true },
+    { role: 'trackR',  tex: 'track',  ox: 9,  oy: 1 },
+    { role: 'cannon',  tex: 'cannon', ox: 0,  oy: -1 },
+    { role: 'core',    tex: 'core',   ox: 0,  oy: -2 },
   ],
 };
 
-// 大ボス「ミサイルガ」（⑤ガンシップ・横長車体・多連アンテナ・ミサイル）。逆関節脚＋車輪。
+// 5. 大ボス「ミサイルガ」＝ミサイルキャリア型（低く幅広の車体＋上部に多連ミサイルポッド＋左右ホバー脚）。
+//    上記4型（UFO/戦闘機/多脚/戦車）と被らせない。パーツ：body(車体) / rack(4連ミサイルポッド＝予告で上昇) /
+//    base(左右ホバー/車輪ユニット) / cannon(前部バルカン＝照準) / core(前部単眼)。phase2「ぶちギレ」。
 const MIS_PAL = { o: '#e8720c', d: '#a8500a', k: '#1a1d24', s: '#c9ced6', y: '#ffd23f', r: '#ff4d4d', c: '#38e1ff' };
 export const MISSILGA = {
   id: 'missilga',
   name: 'ミサイルガ',
   color: '#e8720c',
   sprites: {
+    // 低く幅広の運搬車体。上にミサイルポッド、下にホバーユニットを積む台座。
     body: { palette: MIS_PAL, rows: [
-      '...c...c....c...c...',
-      '...k...k....k...k...',
-      '..oooooooooooooooo..',
-      '.oooooooooooooooooo.',
-      '.osddddddddddddddso.',
-      '.oddddddddddddddddo.',
-      '.oyddddddddddddddyo.',
-      '.oddddddddddddddddo.',
-      '.osddddddddddddddso.',
-      '..oooooooooooooooo..',
-      '..dddddddddddddddd..',
-      '...oooooooooooooo...',
+      '..oooooooooooooo..',
+      '.osddddddddddddso.',
+      'oddddddddddddddddo',
+      'oyddddddddddddddyo',
+      'oddddddddddddddddo',
+      'osddddddddddddddso',
+      '.oddddddddddddddo.',
+      '..oooooooooooooo..',
+      '...oooooooooooo...',
+    ] },
+    // 4連ミサイルポッド（垂直発射管が並ぶ・赤い弾頭）。上部に立つ＝キャリアのシルエット。
+    rack: { palette: MIS_PAL, rows: [
+      '..r...r...r...r.',
+      '.kck.kck.kck.kck',
+      '.sds.sds.sds.sds',
+      '.sds.sds.sds.sds',
+      '.sds.sds.sds.sds',
+      '.kok.kok.kok.kok',
+      'oooooooooooooooo',
+      '.oooooooooooooo.',
+    ] },
+    base: { palette: MIS_PAL, rows: [
+      '.kkkk.',
+      'kddddk',
+      'kdccdk',
+      'kddddk',
+      '.kkkk.',
+    ] },
+    cannon: { palette: MIS_PAL, rows: [
+      'ooooooo.',
+      'okkkkkkr',
+      'okkkkkkr',
+      'okkkkkkk',
+      'ooooooo.',
     ] },
     core: { palette: MIS_PAL, rows: [
       'oooooooo',
@@ -473,85 +479,52 @@ export const MISSILGA = {
       'oooooooo',
       'dd....dd',
     ] },
-    armR: { palette: MIS_PAL, rows: [
-      '.ooooo.',
-      'osdddso',
-      'okkkkko',
-      'odddddo',
-      'odddddo',
-      'okkkkko',
-      'kkkkkkk',
-      'k.k.k.k',
-      'k.k.k.k',
-      'k.k.k.k',
-    ] },
-    cannon: { palette: MIS_PAL, rows: [
-      'ooooooooo',
-      'okkkkkkkr',
-      'okkkkkkkr',
-      'okkkkkkkk',
-      'okkkkkkkk',
-      'ooooooooo',
-    ] },
-    leg: { palette: MIS_PAL, rows: [
-      '.oooooo.',
-      'osddddso',
-      '.oddddo.',
-      '.okkkko.',
-      '..oddo..',
-      '..kkkk..',
-      '.kkkkkk.',
-      '.kkkkkk.',
-    ] },
   },
   rig: [
-    { role: 'body',   tex: 'body',   ox: 0,   oy: 0 },
-    { role: 'legL',   tex: 'leg',    ox: -7,  oy: 9,  mirror: true },
-    { role: 'legR',   tex: 'leg',    ox: 7,   oy: 9 },
-    { role: 'armL',   tex: 'armR',   ox: -11, oy: 0,  mirror: true },
-    { role: 'armR',   tex: 'armR',   ox: 11,  oy: 0 },
-    { role: 'cannon', tex: 'cannon', ox: 0,   oy: 2 },
-    { role: 'core',   tex: 'core',   ox: 0,   oy: -1 },
+    { role: 'body',   tex: 'body',   ox: 0,  oy: 0 },
+    { role: 'baseL',  tex: 'base',   ox: -8, oy: 5, mirror: true },
+    { role: 'baseR',  tex: 'base',   ox: 8,  oy: 5 },
+    { role: 'rack',   tex: 'rack',   ox: 0,  oy: -7 },
+    { role: 'cannon', tex: 'cannon', ox: 0,  oy: 4 },
+    { role: 'core',   tex: 'core',   ox: 0,  oy: 1 },
   ],
 };
 
-// 最終ボス「マオウレクス」（④紅白大型メカ・亜空間レーザー）。威圧→撃破でギャップ演出担当。
+// 6. 最終ボス「マオウレクス」＝大型2足歩行メカ型（唯一の人型＝王者）。金冠・広い肩・厚い胴・2腕2脚。最大サイズ。
+//    他5体を非人型にしたことで、重厚な人型シルエットが際立つ。パーツ：body(冠付き頭＋胸胴) / core(頭部の単眼バイザー) /
+//    armR(重装甲アーム＋拳・左右ミラー) / leg(大足・左右ミラー) / cannon(肩/胸のレーザー砲＝照準)。亜空間レーザー。
 const MAOU_PAL = { w: '#f2f4f8', r: '#e03028', d: '#b01c18', k: '#20242c', y: '#ffd23f', s: '#9aa0ab', c: '#38e1ff' };
 export const MAOU = {
   id: 'maou',
   name: 'マオウレクス',
   color: '#e03028',
   sprites: {
+    // 頂部に金冠、その下に頭、広い肩、赤い胸（中央に炉心シアン）、絞った腰。堂々の人型。
     body: { palette: MAOU_PAL, rows: [
-      'wwwww..........wwwww',
-      'wkkkw..........wkkkw',
-      'wwwwwsssssssssswwwww',
-      '.wwwwwwwwwwwwwwwwww.',
-      '.wwwwwwwwwwwwwwwwww.',
-      '.wwrrwwwwwwwwwwrrww.',
-      '.wwwrrwwwwwwwwrrwww.',
-      '.wyywrrwwwwwwrrwyyw.',
-      '.wwwwwrrwwwwrrwwwww.',
-      '.wwwwwwrrccrrwwwwww.',
-      '.wwwwwwwccccwwwwwww.',
-      '.wwwwwwwccccwwwwwww.',
-      '.wwwwwwsssssswwwwww.',
-      '..wwwwsssssssswwww..',
-      '..kkwwwwwwwwwwwwkk..',
+      '.....y..yy..y.....',
+      '....wwwwwwwwww....',
+      '...wwwwwwwwwwww...',
+      '...wwkkkkkkkkww...',
+      '..wwwwwwwwwwwwww..',
+      '.wwwwwwwwwwwwwwww.',
+      'sswwwwwwwwwwwwwwss',
+      'swwwwrrrrrrrrwwwws',
+      'swwwrrrrrrrrrrwwws',
+      'swwwrrccccccrrwwws',
+      'swwwrrccccccrrwwws',
+      'swwwwrrrrrrrrwwwws',
+      '.wwwwwwwwwwwwwwww.',
+      '..wwwsssssssswww..',
+      '..kkw........wkk..',
     ] },
+    // 頭部の単眼バイザー（怒りの赤スリット）。
     core: { palette: MAOU_PAL, rows: [
-      '...r........r...',
-      '...w........w...',
-      '...r........r...',
-      '..sss......sss..',
-      '.wwwwwwwwwwwwww.',
-      'wwwwwwwwwwwwwwww',
-      'wkkkkkkkkkkkkkkw',
-      'wkcccccccccccckw',
-      'wkcccccccccccckw',
-      'wkkkkkkkkkkkkkkw',
-      '.wwwwwwwwwwwwww.',
-      '..wwww....wwww..',
+      '..wwwwwwww..',
+      '.wkkkkkkkkw.',
+      'wkcccccccckw',
+      'wkccrrrrcckw',
+      '.wkkkkkkkkw.',
+      '..wwwwwwww..',
     ] },
     armR: { palette: MAOU_PAL, rows: [
       '.ssssss.',
@@ -591,10 +564,10 @@ export const MAOU = {
     { role: 'body',   tex: 'body',   ox: 0,   oy: 0 },
     { role: 'legL',   tex: 'leg',    ox: -6,  oy: 13, mirror: true },
     { role: 'legR',   tex: 'leg',    ox: 6,   oy: 13 },
-    { role: 'armL',   tex: 'armR',   ox: -11, oy: -2, mirror: true, origin: [0.5, 0.10] },
-    { role: 'armR',   tex: 'armR',   ox: 11,  oy: -2, origin: [0.5, 0.10] },
+    { role: 'armL',   tex: 'armR',   ox: -11, oy: -1, mirror: true, origin: [0.5, 0.10] },
+    { role: 'armR',   tex: 'armR',   ox: 11,  oy: -1, origin: [0.5, 0.10] },
     { role: 'cannon', tex: 'cannon', ox: 9,   oy: 0,  origin: [0.12, 0.5] },
-    { role: 'core',   tex: 'core',   ox: 0,   oy: -3 },
+    { role: 'core',   tex: 'core',   ox: 0,   oy: -6 },
   ],
 };
 
