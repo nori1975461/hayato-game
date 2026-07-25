@@ -1219,3 +1219,12 @@ maou の attacks ローテーション＝3特別攻撃 `[laser, missile, nova]`�
 
 1. **「ボスが自分の腕で殴る」の主役化**：腕(armR/armL)パーツを持つのは maou のみ（enemies.js）だが、maou は §18.2 で armslam をローテから外し[laser,missile,nova]に。armslam を持つ uzuking(4足)/wavelord(戦車) は腕がなく前脚/代替で叩くため「腕で殴る」絵にならない。→ **maou に armslam（腕の叩きつけ）を復活・大きく可視化**する提案。
 2. **登場イベントの荘厳化**：§20.3 の雑魚埋もれ対策（暗幕/雑魚フェード）。
+
+> **→ §20.4 の両提案は §20.5 で実施済み（ユーザー両方承認）。**
+
+## 20.5 maou 腕叩きつけ復活＋登場イベント荘厳化（§20.4提案の実施・ユーザー両方承認）
+
+- **A. maou armslam 復活・可視化**（「ボスが自分の腕で殴る」の主役化）：attacks `[laser,missile,nova]`→**`[laser,armslam,missile,nova]`**（betweenAttacks `[2.2,2.2,2.0,2.6]`・長一致＝test-coreガード維持）。armslam を大きくゆっくり：telegraphSec 0.7→**1.1**（前半0.66sで振り上げ armPose -1.5→**-2.2**、残りは頂点保持＝**タメ**）→slamHit で armPose **-2.2→+1.3** を加速カーブで一気に**振り下ろし**＋bodySink 4→6。腕(armR/armL・肩支点 origin[0.5,0.10])が明確に振り下ろされる。damage系(shock/melee)は据え置き（見せる目的・火力過多にしない）。他ボス(uzuking/wavelord)は `isMaou` ガードで従来のまま。phase2 の laser→vulcan 割り込みは無改変。
+- **B. 登場イベント荘厳化**：maouIntro 中だけ暗幕（全画面 tint `0x00030a`・setScrollFactor0・depth900・alpha 0→**0.42**（<0.5厳守））を敷き、maou 全パーツを depth+1000 持ち上げ（intro テキストは既存1500）＝雑魚(depth9/11)を暗幕下に沈め maou本体・セリフ・テロップを前面化。`endIntro`/`destroyDisp` で暗幕破棄＋depth復帰＝完全復帰・リークなし。
+- 検証：validate-data/test-core 全PASS（betweenAttacks長=attacks長 維持）・`node --check`OK・CDP実機（`scratchpad/cdp-r8b-maou.mjs`）**7/7**（**maou が腕を振り上げ→タメ→振り下ろして殴るのを撮影**・登場暗幕・intro後の完全復帰・撃破可能・例外0）。
+- **要フォロー（実プレイ判断）**：暗幕(alpha0.42)で全体が暗くなりセリフ/テロップは読みやすくなったが、終盤の雑魚(最大220体)が多く maou本体はまだやや紛れる。さらに荘厳にするには intro 中の雑魚 alpha フェード/停止の追加が有効（未実装）。

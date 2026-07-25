@@ -36,7 +36,12 @@ const PART_ORIGIN = {
 const MAOU_INTRO = {
   dur: 3.6, fadeSec: 1.8,
   line1At: 1.0, line2At: 2.0, telopAt: 2.9,
+  dimAlpha: 0.42,     // 登場中の暗幕の不透明度（子ども安全：< 0.5 厳守）
 };
+// 登場イベントの暗幕/前面化に使う depth。暗幕は雑魚(spr=9/glow=4)・敵弾(11)・プレイヤー(10)より前・
+// ボスパーツ/テキストより後ろに敷く。intro 中だけボスパーツ/グロウを INTRO_LIFT 分だけ暗幕より前へ持ち上げる。
+const INTRO_DIM_DEPTH = 900;
+const INTRO_LIFT = 1000;
 
 export function createBoss(run) {
   const B = BALANCE.boss;
@@ -69,6 +74,7 @@ export function createBoss(run) {
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
   let introStage = -1;          // maou 登場イベントのセリフ/テロップ進行段（-1=未使用/非final）
   const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
+  let introDim = null;          // 登場イベント中の暗幕（雑魚を沈めボス/セリフを引き立てる・intro 終了で破棄）
   const bullets = [];           // ボス弾（プレイヤーへ当たる）
   const pool = [];
   let beam = null;              // 波動砲/レーザーの薙ぎビーム（同時1本）
@@ -197,9 +203,10 @@ export function createBoss(run) {
     const parts = def.rig.map((r) => {
       const img = run.add.image(x, y, `boss_${def.id}_${r.tex}`);
       const origin = r.origin || PART_ORIGIN[r.role] || [0.5, 0.5];
-      img.setDepth(PART_DEPTH[r.role] || 9).setOrigin(origin[0], origin[1])
+      const depth = PART_DEPTH[r.role] || 9;
+      img.setDepth(depth).setOrigin(origin[0], origin[1])
         .setScale(r.mirror ? -s : s, s);
-      return { img, role: r.role, ox: r.ox, oy: r.oy, mirror: !!r.mirror };
+      return { img, role: r.role, ox: r.ox, oy: r.oy, mirror: !!r.mirror, depth };
     });
     const muzzle = run.add.image(x, y, 'boss_muzzle').setBlendMode(ADD).setDepth(11)
       .setTint(int(cfg.glowInner)).setVisible(false).setScale(s * 0.4);
@@ -221,6 +228,8 @@ export function createBoss(run) {
       state = 'maouIntro';
       stateT = MAOU_INTRO.dur;
       introStage = 0;
+      spawnIntroDim();                 // 背景の雑魚を暗幕で沈める
+      setBossDepthLift(INTRO_LIFT);    // maou 本体を暗幕より前へ＝雑魚に埋もれず主役として見せる
     } else {
       state = 'chase';
       stateT = idleDur(cfg.idleSec.afterSpawn);
@@ -600,9 +609,39 @@ export function createBoss(run) {
     return { alpha: e, scale: lerp(0.55, 1, e), drop: lerp(-26, 0, e) };
   }
   function endIntro() {
+    clearIntroDim();          // 暗幕をフェードアウト＝通常画面へ完全復帰
+    setBossDepthLift(0);      // ボスパーツ/グロウの depth を元へ戻す（雑魚と同層の通常描画に復帰）
     state = 'chase';
     stateT = idleDur(cfg.idleSec.afterSpawn);
     attackIdx = 0;
+  }
+
+  // 登場イベント中だけ半透明の暗幕を全画面へ敷き、背景の雑魚を沈めて maou 本体/セリフ/テロップを引き立てる。
+  // カメラ固定・暗色 tint・alpha < 0.5（子ども安全）。intro 終了で clearIntroDim でフェードアウト破棄する。
+  function spawnIntroDim() {
+    const cam = run.cameras.main;
+    introDim = run.add.image(cam.width / 2, cam.height / 2, 'white').setScrollFactor(0)
+      .setDepth(INTRO_DIM_DEPTH).setTint(0x00030a)
+      .setDisplaySize(cam.width, cam.height).setAlpha(0);
+    run.tweens.add({ targets: introDim, alpha: MAOU_INTRO.dimAlpha, duration: 420, ease: 'Sine.out' });
+  }
+  // intro 終了：暗幕をフェードアウトして自壊（画面を完全に元へ戻す）。
+  function clearIntroDim() {
+    if (!introDim) return;
+    const d = introDim; introDim = null;
+    run.tweens.killTweensOf(d);
+    run.tweens.add({ targets: d, alpha: 0, duration: 320, ease: 'Sine.in', onComplete: () => d.destroy() });
+  }
+  // 撃破/破棄時：暗幕を即時破棄（フェード無し・リーク防止）。
+  function destroyIntroDim() {
+    if (introDim) { run.tweens.killTweensOf(introDim); introDim.destroy(); introDim = null; }
+  }
+  // 登場中だけボスパーツ/グロウの depth を lift 分だけ持ち上げ/戻す（相対順は保持＝重なりが崩れない）。
+  function setBossDepthLift(lift) {
+    if (!disp) return;
+    for (const p of disp.parts) p.img.setDepth((p.depth || 9) + lift);
+    if (disp.glowP) disp.glowP.setDepth(6 + lift);
+    if (disp.glowM) disp.glowM.setDepth(6 + lift);
   }
 
   // ============ ビーム（プレイヤー1点判定・波動砲/レーザー共用） ============
@@ -737,12 +776,28 @@ export function createBoss(run) {
 
     // 攻撃姿勢：腕の振り上げ/叩きつけ・上半身旋回・沈み込み
     let armPose = 0, bodySink = 0, upperSpin = 0;
+    const isMaou = !!(cfg && cfg.final);   // 最終ボスは腕叩きを大きくゆっくり主役級に見せる
     if (state === 'slamTele') {
-      armPose = lerp(0, -1.5, clamp01(1 - stateT / cfg.armslam.telegraphSec));
+      const prog = clamp01(1 - stateT / cfg.armslam.telegraphSec);
+      if (isMaou) {
+        // 前半で腕を大きく振り上げ（通常-1.5より大きい-2.2）→頂点でタメ（後半は保持）→「ドーン」を予感させる。
+        const up = clamp01(prog / 0.6);
+        const wind = up * up * (3 - 2 * up);
+        armPose = lerp(0, -2.2, wind);
+        if (prog > 0.6) bodySink = -Math.sin(((prog - 0.6) / 0.4) * Math.PI) * 1.5;   // タメ中に僅かに伸び上がる
+      } else {
+        armPose = lerp(0, -1.5, prog);
+      }
     } else if (state === 'slamHit') {
       const el = cfg.armslam.slamSec - stateT;
-      armPose = lerp(-1.5, 1.0, clamp01(el / 0.15));
-      bodySink = clamp01(el / 0.15) * 4;
+      const dn = clamp01(el / 0.15);
+      if (isMaou) {
+        armPose = lerp(-2.2, 1.3, dn * dn);   // 頂点から加速して一気に振り下ろす（ドーン）
+        bodySink = dn * 6;                     // 叩きつけで大きく沈み込む
+      } else {
+        armPose = lerp(-1.5, 1.0, dn);
+        bodySink = dn * 4;
+      }
     } else if (state === 'cutterTele') {
       armPose = lerp(0, -0.9, clamp01(1 - stateT / cfg.cutter.telegraphSec));
     } else if (state === 'missileTele') {
@@ -795,7 +850,9 @@ export function createBoss(run) {
         }
         case 'armR': case 'armL': {
           const base = armPose !== 0 ? armPose : Math.sin(run.elapsed * 3) * 0.08;
-          rot = base * m + tilt; break;
+          rot = base * m + tilt;
+          if (isMaou && state === 'slamHit') py += bodySink * 0.6;   // 叩きつけで拳も前方へ沈む（殴る手応え）
+          break;
         }
         case 'cannon': rot = aim - tilt; break;
         // ミサイルキャリアの発射ポッド。missile 予告中にせり上がる（発射管を立てる動き）。
@@ -918,7 +975,8 @@ export function createBoss(run) {
   }
 
   function destroyDisp() {
-    clearIntroEls();   // 登場イベント途中で撃破/破棄されても text を確実に片付ける
+    clearIntroEls();     // 登場イベント途中で撃破/破棄されても text を確実に片付ける
+    destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();

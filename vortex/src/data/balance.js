@@ -255,11 +255,12 @@ export const BALANCE = {
         rageText: 'ミサイルガ ぶちギレ！', bulletTint: '#ff4d4d',
         rewardCoins: 380, deathCinematicSec: 1.7,
       },
-      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは3つの必殺級「特別攻撃」を持つ：
+      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは3つの必殺級「特別攻撃」＋主役の腕叩きを持つ：
       //    ① 亜空間レーザー薙ぎ（laser・極太/長射程に強化） ② 多連ホーミングミサイル斉射（missile・弾数を7へ増やし
-      //    扇状の"斉射"に） ③ 重力弾幕ノヴァ（nova＝新規／全方位弾を回転させながら連続波で放つ弾幕）。この3つが
+      //    扇状の"斉射"に） ③ 重力弾幕ノヴァ（nova＝新規／全方位弾を回転させながら連続波で放つ弾幕）。加えて
+      //    ④ アームスラム（armslam・自分の腕を大きく振り上げて叩きつける近接＝最終ボスの主役演出）。この4つが
       //    attacks ローテーション。phase2 では laser の後に vulcan を割り込ませる（beginAttack が cfg.vulcan を参照）。
-      //    armslam は近接データとして保持するがローテーションには載せない（3特別攻撃に集中させる）。撃破でクリア。
+      //    腕(armR/armL)パーツを持つのは maou のみ＝「腕で殴る絵」はこのボスで主役化する。撃破でクリア。
       //    サイズ：spriteScale 8（縦長人型のため通常ボス≈8-9 に対し素の大きさで約1.2倍・画面占有を抑え「大きすぎ」を解消）・
       //    radius/glow/spawnDist も追随縮小（通常ボスの radius 64〜76 帯へ）。
       {
@@ -268,7 +269,7 @@ export const BALANCE = {
         hp: 28000, radius: 68, spriteScale: 8, glowScale: 9.5,
         glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
-        attacks: ['laser', 'missile', 'nova'],
+        attacks: ['laser', 'armslam', 'missile', 'nova'],
         laser: { chargeSec: 1.0, beamWidth: 46, beamLength: 420, damage: 42,
                  sweepFromDeg: -42, sweepToDeg: 42, activeSec: 0.7 },
         // 特別攻撃②：多連ホーミングミサイル斉射（count 4→7・扇状に一斉発射で"斉射"感）
@@ -277,7 +278,10 @@ export const BALANCE = {
         // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
         nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
                 bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },
-        armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
+        // 主役演出：telegraphSec を延ばして「振り上げ→タメ→ドーン」を大きくゆっくり見せる（boss.js の
+        // updateDisp maou 分岐で腕を通常より大きく振り上げる）。衝撃波/メレーの威力は据え置き（"見せる"のが
+        // 目的で火力過多にしない）。maou は接近戦が基本なので接近時に腕で殴られる体験になる。
+        armslam: { telegraphSec: 1.1, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 50, meleeDamage: 38 },
         vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
@@ -285,7 +289,7 @@ export const BALANCE = {
         ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.0, 2.6] },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2, 2.0, 2.6] },
         phase2: true, phase2HpRatio: 0.55, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
         rageText: 'マオウレクス かくせい！', bulletTint: '#38e1ff',
         rewardCoins: 500, deathCinematicSec: 1.8,
