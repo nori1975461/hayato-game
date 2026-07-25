@@ -272,6 +272,8 @@ export function createOrbit(run) {
       run.spawnBullet(o.x, o.y, Math.cos(a) * sp, Math.sin(a) * sp,
         o.color, dmg, o.bulletRadius, tex);
     }
+    // FB#5: 発射位置に一瞬の閃光（味方共通の金白フラッシュ・1斉射につき1回）
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(o.x, o.y, ang, 0xfff2b0);
     Sound.sfx((o.form && o.form.sfx) || 'shoot');
   }
 

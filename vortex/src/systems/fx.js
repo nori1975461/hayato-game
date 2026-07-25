@@ -581,6 +581,32 @@ export function createFx(run) {
     ripple(run.player.x, run.player.y, 0xff5a5a, 1);
   }
 
+  // ---- 発射マズルフラッシュ / 着弾スパーク（FB#5・弾の迫力） ----
+  // ゲーム内で多発するのでプール再利用・rng不使用・短命tween。呼び出しは「発射1回/命中1回」単位に絞り、
+  // 弾1発ごとには呼ばない（ボスnova等の弾数が多い場面でも負荷を増やさない）。
+  const muzPool = [];
+  function muzzleFlash(x, y, angle, color) {
+    const spr = muzPool.pop() || run.add.image(0, 0, 'w_star2').setBlendMode(ADD);
+    spr.setTexture('w_star2').setActive(true).setVisible(true).setDepth(12)
+      .setTint(color == null ? 0xfff2b0 : colInt(color)).setPosition(x, y)
+      .setRotation(angle || 0).setScale(0.5).setAlpha(0.95);
+    run.tweens.add({
+      targets: spr, scale: 2.0, alpha: 0, duration: 120,
+      onComplete: () => { spr.setVisible(false); muzPool.push(spr); },
+    });
+  }
+  const sparkPool = [];
+  function hitSpark(x, y, color) {
+    const spr = sparkPool.pop() || run.add.image(0, 0, 'glow').setBlendMode(ADD);
+    spr.setTexture('glow').setActive(true).setVisible(true).setDepth(13)
+      .setTint(color == null ? 0xffffff : colInt(color)).setPosition(x, y)
+      .setScale(0.45).setAlpha(0.9);
+    run.tweens.add({
+      targets: spr, scale: 1.6, alpha: 0, duration: 150,
+      onComplete: () => { spr.setVisible(false); sparkPool.push(spr); },
+    });
+  }
+
   // ---- 必殺ゲージ満タン通知（v3・軽め） ----
   function specialReady() {
     Sound.sfx('gaugeFull');
@@ -596,5 +622,6 @@ export function createFx(run) {
     update, powerupFlash, announce, setTarget, clearTarget,
     fusionCinematic, evolveBurst, bossWarning, bossVictory, rushWarning,
     weaponLevelUp, specialBlast, specialReady, playerHurt,
+    muzzleFlash, hitSpark,
   };
 }

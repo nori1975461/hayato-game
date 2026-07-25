@@ -1149,3 +1149,39 @@ maou の attacks ローテーション＝3特別攻撃 `[laser, missile, nova]`�
 - **CDP実機**（`scratchpad/cdp-r3-boss-giant.mjs` PORT8803/DBG9345、`cdp-maou-nova2.mjs` PORT8805/DBG9347）：6体を実寸(zoom=1)で撮影しパーツ union の表示px実測＝**全ボス縦占有98%以下（操作余地あり）／maou 329×294px**。maou 到達後の state監視で laser/missile/nova の3特別攻撃stateを観測、**nova弾がボス中心から放射され画面全体へ弾幕展開（bulletCount実測＋PNG目視）** を確認。**例外0件**。
 - **BGMは音声のため headless 自動検証の対象外**（autotest は `withAudio=false`）。配線（'boss'開始/復帰）と SONGS/SFX 構造整合を静的確認。
 - 検証知見：プレイヤーをボス中心に密着させるとボス中心発射のnova弾が生成瞬間の衝突判定で即消滅する（bulletCount=0）。実プレイ相当にプレイヤーを離して計測する必要がある（**実バグではなく検証アーティファクト**）。
+
+---
+
+# 19. Wave R7（実プレイFB第3ラウンド：体力回復アイテム・弾の判別・弾の迫力）
+
+> FB第3ラウンド #1（体力回復アイテム）／#2（自機と敵弾の判別）／#5（弾の迫力）を本章に記録（#3/#4は §18）。
+
+## 19.1 体力回復アイテム（FB#1）
+
+- balance.js `healItem`：`dropRate:0.045`（雑魚4.5%）／`eliteDropRate:0.6`／`healAmount:25`（maxHp100基準で約25%＝回復過多で崩さない）／`lifeSec:12`（残3秒点滅）／`magnetRadius:24`・`pull:140`（gemの40/220より弱め＝貴重感）／`pickupRadius:13`／`fullBonusCoins:15`。
+- ドロップ源：雑魚・エリート＝`Run.killEnemy`→`rollHealDrop`（`run.rng.chance(rate)`）、ボス撃破＝`boss.js awardKillRewards`→`run.spawnHeal` 確定1個。gem/core と同じ撃破フローに乗せる。
+- 取得：gem同型の `spawnHeal`/`updateHearts`/`releaseHeart`＋`_heartPool`。接触＋弱magnet。`collectHeal` でHP回復（満タン時は無駄にせず `fullBonusCoins` コインへ）＋緑桃パーティクル＋`heal`音。HUDのHPバーは毎フレーム `player.hp` を読むので自動増加。
+- 見た目：`heart` テクスチャ（ふくらんだ2円＋下向き三角＝ハート）赤本体＋桃グロー・`run.elapsed` 基準のふわふわ浮遊/脈動（乱数追加消費なし）。XPジェム（緑金のひし形）と色・形で明確に別物。
+
+## 19.2 味方弾／敵弾の判別（FB#2）
+
+形が主軸・色が補助。**味方＝星型＋金白フチ／敵＝丸い危険弾（foe_orb）＋赤フチ**。各モンスター/ボスの個性色(tint)は弾本体に残す。
+
+- 味方弾（`Run.spawnBullet`）：既存の星/かわいい武器形を維持＋グローを金白 `0xfff2b0` に統一＋進行方向へ長い尾。
+- 敵弾（`Run.spawnFoeBullet`＋`boss.spawnBullet2` の汎用orb）：新テクスチャ **`foe_orb`**（詰まった円＋上下左右トゲ）＋グロー赤 `0xff2f2f`。**重要修正＝ボス汎用弾が従来 `'core'`（5点星＝味方に見えた）だったのを `foe_orb` へ差し替え**。
+- テクスチャ生成＝`Boot.js`（`makeHeart`/`makeFoeOrb`）。ボス特殊弾（missile涙滴／cutter円鋸／beam）は既存見た目を維持しつつグローのみ赤フチへ統一。
+- BOOMERANG（回るクッキー）/RINGWAVE（音符リング）は形が既に味方寄りで丸弾と混同しないため本体色のまま据え置き。
+
+## 19.3 弾の迫力（FB#5）
+
+- サイズ/グロー拡大：味方弾 body 2.4→2.9・尾 6.5×2.8→8.0×3.2。敵弾（Run/boss）2.4/2.6→3.0＋静止ドットだった敵グローを進行方向トレイル化。すべて ADD。
+- `fx.muzzleFlash(x,y,angle,color)` 新設＝**発射1回につき1回**（主人公ショット/仲間SHOT/ボス ring・cutter・missile・nova）。弾1発ごとには呼ばない＝nova等の多弾でも負荷を増やさない。
+- `fx.hitSpark(x,y,color)` 新設＝味方弾命中時に呼ぶ（`_hitSparkT` 0.03sスロットル）。
+- 両ヘルパーはプール再利用（`muzPool`/`sparkPool`）・rng不使用・短命tween・color=null フォールバック。
+- スピード：据え置き（FB#4で+20%済み・避けられない弾幕を避ける）。迫力はビジュアル/エフェクトで確保。
+
+## 19.4 検証 v13（Wave R7）
+
+- `node vortex/dev/validate-data.js` — **OK**（monsters=6, enemies=5, bosses=6・healItem追加でスキーマ抵触なし）。`node vortex/dev/test-core.js` — **全PASS**（balance既存キー/構造不変）。`node --check` 7ファイルOK・擬似DOMスモーク例外0。
+- **CDP実機**（`scratchpad/cdp-r3-bullets-heal.mjs` PORT8806/DBG9348）：foe_orb/heart 生成・**HP回復 40→65(+25)**・満タン時ハート→コイン 0→15・korotama 弾判別シーンで敵弾 foe_orb 最大8発・**ボス撃破の確定ハートdrop**・**FPS60維持**・例外0。**PNG目視で味方弾(白/金の星)と敵弾(赤/橙のfoe_orb丸)が色・形で区別でき、赤ハートがXPジェム(緑金ひし形)と別物**であることを確認。**8/8 PASS**。
+- 要フォロー（実プレイFB判断）：味方が赤系tintの武器を持つ場合の弾本体色が敵弾の赤に近づく可能性（フチ色=金白/赤＋形=星/丸で区別を担保）。赤い敵弾と赤いハートは形（丸/ハート）で区別。

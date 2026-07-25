@@ -402,6 +402,7 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * cfg.ring.bulletSpeed, Math.sin(a) * cfg.ring.bulletSpeed,
         { radius: cfg.ring.bulletRadius, damage: cfg.ring.damage, life: cfg.ring.lifeSec });
     }
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, aim, int(cfg.bulletTint));
     Sound.sfx('shoot');
   }
 
@@ -415,6 +416,8 @@ export function createBoss(run) {
         { radius: ck.bladeRadius, damage: ck.damage, life: ck.lifeSec,
           kind: 'cutter', spin: ck.spinSpeed, returns: ck.returns });
     }
+    const ct = tip();
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(ct.x, ct.y, aim, int(cfg.bulletTint));
     Sound.sfx('shoot');
   }
 
@@ -430,6 +433,7 @@ export function createBoss(run) {
     Sound.sfx('beam');
     recoil(aim);                                        // 発射の反動でボス本体がのけぞる
     const mt = tip();
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(mt.x, mt.y, aim, int(cfg.bulletTint));
     run.spawnParticles(mt.x, mt.y, int(cfg.bulletTint), 10);
   }
 
@@ -458,6 +462,7 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * nv.bulletSpeed, Math.sin(a) * nv.bulletSpeed,
         { radius: nv.bulletRadius, damage: nv.damage, life: nv.lifeSec });
     }
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, base, int(cfg.bulletTint));
     Sound.sfx('shoot'); run.shake(60, 3);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 12);
   }
@@ -548,11 +553,16 @@ export function createBoss(run) {
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: run.add.image(0, 0, 'core'),
     };
-    const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile' : 'core';
+    // FB#2: 汎用弾(orb)は丸い危険弾(foe_orb)＝味方の星弾と形で区別。ミサイル/カッターは既存の見た目を維持。
+    const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile' : 'foe_orb';
     const r = opts.radius != null ? opts.radius : 4;
+    // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
-      .setDisplaySize(r * 2.6, r * 2.6).setPosition(x, y).setRotation(0);
-    d.glow.setVisible(true).setDepth(6).setTint(tint).setScale(0.7).setPosition(x, y);
+      .setDisplaySize(r * 3.0, r * 3.0).setPosition(x, y).setRotation(0);
+    // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
+    const ta = Math.atan2(vy, vx);
+    d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
+      .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
     bullets.push({
       active: true, x, y, vx, vy, kind,
       spin: opts.spin || 0, returns: !!opts.returns,
@@ -734,6 +744,8 @@ export function createBoss(run) {
   // ============ 撃破時の共通ごほうび（必殺満タン＋コイン＋派手バースト） ============
   function awardKillRewards(x, y) {
     if (run.special) { for (let i = 0; i < killsPerCharge; i++) run.special.addKill(); }
+    // FB#1: ボス撃破で回復ハートを確定1個ドロップ（次の戦いへ体力を立て直せる）。
+    if (run.spawnHeal) run.spawnHeal(x, y);
     run.coins += cfg.rewardCoins;
     run.floatText(run.player.x, run.player.y - 30, '+' + cfg.rewardCoins + ' コイン', '#ffd23f');
     for (let i = 0; i < 4; i++) {

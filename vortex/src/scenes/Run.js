@@ -81,15 +81,18 @@ export class RunScene extends Phaser.Scene {
     this.bullets = [];
     this.foeBullets = [];    // Wave R1: 敵（snipa/turret）の弾。プレイヤーへ当たる
     this.gems = [];
+    this.hearts = [];        // FB#1: 体力回復アイテム（ハート）。gem と同じ spawn/magnet/pickup 機構に乗せる
     this.particles = [];
     this._enemyPool = [];
     this._bulletPool = [];
     this._foeBulletPool = [];
     this._gemPool = [];
+    this._heartPool = [];
     this._sparkPool = [];
     this._pawPool = [];
     this._popPool = [];
     this._pawT = -1;             // 肉球ヒットマークの表示スロットル（elapsed基準・-1で初回を必ず出す）
+    this._hitSparkT = -1;        // FB#5: 弾の着弾スパークの表示スロットル（多発時の負荷を抑える）
     this._eid = 0;
 
     // --- カメラ ---
@@ -201,6 +204,7 @@ export class RunScene extends Phaser.Scene {
     this.updateBullets(dt);
     this.updateFoeBullets(dt);
     this.updateGems(dt);
+    this.updateHearts(dt);
     this.updateParticles(dt);
     if (this.fx) this.fx.update(dt);
     this.updateBackground();
@@ -210,6 +214,7 @@ export class RunScene extends Phaser.Scene {
     this.bullets = this.compact(this.bullets, (b) => this.releaseBullet(b));
     this.foeBullets = this.compact(this.foeBullets, (b) => this.releaseFoeBullet(b));
     this.gems = this.compact(this.gems, (g) => this.releaseGem(g));
+    this.hearts = this.compact(this.hearts, (h) => this.releaseHeart(h));
     this.particles = this.compact(this.particles, (p) => this.releaseSpark(p));
 
     this.hud.update(delta);
@@ -333,6 +338,8 @@ export class RunScene extends Phaser.Scene {
       this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
         shotColor, dmg, H.bulletRadius, 'w_star2', pierce);   // Wave B: きらきらスター弾
     }
+    // FB#5: 銃口位置に一瞬の閃光（発射の手応え。1斉射につき1回＝負荷を抑える）
+    if (this.fx && this.fx.muzzleFlash) this.fx.muzzleFlash(px, py, ang, shotColor);
     Sound.sfx('starShot');   // FB#6: 主人公専用の派手な発射音（攻撃してる感触）
   }
 
@@ -615,9 +622,13 @@ export class RunScene extends Phaser.Scene {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'bullet'),
     };
-    disp.spr.setTexture('bullet').setVisible(true).setDepth(11).setTint(color)
-      .setDisplaySize(radius * 2.4, radius * 2.4).setPosition(x, y);
-    disp.glow.setVisible(true).setDepth(6).setTint(color).setScale(0.7).setPosition(x, y);
+    // FB#2: 敵弾は丸い危険弾（foe_orb）＋赤い危険フチで味方の星弾と区別。個性色(color)は弾本体に残す。
+    // FB#5: 一回り大きく（2.4→3.0）＋進行方向へ短い赤トレイルで迫力を足す。
+    const ang = Math.atan2(dirY, dirX);
+    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(color)
+      .setDisplaySize(radius * 3.0, radius * 3.0).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
+      .setRotation(ang).setDisplaySize(radius * 4.4, radius * 2.4).setPosition(x, y);
     this.foeBullets.push({
       active: true, x, y, vx: dirX * speed, vy: dirY * speed,
       radius, dmg, life: 3, spr: disp.spr, glow: disp.glow,
@@ -683,6 +694,8 @@ export class RunScene extends Phaser.Scene {
     this.spawnGem(e.x, e.y, e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue, e.isElite);
     // スターコア抽選
     this.capture.onEnemyKilled(e);
+    // FB#1: 回復ハート抽選（雑魚は低確率・エリートは高確率）。ドロップ判定も run.rng を使う。
+    this.rollHealDrop(e);
     this.popFx(e.x, e.y, e.color);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
     const sp = e.def && e.def.split;
@@ -726,14 +739,16 @@ export class RunScene extends Phaser.Scene {
       spr: this.add.image(0, 0, 'bullet'),
     };
     // プールから使い回すので、テクスチャは毎回入れ直す（前の弾の見た目が残るのを防ぐ）
+    // FB#5: 弾を一回り大きく（2.4→2.9）して存在感を強める。tex は味方の星型/かわいい武器形（個性）を保持。
     disp.spr.setTexture(tex);
     disp.spr.setVisible(true).setDepth(12).setTint(color)
-      .setDisplaySize(radius * 2.4, radius * 2.4).setPosition(x, y);
-    // FB#4: 進行方向へ伸ばした加算グローの尾で「速くて気持ちいい」スピード線を出す。
+      .setDisplaySize(radius * 2.9, radius * 2.9).setPosition(x, y);
+    // FB#2: 味方弾は「金白の明るいフチ＋長い尾」で敵の赤フチと即区別。個性色(color)は弾本体に残す。
+    // FB#4/#5: 進行方向へ伸ばした加算グローの尾で「速くて気持ちいい」スピード線を出す（尾を一段長く）。
     // プレイヤー/仲間の弾は直進なので、生成時に一度だけ向き・長さを決めれば毎フレームのコストは増えない。
     const ang = Math.atan2(vy, vx);
-    disp.glow.setVisible(true).setDepth(6).setTint(color)
-      .setRotation(ang).setDisplaySize(radius * 6.5, radius * 2.8).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xfff2b0)
+      .setRotation(ang).setDisplaySize(radius * 8.0, radius * 3.2).setPosition(x, y);
     this.bullets.push({
       active: true, x, y, vx, vy, color, damage, radius,
       // R4(#8): pierce>0 の弾は貫通。既に当てた敵は hit で記録して二重ヒットを防ぐ。
@@ -764,6 +779,11 @@ export class RunScene extends Phaser.Scene {
         const dx = e.x - b.x, dy = e.y - b.y;
         if (dx * dx + dy * dy <= rr * rr) {
           this.dealDamage(e, b.damage, b.color);
+          // FB#5: 着弾スパーク（弾が当たった手応え）。多発時はスロットルで負荷を抑える。
+          if (this.fx && this.fx.hitSpark && this.elapsed - this._hitSparkT >= 0.03) {
+            this._hitSparkT = this.elapsed;
+            this.fx.hitSpark(e.x, e.y, b.color);
+          }
           if (b.pierce > 0) {
             b.pierce -= 1;
             b.hit.add(e.id);          // まだ飛ぶ（次の敵を貫く）
@@ -853,6 +873,82 @@ export class RunScene extends Phaser.Scene {
         g.glow.setPosition(g.x, g.y);
       }
     }
+  }
+
+  // ============ 回復ハート（FB#1） ============
+  // 撃破抽選。雑魚は healItem.dropRate・エリートは eliteDropRate。ボス撃破の確定1個は boss.js が spawnHeal を直接呼ぶ。
+  rollHealDrop(e) {
+    const HI = BALANCE.healItem;
+    const rate = e.isElite ? HI.eliteDropRate : HI.dropRate;
+    if (this.rng.chance(rate)) this.spawnHeal(e.x, e.y);
+  }
+
+  // gem/core と同じ表示（spr＋glow）機構。赤〜桃のハートでジェム（緑/金のひし形）と明確に別物に見せる。
+  spawnHeal(x, y) {
+    const disp = this._heartPool.pop() || {
+      glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
+      spr: this.add.image(0, 0, 'heart'),
+    };
+    disp.spr.setTexture('heart').setVisible(true).setDepth(12).setTint(0xff5a7a)
+      .setScale(1.6).setPosition(x, y).setRotation(0);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xff9ec4).setScale(1.0).setPosition(x, y);
+    // ふわふわ位相は生成順で散らす（乱数を追加消費しない）
+    this.hearts.push({ active: true, x, y, life: BALANCE.healItem.lifeSec,
+      phase: this.hearts.length * 0.7, spr: disp.spr, glow: disp.glow });
+  }
+
+  releaseHeart(h) {
+    h.spr.setVisible(false);
+    h.glow.setVisible(false);
+    this._heartPool.push({ spr: h.spr, glow: h.glow });
+  }
+
+  updateHearts(dt) {
+    const HI = BALANCE.healItem;
+    const px = this.player.x, py = this.player.y;
+    // 回復は貴重なので magnet はジェムより弱い（範囲も吸引も控えめ）
+    const magnetR = HI.magnetRadius + this.stats.magnetAdd * 0.5;
+    const magnetR2 = magnetR * magnetR;
+    const grabR = this.player.radius + HI.pickupRadius;
+    for (const h of this.hearts) {
+      if (!h.active) continue;
+      h.life -= dt;
+      // ふわふわ浮遊＋脈動（run.elapsed 基準で決定的・rng不使用）
+      const bob = Math.sin(this.elapsed * 3 + h.phase) * 3;
+      const beat = 1 + Math.sin(this.elapsed * 6 + h.phase) * 0.12;
+      h.spr.setPosition(h.x, h.y + bob).setScale(1.6 * beat);
+      h.glow.setPosition(h.x, h.y + bob).setScale(1.0 * beat);
+      if (h.life <= 3) {   // 残り3秒で点滅（消滅予告）
+        const on = Math.floor(h.life * 6) % 2 === 0;
+        h.spr.setVisible(on); h.glow.setVisible(on);
+      }
+      if (h.life <= 0) { h.active = false; continue; }
+      const dx = px - h.x, dy = py - h.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= grabR * grabR) { this.collectHeal(h); h.active = false; continue; }
+      if (d2 <= magnetR2) {
+        const d = Math.sqrt(d2) || 1;
+        h.x += (dx / d) * HI.pull * dt;
+        h.y += (dy / d) * HI.pull * dt;
+      }
+    }
+  }
+
+  collectHeal(h) {
+    const HI = BALANCE.healItem;
+    const p = this.player;
+    if (p.hp < p.maxHp) {
+      const before = p.hp;
+      p.hp = Math.min(p.maxHp, p.hp + HI.healAmount);
+      this.floatText(p.x, p.y - 28, '+' + Math.round(p.hp - before) + ' HP', '#7dff8f');
+    } else {
+      this.coins += HI.fullBonusCoins;   // 満タン時は無駄にしない（設計判断・過剰実装は避ける）
+      this.floatText(p.x, p.y - 28, '+' + HI.fullBonusCoins + ' コイン', '#ffd23f');
+    }
+    // 回復パーティクル（緑＋桃）＋やさしい上昇音（pickup と混同しない音色）
+    this.spawnParticles(h.x, h.y, 0x7dff8f, 12);
+    this.spawnParticles(h.x, h.y, 0xff9ec4, 8);
+    Sound.sfx('heal');
   }
 
   // ============ パーティクル ============

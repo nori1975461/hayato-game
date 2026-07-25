@@ -70,6 +70,14 @@ export const BALANCE = {
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },
   capture: { dropRate: 0.25, eliteDropRate: 1.0, coreLifeSec: 10, fullPartyCoins: 50 },
 
+  // FB#1: 体力回復アイテム（ハート）。雑魚は低確率・エリートは高確率・ボスは撃破で確定1個（boss.js）。
+  // healAmount は player.hp=100 基準で 25（約25%）＝回復過多で難度が壊れない範囲。貴重なので magnet は弱め
+  // （xp.magnetRadius=40 より狭く・吸引も弱い）。満タンで拾ったら無駄にせず少額コインに替える。
+  healItem: {
+    dropRate: 0.045, eliteDropRate: 0.6, healAmount: 25,
+    lifeSec: 12, magnetRadius: 24, pickupRadius: 13, pull: 140, fullBonusCoins: 15,
+  },
+
   // 武器レベル（★取得でなかまの攻撃そのものが成長する）
   weapon: {
     maxLevel: 12,

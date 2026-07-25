@@ -149,6 +149,14 @@ const SFX = {
     tone({ type: 'square', freq: noteFreq(NOTE.E5), dur: 0.07, gain: 0.18 });
     tone({ type: 'square', freq: noteFreq(NOTE.B5), start: 0.06, dur: 0.1, gain: 0.18 });
   },
+  // FB#1: 回復アイテム取得。やわらかい正弦波の上昇3音＋高音のきらめきで「元気になった」あたたかい響き。
+  // pickup（矩形2音）や capture（きらきらアルペジオ）と音色・波形を変えて混同しないようにする。
+  heal() {
+    tone({ type: 'sine', freq: noteFreq(NOTE.G4), dur: 0.13, gain: 0.17, attack: 0.006 });
+    tone({ type: 'sine', freq: noteFreq(NOTE.C5), start: 0.07, dur: 0.14, gain: 0.17, attack: 0.006 });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.E5), start: 0.14, dur: 0.22, gain: 0.14, attack: 0.008 });
+    tone({ type: 'sine', freq: noteFreq(NOTE.C6), start: 0.17, dur: 0.24, gain: 0.08, attack: 0.01 });
+  },
   // 捕獲：キラキラした上昇アルペジオ＋到達和音＋シャイン（気持ちよく派手に）
   capture() {
     const seq = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6];

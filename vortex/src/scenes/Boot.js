@@ -34,6 +34,8 @@ export class BootScene extends Phaser.Scene {
     this.makeBullet('bullet', 8);
     this.makeStar('core', 12, 6, 2.6, 5);   // スターコア（5点星）
     this.makeGem('gem', 8);                   // XPジェム（ひし形）
+    this.makeHeart('heart', 12);              // FB#1: 体力回復アイテム（ハート・実行時に赤/桃で tint）
+    this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・味方のスター弾と形で区別）
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
@@ -123,6 +125,34 @@ export class BootScene extends Phaser.Scene {
     g.fillPoints(this.toPoints([c, 0, size, c, c, size, 0, c]), true);
     g.generateTexture(key, size, size);
     g.destroy();
+  }
+
+  // FB#1: 回復ハート。ふくらんだ2つの円＋下向き三角で「ハート」と一目で分かる形（gem のひし形と別物）。
+  makeHeart(key, size) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const s = size, r = s * 0.27;
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(s * 0.32, s * 0.34, r);
+    g.fillCircle(s * 0.68, s * 0.34, r);
+    g.fillPoints(this.toPoints([s * 0.06, s * 0.42, s * 0.94, s * 0.42, s * 0.5, s * 0.95]), true);
+    g.generateTexture(key, s, s);
+    g.destroy();
+  }
+
+  // FB#2: 敵弾（丸い危険弾）。中身の詰まった円＋上下左右の小さなトゲで「あぶない」形に。
+  // 味方の5点スター弾（尖り）とも XPジェム（ひし形）とも輪郭が異なる＝子どもが形で敵弾と見分けられる。
+  makeFoeOrb(key, size) {
+    const c = size / 2, r = c - 1.5, nub = size * 0.18;
+    const nubs = [[c, 0.5], [c, size - 0.5], [0.5, c], [size - 0.5, c]];
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      if (dx * dx + dy * dy <= r * r) return true;
+      for (const n of nubs) {
+        const tx = x - n[0], ty = y - n[1];
+        if (tx * tx + ty * ty <= nub * nub) return true;
+      }
+      return false;
+    });
   }
 
   makeSpark(key, size) {
