@@ -91,11 +91,11 @@ export const BALANCE = {
     ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 5, expandSpeedAdd: 8, thicknessAdd: 0.6 },
   },
 
-  // 必殺技（敵を倒すとゲージが溜まる。1ステージ3回まで）
+  // 必殺技（敵を倒すとゲージが溜まる。1ステージ8回まで）
   // v4: テンポ改善（cinematicSec短縮=すぐ操作に戻れる・killsPerCharge減=撃ちやすい・startCharge増=序盤から1発目が近い）
   special: {
-    // FB#1: 最大5回・ゲージ約3割速く・1発目をさらに近く
-    killsPerCharge: 18, maxUses: 5, radius: 320, damage: 9999, bossDamage: 360,
+    // FB#3: 最大8回（回数のみ増・威力/ゲージ速度は据え置き）・ゲージ約3割速く・1発目をさらに近く
+    killsPerCharge: 18, maxUses: 8, radius: 320, damage: 9999, bossDamage: 360,
     cinematicSec: 0.7, startCharge: 0.7,
   },
 

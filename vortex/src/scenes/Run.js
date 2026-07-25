@@ -16,6 +16,17 @@ import { createHud } from '../ui/hud.js';
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
+// FB#2/#3: 弾/ハートの色判別用。数値カラーを白へ寄せて明色化 / 黒へ寄せて濃色化する。
+const lightenC = (c, t) => {
+  const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
+  const m = (v) => Math.round(v + (255 - v) * t);
+  return (m(r) << 16) | (m(g) << 8) | m(b);
+};
+const darkenC = (c, t) => {
+  const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
+  const m = (v) => Math.round(v * (1 - t));
+  return (m(r) << 16) | (m(g) << 8) | m(b);
+};
 
 const START_PARTY = ['starpuppy', 'pikabit'];
 
@@ -624,10 +635,12 @@ export class RunScene extends Phaser.Scene {
     };
     // FB#2: 敵弾は丸い危険弾（foe_orb）＋赤い危険フチで味方の星弾と区別。個性色(color)は弾本体に残す。
     // FB#5: 一回り大きく（2.4→3.0）＋進行方向へ短い赤トレイルで迫力を足す。
+    // FB#3: 本体を少し濃く（darkenC）・フチを深紅（0xff2f2f→0xcc1420）へ落とし「重く危険」に。
+    //       味方の明るい星／桃のハートと色でも一目で分離させる。
     const ang = Math.atan2(dirY, dirX);
-    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(color)
+    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(darkenC(color, 0.18))
       .setDisplaySize(radius * 3.0, radius * 3.0).setPosition(x, y);
-    disp.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
+    disp.glow.setVisible(true).setDepth(6).setTint(0xcc1420)
       .setRotation(ang).setDisplaySize(radius * 4.4, radius * 2.4).setPosition(x, y);
     this.foeBullets.push({
       active: true, x, y, vx: dirX * speed, vy: dirY * speed,
@@ -740,15 +753,20 @@ export class RunScene extends Phaser.Scene {
     };
     // プールから使い回すので、テクスチャは毎回入れ直す（前の弾の見た目が残るのを防ぐ）
     // FB#5: 弾を一回り大きく（2.4→2.9）して存在感を強める。tex は味方の星型/かわいい武器形（個性）を保持。
+    // FB#3: 味方弾は「明るい星」として常時明色化。上ほど白い4隅tint（白コア）で、赤系tint武器でも
+    //       敵の濃い赤丸と混ざらず「明るい星＝自分の弾」と分かる。個性色は下側と弾全体の色相に残す。
     disp.spr.setTexture(tex);
-    disp.spr.setVisible(true).setDepth(12).setTint(color)
+    const bright = lightenC(color, 0.5);   // 白へ半分寄せた明色（星の明るいコア）
+    const body = lightenC(color, 0.22);    // 下側は個性色を残しつつ底上げ
+    disp.spr.setVisible(true).setDepth(12).setTint(bright, bright, body, body)
       .setDisplaySize(radius * 2.9, radius * 2.9).setPosition(x, y);
     // FB#2: 味方弾は「金白の明るいフチ＋長い尾」で敵の赤フチと即区別。個性色(color)は弾本体に残す。
     // FB#4/#5: 進行方向へ伸ばした加算グローの尾で「速くて気持ちいい」スピード線を出す（尾を一段長く）。
+    // FB#3: 金白グローを強めて（0xfff2b0→0xfff8d0）味方弾の明るさをさらに主張。
     // プレイヤー/仲間の弾は直進なので、生成時に一度だけ向き・長さを決めれば毎フレームのコストは増えない。
     const ang = Math.atan2(vy, vx);
-    disp.glow.setVisible(true).setDepth(6).setTint(0xfff2b0)
-      .setRotation(ang).setDisplaySize(radius * 8.0, radius * 3.2).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xfff8d0)
+      .setRotation(ang).setDisplaySize(radius * 8.4, radius * 3.2).setPosition(x, y);
     this.bullets.push({
       active: true, x, y, vx, vy, color, damage, radius,
       // R4(#8): pierce>0 の弾は貫通。既に当てた敵は hit で記録して二重ヒットを防ぐ。
@@ -883,15 +901,18 @@ export class RunScene extends Phaser.Scene {
     if (this.rng.chance(rate)) this.spawnHeal(e.x, e.y);
   }
 
-  // gem/core と同じ表示（spr＋glow）機構。赤〜桃のハートでジェム（緑/金のひし形）と明確に別物に見せる。
+  // gem/core と同じ表示（spr＋glow）機構。桃/マゼンタのハートでジェム（緑/金のひし形）と明確に別物に見せる。
+  // FB#3: 危険赤の敵弾（foe_orb）と紛れないよう、ハートは明るい桃〜マゼンタへ寄せ＋上側を白ハイライト。
+  //       上ほど白い4隅tint（0xffd0ec）で「つやのある可愛い桃ハート＝回復」を強調し、濃い赤丸弾と即分離。
   spawnHeal(x, y) {
     const disp = this._heartPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'heart'),
     };
-    disp.spr.setTexture('heart').setVisible(true).setDepth(12).setTint(0xff5a7a)
+    disp.spr.setTexture('heart').setVisible(true).setDepth(12)
+      .setTint(0xffd0ec, 0xffd0ec, 0xff4da6, 0xff4da6)   // 上=白桃ハイライト / 下=鮮やかマゼンタ桃
       .setScale(1.6).setPosition(x, y).setRotation(0);
-    disp.glow.setVisible(true).setDepth(6).setTint(0xff9ec4).setScale(1.0).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xff9edf).setScale(1.1).setPosition(x, y);
     // ふわふわ位相は生成順で散らす（乱数を追加消費しない）
     this.hearts.push({ active: true, x, y, life: BALANCE.healItem.lifeSec,
       phase: this.hearts.length * 0.7, spr: disp.spr, glow: disp.glow });
@@ -917,7 +938,7 @@ export class RunScene extends Phaser.Scene {
       const bob = Math.sin(this.elapsed * 3 + h.phase) * 3;
       const beat = 1 + Math.sin(this.elapsed * 6 + h.phase) * 0.12;
       h.spr.setPosition(h.x, h.y + bob).setScale(1.6 * beat);
-      h.glow.setPosition(h.x, h.y + bob).setScale(1.0 * beat);
+      h.glow.setPosition(h.x, h.y + bob).setScale(1.1 * beat);   // FB#3: 桃ハローを一回り広げ「回復＝安心」を強調
       if (h.life <= 3) {   // 残り3秒で点滅（消滅予告）
         const on = Math.floor(h.life * 6) % 2 === 0;
         h.spr.setVisible(on); h.glow.setVisible(on);
