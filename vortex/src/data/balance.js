@@ -149,8 +149,8 @@ export const BALANCE = {
       // 1. 小ボス「コロガンナー」（~60秒）。マシンガン連射＋突進。phase2なし・撃破でプレイ続行。
       {
         tier: 'small', bossId: 'korotama', final: false,
-        warnSec: 58, spawnSec: 60, spawnDist: 200,
-        hp: 1800, radius: 28, spriteScale: 4, glowScale: 3.4,
+        warnSec: 58, spawnSec: 60, spawnDist: 290,
+        hp: 1800, radius: 52, spriteScale: 8, glowScale: 6.8,
         glowOuter: '#8a8f98', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 12,
         attacks: ['machinegun', 'dash'],
@@ -168,8 +168,8 @@ export const BALANCE = {
       // 2. 小+ボス「ジェットバイパー」（~120秒）。円鋸カッター（ブーメラン）＋突進。
       {
         tier: 'small', bossId: 'jetviper', final: false,
-        warnSec: 118, spawnSec: 120, spawnDist: 210,
-        hp: 3600, radius: 30, spriteScale: 4, glowScale: 3.6,
+        warnSec: 118, spawnSec: 120, spawnDist: 300,
+        hp: 3600, radius: 56, spriteScale: 8, glowScale: 7.2,
         glowOuter: '#2a6bff', glowInner: '#7fd0ff',
         chaseSpeed: 70, bodyDamage: 15,
         attacks: ['cutter', 'dash'],
@@ -187,8 +187,8 @@ export const BALANCE = {
       // 3. 中ボス「ウズバルカン」（~180秒）。バルカン掃射＋アームスラム＋phase2「ぶちギレ」。
       {
         tier: 'mid', bossId: 'uzuking', final: false,
-        warnSec: 178, spawnSec: 180, spawnDist: 220,
-        hp: 6500, radius: 34, spriteScale: 4.5, glowScale: 4.6,
+        warnSec: 178, spawnSec: 180, spawnDist: 310,
+        hp: 6500, radius: 64, spriteScale: 9, glowScale: 9,
         glowOuter: '#e8720c', glowInner: '#ffd23f',
         chaseSpeed: 66, bodyDamage: 18,
         attacks: ['vulcan', 'armslam'],
@@ -208,8 +208,8 @@ export const BALANCE = {
       // 4. 中+ボス「ウェイブロード」（~240秒）。波動砲（薙ぎビーム）＋アームスラム＋召喚＋phase2。
       {
         tier: 'mid', bossId: 'wavelord', final: false,
-        warnSec: 238, spawnSec: 240, spawnDist: 230,
-        hp: 11000, radius: 38, spriteScale: 4.5, glowScale: 5,
+        warnSec: 238, spawnSec: 240, spawnDist: 320,
+        hp: 11000, radius: 72, spriteScale: 9, glowScale: 10,
         glowOuter: '#38e1ff', glowInner: '#a8f0ff',
         chaseSpeed: 60, bodyDamage: 22,
         attacks: ['wavecannon', 'armslam', 'summon'],
@@ -229,8 +229,8 @@ export const BALANCE = {
       // 5. 大ボス「ミサイルガ」（~300秒）。ホーミングミサイル＋バルカン＋召喚＋phase2。
       {
         tier: 'large', bossId: 'missilga', final: false,
-        warnSec: 298, spawnSec: 300, spawnDist: 240,
-        hp: 18000, radius: 40, spriteScale: 4, glowScale: 5.2,
+        warnSec: 298, spawnSec: 300, spawnDist: 330,
+        hp: 18000, radius: 76, spriteScale: 8, glowScale: 10,
         glowOuter: '#e8720c', glowInner: '#ff4d4d',
         chaseSpeed: 60, bodyDamage: 26,
         attacks: ['missile', 'vulcan', 'summon'],
@@ -247,28 +247,36 @@ export const BALANCE = {
         rageText: 'ミサイルガ ぶちギレ！', bulletTint: '#ff4d4d',
         rewardCoins: 380, deathCinematicSec: 1.7,
       },
-      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。亜空間レーザー＋アームスラム＋ミサイル。
-      //    phase2 では laser の後に vulcan を挿入する（beginAttack が cfg.vulcan を参照）。撃破でクリア。
+      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは3つの必殺級「特別攻撃」を持つ：
+      //    ① 亜空間レーザー薙ぎ（laser・極太/長射程に強化） ② 多連ホーミングミサイル斉射（missile・弾数を7へ増やし
+      //    扇状の"斉射"に） ③ 重力弾幕ノヴァ（nova＝新規／全方位弾を回転させながら連続波で放つ弾幕）。この3つが
+      //    attacks ローテーション。phase2 では laser の後に vulcan を割り込ませる（beginAttack が cfg.vulcan を参照）。
+      //    armslam は近接データとして保持するがローテーションには載せない（3特別攻撃に集中させる）。撃破でクリア。
+      //    巨大化：spriteScale 5→10（通常ボス≈8-9の視覚1.5倍級／360px高を埋め切らない範囲）・radius/glow/spawnDist も比例拡大。
       {
         tier: 'final', bossId: 'maou', final: true,
-        warnSec: 358, spawnSec: 360, spawnDist: 260,
-        hp: 28000, radius: 44, spriteScale: 5, glowScale: 6,
+        warnSec: 358, spawnSec: 360, spawnDist: 340,
+        hp: 28000, radius: 82, spriteScale: 10, glowScale: 11.5,
         glowOuter: '#e03028', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 30,
-        attacks: ['laser', 'armslam', 'missile'],
-        laser: { chargeSec: 1.0, beamWidth: 34, beamLength: 340, damage: 42,
-                 sweepFromDeg: -35, sweepToDeg: 35, activeSec: 0.6 },
+        attacks: ['laser', 'missile', 'nova'],
+        laser: { chargeSec: 1.0, beamWidth: 46, beamLength: 420, damage: 42,
+                 sweepFromDeg: -42, sweepToDeg: 42, activeSec: 0.7 },
+        // 特別攻撃②：多連ホーミングミサイル斉射（count 4→7・扇状に一斉発射で"斉射"感）
+        missile: { telegraphSec: 0.6, count: 7, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
+                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
+        nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
+                bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },
         armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 50, meleeDamage: 38 },
-        missile: { telegraphSec: 0.6, count: 4, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
-                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
         vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },
         ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 1.8, 2.2] },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.0, 2.6] },
         phase2: true, phase2HpRatio: 0.55, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
         rageText: 'マオウレクス かくせい！', bulletTint: '#38e1ff',
         rewardCoins: 500, deathCinematicSec: 1.8,

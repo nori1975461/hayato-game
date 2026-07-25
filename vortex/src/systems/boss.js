@@ -232,6 +232,7 @@ export function createBoss(run) {
       case 'wavecannon': state = 'waveTele';    stateT = cfg.wavecannon.chargeSec; Sound.sfx('specialCharge'); break;
       case 'missile':    state = 'missileTele'; stateT = cfg.missile.telegraphSec; break;
       case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge'); break;
+      case 'nova':       state = 'novaTele';    stateT = cfg.nova.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'armslam':    state = 'slamTele';    stateT = cfg.armslam.telegraphSec; break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
       case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
@@ -337,6 +338,26 @@ export function createBoss(run) {
         if (stateT <= 0) afterAttack();
         break;
 
+      case 'novaTele':
+        if (stateT <= 0) {
+          const nv = cfg.nova;
+          state = 'novaFire'; stateT = nv.waves * nv.waveInterval + 0.1;
+          shotAcc = 0; shotIdx = 0;
+          whiteFlash(0.32); Sound.sfx('bigBoom'); run.shake(220, 6);   // 起爆の一瞬だけフラッシュ（<0.5）
+        }
+        break;
+      case 'novaFire': {
+        const nv = cfg.nova;
+        shotAcc += dt;
+        while (shotAcc >= nv.waveInterval && shotIdx < nv.waves) {
+          shotAcc -= nv.waveInterval;
+          fireNovaWave(shotIdx);
+          shotIdx++;
+        }
+        if (shotIdx >= nv.waves && stateT <= 0) afterAttack();
+        break;
+      }
+
       case 'slamTele':
         if (stateT <= 0) { state = 'slamHit'; stateT = cfg.armslam.slamSec; slamFired = false; }
         break;
@@ -426,6 +447,19 @@ export function createBoss(run) {
     startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth, lk.damage, lk.activeSec);
     whiteFlash(0.45); Sound.sfx('bigBoom'); recoil(aim);
     state = 'laserFire'; stateT = lk.activeSec;
+  }
+
+  // 重力弾幕ノヴァ（最終ボス専用の特別攻撃）：全方位弾を波ごとに spinDeg ずつ回して螺旋状に放つ。
+  // 弾はやや遅めで隙間を縫って避けられるが、連続波で画面全体に弾幕の花を咲かせる（派手・巨体からの迫力）。
+  function fireNovaWave(w) {
+    const nv = cfg.nova, base = w * nv.spinDeg * D2R;
+    for (let i = 0; i < nv.perWave; i++) {
+      const a = base + (Math.PI * 2 * i) / nv.perWave;
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * nv.bulletSpeed, Math.sin(a) * nv.bulletSpeed,
+        { radius: nv.bulletRadius, damage: nv.damage, life: nv.lifeSec });
+    }
+    Sound.sfx('shoot'); run.shake(60, 3);
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 12);
   }
 
   // アームスラム：叩きつけの瞬間に衝撃波リング＋至近メレー
@@ -616,8 +650,12 @@ export function createBoss(run) {
     } else if (state === 'missileTele') {
       // ミサイル：発射ハッチを開くように両腕を振り上げる
       armPose = lerp(0, -1.1, clamp01(1 - stateT / cfg.missile.telegraphSec));
+    } else if (state === 'novaTele') {
+      // ノヴァ：エネルギーを溜めるように両腕を大きく振り上げる
+      armPose = lerp(0, -1.4, clamp01(1 - stateT / cfg.nova.telegraphSec));
     }
     if (state === 'vulcanTele' || state === 'vulcanFire') upperSpin = Math.sin(run.elapsed * 18) * 0.12;
+    if (state === 'novaTele' || state === 'novaFire') upperSpin = Math.sin(run.elapsed * 24) * 0.16;
     // 機関銃：連射中は上体を小刻みに反動させ、腕を前へ構える（撃つ動き）
     if (state === 'mgFire') { upperSpin = Math.sin(run.elapsed * 40) * 0.06; if (armPose === 0) armPose = -0.5; }
 

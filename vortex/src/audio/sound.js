@@ -643,6 +643,15 @@ function playBgmStep(step) {
       tone({ type: 'square', freq: noteFreq(chord.arp[2]), dur: stepSec * 1.1,
              gain: 0.06, dest: bgmGain, attack: 0.004 });
     }
+    // ボス戦強化：小節頭にオクターブ下の低音パッドを長く伸ばして「重み・緊張感」を土台に敷く（低ゲインで安全）
+    if (inBar === 0) {
+      tone({ type: 'sawtooth', freq: noteFreq(chord.bass) / 2, dur: stepSec * 14,
+             gain: 0.05, dest: bgmGain, attack: 0.04 });
+    }
+    // ボス戦強化：ループ先頭（1小節目の頭）でクラッシュシンバルを抜けよく鳴らして山場の入りを締める
+    if (inBar === 0 && bar === 0) {
+      noiseHit({ dur: 0.34, gain: 0.06, hpFreq: 4000, lpFreq: 14000, dest: bgmGain });
+    }
     // リード：sawtoothで通常曲と音色を差別化＋detune薄重ね＋オクターブ上のきらめきで厚く
     if (inBar % 2 === 0) {
       const m = song.melody[bar][inBar / 2];

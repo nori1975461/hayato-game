@@ -975,7 +975,9 @@ Wave D の3段ボスは「回転渦＋顔」の2枚重ねで、実質“顔だ�
 | 3 | uzuking  | ウズバルカン | mid    | 180 | 6500  | 18 | 220 | バルカン砲 | [vulcan,armslam] | ✓(0.5) |
 | 4 | wavelord | ウェイブロード | mid+   | 240 | 11000 | 22 | 300 | 波動砲 | [wavecannon,armslam,summon] | ✓(0.5) |
 | 5 | missilga | ミサイルガ | large  | 300 | 18000 | 26 | 380 | ミサイル | [missile,vulcan,summon] | ✓(0.5) |
-| 6 | maou     | マオウレクス | final  | 360 | 28000 | 30 | 500 | 亜空間レーザー | [laser,armslam,missile] | ✓(0.55) |
+| 6 | maou     | マオウレクス | final  | 360 | 28000 | 30 | 500 | 亜空間レーザー | [laser,missile,nova]† | ✓(0.55) |
+
+> † 最終ボスは **§18（Wave R6）で3特別攻撃 [laser, missile, nova] へ再構成**（armslam は近接データとして保持しローテーションから除外）＋全ボスを約2倍に巨大化。spriteScale/attacks 等の現行値は §18 と balance.js が正典。
 
 - top-level 代表値を最終ボス基準へ更新（`hudBossSec:350 / warnSec:358 / spawnSec:360 / spawnDist:260`）。`runDurationSec` は420のまま。
 - `enemies.js`: `BOSSES=[KOROTAMA,JETVIPER,UZUKING,WAVELORD,MISSILGA,MAOU]`。各ボスは `sprites`（body/core/armR/cannon/leg 等のパーツ集合）＋ `rig`（`{role,tex,ox,oy,mirror,origin?}` の配列）を持つ。`swirl/face` は廃止（core が顔を継承）。`export const BOSS = UZUKING` は後方互換で維持。armL/legL は armR/leg テクスチャを `setScale(-s,s)` でミラー表示。
@@ -1106,3 +1108,44 @@ boss.js: `PART_DEPTH`/`PART_ORIGIN` に新role追加（未知roleは depth9/中�
 ## 17.4 検証 v11
 - validate-data/test-core 全PASS（Opening追加はデータ不変）・`node --check` 4ファイルOK・擬似DOMスモーク9項目PASS。
 - **CDP実機**（`scratchpad/cdp-opening-verify.mjs`・PORT8802/DBG9344）：非autotestで起動→SPACE dispatch→各ビートPNGスクショ→Title遷移→autotestバイパスでRun到達、4/4PASS・例外0。**PNG目視で反転『だいじょうぶ！』・ロゴ結像・ポンッ連鎖が全て画面中央域に描画されることを確認**（空中/画面外再生の回帰なし）・ゲート/固有名/命令の核テキスト可読も確認。
+
+---
+
+# 18. Wave R6（実プレイFB第3ラウンド：ボス巨大化・最終ボス3特別攻撃・ボス戦BGM）
+
+> 実プレイFB第3ラウンド5件のうち **#3（ボス巨大化＋最終ボス特別攻撃3つ）／#4（ボス戦BGM）** を本章に記録。#1（HP回復アイテム）/#2（自他弾の判別）/#5（弾の迫力）は §19。
+
+## 18.1 ボス巨大化（FB#3）
+
+全ボスを約2倍・最終ボスは通常ボスの約1.5倍へ。boss.js は `spawnFight` で `cfg.spriteScale` をリグ各パーツの `ox/oy` に乗算（相似拡大）。radius（接触ダメージ範囲）・glowScale・spawnDist（巨体の重なり出現防止）も比例拡大。
+
+| ボス | spriteScale | radius | glowScale | spawnDist |
+|---|---|---|---|---|
+| korotama | 4→**8** | 28→**52** | 3.4→**6.8** | 200→**290** |
+| jetviper | 4→**8** | 30→**56** | 3.6→**7.2** | 210→**300** |
+| uzuking | 4.5→**9** | 34→**64** | 4.6→**9** | 220→**310** |
+| wavelord | 4.5→**9** | 38→**72** | 5→**10** | 230→**320** |
+| missilga | 4→**8** | 40→**76** | 5.2→**10** | 240→**330** |
+| maou（final） | 5→**10** | 44→**82** | 6→**11.5** | 260→**340** |
+
+- 最終ボスは縦長人型スプライトのため scale10 でも実表示 **329×294px**（画面640×360 に対し横51%・縦82%）＝圧倒的だが下・左右に余地を残す（scale11-12 は縦360px超で操作不能のため 10 に決定＝「埋め切らない」原則）。
+
+## 18.2 最終ボスの3特別攻撃（FB#3）
+
+maou の attacks ローテーション＝3特別攻撃 `[laser, missile, nova]`（armslam は近接データとして保持・ローテから除外）。`idleSec.betweenAttacks=[2.2,2.0,2.6]`（長さ一致）。phase2 は laser 直後に vulcan を割り込ませる従来ロジックを維持。
+
+1. **① 亜空間レーザー薙ぎ（laser強化）**：beamWidth 34→46・beamLength 340→420・sweep ±35°→±42°・activeSec 0.6→0.7。極太/長射程の回転薙ぎ。
+2. **② 多連ホーミングミサイル斉射（missile強化）**：count 4→**7**。`fireMissiles` が扇状（`sx=(i-mid)*45`）に一斉発射＝「斉射」感。
+3. **③ 重力弾幕ノヴァ（nova・新規）**：`novaTele`（telegraphSec1.1・`specialCharge`音・腕を振り上げ＋上体旋回）→ `novaFire` で waves5×perWave14 の全方位弾を `spinDeg`13°ずつ回して螺旋状に連続波で放つ（bulletSpeed116・やや遅弾で隙間を縫って回避可）。起爆の一瞬のみ `whiteFlash(0.32<0.5)` を1回。波index/角度のみで**全決定論**（Math.random不使用）。
+
+## 18.3 ボス戦BGM（FB#4）
+
+- 配線は既存を踏襲：`spawnFight` で `startBgm('boss')`、warn予告で `stopBgm()`、非final撃破の `finishMini` で `startBgm('battle')` 復帰、final撃破は Result 遷移。オープニング/通常プレイ='battle'、ボス戦のみ='boss' でメリハリ。
+- 強化：`boss` 曲（Am）に小節頭のオクターブ下サステインパッド（saw・gain0.05）＋ループ先頭クラッシュシンバル（gain0.06）で緊張感と山場感を付与。MASTER_VOL 0.33 据え置き・突発スパイクなし。
+
+## 18.4 検証 v12（Wave R6）
+
+- `node vortex/dev/validate-data.js` — **OK（monsters=6, enemies=5, bosses=6）**。`node vortex/dev/test-core.js` — **全PASS**（6段・bossId順・final1つ・spawnSec単調増加・`betweenAttacks長=attacks長`・`special.maxUses=5` の回帰維持）。`node --check` 3ファイルOK。
+- **CDP実機**（`scratchpad/cdp-r3-boss-giant.mjs` PORT8803/DBG9345、`cdp-maou-nova2.mjs` PORT8805/DBG9347）：6体を実寸(zoom=1)で撮影しパーツ union の表示px実測＝**全ボス縦占有98%以下（操作余地あり）／maou 329×294px**。maou 到達後の state監視で laser/missile/nova の3特別攻撃stateを観測、**nova弾がボス中心から放射され画面全体へ弾幕展開（bulletCount実測＋PNG目視）** を確認。**例外0件**。
+- **BGMは音声のため headless 自動検証の対象外**（autotest は `withAudio=false`）。配線（'boss'開始/復帰）と SONGS/SFX 構造整合を静的確認。
+- 検証知見：プレイヤーをボス中心に密着させるとボス中心発射のnova弾が生成瞬間の衝突判定で即消滅する（bulletCount=0）。実プレイ相当にプレイヤーを離して計測する必要がある（**実バグではなく検証アーティファクト**）。
