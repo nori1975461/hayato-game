@@ -26,6 +26,9 @@ const DECO_TIERS = [
   { sats: 6, hearts: 2, halo: 2, crown: true,  ribbon: true,  wings: true,  sparks: 6, pulse: 0.18, glowMul: 2.00 },
 ];
 const decoTierIndex = (lv) => Math.min(DECO_TIERS.length - 1, Math.max(0, Math.floor((lv - 1) / 2)));
+// ── R4: 武器フォームチェンジ。weaponLevel の2Lv帯ごとに form0(近接)↔form1(遠距離)を交互に。
+// band=floor((lv-1)/2)、formIndex=band%2。帯0(Lv1-2)=近接／帯1(Lv3-4)=遠距離／帯2(Lv5-6)=近接…
+const formIndexFor = (lv) => (Math.floor((lv - 1) / 2) % 2);
 // 虹シマー：連続位相 ph をHUESインデックスへ巡回（各装飾で位相をずらすと全体で虹グラデに見える）
 const hueAt = (ph) => HUES[((Math.floor(ph) % HUES.length) + HUES.length) % HUES.length];
 
@@ -47,6 +50,7 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      if (o.weaponSpr) o.weaponSpr.destroy();
       disposeDeco(o);
       releaseWeaponVisuals(o);
     }
@@ -57,11 +61,13 @@ export function createOrbit(run) {
       const spr = run.add.image(0, 0, 'white').setDepth(11);
       orbs.push({ glow, spr, aura: null, deco: [], glowBase: 1.5, glowMul: 1, decoTier: null,
                   shotT: 0, beamT: 0, fieldT: 0, slash: new Map(),
-                  boomT: 0, ringT: 0, boomerang: null, ringwave: null });
+                  boomT: 0, ringT: 0, boomerang: null, ringwave: null,
+                  form: null, weaponSpr: null, meleeSfxT: -1 });
     }
     // 定義を各公転体へ割り当て
     for (let i = 0; i < orbs.length; i++) {
       const o = orbs[i];
+      const prevArch = o.archetype;   // R4: フォーム帯切替で archetype が変わったら旧飛翔体を破棄するため保持
       const p = run.party[i];
       const base = p.def;
       const fused = !!p.fused;
@@ -74,7 +80,13 @@ export function createOrbit(run) {
       o.idx = i;                               // 脈動などの位相ずらしに使う
       o.fused = fused;
       o.evolved = evolved;
-      o.archetype = base.archetype;            // archetype/color は基本形を継承
+      // R4: 現フォームを決定（進化体に forms が無ければ基本形から継承）。実効 archetype はフォーム側。
+      const forms = src.forms || base.forms;
+      o.form = forms ? forms[formIndexFor(weaponLevel)] : null;
+      o.archetype = o.form ? o.form.archetype : base.archetype;
+      // R4: フォーム帯切替で archetype が別物へ変わったら、旧 archetype の飛翔中スプライト
+      //     (boomerang/ringwave) を破棄する（どの update からも参照されず画面に固着＋リークするため）。
+      if (prevArch && prevArch !== o.archetype) releaseWeaponVisuals(o);
       o.color = int(base.color);
       o.textureId = src.id;
       o.dmgBase = src.baseDamage;
@@ -147,6 +159,22 @@ export function createOrbit(run) {
         o.aura.setVisible(false);
       }
 
+      // R4: 現フォームの武器テクスチャを本体に携える（近接は振り／遠距離は携えて浮遊）。
+      // update() の updateWeaponVisual が毎フレーム追従・アニメする。虹テクスチャのみ tint 白。
+      if (o.form) {
+        if (!o.weaponSpr) {
+          o.weaponSpr = run.add.image(0, 0, 'white')
+            .setBlendMode(Phaser.BlendModes.ADD).setDepth(12);
+        }
+        const tex = run.textures.exists(o.form.tex) ? o.form.tex : 'white';
+        const wsize = o.form.kind === 'melee' ? (big ? 26 : 20) : (big ? 18 : 14);
+        o.weaponSpr.setTexture(tex)
+          .setTint(o.form.tex === 'w_rainbow' ? 0xffffff : o.color)
+          .setDisplaySize(wsize, wsize).setVisible(true);
+      } else if (o.weaponSpr) {
+        o.weaponSpr.setVisible(false);
+      }
+
       // ★武器レベルに応じた「まとう装飾」を再構築（ティアが上がるほど別物の見た目へ）
       buildDeco(o, weaponLevel, big);
     }
@@ -174,6 +202,7 @@ export function createOrbit(run) {
       o.spr.setPosition(ox, oy);
       o.glow.setPosition(ox, oy);
       updateDeco(o, dt);     // まとう装飾を本体へ追従＋アニメ（グロー脈動もここ）
+      updateWeaponVisual(o); // R4: フォームの武器テクスチャを本体へ追従（近接は振り／遠距離は携える）
 
       switch (o.archetype) {
         case 'SLASH': updateSlash(o, dt); break;
@@ -198,6 +227,11 @@ export function createOrbit(run) {
         if (last == null || run.elapsed - last >= o.slashTick) {
           o.slash.set(e.id, run.elapsed);
           run.dealDamage(e, dmg, o.color);
+          // 近接フォームの打撃音（多発するので orb ごとに間引く・rng不使用）
+          if (o.form && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.18)) {
+            o.meleeSfxT = run.elapsed;
+            Sound.sfx(o.form.sfx);
+          }
         }
       }
     }
@@ -224,12 +258,13 @@ export function createOrbit(run) {
     const n = o.shots;
     const step = Phaser.Math.DegToRad(W.shot.spreadDeg);
     // 狙い角を中心に左右対称の扇状（1発なら従来どおり真っ直ぐ）
+    const tex = o.form ? o.form.tex : 'bullet';
     for (let i = 0; i < n; i++) {
       const a = ang + (i - (n - 1) / 2) * step;
       run.spawnBullet(o.x, o.y, Math.cos(a) * sp, Math.sin(a) * sp,
-        o.color, dmg, o.bulletRadius);
+        o.color, dmg, o.bulletRadius, tex);
     }
-    Sound.sfx('shoot');
+    Sound.sfx((o.form && o.form.sfx) || 'shoot');
   }
 
   function updateBeam(o, aimAngle, dt) {
@@ -239,7 +274,7 @@ export function createOrbit(run) {
     // プレイヤー→公転体の延長方向（radial 外向き）
     run.activateBeam(o.x, o.y, aimAngle, o.beamLength, o.beamWidth,
       o.color, memberDamage(o));
-    Sound.sfx('beam');
+    Sound.sfx((o.form && o.form.sfx) || 'beam');
   }
 
   function updateField(o, dt) {
@@ -256,7 +291,15 @@ export function createOrbit(run) {
       const rr = R + e.radius;
       if (dx * dx + dy * dy <= rr * rr) {
         e.slowMark = run.elapsed;      // 移動側が参照して減速
-        if (doTick) run.dealDamage(e, o.fieldTick, o.color);
+        if (doTick) {
+          run.dealDamage(e, o.fieldTick, o.color);
+          // もこもこスポンジ（近接FIELD）の控えめな当たり音（間引く）
+          if (o.form && o.form.kind === 'melee'
+              && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.4)) {
+            o.meleeSfxT = run.elapsed;
+            Sound.sfx(o.form.sfx);
+          }
+        }
       }
     }
   }
@@ -280,14 +323,15 @@ export function createOrbit(run) {
       if (!best) return;
       o.boomT = o.boomInterval;
       const ang = Math.atan2(best.y - o.y, best.x - o.x);
-      const spr = run.add.image(o.x, o.y, 'w_cookie').setDepth(12).setTint(o.color);
+      const btex = (o.form && run.textures.exists(o.form.tex)) ? o.form.tex : 'w_cookie';
+      const spr = run.add.image(o.x, o.y, btex).setDepth(12).setTint(o.color);
       const glow = run.add.image(o.x, o.y, 'glow')
         .setBlendMode(Phaser.BlendModes.ADD).setDepth(6).setTint(o.color).setScale(0.7);
       o.boomerang = {
         x: o.x, y: o.y, dirx: Math.cos(ang), diry: Math.sin(ang),
         phase: 'out', dist: 0, hit: new Map(), spr, glow,
       };
-      Sound.sfx('boomerang');
+      Sound.sfx((o.form && o.form.sfx) || 'boomerang');
       return;
     }
 
@@ -337,10 +381,11 @@ export function createOrbit(run) {
     o.ringT -= dt;
     if (o.ringT <= 0) {
       o.ringT = o.ringInterval;
-      const spr = run.add.image(o.x, o.y, 'w_ring')
+      const rtex = (o.form && run.textures.exists(o.form.tex)) ? o.form.tex : 'w_ring';
+      const spr = run.add.image(o.x, o.y, rtex)
         .setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setTint(o.color);
       rings.push({ cx: o.x, cy: o.y, r: 0, hitSet: new Set(), spr });
-      Sound.sfx('ringwave');
+      Sound.sfx((o.form && o.form.sfx) || 'ringwave');
     }
 
     const dmg = memberDamage(o);
@@ -579,6 +624,34 @@ export function createOrbit(run) {
     }
   }
 
+  // R4: フォームの武器テクスチャを本体へ追従・アニメ。決定的（run.elapsed と idx のみ）。
+  // 近接＝本体の外側で弧を描いて振る（打撃感）。遠距離＝脇に携えてゆらゆら浮遊。
+  function updateWeaponVisual(o) {
+    const w = o.weaponSpr;
+    if (!w || !o.form) return;
+    // R4: aurajelly の近接FIELDフォームは o.aura（泡の輪）が既に範囲を見せるので、同じ w_bubble の
+    //     weaponSpr は隠して二重表示を避ける（遠距離など他フォームでは表示に戻す）。
+    if (o.form.kind === 'melee' && o.archetype === 'FIELD') { w.setVisible(false); return; }
+    w.setVisible(true);
+    const t = run.elapsed;
+    const bodyR = (o.spr.displayWidth * 0.5) || 20;
+    const outAng = Math.atan2(o.y - run.player.y, o.x - run.player.x);
+    if (o.form.kind === 'melee') {
+      const swing = Math.sin(t * 9 + o.idx * 1.7);
+      const ang = outAng + swing * 0.7;
+      const rr = bodyR * 1.15;
+      w.setPosition(o.x + Math.cos(ang) * rr, o.y + Math.sin(ang) * rr);
+      w.setRotation(ang + Math.PI / 2 + swing * 0.9);
+      w.setAlpha(0.9);
+    } else {
+      const a = t * 1.6 + o.idx * 1.3;
+      const rr = bodyR * 0.85;
+      w.setPosition(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr * 0.6 - bodyR * 0.2);
+      w.setRotation(Math.sin(t * 3 + o.idx) * 0.4);
+      w.setAlpha(0.82);
+    }
+  }
+
   // 武器ビジュアルの後始末。rebuild() の pop ループと destroy() の「両方」から呼ぶ
   // （片方だけだとなかま入替時にスプライトが残ってリークする）。
   function releaseWeaponVisuals(o) {
@@ -598,6 +671,7 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      if (o.weaponSpr) o.weaponSpr.destroy();
       disposeDeco(o);
       releaseWeaponVisuals(o);
     }
@@ -621,5 +695,12 @@ export function createOrbit(run) {
     rebuild, update, destroy, levelUp, setWeaponLevel,
     get count() { return orbs.length; },
     get weaponLevel() { return weaponLevel; },
+    // R4: HUD 用。全なかま共通 weaponLevel なので先頭 orb の現フォームを代表として返す。
+    // orb がまだ無い場合でも band から kind を算出して返す（表示が空にならないように）。
+    get currentForm() {
+      if (orbs.length && orbs[0].form) return orbs[0].form;
+      const idx = formIndexFor(weaponLevel);
+      return { kind: idx === 0 ? 'melee' : 'ranged', name: '' };
+    },
   };
 }

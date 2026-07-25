@@ -13,6 +13,9 @@ function check(cond, msg) {
 
 const RARITY = ['N', 'R', 'SR'];
 const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
+// R4: forms の tex は Boot.js が生成する武器テクスチャ名のいずれかであること
+const WEAPON_TEX = ['w_paw', 'w_toy', 'w_hammer', 'w_cookie', 'w_star2',
+                    'w_rainbow', 'w_note', 'w_drop', 'w_ring', 'w_bubble'];
 const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral', 'hover'];
 const ATTACK_TYPE = ['quake', 'divebomb', 'selfdestruct', 'lockbeam', 'spread'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -60,6 +63,19 @@ for (const m of MONSTERS) {
   check(COLOR_RE.test(m.color), `${label}: color "${m.color}" が#+16進6桁でない`);
   check(typeof m.baseDamage === 'number', `${label}: baseDamage が数値でない`);
   validateSprite(m.sprite, label);
+
+  // forms（R4：武器フォームチェンジ）: 2要素・form0=melee/form1=ranged・archetype enum内・tex 既知
+  check(Array.isArray(m.forms) && m.forms.length === 2, `${label}: forms が2要素の配列でない`);
+  if (Array.isArray(m.forms) && m.forms.length === 2) {
+    check(m.forms[0] && m.forms[0].kind === 'melee', `${label}: forms[0].kind が 'melee' でない`);
+    check(m.forms[1] && m.forms[1].kind === 'ranged', `${label}: forms[1].kind が 'ranged' でない`);
+    m.forms.forEach((f, fi) => {
+      check(f && typeof f.name === 'string' && f.name.length > 0, `${label}.forms[${fi}]: name が無い`);
+      check(f && ARCHETYPE.includes(f.archetype), `${label}.forms[${fi}]: archetype "${f && f.archetype}" が enum 外`);
+      check(f && WEAPON_TEX.includes(f.tex), `${label}.forms[${fi}]: tex "${f && f.tex}" がテクスチャ生成対象外`);
+      check(f && typeof f.sfx === 'string' && f.sfx.length > 0, `${label}.forms[${fi}]: sfx が無い`);
+    });
+  }
 
   // evo（進化形）: { id, name, baseDamage, sprite, ovr }
   const evo = m.evo;

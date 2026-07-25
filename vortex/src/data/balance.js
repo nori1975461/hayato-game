@@ -9,7 +9,12 @@ export const BALANCE = {
   hero: {
     intervalSec: 1.4, bulletSpeed: 300, range: 240, bulletRadius: 4,
     damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
-    twinLevel: 8, tripleLevel: 16, spreadDeg: 12,
+    spreadDeg: 12,   // R4: 旧 twinLevel/tripleLevel（プレイヤーLv基準の2連/3連）は shotByStage（playerStage基準）へ移行し削除
+    // R4(#4/#8): 主人公にも「攻撃してる感覚」を。常時スターオーラ（周囲の敵へ自動近接ダメージ）。
+    // 主力はあくまで公転仲間なので威力は控えめ。playerStage(1/2/3) で範囲が広がる。
+    auraRadius: 28, auraRadiusPerStage: 10, auraTickSec: 0.5, auraDamage: 4,
+    // ショット強化：弾数は playerStage 連動（1→2→3）。stage3 で貫通1（2体まで貫く）。
+    shotByStage: [1, 2, 3], pierceFromStage: 3, pierceCount: 1,
   },
 
   // Wave R2: 公転仲間は最大3人（火力過多防止）。開始2人・180秒で3人目を解禁（強さカーブを緩やかに）

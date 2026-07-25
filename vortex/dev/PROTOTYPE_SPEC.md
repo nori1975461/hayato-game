@@ -1012,3 +1012,35 @@ Wave D の3段ボスは「回転渦＋顔」の2枚重ねで、実質“顔だ�
 - **撃破時の銃口フラッシュ残り**：連射中に撃破すると `disp.muzzle` が残るため、`startDeathSpin` 冒頭で `setVisible(false)`。
 
 **R4以降の検討事項（過剰修正を避け今回は見送った nit）**：phase2 の未使用パラメータ `phase2DashSpeedMult`／`ring.count2`（dash∩phase2＝空・ring は attacks 未搭載で死にコード。phase2 の強化は攻撃間隔短縮が主）・`missile.homingRate` 未使用（旋回は `maxTurnDeg` で実装済み）・ボス弾の当たり半径が固定値で `bulletRadius/bladeRadius/shockRadius` 未反映・missilga 配色が uzuking と近いオレンジ基調で描き分けが弱い。いずれも実害なし（CDP 72/72 で回避可能・当たると確認済み）。修正後も **test-core／validate-data／CDP 72/72 を再実測しグリーン維持**。
+
+# 15. Wave R4 拡張（武器フォームチェンジ＋主人公スターオーラ）
+
+R3 までボスを厚くしたが、なかまの攻撃は「各自の固定 archetype で弾を撃つだけ」で単調だった（ユーザーFB「弾を撃つだけで飽きる」）。R4 は **weaponLevel が上がるごとに近接↔遠距離フォームが交互に切り替わる**新機構と、**主人公の常時スターオーラ**を実装。要望#4（主人公も攻撃してる爽快感・自動でよい・HAYATO参考）／#5（近接遠距離を交互・可愛さモットー）／#8（オーラ常時＋ショット強化）。
+
+## 15.1 武器フォームチェンジ（要望#5）
+
+- 各なかま（monsters.js）に `forms:[{name,kind:'melee',archetype,tex,sfx}, {name,kind:'ranged',...}]` の2フォーム。**form0=必ず近接・form1=必ず遠距離**。
+- 帯計算 `formIndexFor(lv)=Math.floor((lv-1)/2)%2`。帯0(Lv1-2)=近接／帯1(Lv3-4)=遠距離／帯2(Lv5-6)=近接…と2Lv刻みで交互。全なかま共通 weaponLevel なので帯上昇で6体同時切替。
+- orbit.js `rebuild()` で従来固定の `o.archetype=base.archetype` を `o.form=forms[formIndexFor(weaponLevel)]; o.archetype=o.form.archetype` へ動的化。攻撃機構（SLASH/SHOT/BEAM/FIELD/BOOMERANG/RINGWAVE）は既存を再利用し、テクスチャ・SFX・武器名で差別化。各orbに持続 `weaponSpr`（近接=弧を描いて振る／遠距離=脇で浮遊）。
+- なかま別: starpuppy=グーパンチ(SLASH)/おもちゃ投げ(SHOT)・togeron=巨大ハンマー(SLASH)/ケーキ投げ(BOOMERANG)・pikabit=ビンタ(SLASH)/ピカピカビーム(BEAM)・samet=ピアニカ(SLASH)/水鉄砲(SHOT)・neonworm=頭突き(SLASH)/念動力(RINGWAVE)・aurajelly=スポンジ(FIELD)/なわとび(RINGWAVE)。新テクスチャ `w_toy/w_hammer/w_note/w_drop`（Boot.js内製）＋新SFX `punch/hammer/note/water/psychic`（sound.js・LCG決定・Sound.sfxは未知キー無視で安全）。
+
+## 15.2 主人公スターオーラ＋ショット強化（要望#4/#8）
+
+- Run.js `updateHeroAura`：主人公周囲 `auraRadius(28)+(stage-1)*10` 内の敵へ `auraTickSec(0.5)` ごと自動近接ダメージ（`e.id` ゲート・**ボスは対象外**＝接近戦バランス保護）。`playerAura`（w_star2 ADD 回転脈動・alpha 0.22〜0.34＝<0.5厳守）。「主人公自身が常に攻撃判定を持つ」＝撃ってる感覚（HAYATO参考）。
+- `updateHeroShot`：弾数を playerStage 連動 `shotByStage[1,2,3]`（扇状）、stage3 で貫通（`spawnBullet`/`updateBullets` の `pierce`＋hitSet で二重ヒット防止）。弾色は変身連動（ミント→マゼンタ→金）。
+
+## 15.3 実装後レビューと修正（3次元コードレビュー＋敵対的検証）
+
+form-mechanism／hero-aura-shot／completeness-integration の3次元でレビューし敵対的検証（確定9・**critical 0**）。4テーマを修正:
+
+- **【major】フォーム帯切替でブーメラン/リング波が固着＋リーク**：`rebuild()` の再割り当てループが `releaseWeaponVisuals` を呼ばず、遠距離帯→近接帯（Lv4→5・8→9）で archetype が変わると飛翔中の boomerang/ringwave スプライトが孤児化（どの update からも参照されず画面固着＋GameObjectリーク＝制約「リーク厳禁」抵触）。→ 再割り当てループで `prevArch !== o.archetype` の時 `releaseWeaponVisuals(o)`。
+- **【minor】進化ovrがフォームarchetypeと不一致で3体の進化強化が死ぬ**：thunderbit(intervalSec→pikabitはSLASH/BEAM)・megasamet(expandSpeed→sametはSLASH/SHOT)・neonmoth(width→neonwormはSLASH/RINGWAVE)。→ 各 ovr を実フォームのパラメータへ振り直し（近接hitRadius＋各遠距離キー length/width・bulletSpeed/intervalSec・maxRadius/expandSpeed）。
+- **【nit】hero.twinLevel/tripleLevel 死に設定残置**：shotByStage へ移行済み。→ 削除。
+- **【nit】aurajelly近接FIELDで w_bubble が aura と weaponSpr 二重表示**：→ FIELD近接時 weaponSpr 非表示（他フォームで復帰）。
+
+**見送り（実害小の nit・意図固定）**：主人公ショットはボスにも当たる（弾数増でチップ増だが damageBase6 と軽微・オーラはボス除外済み・主力は仲間）＝**主人公スターショットはボスにも軽減なしで当たる仕様**とする。`_auraTick` の size>128 一括 clear で直後に在圏敵が1回余分tick（実害極小・許容）。
+
+## 15.4 検証 v9（Wave R4）
+
+- `node --check` 全9ファイル OK・`validate-data` OK（monsters=6・enemies=5・bosses=6・forms検証）・`test-core` 全PASS（R1/R2/R3ガード維持＋forms構造/帯交互性/hero設定の新ガード）
+- **CDP実機**（`scratchpad/cdp-r4-weapons.mjs`・PORT 8798/DBG 9340）：weaponLevel 1/3/5/7/9/11 で近接↔遠距離が反転（Lv1/5/9=melee・Lv3/7/11=ranged）／近接で敵HP減／遠距離で飛び道具出現／主人公オーラ常時ダメージ＋ショット弾数[1,2,3]／例外0。**修正後も 13/13 PASS・例外0を再実測**（修正で近接帯の可視武器テクスチャ 4→3＝aurajelly の二重表示解消も確認）。

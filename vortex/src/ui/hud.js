@@ -155,7 +155,10 @@ export function createHud(run) {
     }
 
     const wLv = (run.orbit && run.orbit.weaponLevel) || 0;
-    lvText.setText(wLv ? 'Lv ' + run.level + '  ぶき Lv' + wLv : 'Lv ' + run.level);
+    // R4: 武器フォーム種別（きんせつ/えんきょり）を併記。全なかま共通なので1つの表示でよい。
+    const form = run.orbit && run.orbit.currentForm;
+    const formTag = form ? (form.kind === 'melee' ? ' ‹きんせつ›' : ' ‹えんきょり›') : '';
+    lvText.setText(wLv ? 'Lv ' + run.level + '  ぶき Lv' + wLv + formTag : 'Lv ' + run.level);
 
     // タイマー（カウントダウン M:SS）。ボス出現時刻を過ぎたら赤の「BOSS」表示へ。
     if (run.elapsed >= BALANCE.boss.hudBossSec) {

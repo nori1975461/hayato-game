@@ -45,6 +45,11 @@ export class BootScene extends Phaser.Scene {
     this.makeBubble('w_bubble', 16);          // シャボン（フィールド系）
     this.makePaw('w_paw', 14);                // 肉球ヒットマーク（どうぶつ系）
     this.makeRainbow('w_rainbow', 4, 12);     // にじビーム（唯一の彩色テクスチャ）
+    // --- Wave R4: 武器フォームチェンジ用のかわいい武器テクスチャ（白＝実行時に tint） ---
+    this.makeToy('w_toy', 12);                // おもちゃボール（丸＋星ハイライト）
+    this.makeHammer('w_hammer', 16);          // ぺろぺろ巨大ハンマー
+    this.makeNote('w_note', 14);              // ピアニカのおんぷ（8分音符）
+    this.makeDrop('w_drop', 12);              // みずでっぽうの水玉
 
     // --- 星空タイル（視差背景・決定的パターン） ---
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
@@ -241,6 +246,71 @@ export class BootScene extends Phaser.Scene {
     }
     g.generateTexture(key, w, h);
     g.destroy();
+  }
+
+  // --- Wave R4: 武器フォームチェンジ用テクスチャ ---
+
+  // おもちゃボール。丸い玉に星形の穴を1つ空けて「ぷに」っと可愛く（穴は透明＝ハイライト風）。
+  makeToy(key, size) {
+    const c = size / 2;
+    const r = c - 0.5;
+    const sr = size * 0.24, sir = sr * 0.42;   // 星ハイライトの外径/内径
+    const scx = c - r * 0.28, scy = c - r * 0.28;
+    const inStar = (x, y) => {
+      const dx = x - scx, dy = y - scy;
+      const ang = Math.atan2(dy, dx);
+      // 5点星の輪郭内かを角度→半径で判定
+      const k = ((ang + Math.PI / 2) % (Math.PI * 2 / 5) + Math.PI * 2 / 5) % (Math.PI * 2 / 5);
+      const rr = sir + (sr - sir) * (1 - Math.abs(k - Math.PI / 5) / (Math.PI / 5));
+      return dx * dx + dy * dy <= rr * rr;
+    };
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      if (dx * dx + dy * dy > r * r) return false;
+      return !inStar(x, y);
+    });
+  }
+
+  // ぺろぺろ巨大ハンマー。太い柄＋大きな長方形の頭（縦向き。実行時に回転して振る）。
+  makeHammer(key, size) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffffff, 1);
+    const headH = size * 0.34;
+    g.fillRect(size * 0.14, size * 0.06, size * 0.72, headH);         // ハンマーの頭
+    g.fillRect(size * 0.42, size * 0.06 + headH, size * 0.16, size * 0.86 - headH); // 柄
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  // ピアニカのおんぷ（8分音符）。左下の音玉＋右上への棒＋旗。
+  makeNote(key, size) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(size * 0.34, size * 0.74, size * 0.24);              // 音玉
+    g.fillRect(size * 0.52, size * 0.14, size * 0.10, size * 0.62);   // 棒
+    g.fillPoints(this.toPoints([                                       // 旗
+      size * 0.62, size * 0.14, size * 0.86, size * 0.30,
+      size * 0.62, size * 0.40,
+    ]), true);
+    g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  // みずでっぽうの水玉（しずく）。下の円＋上のとがり。
+  makeDrop(key, size) {
+    const c = size / 2;
+    const br = size * 0.34;                     // 下の丸の半径
+    const bcy = size * 0.62;                    // 下の丸の中心y
+    const tipY = size * 0.06;                   // てっぺん
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - bcy;
+      if (dx * dx + dy * dy <= br * br) return true;      // 下の丸
+      if (y >= bcy) return false;
+      // てっぺんから丸へ向かって直線的に広がる三角部
+      const frac = (y - tipY) / (bcy - tipY);
+      const halfW = br * Math.max(0, frac);
+      return Math.abs(x - c) <= halfW;
+    });
   }
 
   makeStarfield(key, size, count, dotSize, alpha) {

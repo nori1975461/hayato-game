@@ -133,6 +133,53 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
     'data: boss.tiers の summon.enemyId が全て chibit');
 }
 
+// --- Wave R4: 武器フォームチェンジ。全なかまに forms が2つ・form0=melee/form1=ranged ---
+{
+  const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
+  const allTwo = MONSTERS.every((m) => Array.isArray(m.forms) && m.forms.length === 2);
+  assert(allTwo, 'data: 全なかまに forms が2つ定義されている');
+  const meleeFirst = MONSTERS.every((m) => m.forms && m.forms[0] && m.forms[0].kind === 'melee');
+  const rangedSecond = MONSTERS.every((m) => m.forms && m.forms[1] && m.forms[1].kind === 'ranged');
+  assert(meleeFirst, 'data: 全なかまの forms[0] が melee（近接）');
+  assert(rangedSecond, 'data: 全なかまの forms[1] が ranged（遠距離）');
+  const archeOk = MONSTERS.every((m) => m.forms
+    && m.forms.every((f) => ARCHE.includes(f.archetype) && typeof f.tex === 'string' && typeof f.sfx === 'string'));
+  assert(archeOk, 'data: 全フォームの archetype が enum 内・tex/sfx が文字列');
+}
+
+// --- Wave R4: 帯計算 formIndex=floor((lv-1)/2)%2 が近接↔遠距離を交互に切り替える ---
+{
+  const formIndexFor = (lv) => (Math.floor((lv - 1) / 2) % 2);
+  // Lv1,2=0(近接) / Lv3,4=1(遠距離) / Lv5,6=0(近接) / Lv7,8=1 / Lv9,10=0 / Lv11,12=1
+  const expect = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 0, 7: 1, 8: 1, 9: 0, 10: 0, 11: 1, 12: 1 };
+  let ok = true;
+  for (const [lv, idx] of Object.entries(expect)) {
+    if (formIndexFor(Number(lv)) !== idx) ok = false;
+  }
+  assert(ok, 'balance/orbit: 帯計算が2Lv帯ごとに近接↔遠距離を交互に切り替える');
+  // 帯境界（Lv2→3, Lv4→5, ...）で必ずフォームが反転すること
+  let flips = true;
+  for (let lv = 2; lv <= 11; lv++) {
+    const boundary = (lv % 2 === 0);   // 偶数→次の奇数で帯が変わる
+    const changed = formIndexFor(lv) !== formIndexFor(lv + 1);
+    if (boundary && !changed) flips = false;
+    if (!boundary && changed) flips = false;
+  }
+  assert(flips, 'orbit: 2Lv帯の境界でのみフォームが反転する（帯内は不変）');
+}
+
+// --- Wave R4: 主人公スターオーラ／ショット強化の hero 設定が数値・妥当 ---
+{
+  const H = BALANCE.hero;
+  const nums = ['auraRadius', 'auraRadiusPerStage', 'auraTickSec', 'auraDamage', 'pierceFromStage', 'pierceCount'];
+  const ok = !!H && nums.every((k) => typeof H[k] === 'number' && Number.isFinite(H[k]) && H[k] >= 0);
+  assert(ok, 'balance: hero のオーラ/貫通パラメータが全て数値');
+  assert(Array.isArray(H.shotByStage) && H.shotByStage.length === 3
+    && H.shotByStage.every((n) => Number.isInteger(n) && n >= 1),
+    'balance: hero.shotByStage が3段の正整数（弾数1→2→3）');
+  assert(H.auraDamage > 0 && H.auraTickSec > 0, 'balance: hero.auraDamage/auraTickSec が正（オーラが実際に効く）');
+}
+
 // --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---
 {
   const ids = [];

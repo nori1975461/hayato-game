@@ -393,6 +393,33 @@ const SFX = {
     tone({ type: 'sine', freq: noteFreq(NOTE.G5), start: 0.03, dur: 0.2, gain: 0.09, attack: 0.012 });
     tone({ type: 'triangle', freq: noteFreq(NOTE.C6), start: 0.06, dur: 0.16, gain: 0.06 });
   },
+  // ── R4: 近接／遠距離フォーム用のかわいい打撃音（どれも極短・控えめ。多発するので耳に優しく）
+  // グーパンチ/ビンタ/頭突き：ぽむっと軽い当たり
+  punch() {
+    tone({ type: 'sine', freq: 300, freqEnd: 150, dur: 0.06, gain: 0.13 });
+    noiseHit({ dur: 0.03, gain: 0.05, hpFreq: 1500, lpFreq: 7000 });
+  },
+  // 巨大ハンマー：ぼよ〜んと弾む重めのヒット（可愛く）
+  hammer() {
+    tone({ type: 'sine', freq: 200, freqEnd: 70, dur: 0.12, gain: 0.16, attack: 0.002 });
+    tone({ type: 'triangle', freq: 420, freqEnd: 210, dur: 0.08, gain: 0.07 });
+    noiseHit({ dur: 0.04, gain: 0.06, hpFreq: 400, lpFreq: 3000 });
+  },
+  // ピアニカおんぷ打：ド→ミの2音でかわいく
+  note() {
+    tone({ type: 'triangle', freq: noteFreq(NOTE.C5), dur: 0.09, gain: 0.13 });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.E5), start: 0.05, dur: 0.1, gain: 0.11 });
+  },
+  // みずでっぽう：ぴちゅん！と弾ける水音
+  water() {
+    tone({ type: 'sine', freq: 900, freqEnd: 1500, dur: 0.06, gain: 0.11 });
+    noiseHit({ dur: 0.04, gain: 0.05, hpFreq: 2500, lpFreq: 11000 });
+  },
+  // 念動力弾：ふにょ〜んと揺れる不思議な音
+  psychic() {
+    tone({ type: 'sine', freq: 500, freqEnd: 780, dur: 0.16, gain: 0.10, attack: 0.02 });
+    tone({ type: 'triangle', freq: 780, freqEnd: 500, start: 0.05, dur: 0.14, gain: 0.06 });
+  },
 };
 
 // ================= BGM =================

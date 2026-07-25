@@ -14,6 +14,12 @@ export const MONSTERS = [
     archetype: 'SLASH',
     color: '#7fd8ff',
     baseDamage: 4,
+    // R4: 武器フォームチェンジ。form0=近接(melee)/form1=遠距離(ranged)を必ずこの順で。
+    // weaponLevel の2Lv帯ごとに交互に切り替わる（band%2）。tex は Boot.js で内製する武器テクスチャ名。
+    forms: [
+      { name: 'にくきゅうグーパンチ', kind: 'melee',  archetype: 'SLASH', tex: 'w_paw', sfx: 'punch' },
+      { name: 'おもちゃボールなげ',   kind: 'ranged', archetype: 'SHOT',  tex: 'w_toy', sfx: 'shoot' },
+    ],
     sprite: {
       palette: { a: '#7fd8ff', d: '#4a9fd8', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', s: '#ffe066' },
       rows: [
@@ -72,6 +78,10 @@ export const MONSTERS = [
     archetype: 'BOOMERANG',   // クッキーブーメラン（スイーツ系）
     color: '#9dff70',
     baseDamage: 5,
+    forms: [
+      { name: 'ぺろぺろ巨大ハンマー', kind: 'melee',  archetype: 'SLASH',     tex: 'w_hammer', sfx: 'hammer' },
+      { name: 'ケーキなげ',           kind: 'ranged', archetype: 'BOOMERANG', tex: 'w_cookie', sfx: 'boomerang' },
+    ],
     sprite: {
       palette: { a: '#9dff70', d: '#5fbf3f', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', s: '#d4ff9e' },
       rows: [
@@ -130,6 +140,10 @@ export const MONSTERS = [
     archetype: 'SHOT',
     color: '#ffe066',
     baseDamage: 3,
+    forms: [
+      { name: 'きらきらビンタ',   kind: 'melee',  archetype: 'SLASH', tex: 'w_star2',   sfx: 'punch' },
+      { name: 'ピカピカビーム',   kind: 'ranged', archetype: 'BEAM',  tex: 'w_rainbow', sfx: 'beam' },
+    ],
     sprite: {
       palette: { a: '#ffe066', d: '#d8a838', w: '#ffffff', k: '#1b3b5f', p: '#ff8f8f', o: '#ff9e66' },
       rows: [
@@ -156,7 +170,7 @@ export const MONSTERS = [
       id: 'thunderbit',
       name: 'サンダービット',
       baseDamage: 7,
-      ovr: { intervalSec: 0.55 },
+      ovr: { hitRadius: 20, length: 190, width: 9 },   // R4: pikabitのフォームは SLASH/BEAM。近接hitRadius＋ピカピカビームの length/width を強化（旧 intervalSec は BEAM で読まれず死んでいた）
       sprite: {
         palette: { a: '#ffe066', d: '#d8a838', w: '#ffffff', k: '#1b3b5f', p: '#ff5e5e', o: '#ff9e66' },
         rows: [
@@ -188,6 +202,10 @@ export const MONSTERS = [
     archetype: 'RINGWAVE',    // おんぷリング（おもちゃ系）
     color: '#66a3ff',
     baseDamage: 5,
+    forms: [
+      { name: 'ピアニカおんぷ打', kind: 'melee',  archetype: 'SLASH', tex: 'w_note', sfx: 'note' },
+      { name: 'みずでっぽう',     kind: 'ranged', archetype: 'SHOT',  tex: 'w_drop', sfx: 'water' },
+    ],
     sprite: {
       palette: { a: '#66a3ff', d: '#2f6fd8', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9' },
       rows: [
@@ -214,7 +232,7 @@ export const MONSTERS = [
       id: 'megasamet',
       name: 'メガサメット',
       baseDamage: 11,
-      ovr: { expandSpeed: 300 },   // RINGWAVE化に伴い bulletSpeed から置換
+      ovr: { hitRadius: 20, bulletSpeed: 320, intervalSec: 0.6 },   // R4: sametのフォームは SLASH/SHOT。近接hitRadius＋みずでっぽうの弾速/連射を強化（旧 expandSpeed は SHOT で読まれず死んでいた）
       sprite: {
         palette: { a: '#66a3ff', d: '#2f6fd8', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', o: '#ff9e66' },
         rows: [
@@ -246,6 +264,10 @@ export const MONSTERS = [
     archetype: 'BEAM',
     color: '#ff9e66',
     baseDamage: 8,
+    forms: [
+      { name: 'にじいろ頭突き',       kind: 'melee',  archetype: 'SLASH',    tex: 'w_star2', sfx: 'punch' },
+      { name: 'ねんどうりょくだん',   kind: 'ranged', archetype: 'RINGWAVE', tex: 'w_ring',  sfx: 'psychic' },
+    ],
     sprite: {
       palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', g: '#ffe0b3' },
       rows: [
@@ -272,7 +294,7 @@ export const MONSTERS = [
       id: 'neonmoth',
       name: 'ネオンモス',
       baseDamage: 16,
-      ovr: { width: 10 },
+      ovr: { hitRadius: 20, maxRadius: 115, expandSpeed: 260 },   // R4: neonwormのフォームは SLASH/RINGWAVE。近接hitRadius＋ねんどうりょくの輪(maxRadius/expandSpeed)を強化（旧 width は BEAM で読まれず死んでいた）
       sprite: {
         palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', g: '#ffe0b3' },
         rows: [
@@ -304,6 +326,11 @@ export const MONSTERS = [
     archetype: 'FIELD',
     color: '#ff6ec7',
     baseDamage: 1,
+    // 近接フォームは FIELD（もこもこ泡オーラ）。遠距離はなわとびウェーブ（RINGWAVE）。
+    forms: [
+      { name: 'もこもこスポンジ', kind: 'melee',  archetype: 'FIELD',    tex: 'w_bubble', sfx: 'pop' },
+      { name: 'なわとびウェーブ', kind: 'ranged', archetype: 'RINGWAVE', tex: 'w_ring',   sfx: 'ringwave' },
+    ],
     sprite: {
       palette: { a: '#ff6ec7', d: '#c9337f', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', s: '#ffe066' },
       rows: [

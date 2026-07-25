@@ -59,6 +59,11 @@ export class RunScene extends Phaser.Scene {
       .setDepth(8).setTint(0x4de1c0).setScale(1.6);
     this.playerImg = this.add.image(0, 0, 'player').setScale(2).setDepth(10);
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
+    // R4(#4/#8): 主人公の常時スターオーラ。周囲の敵へ自動近接ダメージ＋きらきら表示。
+    this.playerAura = this.add.image(0, 0, 'w_star2').setBlendMode(ADD)
+      .setDepth(7).setTint(0xfff0a0).setAlpha(0.3);
+    this._auraTick = new Map();   // 敵id→最終ダメージ時刻（auraTickSec でゲート）
+    this._auraSfxT = -1;
 
     // --- パーティ（開始編成） ---
     this.party = START_PARTY.map((id) => ({ def: MONSTERS.find((m) => m.id === id) }));
@@ -184,6 +189,7 @@ export class RunScene extends Phaser.Scene {
 
     this.updatePlayer(dt);
     this.updateHeroShot(dt);
+    this.updateHeroAura(dt);
     this.orbit.update(dt);
     this.spawner.update(dt);
     this.boss.update(dt);
@@ -312,17 +318,57 @@ export class RunScene extends Phaser.Scene {
     const dmg = (H.damageBase + Math.floor(this.level / 2) * H.damagePerTwoLevels) * this.stats.heroMult;
     const ang = Math.atan2(best.y - py, best.x - px);
     const spread = H.spreadDeg * Math.PI / 180;
-    let angles;
-    if (this.level >= H.tripleLevel) angles = [ang, ang - spread, ang + spread];
-    else if (this.level >= H.twinLevel) angles = [ang - spread, ang + spread];
-    else angles = [ang];
+    // R4(#8): 弾数は変身ステージ連動（1→2→3・扇状）。stage3 で貫通付与（2体まで貫く）。
+    const stage = this.playerStage;
+    const nShots = H.shotByStage[Math.min(H.shotByStage.length - 1, stage - 1)] || 1;
+    const pierce = stage >= H.pierceFromStage ? H.pierceCount : 0;
+    const angles = [];
+    for (let i = 0; i < nShots; i++) angles.push(ang + (i - (nShots - 1) / 2) * spread);
     // 弾色は変身ステージ連動（1=ミント/2=マゼンタ/3=金）＝変身の実感をショットでも見せる
     const shotColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xff6ec7 : 0x4de1c0;
     for (const a of angles) {
       this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
-        shotColor, dmg, H.bulletRadius, 'w_star2');   // Wave B: きらきらスター弾
+        shotColor, dmg, H.bulletRadius, 'w_star2', pierce);   // Wave B: きらきらスター弾
     }
     Sound.sfx('shoot');
+  }
+
+  // R4(#4/#8): 主人公の常時スターオーラ。周囲radius内の敵へ auraTickSec ごとに自動近接ダメージ。
+  // 「主人公自身が常に攻撃判定を持つ」＝撃ってる感覚（HAYATO参考）。主力は仲間なので威力は控えめ。
+  updateHeroAura(dt) {
+    const H = BALANCE.hero;
+    const px = this.player.x, py = this.player.y;
+    const R = H.auraRadius + (this.playerStage - 1) * H.auraRadiusPerStage;
+    // きらきら表示：オーラの星をゆっくり回転＋脈動（run.elapsed 基準で決定的・alpha<0.5）
+    const beat = 1 + Math.sin(this.elapsed * 5) * 0.12;
+    const auraColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xff6ec7 : 0xfff0a0;
+    this.playerAura.setPosition(px, py)
+      .setDisplaySize(R * 2 * beat, R * 2 * beat)
+      .setRotation(this.elapsed * 1.5)
+      .setTint(auraColor)
+      .setAlpha(0.22 + 0.12 * (0.5 + 0.5 * Math.sin(this.elapsed * 4)));
+    // 自動近接ダメージ（敵ごと tick ゲート・ボスは対象外＝バランス保護）
+    const dmg = Math.max(1, Math.round(H.auraDamage * this.stats.heroMult));
+    let hitAny = false;
+    for (const e of this.enemies) {
+      if (!e.active || e.isBoss) continue;
+      const rr = R + e.radius;
+      const dx = e.x - px, dy = e.y - py;
+      if (dx * dx + dy * dy <= rr * rr) {
+        const last = this._auraTick.get(e.id);
+        if (last == null || this.elapsed - last >= H.auraTickSec) {
+          this._auraTick.set(e.id, this.elapsed);
+          this.dealDamage(e, dmg, auraColor);
+          hitAny = true;
+        }
+      }
+    }
+    if (this._auraTick.size > 128) this._auraTick.clear();
+    // 当たった時だけ控えめに鳴らす（多発しても耳に痛くないよう間引く）
+    if (hitAny && this.elapsed - this._auraSfxT >= 0.18) {
+      this._auraSfxT = this.elapsed;
+      Sound.sfx('pop');
+    }
   }
 
   // ============ 敵 ============
@@ -671,7 +717,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   // ============ 弾 ============
-  spawnBullet(x, y, vx, vy, color, damage, radius, tex = 'bullet') {
+  spawnBullet(x, y, vx, vy, color, damage, radius, tex = 'bullet', pierce = 0) {
     const disp = this._bulletPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'bullet'),
@@ -684,7 +730,9 @@ export class RunScene extends Phaser.Scene {
       .setScale(0.7).setPosition(x, y);
     this.bullets.push({
       active: true, x, y, vx, vy, color, damage, radius,
-      life: 1.1, spr: disp.spr, glow: disp.glow,
+      // R4(#8): pierce>0 の弾は貫通。既に当てた敵は hit で記録して二重ヒットを防ぐ。
+      life: 1.1, pierce, hit: pierce > 0 ? new Set() : null,
+      spr: disp.spr, glow: disp.glow,
     });
   }
 
@@ -705,12 +753,18 @@ export class RunScene extends Phaser.Scene {
       if (b.life <= 0) { b.active = false; continue; }
       for (const e of this.enemies) {
         if (!e.active) continue;
+        if (b.hit && b.hit.has(e.id)) continue;   // 貫通弾は同じ敵に二度当てない
         const rr = b.radius + e.radius;
         const dx = e.x - b.x, dy = e.y - b.y;
         if (dx * dx + dy * dy <= rr * rr) {
           this.dealDamage(e, b.damage, b.color);
-          b.active = false;
-          break;
+          if (b.pierce > 0) {
+            b.pierce -= 1;
+            b.hit.add(e.id);          // まだ飛ぶ（次の敵を貫く）
+          } else {
+            b.active = false;
+            break;
+          }
         }
       }
     }
