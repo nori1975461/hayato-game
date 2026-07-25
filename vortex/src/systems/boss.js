@@ -29,6 +29,15 @@ const PART_ORIGIN = {
   qlegFL: [0.5, 0.1], qlegFR: [0.5, 0.1], qlegBL: [0.5, 0.1], qlegBR: [0.5, 0.1],
 };
 
+// 最終ボス「マオウレクス(maou)」専用の登場イベント（§20.3 想定）。
+// 実時間で自動進行する（フリーズ／入力待ちにしない＝autotest/CDPを阻害しない）。
+// dur 全体を state='maouIntro' として保持し、fadeSec でゆっくり姿を現す。lineXAt/telopAt は
+// 登場開始からの経過秒(it = dur - stateT)でセリフ/テロップを1回ずつ出す閾値。
+const MAOU_INTRO = {
+  dur: 3.6, fadeSec: 1.8,
+  line1At: 1.0, line2At: 2.0, telopAt: 2.9,
+};
+
 export function createBoss(run) {
   const B = BALANCE.boss;
   const W = BALANCE.wave;
@@ -58,6 +67,8 @@ export function createBoss(run) {
   // 攻撃の連射/掃射用アキュムレータ（stateT基準・決定的）
   let shotAcc = 0, shotIdx = 0, slamFired = false, chainVulcan = false;
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
+  let introStage = -1;          // maou 登場イベントのセリフ/テロップ進行段（-1=未使用/非final）
+  const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
   const bullets = [];           // ボス弾（プレイヤーへ当たる）
   const pool = [];
   let beam = null;              // 波動砲/レーザーの薙ぎビーム（同時1本）
@@ -203,13 +214,23 @@ export function createBoss(run) {
     };
     run.enemies.push(boss);
 
-    state = 'chase';
-    stateT = idleDur(cfg.idleSec.afterSpawn);
+    // 最終ボス（maou）は専用の登場イベント（ゆっくり登場＋セリフ2行＋テロップ）から開始する。
+    // それ以外の5体は従来どおり即時に戦闘（chase）へ。登場中も boss.active/entity/state は立ち、
+    // 実時間で自動進行して数秒で通常戦闘へ戻る（CDP/autotest の出現検出・撃破を阻害しない）。
+    if (cfg.final) {
+      state = 'maouIntro';
+      stateT = MAOU_INTRO.dur;
+      introStage = 0;
+    } else {
+      state = 'chase';
+      stateT = idleDur(cfg.idleSec.afterSpawn);
+    }
     attackIdx = 0;
 
     run.spawnParticles(x, y, int(def.color), 30);
-    run.shake(300, 5);
-    if (run.withAudio) Sound.startBgm('boss');
+    run.shake(cfg.final ? 360 : 300, cfg.final ? 6 : 5);
+    if (cfg.final) Sound.sfx('bigBoom');            // 登場の"ドゥーン"（重量感／既存SFX）
+    if (run.withAudio) Sound.startBgm('boss');      // BGM切替＝登場の合図（warn の静寂→ボス戦BGM）
   }
 
   // ============ AI ============
@@ -259,6 +280,28 @@ export function createBoss(run) {
     stateT -= dt;
 
     switch (state) {
+      // 最終ボス登場イベント：移動/攻撃はせず、経過秒でセリフ→セリフ→テロップを1回ずつ出す。
+      // 視覚のフェードイン/降下は updateDisp 側（maouIntroFx）で担当。stateT<=0 で通常戦闘へ。
+      case 'maouIntro': {
+        const it = MAOU_INTRO.dur - stateT;
+        if (introStage < 1 && it >= MAOU_INTRO.line1At) {
+          introStage = 1;
+          introText('オマエタチ・・・ハ・・・キケン・・・', '#bff5ff', 108, 16, 3);
+        }
+        if (introStage < 2 && it >= MAOU_INTRO.line2At) {
+          introStage = 2;
+          introText('ハイジョ・・・スル・・・', '#ff7a7a', 140, 16, 3);
+        }
+        if (introStage < 3 && it >= MAOU_INTRO.telopAt) {
+          introStage = 3;
+          introText('【マオウレクスが現れた】', '#ffffff', 186, 22, 5);
+          run.shake(220, 4);
+          Sound.sfx('bigBoom');   // 「現れた」の一撃感（既存SFX）
+        }
+        if (stateT <= 0) endIntro();
+        break;
+      }
+
       case 'chase':
         moveBoss(nx * cfg.chaseSpeed, ny * cfg.chaseSpeed, dt);
         if (stateT <= 0) beginAttack();
@@ -517,6 +560,51 @@ export function createBoss(run) {
     run.tweens.add({ targets: f, alpha: 0, duration: 260, onComplete: () => f.destroy() });
   }
 
+  // ============ 最終ボス登場イベント ============
+  // セリフ/テロップ text を1つ生成。setScrollFactor(0) でカメラ固定＝ボス/プレイヤー位置に依らず
+  // 常に画面内に出る。機械生命体らしくフェードイン→低速の明滅（flickerRepeat 回）→フェードアウトで自壊。
+  // 生成物は必ず introEls で追跡し、撃破/破棄時に clearIntroEls で確実に destroy（リーク・二重発火防止）。
+  function introText(text, color, y, sizePx, flickerRepeat) {
+    const cam = run.cameras.main;
+    const t = run.add.text(cam.width / 2, y, text, {
+      fontFamily: 'monospace', fontSize: sizePx + 'px', color,
+      stroke: '#00131f', strokeThickness: 4, align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1500).setAlpha(0);
+    introEls.push(t);
+    run.tweens.add({
+      targets: t, alpha: 1, duration: 160, ease: 'Sine.out',
+      onComplete: () => {
+        run.tweens.add({
+          targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat, ease: 'Sine.inOut',
+          onComplete: () => {
+            run.tweens.add({
+              targets: t, alpha: 0, duration: 260, ease: 'Sine.in',
+              onComplete: () => { const i = introEls.indexOf(t); if (i >= 0) introEls.splice(i, 1); t.destroy(); },
+            });
+          },
+        });
+      },
+    });
+    return t;
+  }
+  function clearIntroEls() {
+    for (const t of introEls) { if (t) { run.tweens.killTweensOf(t); t.destroy(); } }
+    introEls.length = 0;
+  }
+  // 登場中のパーツ/グロウの見た目係数。smoothstep で「フェードイン＋スケールイン＋上からの降下」を
+  // 決定的に算出（fadeSec を過ぎると alpha=1/scale=1/drop=0 の等身大に収束＝以降は通常描画と一致）。
+  function maouIntroFx() {
+    const it = MAOU_INTRO.dur - stateT;
+    const f = clamp01(it / MAOU_INTRO.fadeSec);
+    const e = f * f * (3 - 2 * f);
+    return { alpha: e, scale: lerp(0.55, 1, e), drop: lerp(-26, 0, e) };
+  }
+  function endIntro() {
+    state = 'chase';
+    stateT = idleDur(cfg.idleSec.afterSpawn);
+    attackIdx = 0;
+  }
+
   // ============ ビーム（プレイヤー1点判定・波動砲/レーザー共用） ============
   function startBeam(angFrom, angTo, len, width, dmg, activeSec) {
     if (!beamImg) {
@@ -673,6 +761,9 @@ export function createBoss(run) {
     const rk = recoilT > 0 ? (recoilT / 0.2) * 6 : 0;
     const rcx = -Math.cos(recoilAng) * rk, rcy = -Math.sin(recoilAng) * rk;
 
+    // 最終ボス登場中：全パーツ/グロウをフェードイン＋スケールイン＋上から降下させる（重量感のある登場）。
+    const introFx = state === 'maouIntro' ? maouIntroFx() : null;
+
     for (const p of disp.parts) {
       let px = cx + p.ox * s + rcx;
       let py = cy + p.oy * s + bob + rcy;
@@ -716,12 +807,17 @@ export function createBoss(run) {
         }
         default: rot = tilt; break;
       }
+      if (introFx) {
+        py += introFx.drop;
+        p.img.setAlpha(introFx.alpha).setScale((p.mirror ? -1 : 1) * s * introFx.scale, s * introFx.scale);
+      }
       p.img.setPosition(px, py).setRotation(rot);
     }
 
     const pulse = 1 + Math.sin(run.elapsed * 4) * 0.12;
     disp.glowP.setPosition(cx, cy).setScale(cfg.glowScale * 1.6 * pulse);
     disp.glowM.setPosition(cx, cy).setScale(cfg.glowScale * 0.9 * pulse);
+    if (introFx) { disp.glowP.setAlpha(introFx.alpha); disp.glowM.setAlpha(introFx.alpha); }
 
     // 銃口フラッシュ（連射/掃射中のみ・砲口位置で点滅）
     if (state === 'mgFire' || state === 'vulcanFire') {
@@ -822,6 +918,7 @@ export function createBoss(run) {
   }
 
   function destroyDisp() {
+    clearIntroEls();   // 登場イベント途中で撃破/破棄されても text を確実に片付ける
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();
