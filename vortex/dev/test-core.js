@@ -102,26 +102,35 @@ function assert(cond, msg) {
   assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
 }
 
-// --- MONSTERS が6種・ENEMIES が8種（Wave C で3種追加） ---
+// --- MONSTERS が6種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種へ総入れ替え） ---
 assert(MONSTERS.length === 6, 'data: MONSTERS が6種');
-assert(ENEMIES.length === 8, 'data: ENEMIES が8種');
+assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
 
-// --- 新敵 ghoston / igagurin が存在 ---
+// --- Wave R1: 新雑魚5種（gareon/chibit/bomba/snipa/turret）が存在 ---
 {
   const eids = new Set(ENEMIES.map((e) => e.id));
-  assert(eids.has('ghoston') && eids.has('igagurin'), 'data: 新敵 ghoston/igagurin が存在');
+  const want = ['gareon', 'chibit', 'bomba', 'snipa', 'turret'];
+  assert(want.every((id) => eids.has(id)), 'data: 新雑魚5種 gareon/chibit/bomba/snipa/turret が存在');
 }
 
-// --- Wave C の新敵3種と分裂定義 ---
+// --- Wave R1: movement と attack 定義 ---
 {
   const byId = {};
   for (const e of ENEMIES) byId[e.id] = e;
-  assert(byId.pyonpi && byId.pyonpi.movement === 'hop', 'data: pyonpi が hop で存在');
-  assert(byId.kururin && byId.kururin.movement === 'spiral', 'data: kururin が spiral で存在');
-  assert(byId.mochimo && byId.mochimo.split && byId.mochimo.split.count === 2,
-    'data: mochimo が split(2体) を持つ');
-  assert(byId.mochimo && byId.mochimo.split.hpMult < 1,
-    'data: mochimo の split.hpMult < 1（分裂で強化されない）');
+  assert(byId.snipa && byId.snipa.movement === 'spiral', 'data: snipa が spiral で存在');
+  assert(byId.turret && byId.turret.movement === 'hover', 'data: turret が hover で存在');
+  assert(ENEMIES.every((e) => e.attack && typeof e.attack.type === 'string'),
+    'data: 全雑魚に attack（予告付き攻撃）が定義されている');
+  assert(ENEMIES.every((e) => typeof e.attack.telegraphSec === 'number' && e.attack.telegraphSec > 0),
+    'data: 全雑魚の attack.telegraphSec が正（予告なしは禁止）');
+}
+
+// --- Wave R1: ボス召喚の enemyId が新雑魚 chibit へ差し替え済み ---
+{
+  const tiers = (BALANCE.boss && BALANCE.boss.tiers) || [];
+  const summons = tiers.filter((t) => t.summon).map((t) => t.summon.enemyId);
+  assert(summons.length > 0 && summons.every((id) => id === 'chibit'),
+    'data: boss.tiers の summon.enemyId が全て chibit');
 }
 
 // --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---

@@ -215,6 +215,9 @@ movement仕様:
 - `charge` — speed=30で接近 → プレイヤーとの距離140px以内で0.6秒停止（点滅で予告）→ プレイヤー方向へ速度260で1.0秒突進 → クールダウン1.5秒 → 繰り返し
 - `hop` — Wave C。プレイヤー方向へ「跳ねる」。速度を周期的に強弱させ、着地の一瞬（谷）はほぼ静止するため避けやすい。scale を上下に伸縮（ぷるぷる／非等方）させて着地感を出す
 - `spiral` — Wave C。プレイヤーへ寄る直進成分に接線方向の回り込み成分を加え、渦を巻きながら接近する。単体では避けやすいが、複数湧くと「囲まれる」圧を作る担当
+- `hover` — Wave R1。目標距離 `def.hoverDist`（≈150px）を保って浮遊する（近すぎ→後退・遠すぎ→接近・中間帯は静止）。加えて `sin(elapsed*1.5 + sinePhase)` の横ドリフトを足す（乱数不使用の決定的挙動）。砲台役 turret 用
+
+> 注：§4.3・§12.2 の雑魚表は **Wave R1（§12.4）で全て「ヴォイド・マキナ」5種に置換済み**。以後の正典は §12.4 とする。
 
 > **敵の総数**: §4.3 の3種＋§10.5 の2種（ghoston/igagurin）＋Wave C の3種（pyonpi/kururin/mochimo・§12.2）＝**計8種**（`ENEMIES` 配列）。ボス `uzuking` は別 export で本数に含めない。
 
@@ -894,6 +897,33 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 - `node vortex/dev/test-core.js` — ENEMIES 8種／mochimo split／pyonpi hop／kururin spiral／回帰上限 `spawnCountEnd <= 5` `enemyCap <= 220` `hpMultEnd <= 4` をアサート（§10.8 の旧 `<= 3` / `<= 200` は本章が上書き）
 - `node vortex/dev/validate-data.js` — MOVEMENT に `hop`／`spiral`、`split` 構造、v5必須キーを検証
 - **CDP 実機検証**（`dev/` 外の一時スクリプトで実施）: ①序盤fps ②capStep（50/130/200秒で cap 昇格）④mochimo 分裂（子2体・子は再分裂なし・子hp≒0.3倍）⑤hop/spiral（画面内で移動・非等方 scale・可視）⑥負荷fps（cap 220 まで満たして 60fps）。**全項目 PASS・例外0件を実測**。
+
+## 12.4 Wave R1（雑魚総入れ替え：ヴォイド・マキナ5種＋敵攻撃システム）
+
+旧雑魚8種（zunzun/fuwafuwa/dashbeetle/ghoston/igagurin/pyonpi/kururin/mochimo）を全削除し、**異空間ロボット軍団「ヴォイド・マキナ」5種**へ総入れ替え。全種が「役割」と「予告付き攻撃」を持ち、避け・詰め・散らしの判断を生む。BOSS/BOSS群の定義は不変。
+
+| id | 名前 | 役割 | movement | color | hp | speed | damage | radius | attack |
+|---|---|---|---|---|---|---|---|---|---|
+| gareon | ガレオン | 壁（重装甲タンク） | chase | #d5382f | 42 | 22 | 16 | 9 | quake（衝撃波） |
+| chibit | チビット | 手数（量産ドローン） | sine | #ffcf3d | 6 | 62 | 7 | 5 | divebomb（急降下突進） |
+| bomba | ボンバ | 特攻（自爆重機） | charge | #ff8a2a | 9 | 46 | 8 | 7 | selfdestruct（自爆） |
+| snipa | スナイパ | 遠距離（狙撃機） | spiral | #ff3b3b | 12 | 40 | 10 | 6 | lockbeam（狙撃弾） |
+| turret | タレット | 砲台（浮遊ドローン） | hover | #7fe8ff | 16 | 30 | 9 | 7 | spread（扇状3連弾） |
+
+**敵攻撃システム**（`Run.updateEnemyAttack` / `Run.fireEnemyAttack`）:
+
+- 状態機械 `ready →（射程 range 内で）telegraph → 発動 → ready`。生成時に `atkT = attack.intervalSec × (0.4 + 0.6 × sinePhase/2π)` で初回発火を個体ごとにばらす（乱数を追加消費しない）。
+- **予告(telegraph)は必須**: 本体を `floor(elapsed*10)%2` で白点滅。snipa は加えて照準ライン（'white' を細長く・tint赤・alpha0.35・自分→ロック方向）を表示し、発動で破棄。方向は telegraph 開始時にロック（`e.lockX/lockY`）。
+- 発動:
+  - `quake` — 距離 ≤ aoe+player.radius でダメージ。`w_ring` を ADD で拡大 tween（alpha0.45→0）＋SFX `elite`。
+  - `divebomb` — `e.dashT = dashSec` を立て、`updateEnemies` が dashT>0 の間ロック方向へ `speed×dashMult` で直進。
+  - `selfdestruct` — 距離 ≤ aoe+player.radius でダメージ後 `killEnemy`（XP/コアは通常付与）。`spawnParticles`＋`popFx`（白フラッシュなし）。intervalSec=0＝射程内で即予告。
+  - `lockbeam` — ロック方向へ敵弾1発＋SFX `shoot`。
+  - `spread` — プレイヤー方向中心に `count` 発を `spreadDeg` 間隔で扇状発射＋SFX `shoot`。
+- **敵弾プール** `foeBullets`/`_foeBulletPool`（`spawnFoeBullet`/`updateFoeBullets`）: テクスチャ 'bullet' を敵色 tint、`life≈3s`、プレイヤー距離判定で `hitPlayer`。boss弾を雛形にリサイクル。
+- 出現スケジュール（`spawnPhases`）: ~60s は手数(chibit).70/壁(gareon).30 → ~120s で狙撃(snipa)/特攻(bomba)追加 → ~240s〜で砲台(turret)も加わり全5役が揃う。ボス召喚 `summon.enemyId` は全て `chibit` へ差し替え。
+
+**検証 v6（Wave R1）**: `test-core`（ENEMIES=5／snipa=spiral／turret=hover／全種 attack.telegraphSec>0／summon=chibit）・`validate-data`（MOVEMENT に `hover`、attack type enum／telegraphSec>0）・CDP実機（5種テクスチャ存在／250s ワープで5種可視スポーン／各攻撃タイプ発火／60秒相当で例外0件）。
 
 # 13. Wave D 拡張（要望⑥小/中/大ボス＋⑦爽快感の限界突破）
 

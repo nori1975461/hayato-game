@@ -13,7 +13,8 @@ function check(cond, msg) {
 
 const RARITY = ['N', 'R', 'SR'];
 const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
-const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral'];
+const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral', 'hover'];
+const ATTACK_TYPE = ['quake', 'divebomb', 'selfdestruct', 'lockbeam', 'spread'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 function validateSprite(sprite, label) {
@@ -115,6 +116,15 @@ for (const e of ENEMIES) {
     check(typeof e[k] === 'number' && e[k] > 0, `${label}: ${k} が正の数値でない`);
   }
   validateSprite(e.sprite, label);
+  // attack（Wave R1：予告付き攻撃）。type が既知・telegraphSec>0 を軽く検証する
+  if (e.attack !== undefined) {
+    check(e.attack && typeof e.attack === 'object', `${label}: attack がオブジェクトでない`);
+    if (e.attack && typeof e.attack === 'object') {
+      check(ATTACK_TYPE.includes(e.attack.type), `${label}: attack.type "${e.attack.type}" が enum 外`);
+      check(typeof e.attack.telegraphSec === 'number' && e.attack.telegraphSec > 0,
+        `${label}: attack.telegraphSec が正の数値でない（予告なしは禁止）`);
+    }
+  }
   // split（分裂）は任意。あるなら無限分裂しない形になっているか（hpMult<1）を確認する
   if (e.split !== undefined) {
     check(e.split && typeof e.split === 'object', `${label}: split がオブジェクトでない`);

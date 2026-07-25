@@ -140,7 +140,7 @@ export const BALANCE = {
         dash: { telegraphSec: 1.0, speed: 300, durationSec: 0.7, damage: 24 },
         ring: { telegraphSec: 0.5, count: 6, count2: 8, bulletSpeed: 100,
                 bulletRadius: 4, damage: 12, lifeSec: 3.0 },
-        summon: { count: 4, enemyId: 'zunzun', ringRadius: 50 },
+        summon: { count: 4, enemyId: 'chibit', ringRadius: 50 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.5] },
         phase2: false, phase2HpRatio: 0.5, phase2IdleMult: 0.8, phase2DashSpeedMult: 1.1,
         rageText: '', bulletTint: '#ff9ec4',
@@ -157,7 +157,7 @@ export const BALANCE = {
         dash: { telegraphSec: 0.9, speed: 380, durationSec: 0.8, damage: 38 },
         ring: { telegraphSec: 0.5, count: 8, count2: 12, bulletSpeed: 110,
                 bulletRadius: 4, damage: 15, lifeSec: 3.5 },
-        summon: { count: 6, enemyId: 'zunzun', ringRadius: 60 },
+        summon: { count: 6, enemyId: 'chibit', ringRadius: 60 },
         idleSec: { afterSpawn: 3, betweenAttacks: [3, 2, 3] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
         rageText: 'ウズキング ぶちギレ！', bulletTint: '#ff6ec7',
@@ -174,7 +174,7 @@ export const BALANCE = {
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 42 },
         ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 125,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
-        summon: { count: 8, enemyId: 'zunzun', ringRadius: 70 },
+        summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.5, 1.8, 2.5] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
         rageText: 'マオウ かくせい！', bulletTint: '#c9187e',
@@ -183,14 +183,11 @@ export const BALANCE = {
     ],
   },
 
-  // 序盤はかわいい系、後半に突進・分裂が混ざるよう再構成（Wave C）
+  // Wave R1: 序盤は手数(chibit)＋壁(gareon)、中盤で狙撃(snipa)/特攻(bomba)、後半で砲台(turret)も加わり役割が増える
   spawnPhases: [
-    { untilSec: 60,   weights: { zunzun: 0.55, fuwafuwa: 0.30, pyonpi: 0.15 } },
-    { untilSec: 120,  weights: { zunzun: 0.35, fuwafuwa: 0.20, pyonpi: 0.15,
-                                 dashbeetle: 0.20, kururin: 0.10 } },
-    { untilSec: 240,  weights: { zunzun: 0.20, fuwafuwa: 0.12, pyonpi: 0.12, dashbeetle: 0.18,
-                                 kururin: 0.13, ghoston: 0.12, igagurin: 0.08, mochimo: 0.05 } },
-    { untilSec: 9999, weights: { zunzun: 0.12, fuwafuwa: 0.08, pyonpi: 0.12, dashbeetle: 0.20,
-                                 kururin: 0.14, ghoston: 0.14, igagurin: 0.10, mochimo: 0.10 } },
+    { untilSec: 60,   weights: { chibit: 0.70, gareon: 0.30 } },
+    { untilSec: 120,  weights: { chibit: 0.42, gareon: 0.23, snipa: 0.20, bomba: 0.15 } },
+    { untilSec: 240,  weights: { chibit: 0.26, gareon: 0.20, snipa: 0.20, turret: 0.19, bomba: 0.15 } },
+    { untilSec: 9999, weights: { chibit: 0.18, gareon: 0.22, snipa: 0.22, turret: 0.20, bomba: 0.18 } },
   ],
 };
