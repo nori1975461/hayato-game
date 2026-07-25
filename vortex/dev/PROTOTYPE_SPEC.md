@@ -1082,3 +1082,27 @@ boss.js: `PART_DEPTH`/`PART_ORIGIN` に新role追加（未知roleは depth9/中�
 
 - `validate-data` OK（monsters=6・enemies=5・bosses=6）・`test-core` 全PASS（special.maxUses 5 へ更新、boss.tiers 6段・bossId順など既存ガード維持）・全編集ファイル `node --check` OK・両エージェントの擬似DOMスモークで例外0（6体 spawn→全攻撃→撃破シネマまで）。
 - **CDP実機**（`scratchpad/cdp-fb8-boss-shots.mjs`・PORT 8801/DBG 9343）：6体を順に出現→中央ズームでPNGスクショ→撃破で次段、19/19 PASS・例外0。rig構成が6体で相異＋PNG目視で6体が別物（円盤/戦闘機/4足/戦車/ミサイル車/2足）であることを確認（教訓：完了報告前にPNG化・目視比較）。
+
+# 17. オープニング演出（コールドオープン「鉄のコマンド、ポンッで上書き。」）
+
+ユーザー承認済み設計（workflow 4案設計→3審査採点→統合。絵コンテartifactで承認）を実装。約12.5秒・Boot直後コールドオープン・反転からbattle先行BGM。
+
+## 17.1 構成と各種フック
+- 新規 `src/scenes/Opening.js`（約380行）。main.js scene配列を [Boot, Opening, Title, Run, Result] に、Boot.js 末尾を `scene.start('Opening')` へ。
+- **autotestバイパス**: create冒頭で `V.autotest` 時は即 `scene.start('Title')`（既存テスト/CDP無影響）。
+- **音声解錠**: コールドオープンの初回押下(SPACE/クリック)で `Sound.init()`＋playSequence。押下前は無音待機。
+- **1ロード1回**: Boot直後のみ在席、Result→Title/Run のリトライでは通らない（永続化不要）。
+- **スキップ**: 起動後にonceリスナ登録＋1.5秒後SKIP▶常設。skip/自然終端は共通の `_goTitle()` で全timer/tween/生成物を回収（`_finished`ガードで二重発火防止）。
+
+## 17.2 ビート（押下t0基準・約12.5s）
+0.0ゲート→1.2固有名『ヴォイド・マキナ』(可読死守)→3.0命令3連『セカイを/すべて/機械に。』(可読死守)→4.9単眼ロボ行進(enemy_gareon/chibit/bomba・走査線・カタカタ)→6.4頂点+0.3sフリーズ→7.2『でも』+完全無音0.2s→**7.7反転『だいじょうぶ！』＝黒帯上下に開く/モノクロ→キャンディ/書体ポップ/`startBgm('battle')`を同時発火**→8.4主人公＆相棒登場→9.3ポンッ連鎖(ロボが星に弾ける)→10.9収束→ロゴ結像→12.2 Title同一座標で着地。
+- 核テキスト(固有名・命令)は可読死守、他は映像/擬音/色反転へ逃がし画面文字は約12トークン。
+- 新規SFX: `tick`/`metalSlam`/`voidHum`（脅威音は小音量短時間・直後に解決）。反転は既存 capture/powerup/pop 流用。
+- 白フラッシュは固有名スラムの一瞬(alpha0.4)のみ・反転は白でなく有色ADDウォッシュ。MASTER_VOL 0.33 据え置き。
+
+## 17.3 継ぎ目ゼロ接続
+最終フレームを Title.js と同一座標(logo320,112 34px #ffe066/縁#ff6ec7・sub320,156 #7fffcf・player320,236 scale2.4・starpuppy5体公転 半径46×26・prompt320,312)で組み、相棒を base角に静止させ `scene.start('Title')`（Titleは _a=0 から回転開始＝同位相）。camera bg も同色でカット段差なし。
+
+## 17.4 検証 v11
+- validate-data/test-core 全PASS（Opening追加はデータ不変）・`node --check` 4ファイルOK・擬似DOMスモーク9項目PASS。
+- **CDP実機**（`scratchpad/cdp-opening-verify.mjs`・PORT8802/DBG9344）：非autotestで起動→SPACE dispatch→各ビートPNGスクショ→Title遷移→autotestバイパスでRun到達、4/4PASS・例外0。**PNG目視で反転『だいじょうぶ！』・ロゴ結像・ポンッ連鎖が全て画面中央域に描画されることを確認**（空中/画面外再生の回帰なし）・ゲート/固有名/命令の核テキスト可読も確認。

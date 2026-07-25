@@ -443,6 +443,24 @@ const SFX = {
     tone({ type: 'sine', freq: 500, freqEnd: 780, dur: 0.16, gain: 0.10, attack: 0.02 });
     tone({ type: 'triangle', freq: 780, freqEnd: 500, start: 0.05, dur: 0.14, gain: 0.06 });
   },
+  // ── オープニング演出用（コールドオープン） ──
+  // 機械のコマンド行スタンプ／単眼行進のカウント：極短の硬いクリック（多発OKな小音量）
+  tick() {
+    tone({ type: 'square', freq: 1200, freqEnd: 900, dur: 0.03, gain: 0.10 });
+    noiseHit({ dur: 0.02, gain: 0.04, hpFreq: 4000, lpFreq: 12000 });
+  },
+  // 固有名スラムの金属着弾：低音ドロップ＋金属質の矩形＋ノイズ（重いが短い）
+  metalSlam() {
+    tone({ type: 'sine', freq: 220, freqEnd: 40, dur: 0.28, gain: 0.30, attack: 0.002 });
+    tone({ type: 'square', freq: 880, freqEnd: 180, dur: 0.10, gain: 0.08 });
+    noiseHit({ dur: 0.18, gain: 0.14, hpFreq: 300, lpFreq: 4000 });
+    noiseHit({ dur: 0.06, gain: 0.08, hpFreq: 3000, lpFreq: 12000 });
+  },
+  // 虚空のうなり：低い不穏なハム（緊張はごく小音量・短時間で・直後に必ず解決させる）
+  voidHum() {
+    tone({ type: 'sine', freq: 70, freqEnd: 55, dur: 0.9, gain: 0.13, attack: 0.05 });
+    tone({ type: 'triangle', freq: 104, freqEnd: 98, dur: 0.8, gain: 0.05, attack: 0.05 });
+  },
 };
 
 // ================= BGM =================

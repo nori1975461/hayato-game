@@ -55,7 +55,7 @@ export class BootScene extends Phaser.Scene {
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
     this.makeStarfield('stars2', 160, 16, 2, 0.5);
 
-    this.scene.start('Title');
+    this.scene.start('Opening');
   }
 
   // HAYATO式テキストグリッドを1px/セルで描画してテクスチャ化

@@ -1,6 +1,7 @@
 // main.js — Phaser.Game のブートストラップ（PROTOTYPE_SPEC §5）。
 // Phaser は index.html でグローバル読み込み済み。ここでは window.Phaser を参照する。
 import { BootScene } from './scenes/Boot.js';
+import { OpeningScene } from './scenes/Opening.js';
 import { TitleScene } from './scenes/Title.js';
 import { RunScene } from './scenes/Run.js';
 import { ResultScene } from './scenes/Result.js';
@@ -31,7 +32,7 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: { antialias: false },
-  scene: [BootScene, TitleScene, RunScene, ResultScene],
+  scene: [BootScene, OpeningScene, TitleScene, RunScene, ResultScene],
 };
 
 window.__vortexGame = new Phaser.Game(config);
