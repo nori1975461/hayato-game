@@ -961,3 +961,54 @@ v3（§11.5）は要望「集まってくる敵が多すぎる」に応えて敵
 - `node vortex/dev/test-core.js` — `BOSS export が存在し id=uzuking`／`boss.tiers が3段（小/中/大）`／`final:true がちょうど1つ`／`spawnSec が単調増加`／回帰上限（enemyCap ≤ 220・capSteps 最終段一致）をアサート
 - `node vortex/dev/validate-data.js` — `BOSSES` 各体の id/name/color/sprites.swirl・face を検証。`boss.tiers` の bossId 実在・warnSec<spawnSec・spawnSec 単調増加・attacks 非空・idleSec 長さ一致・summon.enemyId 実在・hp/radius/chaseSpeed/bodyDamage 正数・final ちょうど1つ
 - **CDP 実機検証**（`dev/` 外の一時スクリプト・`run.elapsed` を各 tier の spawnSec 直前へワープ→実ダメージ経路 `dealDamage→killEnemy→onBossKilled` で撃破）: 3段すべて出現→ID/名前/maxHp 検証→実撃破→コイン加算＋必殺満タン化→非finalは通常戦復帰・finalは Result 遷移。**24/24 PASS・例外0件を実測**。
+
+# 14. Wave R3 拡張（Wave E＝ボス6段ロボット化・「顔だけ」脱却）
+
+Wave D の3段ボスは「回転渦＋顔」の2枚重ねで、実質“顔だけ”が浮いていた。R3 ではボスを **3体→6体** に増やし、見た目を **body(胴)/core(顔=単眼センサー)/armR・armL(腕＋手)/legR・legL(脚)/cannon(砲身)** の **7パーツリグ** へ刷新。**ボス本体そのものが動く**攻撃アニメと、ロボットらしい **署名武器6種** を実装した。改名はユーザー承認済み（id は据え置き）。
+
+## 14.1 ロボット6体（出現ラダー）
+
+| # | id | 名称 | tier | spawnSec | HP | bodyDmg | reward | 署名武器 | attacks | phase2 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | korotama | コロガンナー | small  | 60  | 1800  | 12 | 100 | マシンガン | [machinegun,dash] | – |
+| 2 | jetviper | ジェットバイパー | small+ | 120 | 3600  | 15 | 150 | カッター | [cutter,dash] | – |
+| 3 | uzuking  | ウズバルカン | mid    | 180 | 6500  | 18 | 220 | バルカン砲 | [vulcan,armslam] | ✓(0.5) |
+| 4 | wavelord | ウェイブロード | mid+   | 240 | 11000 | 22 | 300 | 波動砲 | [wavecannon,armslam,summon] | ✓(0.5) |
+| 5 | missilga | ミサイルガ | large  | 300 | 18000 | 26 | 380 | ミサイル | [missile,vulcan,summon] | ✓(0.5) |
+| 6 | maou     | マオウレクス | final  | 360 | 28000 | 30 | 500 | 亜空間レーザー | [laser,armslam,missile] | ✓(0.55) |
+
+- top-level 代表値を最終ボス基準へ更新（`hudBossSec:350 / warnSec:358 / spawnSec:360 / spawnDist:260`）。`runDurationSec` は420のまま。
+- `enemies.js`: `BOSSES=[KOROTAMA,JETVIPER,UZUKING,WAVELORD,MISSILGA,MAOU]`。各ボスは `sprites`（body/core/armR/cannon/leg 等のパーツ集合）＋ `rig`（`{role,tex,ox,oy,mirror,origin?}` の配列）を持つ。`swirl/face` は廃止（core が顔を継承）。`export const BOSS = UZUKING` は後方互換で維持。armL/legL は armR/leg テクスチャを `setScale(-s,s)` でミラー表示。
+
+## 14.2 7パーツリグと本体アニメ（boss.js）
+
+- `disp.parts = def.rig.map(...)`：role 別に depth（body8/leg7/cannon10/arm11/core12）と origin を割り当て。`ORBITS`（旧公転オーブ装飾）は廃止。
+- `updateDisp`：`run.elapsed` と攻撃 `state/stateT` から決定的に算出。**hover**（全体浮遊＋機体傾き）/ **step**（脚の交互踏みしめ）/ **arm**（待機スウェイ）/ **aim**（砲身がプレイヤー追従）。**armslam** は telegraph で両腕を頭上へ→発動0.15sで振り下ろし＋body沈み込み＋衝撃波リング。波動砲/レーザー発射時は全パーツを -aim 方向へキックする **recoil**。被弾フラッシュ/予告点滅/phase2 tint は全パーツへループ適用。
+
+## 14.3 ロボット武器6種（全て予告付き）
+
+- **machinegun**：予告→burst 間 `shotInterval` 毎に微スプレッド連射（`sin(shotIdx)` で決定的）。銃口フラッシュ点滅。
+- **cutter**：円鋸を扇状射出・高速自転・`returns` でブーメラン軌道（bullets `kind:'cutter'`）。
+- **vulcan**：`bursts×perBurst` を `sweepDeg` ずつ掃射（上半身旋回）。SFX throttle＋shake。
+- **wavecannon**：溜め→前方へ太い短命ビームを `sweepDeg` 薙ぐ（`bossBeam`・白フラッシュ0.4＋`bigBoom`）。
+- **missile**：上方射出→弱ホーミング（`maxTurnDeg` 上限で走れば振り切れる／bullets `kind:'missile'`・煙軌跡・寿命/命中で小爆発）。
+- **laser**（final）：溜め→極太貫通ビームを `sweepFromDeg→sweepToDeg` へ回転薙ぎ（白フラッシュ0.45）。phase2 は laser の直後に vulcan を割り込ませる。
+- 共通で残す攻撃：`dash`（体当たり）・`summon`（chibit 召喚）・`armslam`。
+- **`bossBeam`**：プレイヤー1点判定（線分-点距離）＋ `boss_beam`（縦グラデ白帯）ADD描画・`activeSec` フェード。boss.js が所有（Run.js は不変）。弾テクスチャ `boss_missile/boss_cutter/boss_muzzle/boss_beam` は boss.js `ensureTextures` で内製。
+
+## 14.4 検証 v8（Wave R3）
+
+- `node vortex/dev/test-core.js` — `BOSS export=uzuking`／`boss.tiers が6段`／`final:true が1つ`／`spawnSec 単調増加`／`betweenAttacks 長=attacks 長`／`bossId 並び=korotama,jetviper,uzuking,wavelord,missilga,maou`／R1・R2 の回帰ガードも維持。**全PASS**。
+- `node vortex/dev/validate-data.js` — `BOSSES` 各体の全パーツ矩形チェック（パーツは3〜20px許容）・`body/core` 必須・`rig` の tex 実在・ox/oy 数値。`boss.tiers` の bossId 実在・warn<spawn・単調増加・attacks 非空・idleSec 長一致・summon.enemyId 実在。**OK（monsters=6, enemies=5, bosses=6）**。
+- **CDP 実機検証**（`scratchpad/cdp-r3-boss6.mjs`・PORT 8797/DBG 9339）：6体×各 spawnSec へワープ→(a)出現・ID一致／(b)パーツ≥4枚可視（顔だけでない）＋body/core存在／(c)本体アニメ発火（armR が2フレーム間で変化）／(d)署名攻撃で弾増加 or beam or 特殊弾出現／(e)実撃破→報酬増→非finalは復帰・finalは Result 遷移／(f)例外0。**72/72 PASS・例外0件を実測**。
+
+## 14.5 実装後レビューと修正（4次元コードレビュー＋敵対的検証）
+
+実装完了後、balance／boss-logic／sprites・統合／要望完全性の4次元でコードレビューし、各指摘を敵対的に再検証した（確定15件・**critical/major=0**）。ユーザー要望・制約・体感に直結する4点を修正:
+
+- **summon の予告化**：`summon` だけ予告なし即発火だった（制約「全ボス攻撃に予告」の唯一の抜け）。`summonTele` ステート＋`telegraphSummon()`（湧く位置をリング状に光らせ `warning` 音）を追加。`isTelegraph`（`state.endsWith('Tele')`）が拾い本体も予告点滅。balance の wavelord/missilga summon に `telegraphSec:0.6`。
+- **機関銃/ミサイルの本体モーション**（要望⑦「ボス自身の動きで迫力」の部分未達）：`missileTele` で両腕を振り上げ（発射ハッチ）、`mgFire` で上体を小刻み反動＋腕を前へ構え。`fireMissiles` に `recoil(aim)`＋発射煙を追加。
+- **追尾速度の単調化**：jetviper `chaseSpeed 78→70`（小型とはいえ最終ボス maou 68 より速い違和感を解消）。
+- **撃破時の銃口フラッシュ残り**：連射中に撃破すると `disp.muzzle` が残るため、`startDeathSpin` 冒頭で `setVisible(false)`。
+
+**R4以降の検討事項（過剰修正を避け今回は見送った nit）**：phase2 の未使用パラメータ `phase2DashSpeedMult`／`ring.count2`（dash∩phase2＝空・ring は attacks 未搭載で死にコード。phase2 の強化は攻撃間隔短縮が主）・`missile.homingRate` 未使用（旋回は `maxTurnDeg` で実装済み）・ボス弾の当たり半径が固定値で `bulletRadius/bladeRadius/shockRadius` 未反映・missilga 配色が uzuking と近いオレンジ基調で描き分けが弱い。いずれも実害なし（CDP 72/72 で回避可能・当たると確認済み）。修正後も **test-core／validate-data／CDP 72/72 を再実測しグリーン維持**。

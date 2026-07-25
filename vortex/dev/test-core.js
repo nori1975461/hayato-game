@@ -153,16 +153,24 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
 // --- BOSS export の存在（id='uzuking'） ---
 assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking');
 
-// --- Wave D: 多段ボス（boss.tiers）が3段・final:true が1つ・出現順が単調増加 ---
+// --- Wave R3: 多段ボス（boss.tiers）が6段・final:true が1つ・出現順が単調増加 ---
 {
   const tiers = BALANCE.boss && BALANCE.boss.tiers;
-  assert(Array.isArray(tiers) && tiers.length === 3, 'balance: boss.tiers が3段（小/中/大）');
+  assert(Array.isArray(tiers) && tiers.length === 6, 'balance: boss.tiers が6段（ロボット6体）');
   if (Array.isArray(tiers)) {
     const finals = tiers.filter((t) => t.final).length;
     assert(finals === 1, `balance: boss.tiers の final:true がちょうど1つ（${finals}個）`);
     let mono = true, prev = -1;
     for (const t of tiers) { if (!(t.spawnSec > prev)) mono = false; prev = t.spawnSec; }
     assert(mono, 'balance: boss.tiers の spawnSec が単調増加（出現が重ならない）');
+    // betweenAttacks の長さが attacks と一致（AI のインデックス循環が破綻しない）
+    const lenOk = tiers.every((t) => Array.isArray(t.attacks) && t.idleSec
+      && Array.isArray(t.idleSec.betweenAttacks) && t.idleSec.betweenAttacks.length === t.attacks.length);
+    assert(lenOk, 'balance: 全 tier で idleSec.betweenAttacks 長が attacks 長と一致');
+    // 6体の bossId が想定どおり（改名は名前のみ・id は据え置き）
+    const ids = tiers.map((t) => t.bossId).join(',');
+    assert(ids === 'korotama,jetviper,uzuking,wavelord,missilga,maou',
+      `balance: boss.tiers の bossId 並びが想定どおり（実測 ${ids}）`);
   }
 }
 

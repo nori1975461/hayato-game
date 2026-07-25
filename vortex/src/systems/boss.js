@@ -1,7 +1,7 @@
-// systems/boss.js — ボス（Wave D：小/中/大の3段）の出現・状態機械・弾・撃破シネマティック（PROTOTYPE_SPEC §10.6-B / §13）。
+// systems/boss.js — ボス（Wave R3：ロボット6体・6段）の出現・状態機械・弾/ビーム・撃破シネマティック。
 // BALANCE.boss.tiers を時間順に処理する。同時に戦うボスは常に1体（前のボスを倒すまで次は出ない）。
 // ボスは run.enemies に isBoss エンティティとして載せる（弾/ビーム/dealDamage/killEnemy 経路を流用）。
-// 移動・2枚重ね表示・接触ダメージ・ボス弾はこのモジュールが所有する。
+// 見た目は def.rig（body/core/armR/armL/legR/legL/cannon の7パーツリグ）で組み、本体そのものが動く。
 import { BALANCE } from '../data/balance.js';
 import { BOSSES, ENEMIES } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
@@ -9,13 +9,15 @@ import { Sound } from '../audio/sound.js';
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
+const D2R = Math.PI / 180;
 
-// #3: ボス別の公転パーツ定義（見た目のみ＝数値バランスではないので balance.js でなくここで保持）。
-// tex=ボス個性（ハート/宝石/棘）, count=個数, spin=公転角速度, selfSpin=自転, bob=軌道半径の揺れ, ringN=オーラリング枚数。
-const ORBITS = {
-  korotama: { tex: 'boss_orb_heart',   count: 4, spin: 2.4, selfSpin: 0, bob: 5, ringN: 1 },
-  uzuking:  { tex: 'boss_orb_diamond', count: 6, spin: 1.8, selfSpin: 3, bob: 4, ringN: 1 },
-  maou:     { tex: 'boss_orb_spike',   count: 8, spin: 1.4, selfSpin: 0, bob: 3, ringN: 2 },
+// パーツ role → 描画depth / origin / アニメ役割。rig.origin があればそちらを優先。
+const PART_DEPTH  = { body: 8, core: 12, armR: 11, armL: 11, legR: 7, legL: 7, cannon: 10 };
+const PART_ORIGIN = {
+  body: [0.5, 0.5], core: [0.5, 0.5],
+  armR: [0.5, 0.12], armL: [0.5, 0.12],
+  legR: [0.5, 0.1], legL: [0.5, 0.1],
+  cannon: [0.15, 0.5],
 };
 
 export function createBoss(run) {
@@ -36,29 +38,33 @@ export function createBoss(run) {
   let cfg = null;               // 現 tier の設定
   let def = null;               // 現ボスの見た目定義（enemies.js）
   let boss = null;              // run.enemies に載せるエンティティ
-  let disp = null;              // { swirl, face, glowP, glowM }
+  let disp = null;              // { parts, glowP, glowM, muzzle, spriteScale }
   let state = 'idle';
   let stateT = 0;
   let attackIdx = 0;
   let phase2 = false;
   let killing = false;          // 撃破シネマティック中は多重発火を防ぐ
   let lockX = 0, lockY = 0;     // ダッシュ方向ロック
+  let aim = 0;                  // 毎フレーム更新するプレイヤー方向角（砲身/弾に共用）
+  // 攻撃の連射/掃射用アキュムレータ（stateT基準・決定的）
+  let shotAcc = 0, shotIdx = 0, slamFired = false, chainVulcan = false;
+  let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
   const bullets = [];           // ボス弾（プレイヤーへ当たる）
   const pool = [];
+  let beam = null;              // 波動砲/レーザーの薙ぎビーム（同時1本）
+  let beamImg = null;
 
   ensureTextures();
 
-  // --- Boot.js（builder-support）がボステクスチャ未生成でも動くよう自前生成（全ボス分） ---
+  // --- Boot.js がボステクスチャ未生成でも動くよう自前生成（全ボスの全パーツ＋弾） ---
   function ensureTextures() {
     for (const d of BOSSES) {
-      makeSprite(`boss_${d.id}_swirl`, d.sprites.swirl);
-      makeSprite(`boss_${d.id}_face`, d.sprites.face);
+      for (const [k, s] of Object.entries(d.sprites)) makeSprite(`boss_${d.id}_${k}`, s);
     }
-    // #3: 公転オーブ＆オーラリング（白テクスチャ→実行時 tint で各ボス色に染める）
-    makeHeart('boss_orb_heart', 12);
-    makeDiamond('boss_orb_diamond', 12);
-    makeSpike('boss_orb_spike', 14);
-    makeAuraRing('boss_aura_ring', 64, 7);
+    makeMissile('boss_missile', 7, 11);
+    makeSaw('boss_cutter', 16);
+    makeMuzzle('boss_muzzle', 16);
+    makeBeamTex('boss_beam', 8, 16);
   }
   function makeSprite(key, sprite) {
     if (run.textures.exists(key)) return;
@@ -77,72 +83,77 @@ export function createBoss(run) {
     g.generateTexture(key, w, h);
     g.destroy();
   }
-  // newG/P は関数宣言にする（巻き上げされ、上の ensureTextures() 呼び出し時点で初期化済みになる＝TDZ回避）
   function newG() { return run.make.graphics({ x: 0, y: 0, add: false }); }
-  function P(x, y) { return new Phaser.Geom.Point(x, y); }
-  function makeHeart(key, s) {
+  // 涙滴型のミサイル（頭が丸く尾が尖る・白で作り実行時 tint）
+  function makeMissile(key, w, h) {
     if (run.textures.exists(key)) return;
     const g = newG();
     g.fillStyle(0xffffff, 1);
-    const r = s * 0.26;
-    g.fillCircle(s * 0.32, s * 0.34, r);
-    g.fillCircle(s * 0.68, s * 0.34, r);
-    g.fillPoints([P(s * 0.06, s * 0.40), P(s * 0.94, s * 0.40), P(s * 0.5, s * 0.96)], true);
+    g.fillCircle(w / 2, w / 2, w / 2 - 0.5);
+    g.fillPoints([new Phaser.Geom.Point(0.5, w / 2),
+      new Phaser.Geom.Point(w - 0.5, w / 2), new Phaser.Geom.Point(w / 2, h)], true);
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+  // 円鋸（中心円＋6枚の刃）
+  function makeSaw(key, s) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const c = s / 2, inr = c * 0.5, out = c - 0.5;
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(c, c, inr);
+    for (let i = 0; i < 6; i++) {
+      const a0 = (Math.PI * 2 * i) / 6, a1 = a0 + 0.35, am = a0 + 0.17;
+      g.fillPoints([
+        new Phaser.Geom.Point(c + Math.cos(a0) * inr, c + Math.sin(a0) * inr),
+        new Phaser.Geom.Point(c + Math.cos(am) * out, c + Math.sin(am) * out),
+        new Phaser.Geom.Point(c + Math.cos(a1) * inr, c + Math.sin(a1) * inr),
+      ], true);
+    }
     g.generateTexture(key, s, s);
     g.destroy();
   }
-  function makeDiamond(key, s) {
+  // 放射状の銃口フラッシュ（十字＋斜め）
+  function makeMuzzle(key, s) {
     if (run.textures.exists(key)) return;
     const g = newG();
     const c = s / 2;
     g.fillStyle(0xffffff, 1);
-    g.fillPoints([P(c, 0), P(s * 0.82, s * 0.32), P(c, s), P(s * 0.18, s * 0.32)], true);
-    // カット面の白ハイライト（宝石らしさ）
-    g.fillStyle(0xffffff, 0.55);
-    g.fillPoints([P(c, s * 0.06), P(s * 0.7, s * 0.32), P(c, s * 0.5), P(s * 0.3, s * 0.32)], true);
-    g.generateTexture(key, s, s);
-    g.destroy();
-  }
-  function makeSpike(key, s) {
-    if (run.textures.exists(key)) return;
-    const g = newG();
-    const c = s / 2, o = c, inr = c * 0.34, pts = [];
+    g.fillCircle(c, c, s * 0.16);
     for (let i = 0; i < 8; i++) {
-      const rad = i % 2 === 0 ? o : inr;
-      const a = (Math.PI * i) / 4 - Math.PI / 2;
-      pts.push(P(c + Math.cos(a) * rad, c + Math.sin(a) * rad));
+      const a = (Math.PI * i) / 4;
+      g.fillPoints([
+        new Phaser.Geom.Point(c + Math.cos(a + 0.14) * s * 0.12, c + Math.sin(a + 0.14) * s * 0.12),
+        new Phaser.Geom.Point(c + Math.cos(a) * (c - 0.5), c + Math.sin(a) * (c - 0.5)),
+        new Phaser.Geom.Point(c + Math.cos(a - 0.14) * s * 0.12, c + Math.sin(a - 0.14) * s * 0.12),
+      ], true);
     }
-    g.fillStyle(0xffffff, 1);
-    g.fillPoints(pts, true);
     g.generateTexture(key, s, s);
     g.destroy();
   }
-  function makeAuraRing(key, s, thick) {
+  // ビーム帯（幅方向=縦にソフトなグラデ）。origin(0,0.5)・setDisplaySize(len,width) で使う。
+  function makeBeamTex(key, w, h) {
     if (run.textures.exists(key)) return;
     const g = newG();
-    const c = s / 2, outer = c - 0.5, inner = outer - thick;
-    g.fillStyle(0xffffff, 1);
-    for (let y = 0; y < s; y++) {
-      for (let x = 0; x < s; x++) {
-        const dx = x + 0.5 - c, dy = y + 0.5 - c, d2 = dx * dx + dy * dy;
-        if (d2 <= outer * outer && d2 >= inner * inner) g.fillRect(x, y, 1, 1);
-      }
+    for (let y = 0; y < h; y++) {
+      const t = 1 - Math.abs((y + 0.5) / h - 0.5) * 2;   // 中央1→端0
+      g.fillStyle(0xffffff, 0.35 + 0.65 * t);
+      g.fillRect(0, y, w, 1);
     }
-    // 4つのコブ＝回転が視認できるようにする
-    for (let k = 0; k < 4; k++) {
-      const a = (Math.PI * k) / 2;
-      g.fillCircle(c + Math.cos(a) * (outer - thick / 2), c + Math.sin(a) * (outer - thick / 2), thick * 0.9);
-    }
-    g.generateTexture(key, s, s);
+    g.generateTexture(key, w, h);
     g.destroy();
   }
 
   const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
   function summonHpMult() {
     const t = Math.max(0, Math.min(1, run.elapsed / (W.stepSec * W.steps)));
     return lerp(W.hpMultStart, W.hpMultEnd, t);
   }
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
+  function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
+  function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; recoilT = 0; }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -150,47 +161,36 @@ export function createBoss(run) {
     def = bossMap[cfg.bossId];
     phase2 = false;
     killing = false;
+    resetAttackVars();
 
     const ang = run.rng.range(0, Math.PI * 2);
     const x = run.player.x + Math.cos(ang) * cfg.spawnDist;
     const y = run.player.y + Math.sin(ang) * cfg.spawnDist;
+    const s = cfg.spriteScale;
 
-    const glowP = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(7)
+    const glowP = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(6)
       .setTint(int(cfg.glowOuter)).setScale(cfg.glowScale * 1.6);
-    const glowM = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(7)
+    const glowM = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(6)
       .setTint(int(cfg.glowInner)).setScale(cfg.glowScale * 0.9);
-    // 本体(swirl)を顔より一回り大きく＝顔の周りに本体のふちを覗かせて「顔だけ」感を消す
-    const swirl = run.add.image(x, y, `boss_${def.id}_swirl`).setDepth(9).setScale(cfg.spriteScale * 1.22);
-    const face = run.add.image(x, y, `boss_${def.id}_face`).setDepth(10).setScale(cfg.spriteScale);
 
-    // #3: 本体の周りを公転する個性パーツ＋回転オーラリングを重ねる
-    const ob = ORBITS[def.id] || ORBITS.uzuking;
-    const bodyR = 8 * cfg.spriteScale * 1.22;      // swirl の表示半径
-    const orbSize = cfg.spriteScale * 2.2;
-    const orbitR = bodyR + orbSize * 0.6;          // 本体スプライトの外側を回す
-    const orbCols = [int(cfg.glowInner), int(cfg.glowOuter)];
-    const orbs = [];
-    for (let i = 0; i < ob.count; i++) {
-      const baseA = (Math.PI * 2 * i) / ob.count;
-      const img = run.add.image(x, y, ob.tex).setBlendMode(ADD).setDepth(11)
-        .setTint(orbCols[i % orbCols.length]).setDisplaySize(orbSize, orbSize);
-      orbs.push({ img, baseA, phase: baseA });
-    }
-    const rings = [];
-    for (let i = 0; i < ob.ringN; i++) {
-      const d = bodyR * 2 * (1.15 + i * 0.28);
-      rings.push(run.add.image(x, y, 'boss_aura_ring').setBlendMode(ADD).setDepth(6)
-        .setTint(i === 0 ? int(cfg.glowOuter) : int(cfg.glowInner))
-        .setDisplaySize(d, d).setAlpha(0.85));
-    }
-    disp = { swirl, face, glowP, glowM, orbs, rings, ob, orbitR };
+    // rig からパーツ画像を生成（body 背面 → 脚 → 砲身 → 腕 → core 顔 の depth 順）
+    const parts = def.rig.map((r) => {
+      const img = run.add.image(x, y, `boss_${def.id}_${r.tex}`);
+      const origin = r.origin || PART_ORIGIN[r.role] || [0.5, 0.5];
+      img.setDepth(PART_DEPTH[r.role] || 9).setOrigin(origin[0], origin[1])
+        .setScale(r.mirror ? -s : s, s);
+      return { img, role: r.role, ox: r.ox, oy: r.oy, mirror: !!r.mirror };
+    });
+    const muzzle = run.add.image(x, y, 'boss_muzzle').setBlendMode(ADD).setDepth(11)
+      .setTint(int(cfg.glowInner)).setVisible(false).setScale(s * 0.4);
+    disp = { parts, glowP, glowM, muzzle, spriteScale: s };
 
     boss = {
       active: true, isBoss: true, id: ++run._eid, def,
       x, y, color: int(def.color),
       hp: cfg.hp, maxHp: cfg.hp, radius: cfg.radius,
       damage: cfg.bodyDamage, isElite: false, slowMark: -1, flashT: 0,
-      spr: swirl, glow: glowP,   // releaseEnemy 互換のダミー（isBoss なので実際はプールされない）
+      spr: parts[0].img, glow: glowP,   // releaseEnemy 互換（isBoss なので実際はプールされない）
     };
     run.enemies.push(boss);
 
@@ -204,25 +204,37 @@ export function createBoss(run) {
   }
 
   // ============ AI ============
-  function moveBoss(vx, vy, dt) {
-    boss.x += vx * dt;
-    boss.y += vy * dt;
-  }
+  function moveBoss(vx, vy, dt) { boss.x += vx * dt; boss.y += vy * dt; }
 
   function beginAttack() {
     const a = cfg.attacks[attackIdx];
-    if (a === 'dash') {
-      state = 'dashTele';
-      stateT = cfg.dash.telegraphSec;
-    } else if (a === 'ring') {
-      state = 'ringTele';
-      stateT = cfg.ring.telegraphSec;
-    } else {
-      doSummon();
-      endAttackChase();
+    // 最終ボスは phase2 で laser の直後に vulcan を割り込ませる（連続コンボ）
+    chainVulcan = (a === 'laser' && phase2 && !!cfg.vulcan);
+    startAttackByName(a);
+  }
+
+  // 攻撃名 → 予告(Tele)ステートへ遷移。summon は即時発火。
+  function startAttackByName(a) {
+    switch (a) {
+      case 'dash':       state = 'dashTele';    stateT = cfg.dash.telegraphSec; break;
+      case 'machinegun': state = 'mgTele';      stateT = cfg.machinegun.telegraphSec; break;
+      case 'cutter':     state = 'cutterTele';  stateT = cfg.cutter.telegraphSec; break;
+      case 'vulcan':     state = 'vulcanTele';  stateT = cfg.vulcan.telegraphSec; break;
+      case 'wavecannon': state = 'waveTele';    stateT = cfg.wavecannon.chargeSec; Sound.sfx('specialCharge'); break;
+      case 'missile':    state = 'missileTele'; stateT = cfg.missile.telegraphSec; break;
+      case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge'); break;
+      case 'armslam':    state = 'slamTele';    stateT = cfg.armslam.telegraphSec; break;
+      case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
+      case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
+      default:           afterAttack(); break;
     }
   }
 
+  // 攻撃1つが終わったとき。chainVulcan があれば vulcan へ、無ければ待機して次の攻撃へ。
+  function afterAttack() {
+    if (chainVulcan) { chainVulcan = false; startAttackByName('vulcan'); return; }
+    endAttackChase();
+  }
   function endAttackChase() {
     state = 'chase';
     stateT = idleDur(cfg.idleSec.betweenAttacks[attackIdx]);
@@ -233,6 +245,7 @@ export function createBoss(run) {
     const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
     const dist = Math.hypot(dx, dy) || 1;
     const nx = dx / dist, ny = dy / dist;
+    aim = Math.atan2(dy, dx);
     stateT -= dt;
 
     switch (state) {
@@ -240,22 +253,108 @@ export function createBoss(run) {
         moveBoss(nx * cfg.chaseSpeed, ny * cfg.chaseSpeed, dt);
         if (stateT <= 0) beginAttack();
         break;
+
       case 'dashTele':
-        lockX = nx; lockY = ny;                 // 予告中は狙いを更新
+        lockX = nx; lockY = ny;
         if (stateT <= 0) { state = 'dash'; stateT = cfg.dash.durationSec; }
         break;
       case 'dash': {
         const sp = cfg.dash.speed * (phase2 ? cfg.phase2DashSpeedMult : 1);
         moveBoss(lockX * sp, lockY * sp, dt);
-        if (stateT <= 0) endAttackChase();
+        if (stateT <= 0) afterAttack();
         break;
       }
-      case 'ringTele':
-        if (stateT <= 0) { fireRing(); endAttackChase(); }
+
+      case 'mgTele':
+        if (stateT <= 0) { state = 'mgFire'; stateT = cfg.machinegun.burstSec; shotAcc = 0; shotIdx = 0; }
         break;
+      case 'mgFire': {
+        const mg = cfg.machinegun;
+        shotAcc += dt;
+        while (shotAcc >= mg.shotInterval) {
+          shotAcc -= mg.shotInterval;
+          const a = aim + Math.sin(shotIdx * 1.7) * (mg.spreadDeg * D2R);
+          const t = tip();
+          spawnBullet2(t.x, t.y, Math.cos(a) * mg.bulletSpeed, Math.sin(a) * mg.bulletSpeed,
+            { radius: mg.bulletRadius, damage: mg.damage, life: mg.lifeSec });
+          if (shotIdx % 3 === 0) Sound.sfx('shoot');
+          shotIdx++;
+        }
+        if (stateT <= 0) afterAttack();
+        break;
+      }
+
+      case 'cutterTele':
+        if (stateT <= 0) { fireCutters(); afterAttack(); }
+        break;
+
+      case 'vulcanTele':
+        if (stateT <= 0) {
+          const v = cfg.vulcan;
+          state = 'vulcanFire'; stateT = v.bursts * v.perBurst * 0.05 + 0.2; shotAcc = 0; shotIdx = 0;
+        }
+        break;
+      case 'vulcanFire': {
+        const v = cfg.vulcan, total = v.bursts * v.perBurst;
+        shotAcc += dt;
+        while (shotAcc >= 0.05 && shotIdx < total) {
+          shotAcc -= 0.05;
+          const a = aim + Math.sin(shotIdx * 0.5) * (v.sweepDeg * D2R);
+          const t = tip();
+          spawnBullet2(t.x, t.y, Math.cos(a) * v.bulletSpeed, Math.sin(a) * v.bulletSpeed,
+            { radius: v.bulletRadius, damage: v.damage, life: v.lifeSec });
+          if (shotIdx % 2 === 0) { Sound.sfx('shoot'); run.shake(50, 2); }
+          shotIdx++;
+        }
+        if (shotIdx >= total && stateT <= 0) afterAttack();
+        break;
+      }
+
+      case 'waveTele':
+        if (stateT <= 0) fireWave();
+        break;
+      case 'waveFire':
+        if (stateT <= 0) afterAttack();
+        break;
+
+      case 'missileTele':
+        if (stateT <= 0) { fireMissiles(); afterAttack(); }
+        break;
+
+      case 'laserTele':
+        if (stateT <= 0) fireLaser();
+        break;
+      case 'laserFire':
+        if (stateT <= 0) afterAttack();
+        break;
+
+      case 'slamTele':
+        if (stateT <= 0) { state = 'slamHit'; stateT = cfg.armslam.slamSec; slamFired = false; }
+        break;
+      case 'slamHit': {
+        const sk = cfg.armslam;
+        if (!slamFired && stateT <= sk.slamSec - 0.15) { slamFired = true; doSlam(); }
+        if (stateT <= 0) afterAttack();
+        break;
+      }
+
+      case 'ringTele':
+        if (stateT <= 0) { fireRing(); afterAttack(); }
+        break;
+
+      case 'summonTele':
+        if (stateT <= 0) { doSummon(); afterAttack(); }
+        break;
+
       default:
         break;
     }
+  }
+
+  // 砲口（プレイヤー方向の本体外周）
+  function tip() {
+    const bd = boss.radius * 1.05;
+    return { x: boss.x + Math.cos(aim) * bd, y: boss.y + Math.sin(aim) * bd };
   }
 
   function enterPhase2() {
@@ -270,10 +369,80 @@ export function createBoss(run) {
     const count = phase2 ? cfg.ring.count2 : cfg.ring.count;
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 * i) / count;
-      spawnBossBullet(boss.x, boss.y,
-        Math.cos(a) * cfg.ring.bulletSpeed, Math.sin(a) * cfg.ring.bulletSpeed);
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * cfg.ring.bulletSpeed, Math.sin(a) * cfg.ring.bulletSpeed,
+        { radius: cfg.ring.bulletRadius, damage: cfg.ring.damage, life: cfg.ring.lifeSec });
     }
     Sound.sfx('shoot');
+  }
+
+  // カッター：扇状に円鋸を射出（returns でブーメラン軌道）
+  function fireCutters() {
+    const ck = cfg.cutter;
+    const base = aim, mid = (ck.count - 1) / 2;
+    for (let i = 0; i < ck.count; i++) {
+      const a = base + (i - mid) * (ck.spreadDeg * D2R);
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * ck.speed, Math.sin(a) * ck.speed,
+        { radius: ck.bladeRadius, damage: ck.damage, life: ck.lifeSec,
+          kind: 'cutter', spin: ck.spinSpeed, returns: ck.returns });
+    }
+    Sound.sfx('shoot');
+  }
+
+  // ミサイル：上方へ射出→弱ホーミング。走れば振り切れる旋回上限つき。
+  function fireMissiles() {
+    const mk = cfg.missile, mid = (mk.count - 1) / 2;
+    for (let i = 0; i < mk.count; i++) {
+      const sx = (i - mid) * 45;
+      spawnBullet2(boss.x, boss.y, sx, -mk.launchSpeed,
+        { radius: mk.radius, damage: mk.damage, life: mk.lifeSec, kind: 'missile',
+          maxTurn: mk.maxTurnDeg * D2R, speed: mk.speed, blast: mk.blastDamage });
+    }
+    Sound.sfx('beam');
+    recoil(aim);                                        // 発射の反動でボス本体がのけぞる
+    const mt = tip();
+    run.spawnParticles(mt.x, mt.y, int(cfg.bulletTint), 10);
+  }
+
+  // 波動砲：前方へ太い短命ビームを sweepDeg 分だけ薙ぐ
+  function fireWave() {
+    const wc = cfg.wavecannon, half = wc.sweepDeg * 0.5 * D2R;
+    startBeam(aim - half, aim + half, wc.beamLength, wc.beamWidth, wc.damage, wc.activeSec);
+    whiteFlash(0.4); Sound.sfx('bigBoom'); recoil(aim);
+    state = 'waveFire'; stateT = wc.activeSec;
+  }
+
+  // 亜空間レーザー：極太貫通ビームを sweepFrom→sweepTo へゆっくり回転薙ぎ
+  function fireLaser() {
+    const lk = cfg.laser;
+    startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth, lk.damage, lk.activeSec);
+    whiteFlash(0.45); Sound.sfx('bigBoom'); recoil(aim);
+    state = 'laserFire'; stateT = lk.activeSec;
+  }
+
+  // アームスラム：叩きつけの瞬間に衝撃波リング＋至近メレー
+  function doSlam() {
+    const sk = cfg.armslam;
+    for (let i = 0; i < sk.shockCount; i++) {
+      const a = (Math.PI * 2 * i) / sk.shockCount;
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * sk.shockSpeed, Math.sin(a) * sk.shockSpeed,
+        { radius: sk.shockRadius, damage: sk.shockDamage, life: 2.5 });
+    }
+    const d = Math.hypot(run.player.x - boss.x, run.player.y - boss.y);
+    if (d <= sk.meleeRadius + run.player.radius) run.hitPlayer(sk.meleeDamage);
+    run.shake(280, 7); Sound.sfx('bigBoom');
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 22);
+  }
+
+  // 召喚の予告：湧く位置をリング状に光らせる（予告なし即湧きを防ぐ）
+  function telegraphSummon() {
+    Sound.sfx('warning');
+    const n = cfg.summon.count;
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n;
+      const x = boss.x + Math.cos(a) * cfg.summon.ringRadius;
+      const y = boss.y + Math.sin(a) * cfg.summon.ringRadius;
+      run.spawnParticles(x, y, int(def.color), 5);
+    }
   }
 
   function doSummon() {
@@ -290,18 +459,66 @@ export function createBoss(run) {
     Sound.sfx('elite');
   }
 
-  // ============ ボス弾（プレイヤーへ当たる） ============
-  function spawnBossBullet(x, y, vx, vy) {
-    const tint = int(cfg.bulletTint);
+  function recoil(ang) { recoilT = 0.2; recoilAng = ang; }
+  // 画面フラッシュ（白フラッシュ alpha < 0.5 厳守）
+  function whiteFlash(a) {
+    const cam = run.cameras.main;
+    const f = run.add.image(cam.width / 2, cam.height / 2, 'white').setScrollFactor(0)
+      .setDepth(2000).setBlendMode(ADD).setTint(0xffffff)
+      .setDisplaySize(cam.width, cam.height).setAlpha(Math.min(0.49, a));
+    run.tweens.add({ targets: f, alpha: 0, duration: 260, onComplete: () => f.destroy() });
+  }
+
+  // ============ ビーム（プレイヤー1点判定・波動砲/レーザー共用） ============
+  function startBeam(angFrom, angTo, len, width, dmg, activeSec) {
+    if (!beamImg) {
+      beamImg = run.add.image(0, 0, 'boss_beam').setOrigin(0, 0.5).setBlendMode(ADD).setDepth(10);
+    }
+    beam = { angFrom, angTo, len, width, dmg, life: activeSec, maxLife: activeSec, dmgT: 0 };
+    beamImg.setVisible(true).setTint(int(cfg.glowInner));
+  }
+  function updateBeam(dt) {
+    beam.life -= dt;
+    if (beam.life <= 0) { if (beamImg) beamImg.setVisible(false); beam = null; return; }
+    const t = 1 - beam.life / beam.maxLife;
+    const ang = beam.angFrom + (beam.angTo - beam.angFrom) * t;
+    const x = boss ? boss.x : 0, y = boss ? boss.y : 0;
+    beamImg.setPosition(x, y).setRotation(ang).setDisplaySize(beam.len, beam.width)
+      .setAlpha(0.65 + 0.25 * Math.sin(run.elapsed * 30));
+    // 点(プレイヤー)と線分[本体, 本体+dir*len]の距離
+    const dirX = Math.cos(ang), dirY = Math.sin(ang);
+    const rx = run.player.x - x, ry = run.player.y - y;
+    let tt = rx * dirX + ry * dirY; tt = Math.max(0, Math.min(beam.len, tt));
+    const cx = x + dirX * tt, cy = y + dirY * tt;
+    const ddx = run.player.x - cx, ddy = run.player.y - cy;
+    const half = beam.width / 2 + run.player.radius;
+    beam.dmgT -= dt;
+    if (ddx * ddx + ddy * ddy <= half * half && beam.dmgT <= 0) { run.hitPlayer(beam.dmg); beam.dmgT = 0.25; }
+  }
+
+  // ============ ボス弾（プレイヤーへ当たる・kind別に挙動） ============
+  function spawnBullet2(x, y, vx, vy, opts) {
+    opts = opts || {};
+    const kind = opts.kind || 'orb';
+    const tint = opts.tint != null ? opts.tint : int(cfg.bulletTint);
     const d = pool.pop() || {
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: run.add.image(0, 0, 'core'),
     };
-    const r = cfg.ring.bulletRadius;
-    d.spr.setVisible(true).setDepth(11).setTint(tint)
-      .setDisplaySize(r * 2.6, r * 2.6).setPosition(x, y);
-    d.glow.setVisible(true).setDepth(6).setTint(tint).setScale(0.8).setPosition(x, y);
-    bullets.push({ active: true, x, y, vx, vy, life: cfg.ring.lifeSec, dmg: cfg.ring.damage, spr: d.spr, glow: d.glow });
+    const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile' : 'core';
+    const r = opts.radius != null ? opts.radius : 4;
+    d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
+      .setDisplaySize(r * 2.6, r * 2.6).setPosition(x, y).setRotation(0);
+    d.glow.setVisible(true).setDepth(6).setTint(tint).setScale(0.7).setPosition(x, y);
+    bullets.push({
+      active: true, x, y, vx, vy, kind,
+      spin: opts.spin || 0, returns: !!opts.returns,
+      maxTurn: opts.maxTurn || 0, spd: Math.hypot(vx, vy) || 1, cruise: opts.speed || 0,
+      blast: opts.blast || 0, age: 0, trailT: 0,
+      life: opts.life != null ? opts.life : 3,
+      dmg: opts.damage != null ? opts.damage : 10,
+      spr: d.spr, glow: d.glow,
+    });
   }
 
   function recycleBullet(b) {
@@ -314,15 +531,48 @@ export function createBoss(run) {
     const px = run.player.x, py = run.player.y;
     for (const b of bullets) {
       if (!b.active) continue;
+      if (b.kind === 'missile') {
+        const desired = Math.atan2(py - b.y, px - b.x);
+        let cur = Math.atan2(b.vy, b.vx);
+        const diff = Phaser.Math.Angle.Wrap(desired - cur);
+        const maxStep = b.maxTurn * dt;
+        cur += Math.max(-maxStep, Math.min(maxStep, diff));
+        b.spd += (b.cruise - b.spd) * Math.min(1, dt * 1.5);
+        b.vx = Math.cos(cur) * b.spd; b.vy = Math.sin(cur) * b.spd;
+        b.spr.setRotation(cur + Math.PI / 2);
+        b.trailT -= dt;
+        if (b.trailT <= 0) { b.trailT = 0.09; run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 2); }
+      } else if (b.kind === 'cutter') {
+        b.spr.rotation += dt * b.spin;
+        if (b.returns) {
+          b.age += dt;
+          if (b.age > b.life * 0.4 && boss) {
+            const a = Math.atan2(boss.y - b.y, boss.x - b.x);
+            const sp = Math.hypot(b.vx, b.vy) || 120;
+            b.vx += (Math.cos(a) * sp - b.vx) * Math.min(1, dt * 2.5);
+            b.vy += (Math.sin(a) * sp - b.vy) * Math.min(1, dt * 2.5);
+          }
+        }
+      } else {
+        b.spr.rotation += dt * 6;
+      }
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       b.spr.setPosition(b.x, b.y);
-      b.spr.rotation += dt * 6;
       b.glow.setPosition(b.x, b.y);
-      if (b.life <= 0) { b.active = false; }
-      else {
-        const rr = run.player.radius + 4;
+      if (b.life <= 0) {
+        b.active = false;
+        if (b.kind === 'missile' && b.blast > 0) {
+          const dx = b.x - px, dy = b.y - py, rr = 30 + run.player.radius;
+          if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(b.blast);
+          run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8);
+        }
+      } else {
+        const rr = run.player.radius + (b.kind === 'orb' ? 4 : 6);
         const dx = b.x - px, dy = b.y - py;
-        if (dx * dx + dy * dy <= rr * rr) { run.hitPlayer(b.dmg); b.active = false; }
+        if (dx * dx + dy * dy <= rr * rr) {
+          run.hitPlayer(b.dmg); b.active = false;
+          if (b.kind === 'missile') { run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8); Sound.sfx('hit'); }
+        }
       }
       if (!b.active) recycleBullet(b);
     }
@@ -334,44 +584,85 @@ export function createBoss(run) {
   function clearBullets() {
     for (const b of bullets) { if (b.active) { b.active = false; recycleBullet(b); } }
     bullets.length = 0;
+    if (beam) { beam = null; if (beamImg) beamImg.setVisible(false); }
   }
 
-  // ============ 表示 ============
+  // ============ 表示（本体そのものが動く） ============
   function updateDisp(dt) {
-    disp.swirl.rotation += dt * 1.2;
-    for (const o of [disp.swirl, disp.face, disp.glowP, disp.glowM]) o.setPosition(boss.x, boss.y);
+    const s = disp.spriteScale;
+    const cx = boss.x, cy = boss.y;
+    const bob = Math.sin(run.elapsed * 2) * 1.5;         // 全体の浮遊
+    const tilt = Math.sin(run.elapsed * 1.5) * 0.04;     // 機体の傾き
+
+    // 攻撃姿勢：腕の振り上げ/叩きつけ・上半身旋回・沈み込み
+    let armPose = 0, bodySink = 0, upperSpin = 0;
+    if (state === 'slamTele') {
+      armPose = lerp(0, -1.5, clamp01(1 - stateT / cfg.armslam.telegraphSec));
+    } else if (state === 'slamHit') {
+      const el = cfg.armslam.slamSec - stateT;
+      armPose = lerp(-1.5, 1.0, clamp01(el / 0.15));
+      bodySink = clamp01(el / 0.15) * 4;
+    } else if (state === 'cutterTele') {
+      armPose = lerp(0, -0.9, clamp01(1 - stateT / cfg.cutter.telegraphSec));
+    } else if (state === 'missileTele') {
+      // ミサイル：発射ハッチを開くように両腕を振り上げる
+      armPose = lerp(0, -1.1, clamp01(1 - stateT / cfg.missile.telegraphSec));
+    }
+    if (state === 'vulcanTele' || state === 'vulcanFire') upperSpin = Math.sin(run.elapsed * 18) * 0.12;
+    // 機関銃：連射中は上体を小刻みに反動させ、腕を前へ構える（撃つ動き）
+    if (state === 'mgFire') { upperSpin = Math.sin(run.elapsed * 40) * 0.06; if (armPose === 0) armPose = -0.5; }
+
+    if (recoilT > 0) recoilT -= dt;
+    const rk = recoilT > 0 ? (recoilT / 0.2) * 6 : 0;
+    const rcx = -Math.cos(recoilAng) * rk, rcy = -Math.sin(recoilAng) * rk;
+
+    for (const p of disp.parts) {
+      let px = cx + p.ox * s + rcx;
+      let py = cy + p.oy * s + bob + rcy;
+      let rot = 0;
+      const m = p.mirror ? -1 : 1;
+      switch (p.role) {
+        case 'body': rot = tilt + upperSpin * 0.3; py += bodySink; break;
+        case 'core': rot = tilt + upperSpin; py += bodySink; break;
+        case 'legR': case 'legL': {
+          const ph = p.mirror ? Math.PI : 0;
+          py += Math.abs(Math.sin(run.elapsed * 3 + ph)) * 1.2;
+          rot = tilt; break;
+        }
+        case 'armR': case 'armL': {
+          const base = armPose !== 0 ? armPose : Math.sin(run.elapsed * 3) * 0.08;
+          rot = base * m + tilt; break;
+        }
+        case 'cannon': rot = aim - tilt; break;
+        default: rot = tilt; break;
+      }
+      p.img.setPosition(px, py).setRotation(rot);
+    }
+
     const pulse = 1 + Math.sin(run.elapsed * 4) * 0.12;
-    disp.glowP.setScale(cfg.glowScale * 1.6 * pulse);
-    disp.glowM.setScale(cfg.glowScale * 0.9 * pulse);
+    disp.glowP.setPosition(cx, cy).setScale(cfg.glowScale * 1.6 * pulse);
+    disp.glowM.setPosition(cx, cy).setScale(cfg.glowScale * 0.9 * pulse);
 
-    // #3: 公転オーブ＝本体の外周を回りながら半径を上下にバウンド（＋任意で自転）
-    const ob = disp.ob;
-    const spin = run.elapsed * ob.spin;
-    for (const o of disp.orbs) {
-      const a = o.baseA + spin;
-      const r = disp.orbitR + Math.sin(run.elapsed * 3 + o.baseA) * ob.bob;
-      o.img.setPosition(boss.x + Math.cos(a) * r, boss.y + Math.sin(a) * r);
-      if (ob.selfSpin) o.img.rotation += dt * ob.selfSpin;
-    }
-    // オーラリング＝本体中心で内外が逆向きにゆっくり回転
-    for (let i = 0; i < disp.rings.length; i++) {
-      const ring = disp.rings[i];
-      ring.setPosition(boss.x, boss.y);
-      ring.rotation += dt * (i % 2 === 0 ? 0.8 : -1.1);
+    // 銃口フラッシュ（連射/掃射中のみ・砲口位置で点滅）
+    if (state === 'mgFire' || state === 'vulcanFire') {
+      const bd = boss.radius * 1.1;
+      disp.muzzle.setVisible(Math.floor(run.elapsed * 30) % 2 === 0)
+        .setPosition(cx + Math.cos(aim) * bd, cy + Math.sin(aim) * bd).setRotation(aim);
+    } else {
+      disp.muzzle.setVisible(false);
     }
 
+    // 被弾フラッシュ / 予告点滅 / phase2 tint を全パーツへ
     boss.flashT -= dt;
     let tint = null;
     if (boss.flashT > 0) tint = 0xffffff;
-    else if (state === 'dashTele') tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
+    else if (isTelegraph(state)) tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
     else if (phase2) tint = 0xff6a6a;
-    if (tint == null) { disp.swirl.clearTint(); disp.face.clearTint(); }
-    else { disp.swirl.setTint(tint); disp.face.setTint(tint); }
+    for (const p of disp.parts) { if (tint == null) p.img.clearTint(); else p.img.setTint(tint); }
   }
 
-  // ============ 撃破時の共通ごほうび（⑦爽快感：必殺満タン＋コイン＋派手バースト） ============
+  // ============ 撃破時の共通ごほうび（必殺満タン＋コイン＋派手バースト） ============
   function awardKillRewards(x, y) {
-    // ボス撃破で必殺ゲージを満タン化（残り使用回数がある場合）
     if (run.special) { for (let i = 0; i < killsPerCharge; i++) run.special.addKill(); }
     run.coins += cfg.rewardCoins;
     run.floatText(run.player.x, run.player.y - 30, '+' + cfg.rewardCoins + ' コイン', '#ffd23f');
@@ -384,7 +675,7 @@ export function createBoss(run) {
 
   // ============ 撃破シネマティック ============
   function onBossKilled(e) {
-    if (killing || !boss || e !== boss) return;  // 現ボス以外／多重発火はガード
+    if (killing || !boss || e !== boss) return;
     killing = true;
     boss.active = false;
     const x = boss.x, y = boss.y;
@@ -392,31 +683,23 @@ export function createBoss(run) {
     Sound.sfx('bossdown');
     awardKillRewards(x, y);
     startDeathSpin();
-
-    if (cfg.final) {
-      finishFinal(x, y);
-    } else {
-      finishMini(x, y);
-    }
+    if (cfg.final) finishFinal(x, y);
+    else finishMini(x, y);
   }
 
-  // 最終ボス「マオウ」撃破＝フルbossVictory＋かわいさギャップ演出＋クリア
+  // 最終ボス撃破＝フルbossVictory＋クリア
   function finishFinal(x, y) {
     allDone = true;
-    // 威圧顔 → 撃破 → かわいいピンクのハートで祝福（かわいさとのギャップ）
-    run.floatText(x, y - 46, 'マオウ を たおした！', '#ff6ec7');
-
+    run.floatText(x, y - 46, def.name + ' を たおした！', '#ff6ec7');
     const finish = () => {
       run.cinematic = false;
       destroyDisp();
       endFight();
       run.endRun(true);
     };
-
     if (run.fx && run.fx.bossVictory) {
-      run.fx.bossVictory(x, y, finish);       // fx が run.cinematic とバースト演出を所有
+      run.fx.bossVictory(x, y, finish);
     } else {
-      // フォールバック: 自前で 1.8s のバースト＋シェイク後にクリアへ
       run.shake(400, 8);
       run.time.addEvent({
         delay: 150, repeat: 9,
@@ -441,30 +724,31 @@ export function createBoss(run) {
     run.time.delayedCall(cfg.deathCinematicSec * 1000, () => {
       destroyDisp();
       endFight();
-      if (run.withAudio) Sound.startBgm('battle');   // 通常BGMへ復帰
+      if (run.withAudio) Sound.startBgm('battle');
     });
   }
 
   function startDeathSpin() {
     if (!disp) return;
+    if (disp.muzzle) disp.muzzle.setVisible(false);   // 連射中に撃破しても銃口フラッシュを残さない
     const ms = cfg.deathCinematicSec * 1000;
-    const orbImgs = disp.orbs.map((o) => o.img);
-    run.tweens.add({ targets: [disp.swirl, disp.face], angle: '+=540', duration: ms, ease: 'Cubic.in' });
+    const imgs = disp.parts.map((p) => p.img);
+    run.tweens.add({ targets: imgs, angle: '+=540', duration: ms, ease: 'Cubic.in' });
     run.tweens.add({
-      targets: [disp.swirl, disp.face, disp.glowP, disp.glowM, ...orbImgs, ...disp.rings],
-      alpha: 0, duration: ms, ease: 'Cubic.in',
+      targets: [...imgs, disp.glowP, disp.glowM], alpha: 0, duration: ms, ease: 'Cubic.in',
     });
   }
 
   function destroyDisp() {
     if (!disp) return;
-    for (const o of [disp.swirl, disp.face, disp.glowP, disp.glowM]) { if (o) o.destroy(); }
-    for (const o of disp.orbs) { if (o.img) o.img.destroy(); }
-    for (const r of disp.rings) { if (r) r.destroy(); }
+    for (const p of disp.parts) { if (p.img) p.img.destroy(); }
+    if (disp.glowP) disp.glowP.destroy();
+    if (disp.glowM) disp.glowM.destroy();
+    if (disp.muzzle) disp.muzzle.destroy();
+    if (beamImg) { beamImg.destroy(); beamImg = null; }
     disp = null;
   }
 
-  // 現在の戦闘を終了し、次の tier へ進める
   function endFight() {
     boss = null;
     cfg = null;
@@ -477,7 +761,6 @@ export function createBoss(run) {
 
   // ============ 毎フレーム ============
   function update(dt) {
-    // スケジューラ：現在戦闘中でなく、まだ残り tier があれば予告→出現を進める
     if (!allDone && !boss && ti < tiers.length) {
       const t = tiers[ti];
       if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
@@ -504,6 +787,7 @@ export function createBoss(run) {
     }
 
     updateBullets(dt);
+    if (beam) updateBeam(dt);
   }
 
   function destroy() {
@@ -519,5 +803,10 @@ export function createBoss(run) {
     get active() { return !!(boss && boss.active); },
     get warned() { return warnedArr.some(Boolean); },
     get entity() { return boss; },
+    // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）
+    get state() { return state; },
+    get bulletCount() { return bullets.length; },
+    get beamActive() { return !!beam; },
+    get partCount() { return disp ? disp.parts.length : 0; },
   };
 }

@@ -22,10 +22,9 @@ export class BootScene extends Phaser.Scene {
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
-    // ボス（Wave D：小/中/大の3段）の2枚重ね（渦＋顔）。boss.js とキー命名を合わせる。
+    // ボス（Wave R3：ロボット6体・7パーツリグ）。sprites の各パーツを boss_<id>_<part> でテクスチャ化。
     for (const d of BOSSES) {
-      this.makeGrid('boss_' + d.id + '_swirl', d.sprites.swirl);
-      this.makeGrid('boss_' + d.id + '_face', d.sprites.face);
+      for (const [k, s] of Object.entries(d.sprites)) this.makeGrid('boss_' + d.id + '_' + k, s);
     }
     // 強化アイコン7種
     for (const [id, ic] of Object.entries(UPGRADE_ICONS)) this.makeGrid('icon_' + id, ic);

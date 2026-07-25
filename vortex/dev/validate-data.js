@@ -17,7 +17,8 @@ const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral', 'hover'];
 const ATTACK_TYPE = ['quake', 'divebomb', 'selfdestruct', 'lockbeam', 'spread'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
-function validateSprite(sprite, label) {
+// minDim/maxDim は寸法の許容範囲（雑魚/主人公は8〜16。ボスのパーツは小さめも許すため呼び出しで緩める）。
+function validateSprite(sprite, label, minDim = 8, maxDim = 16) {
   check(sprite && typeof sprite === 'object', `${label}: sprite が無い`);
   if (!sprite) return;
   check(sprite.palette && typeof sprite.palette === 'object', `${label}: palette が無い`);
@@ -31,9 +32,9 @@ function validateSprite(sprite, label) {
   }
 
   const height = sprite.rows.length;
-  check(height >= 8 && height <= 16, `${label}: 高さ ${height} が8〜16の範囲外`);
+  check(height >= minDim && height <= maxDim, `${label}: 高さ ${height} が${minDim}〜${maxDim}の範囲外`);
   const width = sprite.rows[0] ? sprite.rows[0].length : 0;
-  check(width >= 8 && width <= 16, `${label}: 幅 ${width} が8〜16の範囲外`);
+  check(width >= minDim && width <= maxDim, `${label}: 幅 ${width} が${minDim}〜${maxDim}の範囲外`);
 
   const allowed = new Set(Object.keys(sprite.palette));
   allowed.add('.');
@@ -80,7 +81,7 @@ if (Array.isArray(PLAYER_SPRITES)) {
   PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`));
 }
 
-// --- BOSSES（Wave D：小/中/大の3段）---
+// --- BOSSES（Wave R3：ロボット6体・7パーツリグ）---
 check(Array.isArray(BOSSES) && BOSSES.length >= 1, 'BOSSES が配列でない/空');
 const bossIds = new Set();
 for (const b of BOSSES) {
@@ -93,10 +94,21 @@ for (const b of BOSSES) {
   check(typeof b.name === 'string' && b.name.length > 0, `${label}: name が無い`);
   check(COLOR_RE.test(b.color), `${label}: color "${b.color}" が#+16進6桁でない`);
   check(b.sprites && typeof b.sprites === 'object', `${label}: sprites が無い`);
-  if (b.sprites) {
-    for (const key of ['swirl', 'face']) {
-      check(key in b.sprites, `${label}: sprites.${key} が無い`);
-      validateSprite(b.sprites[key], `${label}.sprites.${key}`);
+  if (b.sprites && typeof b.sprites === 'object') {
+    // body/core は必須。全パーツを矩形チェック（パーツは小さめ可＝3〜20px）。
+    check('body' in b.sprites, `${label}: sprites.body が無い`);
+    check('core' in b.sprites, `${label}: sprites.core が無い`);
+    for (const [k, s] of Object.entries(b.sprites)) validateSprite(s, `${label}.sprites.${k}`, 3, 20);
+  }
+  // rig（7パーツリグ）: 4要素以上・tex が sprites に実在・ox/oy が数値
+  check(Array.isArray(b.rig) && b.rig.length >= 4, `${label}: rig が4要素以上の配列でない`);
+  if (Array.isArray(b.rig)) {
+    for (let i = 0; i < b.rig.length; i++) {
+      const r = b.rig[i];
+      check(r && typeof r === 'object', `${label}: rig[${i}] がオブジェクトでない`);
+      if (!r) continue;
+      check(b.sprites && r.tex in b.sprites, `${label}: rig[${i}].tex "${r.tex}" が sprites に無い`);
+      check(typeof r.ox === 'number' && typeof r.oy === 'number', `${label}: rig[${i}] の ox/oy が数値でない`);
     }
   }
 }
@@ -170,7 +182,7 @@ if (B && Array.isArray(B.tiers)) {
   let finalCount = 0;
   B.tiers.forEach((t, i) => {
     const label = `boss.tiers[${i}]`;
-    // bossId は BOSSES に実在すること（テクスチャキー boss_<id>_swirl/_face と一致）
+    // bossId は BOSSES に実在すること（テクスチャキー boss_<id>_<part> と一致）
     check(bossIds.has(t.bossId), `${label}: bossId "${t.bossId}" が BOSSES に無い`);
     // 出現時刻は warn < spawn、かつ tier 昇順で単調増加（出現の重なり防止）
     check(typeof t.warnSec === 'number' && typeof t.spawnSec === 'number' && t.warnSec < t.spawnSec,
@@ -203,4 +215,4 @@ if (errors.length > 0) {
   for (const e of errors) console.error('  - ' + e);
   process.exit(1);
 }
-console.log(`validate-data: OK (monsters=${MONSTERS.length}, enemies=${ENEMIES.length})`);
+console.log(`validate-data: OK (monsters=${MONSTERS.length}, enemies=${ENEMIES.length}, bosses=${BOSSES.length})`);

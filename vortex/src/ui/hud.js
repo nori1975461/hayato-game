@@ -105,7 +105,7 @@ export function createHud(run) {
 
   // ボスHPバー（画面上部・ボス出現中のみ表示）
   const bossBar = run.add.graphics().setScrollFactor(0).setDepth(D + 2);
-  const bossName = run.add.text(320, 28, 'ウズキング', {
+  const bossName = run.add.text(320, 28, 'BOSS', {
     fontFamily: 'monospace', fontSize: '12px', color: '#ff8fb3', fontStyle: 'bold',
   }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 3).setVisible(false);
 
