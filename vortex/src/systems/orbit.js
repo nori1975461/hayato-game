@@ -7,6 +7,28 @@ import { Sound } from '../audio/sound.js';
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
 
+// ── FB#4: 武器レベルアップの「まとう装飾」を段階的に派手化（HAYATO本体の40段階武器を参考）。
+// maxLevel(=12) を6つの見た目ティアに束ね、帯が上がるごとに装飾が累積で足され
+// 「明らかに別物へ変わった」と一目で分かるようにする。テーマ＝可愛さ×派手さ・限界突破。
+const HUES = [0xffd23f, 0xff6ec7, 0x7fd8ff, 0x9b6bff, 0x36e0ff, 0xff9e3f];
+const DECO_TIERS = [
+  // Lv1-2:  素のグローのみ（原点）
+  { sats: 0, hearts: 0, halo: 0, crown: false, ribbon: false, wings: false, sparks: 0, pulse: 0.00, glowMul: 1.00 },
+  // Lv3-4:  星の衛星が2つ回りだす（最初の「変わった！」）
+  { sats: 2, hearts: 0, halo: 0, crown: false, ribbon: false, wings: false, sparks: 0, pulse: 0.06, glowMul: 1.15 },
+  // Lv5-6:  衛星3つ＋リボン＋脈動グロー
+  { sats: 3, hearts: 0, halo: 0, crown: false, ribbon: true,  wings: false, sparks: 2, pulse: 0.10, glowMul: 1.30 },
+  // Lv7-8:  衛星4つ＋王冠＋虹サンバースト後光（派手さの入口）
+  { sats: 4, hearts: 0, halo: 1, crown: true,  ribbon: true,  wings: false, sparks: 3, pulse: 0.12, glowMul: 1.50 },
+  // Lv9-10: ＋ハート衛星2つ＋きらきら増（きらびやか）
+  { sats: 4, hearts: 2, halo: 1, crown: true,  ribbon: true,  wings: false, sparks: 4, pulse: 0.14, glowMul: 1.70 },
+  // Lv11-12:限界突破＝天使羽＋王冠＋特大後光2重＋衛星6＋ハート2＋スパーク全開＋虹シマー
+  { sats: 6, hearts: 2, halo: 2, crown: true,  ribbon: true,  wings: true,  sparks: 6, pulse: 0.18, glowMul: 2.00 },
+];
+const decoTierIndex = (lv) => Math.min(DECO_TIERS.length - 1, Math.max(0, Math.floor((lv - 1) / 2)));
+// 虹シマー：連続位相 ph をHUESインデックスへ巡回（各装飾で位相をずらすと全体で虹グラデに見える）
+const hueAt = (ph) => HUES[((Math.floor(ph) % HUES.length) + HUES.length) % HUES.length];
+
 export function createOrbit(run) {
   const A = BALANCE.archetypes;
   const F = BALANCE.fused;
@@ -14,6 +36,8 @@ export function createOrbit(run) {
   const orbs = [];          // 公転体の内部状態（run.party と1:1で同期）
   let angle = 0;            // 全体の公転位相（ラジアン）
   let weaponLevel = 1;      // ★取得で上がる武器レベル（全なかま共通・1..W.maxLevel）
+
+  ensureDecoTextures();     // 装飾テクスチャを一度だけ内製（textures.exists でガード）
 
   // run.party の増減・進化・合成に合わせて公転体スプライトと戦闘値を作り直す
   function rebuild() {
@@ -23,6 +47,7 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      disposeDeco(o);
       releaseWeaponVisuals(o);
     }
     // 不足を追加
@@ -30,7 +55,8 @@ export function createOrbit(run) {
       const glow = run.add.image(0, 0, 'glow')
         .setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
       const spr = run.add.image(0, 0, 'white').setDepth(11);
-      orbs.push({ glow, spr, aura: null, shotT: 0, beamT: 0, fieldT: 0, slash: new Map(),
+      orbs.push({ glow, spr, aura: null, deco: [], glowBase: 1.5, glowMul: 1, decoTier: null,
+                  shotT: 0, beamT: 0, fieldT: 0, slash: new Map(),
                   boomT: 0, ringT: 0, boomerang: null, ringwave: null });
     }
     // 定義を各公転体へ割り当て
@@ -45,6 +71,7 @@ export function createOrbit(run) {
       const ovr = src.ovr || {};
 
       o.def = base;
+      o.idx = i;                               // 脈動などの位相ずらしに使う
       o.fused = fused;
       o.evolved = evolved;
       o.archetype = base.archetype;            // archetype/color は基本形を継承
@@ -104,8 +131,9 @@ export function createOrbit(run) {
       const lvGrow = wl / (W.maxLevel - 1);     // 0..1。レベルが上がるほど僅かに大きく光る
       o.spr.setTexture('mon_' + o.textureId)
         .setScale((big ? F.spriteScale : 2.5) * (1 + lvGrow * 0.12)).clearTint();
-      o.glow.setTint(o.color)
-        .setScale((fused ? F.glowScale : (big ? 1.9 : 1.5)) * (1 + lvGrow * 0.35));
+      // グローの基準スケール。脈動は updateDeco が glowBase×glowMul×鼓動 で毎フレーム上書きする
+      o.glowBase = (fused ? F.glowScale : (big ? 1.9 : 1.5)) * (1 + lvGrow * 0.35);
+      o.glow.setTint(o.color).setScale(o.glowBase);
 
       if (o.archetype === 'FIELD') {
         if (!o.aura) {
@@ -118,6 +146,9 @@ export function createOrbit(run) {
       } else if (o.aura) {
         o.aura.setVisible(false);
       }
+
+      // ★武器レベルに応じた「まとう装飾」を再構築（ティアが上がるほど別物の見た目へ）
+      buildDeco(o, weaponLevel, big);
     }
   }
 
@@ -142,6 +173,7 @@ export function createOrbit(run) {
       o.x = ox; o.y = oy;
       o.spr.setPosition(ox, oy);
       o.glow.setPosition(ox, oy);
+      updateDeco(o, dt);     // まとう装飾を本体へ追従＋アニメ（グロー脈動もここ）
 
       switch (o.archetype) {
         case 'SLASH': updateSlash(o, dt); break;
@@ -336,6 +368,217 @@ export function createOrbit(run) {
     }
   }
 
+  // ── FB#4 装飾テクスチャの内製（boss.js と同じ方式：白で描いて実行時 setTint で色付け）。
+  function ensureDecoTextures() {
+    const G = () => run.make.graphics({ x: 0, y: 0, add: false });
+    const P = (x, y) => new Phaser.Geom.Point(x, y);
+    // N点星（衛星星・きらきら・サンバースト後光に共用）
+    const star = (key, s, points, outR, inR) => {
+      if (run.textures.exists(key)) return;
+      const g = G(); const c = s / 2; const pts = [];
+      for (let i = 0; i < points * 2; i++) {
+        const rad = i % 2 === 0 ? outR : inR;
+        const a = (Math.PI * i) / points - Math.PI / 2;
+        pts.push(P(c + Math.cos(a) * rad, c + Math.sin(a) * rad));
+      }
+      g.fillStyle(0xffffff, 1); g.fillPoints(pts, true);
+      g.generateTexture(key, s, s); g.destroy();
+    };
+    star('deco_sat', 16, 5, 7.5, 3.2);    // ぷっくり5点の衛星星
+    star('deco_spark', 14, 4, 6.5, 2.0);  // 4点きらきら
+    star('deco_halo', 80, 16, 39, 12);    // 16条のサンバースト後光
+
+    if (!run.textures.exists('deco_heart')) {
+      const g = G(); const s = 22, r = s * 0.26;
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(s * 0.32, s * 0.36, r);
+      g.fillCircle(s * 0.68, s * 0.36, r);
+      g.fillPoints([P(s * 0.08, s * 0.42), P(s * 0.92, s * 0.42), P(s * 0.5, s * 0.95)], true);
+      g.generateTexture('deco_heart', s, s); g.destroy();
+    }
+    if (!run.textures.exists('deco_crown')) {
+      const g = G(); const s = 26;
+      g.fillStyle(0xffffff, 1);
+      g.fillPoints([
+        P(s * 0.12, s * 0.82), P(s * 0.12, s * 0.34), P(s * 0.30, s * 0.56),
+        P(s * 0.50, s * 0.20), P(s * 0.70, s * 0.56), P(s * 0.88, s * 0.34),
+        P(s * 0.88, s * 0.82),
+      ], true);
+      g.fillCircle(s * 0.12, s * 0.30, s * 0.09);   // 山の先の玉
+      g.fillCircle(s * 0.50, s * 0.16, s * 0.10);
+      g.fillCircle(s * 0.88, s * 0.30, s * 0.09);
+      g.generateTexture('deco_crown', s, s); g.destroy();
+    }
+    if (!run.textures.exists('deco_ribbon')) {
+      const g = G(); const s = 28, cy = s * 0.5;
+      g.fillStyle(0xffffff, 1);
+      g.fillPoints([P(s * 0.5, cy), P(s * 0.06, s * 0.28), P(s * 0.06, s * 0.72)], true);  // 左の羽
+      g.fillPoints([P(s * 0.5, cy), P(s * 0.94, s * 0.28), P(s * 0.94, s * 0.72)], true);  // 右の羽
+      g.fillCircle(s * 0.5, cy, s * 0.13);          // 中央の結び目
+      g.generateTexture('deco_ribbon', s, s); g.destroy();
+    }
+    if (!run.textures.exists('deco_wing')) {
+      const w = 28, h = 34;
+      const g = G(); g.fillStyle(0xffffff, 1);
+      // 付け根(右下)から先端(左上)へ細くなる天使羽のシルエット（円の重ねで作る）
+      g.fillCircle(w * 0.60, h * 0.78, w * 0.30);
+      g.fillCircle(w * 0.50, h * 0.54, w * 0.26);
+      g.fillCircle(w * 0.42, h * 0.32, w * 0.20);
+      g.fillCircle(w * 0.36, h * 0.14, w * 0.13);
+      g.generateTexture('deco_wing', w, h); g.destroy();
+    }
+  }
+
+  // ティアに応じた装飾スプライトを生成（既存は disposeDeco で破棄してから作り直す）
+  function buildDeco(o, level, big) {
+    disposeDeco(o);
+    const t = DECO_TIERS[decoTierIndex(level)];
+    o.decoTier = t;
+    o.glowMul = t.glowMul;
+    const baseScale = big ? 1.25 : 1.0;    // 進化/合成のなかまは装飾も少し大きく
+    const add = (key, depth, blend) => {
+      const img = run.add.image(0, 0, key).setDepth(depth);
+      if (blend != null) img.setBlendMode(blend);
+      o.deco.push(img);
+      return img;
+    };
+    // サンバースト後光（本体の背後・ADD）
+    for (let i = 0; i < t.halo; i++) {
+      const img = add('deco_halo', 4, Phaser.BlendModes.ADD);
+      img.role = 'halo'; img.idx = i;
+      img.spin = (i % 2 ? -1 : 1) * 0.5;
+      img.baseScale = baseScale * (1.1 + i * 0.55);
+    }
+    // 天使羽（本体の背後・左右）
+    if (t.wings) {
+      for (let s = 0; s < 2; s++) {
+        const img = add('deco_wing', 10, Phaser.BlendModes.ADD);
+        img.role = 'wing'; img.side = s === 0 ? -1 : 1;
+        img.setFlipX(s === 0);
+        img.baseScale = baseScale;
+      }
+    }
+    // 衛星星（本体の周りを公転・虹回転）
+    for (let i = 0; i < t.sats; i++) {
+      const img = add('deco_sat', 12, Phaser.BlendModes.ADD);
+      img.role = 'sat'; img.idx = i; img.n = t.sats;
+      img.baseScale = baseScale;
+    }
+    // ハート衛星（衛星星の外側を逆回転）
+    for (let i = 0; i < t.hearts; i++) {
+      const img = add('deco_heart', 12, null);
+      img.role = 'heart'; img.idx = i; img.n = t.hearts;
+      img.baseScale = baseScale;
+    }
+    // 王冠（本体の頭上・金）
+    if (t.crown) {
+      const img = add('deco_crown', 12, null);
+      img.role = 'crown'; img.baseScale = baseScale;
+      img.setTint(0xffe45c);
+    }
+    // リボン（本体の足元・虹）
+    if (t.ribbon) {
+      const img = add('deco_ribbon', 12, null);
+      img.role = 'ribbon'; img.baseScale = baseScale;
+    }
+    // きらきらスパーク（本体周囲で明滅・虹）
+    for (let i = 0; i < t.sparks; i++) {
+      const img = add('deco_spark', 13, Phaser.BlendModes.ADD);
+      img.role = 'spark'; img.idx = i; img.n = t.sparks;
+      img.baseScale = baseScale;
+    }
+  }
+
+  // 装飾の追従・アニメ。決定的（run.elapsed と idx のみ・Math.random不使用）。
+  function updateDeco(o, dt) {
+    if (o.glowBase == null) return;
+    // グロー脈動（ティアが上がるほど大きく強く脈打つ）
+    const pulse = o.decoTier ? o.decoTier.pulse : 0;
+    const beat = 1 + Math.sin(run.elapsed * 6 + (o.idx || 0)) * pulse;
+    o.glow.setScale(o.glowBase * (o.glowMul || 1) * beat);
+
+    if (!o.deco.length) return;
+    const bodyR = (o.spr.displayWidth * 0.5) || 20;
+    const t = run.elapsed;
+    for (const d of o.deco) {
+      switch (d.role) {
+        case 'halo': {
+          d.setPosition(o.x, o.y);
+          d.rotation += d.spin * dt;
+          const sc = (bodyR * 2.4 * d.baseScale) / 80;     // 後光は本体の約2.4倍径
+          d.setScale(sc * (1 + Math.sin(t * 3 + d.idx) * 0.10));
+          d.setTint(hueAt(t * 1.5 + d.idx * 2));
+          d.setAlpha(0.35);                                // ADD・全画面ではないので子ども安全内
+          break;
+        }
+        case 'wing': {
+          const flap = Math.sin(t * 4) * 0.12;
+          d.setPosition(o.x + d.side * bodyR * 0.55, o.y - bodyR * 0.1);
+          d.setRotation(d.side * (0.35 + flap));           // 外向きに開いて羽ばたく
+          d.setScale((bodyR * 1.6 * d.baseScale) / 34);
+          d.setTint(hueAt(t * 1.2 + (d.side > 0 ? 3 : 0)));
+          d.setAlpha(0.45);
+          break;
+        }
+        case 'sat': {
+          const a = t * 2.2 + (d.idx / d.n) * Math.PI * 2;
+          const orbR = bodyR * 1.35;
+          d.setPosition(o.x + Math.cos(a) * orbR, o.y + Math.sin(a) * orbR);
+          d.rotation += dt * 6;
+          const sc = (bodyR * 0.55 * d.baseScale) / 16;
+          d.setScale(sc * (1 + Math.sin(t * 8 + d.idx) * 0.20));
+          d.setTint(hueAt(t * 3 + d.idx));                 // 各星で位相ずれ＝虹の輪
+          d.setAlpha(0.95);
+          break;
+        }
+        case 'heart': {
+          const a = -t * 1.6 + (d.idx / d.n) * Math.PI * 2 + Math.PI / 4;
+          const orbR = bodyR * 1.75;
+          d.setPosition(o.x + Math.cos(a) * orbR, o.y + Math.sin(a) * orbR);
+          const sc = (bodyR * 0.6 * d.baseScale) / 22;
+          d.setScale(sc * (1 + Math.sin(t * 5 + d.idx * 2) * 0.15));
+          d.setTint(hueAt(t * 2 + d.idx * 3 + 1));
+          d.setAlpha(0.95);
+          break;
+        }
+        case 'crown': {
+          const bobY = Math.sin(t * 3) * bodyR * 0.05;
+          d.setPosition(o.x, o.y - bodyR * 0.95 + bobY);
+          d.setScale((bodyR * 1.1 * d.baseScale) / 26);
+          d.setRotation(Math.sin(t * 2) * 0.08);
+          break;
+        }
+        case 'ribbon': {
+          d.setPosition(o.x, o.y + bodyR * 0.85);
+          const sc = (bodyR * 0.95 * d.baseScale) / 28;
+          d.setScale(sc, sc * (1 + Math.sin(t * 6) * 0.08));   // ひらひら
+          d.setRotation(Math.sin(t * 4) * 0.12);
+          d.setTint(hueAt(t * 2 + 2));
+          d.setAlpha(0.95);
+          break;
+        }
+        case 'spark': {
+          const a = d.idx * 2.399963 + t * 0.6;                // 黄金角で決定的に散らす
+          const rr = bodyR * (1.0 + ((d.idx * 0.37) % 1) * 0.9);
+          d.setPosition(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr);
+          const tw = 0.5 + 0.5 * Math.sin(t * 7 + d.idx * 1.7); // 明滅
+          d.setScale((bodyR * 0.35 * d.baseScale) / 14 * (0.6 + tw * 0.8));
+          d.rotation += dt * 4;
+          d.setTint(hueAt(t * 4 + d.idx * 2));
+          d.setAlpha(0.3 + tw * 0.45);
+          break;
+        }
+      }
+    }
+  }
+
+  function disposeDeco(o) {
+    if (o.deco) {
+      for (const d of o.deco) d.destroy();
+      o.deco.length = 0;
+    }
+  }
+
   // 武器ビジュアルの後始末。rebuild() の pop ループと destroy() の「両方」から呼ぶ
   // （片方だけだとなかま入替時にスプライトが残ってリークする）。
   function releaseWeaponVisuals(o) {
@@ -355,6 +598,7 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.aura) o.aura.destroy();
+      disposeDeco(o);
       releaseWeaponVisuals(o);
     }
     orbs.length = 0;
