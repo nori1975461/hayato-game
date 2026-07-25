@@ -58,6 +58,7 @@ export class RunScene extends Phaser.Scene {
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4de1c0).setScale(1.6);
     this.playerImg = this.add.image(0, 0, 'player').setScale(2).setDepth(10);
+    this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
 
     // --- パーティ（開始編成） ---
     this.party = START_PARTY.map((id) => ({ def: MONSTERS.find((m) => m.id === id) }));
@@ -218,6 +219,10 @@ export class RunScene extends Phaser.Scene {
 
   // ============ プレイヤー ============
   updatePlayer(dt) {
+    // FB#5: レベル到達で主人公が変身（スターテイマー→ボルテックスマスター）
+    const stage = this.level >= 10 ? 3 : this.level >= 5 ? 2 : 1;
+    if (stage !== this.playerStage) this.transformPlayer(stage);
+
     const k = this.moveKeys;
     let dx = 0, dy = 0;
     if (k.left.isDown || k.a.isDown) dx -= 1;
@@ -247,6 +252,31 @@ export class RunScene extends Phaser.Scene {
     } else {
       this.playerImg.clearTint();
     }
+  }
+
+  // 変身演出（FB#5）。テクスチャ差し替え＋金リング＋星バースト＋ファンファーレ。
+  // ステージごとにグロー色も変わる（1=ミント/2=マゼンタ/3=金）→強くなったのが一目で分かる。
+  transformPlayer(stage) {
+    this.playerStage = stage;
+    this.playerImg.setTexture('player_' + stage);
+    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xff6ec7 : 0x4de1c0;
+    this.playerGlow.setTint(glowColor).setScale(1.6 + (stage - 1) * 0.5);
+    const x = this.player.x, y = this.player.y;
+    // 広がる金リング×2（時間差）
+    for (let i = 0; i < 2; i++) {
+      const ring = this.add.image(x, y, 'w_ring').setBlendMode(ADD).setDepth(14)
+        .setTint(0xffd23f).setScale(0.4).setAlpha(0.9);
+      this.tweens.add({
+        targets: ring, scale: 4.5 + i * 2, alpha: 0, duration: 550, delay: i * 130,
+        onComplete: () => ring.destroy(),
+      });
+    }
+    // 本体がポンッと膨らんで戻る＋星の爆発
+    this.tweens.add({ targets: this.playerImg, scale: 3.2, duration: 160, yoyo: true, ease: 'Quad.Out' });
+    this.spawnParticles(x, y, glowColor, 24);
+    this.popFx(x, y, 0xffd23f);
+    Sound.sfx('evolve');
+    this.shake(160, 4);
   }
 
   hitPlayer(dmg) {
@@ -282,9 +312,11 @@ export class RunScene extends Phaser.Scene {
     if (this.level >= H.tripleLevel) angles = [ang, ang - spread, ang + spread];
     else if (this.level >= H.twinLevel) angles = [ang - spread, ang + spread];
     else angles = [ang];
+    // 弾色は変身ステージ連動（1=ミント/2=マゼンタ/3=金）＝変身の実感をショットでも見せる
+    const shotColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xff6ec7 : 0x4de1c0;
     for (const a of angles) {
       this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
-        0x4de1c0, dmg, H.bulletRadius, 'w_star2');   // Wave B: きらきらスター弾
+        shotColor, dmg, H.bulletRadius, 'w_star2');   // Wave B: きらきらスター弾
     }
     Sound.sfx('shoot');
   }
