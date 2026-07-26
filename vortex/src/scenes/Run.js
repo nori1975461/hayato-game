@@ -853,11 +853,15 @@ export class RunScene extends Phaser.Scene {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'gem'),
     };
-    const tint = big ? 0xffd23f : 0x66ffcc;
+    // FB: 宝石が敵弾（赤glowの丸い foe_orb・本体は敵色 tint）と紛らわしい対策。
+    // 敵色域（赤/橙/黄/シアン/青/灰）にもハートの桃にも被らない寒色系の固定色に統一する。
+    //   旧: 小=0x66ffcc（緑シアン→シアン敵と被る）/ 大=0xffd23f（金→黄敵 0xffcf3d とほぼ一致）＝これが紛らわしさの原因。
+    //   新: 小=エメラルド緑 / 大=アメジスト紫（どちらも敵に存在しない色）。多面カット形状と合わせ、赤い敵弾と色でも形でも即分離。
+    const tint = big ? 0xb060ff : 0x33e070;
     disp.spr.setVisible(true).setDepth(12).setTint(tint)
-      .setScale(big ? 2 : 1.2).setPosition(x, y);
+      .setScale(big ? 1.7 : 1.05).setPosition(x, y);
     disp.glow.setVisible(true).setDepth(6).setTint(tint)
-      .setScale(big ? 0.9 : 0.5).setPosition(x, y);
+      .setScale(big ? 1.0 : 0.55).setPosition(x, y);
     this.gems.push({ active: true, x, y, value, spr: disp.spr, glow: disp.glow });
   }
 
@@ -901,7 +905,7 @@ export class RunScene extends Phaser.Scene {
     if (this.rng.chance(rate)) this.spawnHeal(e.x, e.y);
   }
 
-  // gem/core と同じ表示（spr＋glow）機構。桃/マゼンタのハートでジェム（緑/金のひし形）と明確に別物に見せる。
+  // gem/core と同じ表示（spr＋glow）機構。桃/マゼンタのハートで、寒色（緑/紫）の多面カットジェムとも明確に別物に見せる。
   // FB#3: 危険赤の敵弾（foe_orb）と紛れないよう、ハートは明るい桃〜マゼンタへ寄せ＋上側を白ハイライト。
   //       上ほど白い4隅tint（0xffd0ec）で「つやのある可愛い桃ハート＝回復」を強調し、濃い赤丸弾と即分離。
   spawnHeal(x, y) {

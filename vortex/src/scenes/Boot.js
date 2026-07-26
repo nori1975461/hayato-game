@@ -33,7 +33,7 @@ export class BootScene extends Phaser.Scene {
     this.makeGlow('glow', 32);
     this.makeBullet('bullet', 8);
     this.makeStar('core', 12, 6, 2.6, 5);   // スターコア（5点星）
-    this.makeGem('gem', 8);                   // XPジェム（ひし形）
+    this.makeGem('gem', 12);                  // XPジェム（多面カットのクリスタル・実行時に寒色で tint）
     this.makeHeart('heart', 12);              // FB#1: 体力回復アイテム（ハート・実行時に赤/桃で tint）
     this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・味方のスター弾と形で区別）
     this.makeSpark('spark', 7);               // 爆散パーティクル
@@ -118,11 +118,26 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
+  // XPジェム（多面カットのクリスタル）。丸い敵弾（foe_orb）と一目で区別できる角ばった宝石シルエット。
+  // FB: 宝石が赤系の敵弾と紛らわしい対策。カット面ごとに白のアルファを変えておくと、Run 側で単色 tint しても
+  // 「面の濃淡＝きらめき」が出て、ただの塗り潰しでなく“カットされた宝石”に見える（テーブル面が最も明るい）。
   makeGem(key, size) {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
-    const c = size / 2;
-    g.fillStyle(0xffffff, 1);
-    g.fillPoints(this.toPoints([c, 0, size, c, c, size, 0, c]), true);
+    const k = size / 12;   // 基準サイズ12pxからのスケール（座標は12px系で定義）
+    const P = (arr) => this.toPoints(arr.map((v) => v * k));
+    // [頂点列(12px系), 白アルファ]。上=テーブル面（明）→下=パビリオン（暗）で立体的なカット面に。
+    const facets = [
+      [[3, 1, 9, 1, 8, 4.5, 4, 4.5], 1.00],    // テーブル（最も明るい輝き面）
+      [[3, 1, 4, 4.5, 0.5, 4.5], 0.74],        // 左クラウン
+      [[9, 1, 11.5, 4.5, 8, 4.5], 0.82],       // 右クラウン
+      [[4, 4.5, 8, 4.5, 6, 11.5], 0.62],       // 中央パビリオン
+      [[0.5, 4.5, 4, 4.5, 6, 11.5], 0.46],     // 左パビリオン（影）
+      [[8, 4.5, 11.5, 4.5, 6, 11.5], 0.54],    // 右パビリオン
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
     g.generateTexture(key, size, size);
     g.destroy();
   }
