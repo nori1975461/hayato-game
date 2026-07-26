@@ -91,12 +91,17 @@ export const BALANCE = {
     ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 5, expandSpeedAdd: 8, thicknessAdd: 0.6 },
   },
 
-  // 必殺技（敵を倒すとゲージが溜まる。1ステージ8回まで）
+  // 必殺技（敵を倒すとゲージが溜まる。1ステージ10回まで）
   // v4: テンポ改善（cinematicSec短縮=すぐ操作に戻れる・killsPerCharge減=撃ちやすい・startCharge増=序盤から1発目が近い）
   special: {
-    // FB#3: 最大8回（回数のみ増・威力/ゲージ速度は据え置き）・ゲージ約3割速く・1発目をさらに近く
-    killsPerCharge: 18, maxUses: 8, radius: 320, damage: 9999, bossDamage: 360,
+    // R9: 最終ボス マオウレクス最強化の対価として必殺を2点強化。
+    //   ① 最大 8→10 回（回数増・威力/ゲージ速度は据え置き）
+    //   ② ボスへのダメージのみ「近いほど強い」3段階（雑魚は距離無関係に即死のまま）
+    killsPerCharge: 18, maxUses: 10, radius: 320, damage: 9999, bossDamage: 360,
     cinematicSec: 0.7, startCharge: 0.7,
+    // ボス限定の距離倍率：接近戦を報いる。プレイヤー↔ボス距離で near×2.0 / mid×1.0 / far×0.6。
+    // 実効ダメージ = round(bossDamage × mul)（near720 / mid360 / far216）。雑魚には一切適用しない。
+    distanceScale: { nearDist: 110, midDist: 220, nearMul: 2.0, midMul: 1.0, farMul: 0.6 },
   },
 
   // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
@@ -255,11 +260,13 @@ export const BALANCE = {
         rageText: 'ミサイルガ ぶちギレ！', bulletTint: '#ff4d4d',
         rewardCoins: 380, deathCinematicSec: 1.7,
       },
-      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは3つの必殺級「特別攻撃」＋主役の腕叩きを持つ：
-      //    ① 亜空間レーザー薙ぎ（laser・極太/長射程に強化） ② 多連ホーミングミサイル斉射（missile・弾数を7へ増やし
-      //    扇状の"斉射"に） ③ 重力弾幕ノヴァ（nova＝新規／全方位弾を回転させながら連続波で放つ弾幕）。加えて
-      //    ④ アームスラム（armslam・自分の腕を大きく振り上げて叩きつける近接＝最終ボスの主役演出）。この4つが
+      // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは5つの必殺級攻撃を持つ：
+      //    ① 亜空間レーザー薙ぎ（laser・極太/長射程） ② ナックルウェーブ（knuckle＝新・最強武器／両手を胸前で叩き
+      //    合わせ、米軍トマホーク型の巨大ミサイルを扇状に一斉発射） ③ ワイヤーアーム（wirearm＝新・最強武器／両拳を
+      //    ワイヤーで主人公へ射出し殴って手繰り戻すロケットパンチ・最大の見せ場） ④ 多連ホーミングミサイル斉射
+      //    （missile・弾数7の扇状"斉射"） ⑤ 重力弾幕ノヴァ（nova／全方位弾を回転させ連続波で放つ弾幕）。この5つが
       //    attacks ローテーション。phase2 では laser の後に vulcan を割り込ませる（beginAttack が cfg.vulcan を参照）。
+      //    knuckle/wirearm は maou 専用（armslam は uzuking/wavelord 用に残す＝丸い衝撃波のまま不変）。
       //    腕(armR/armL)パーツを持つのは maou のみ＝「腕で殴る絵」はこのボスで主役化する。撃破でクリア。
       //    サイズ：spriteScale 8（縦長人型のため通常ボス≈8-9 に対し素の大きさで約1.2倍・画面占有を抑え「大きすぎ」を解消）・
       //    radius/glow/spawnDist も追随縮小（通常ボスの radius 64〜76 帯へ）。
@@ -269,7 +276,7 @@ export const BALANCE = {
         hp: 28000, radius: 68, spriteScale: 8, glowScale: 9.5,
         glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
-        attacks: ['laser', 'armslam', 'missile', 'nova'],
+        attacks: ['laser', 'knuckle', 'wirearm', 'missile', 'nova'],
         laser: { chargeSec: 1.0, beamWidth: 46, beamLength: 420, damage: 42,
                  sweepFromDeg: -42, sweepToDeg: 42, activeSec: 0.7 },
         // 特別攻撃②：多連ホーミングミサイル斉射（count 4→7・扇状に一斉発射で"斉射"感）
@@ -278,18 +285,23 @@ export const BALANCE = {
         // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
         nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
                 bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },
-        // 主役演出：telegraphSec を延ばして「振り上げ→タメ→ドーン」を大きくゆっくり見せる（boss.js の
-        // updateDisp maou 分岐で腕を通常より大きく振り上げる）。衝撃波/メレーの威力は据え置き（"見せる"のが
-        // 目的で火力過多にしない）。maou は接近戦が基本なので接近時に腕で殴られる体験になる。
-        armslam: { telegraphSec: 1.1, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
-                   shockRadius: 5, shockDamage: 20, meleeRadius: 50, meleeDamage: 38 },
+        // 最強武器①ナックルウェーブ（maou 専用）：両腕を胸前で叩き合わせ、トマホーク型の巨大ミサイルを
+        // 扇状（spreadDeg 分の広がり）に count 本一斉発射する。丸い衝撃波(armslam)の刷新版＝派手さ優先。
+        // ミサイルは直進弾（避けられる）＝威力はやや高めでも理不尽にしない。clapSec は叩き合わせのモーション尺。
+        knuckle: { telegraphSec: 1.0, clapSec: 0.4, count: 7, spreadDeg: 150,
+                   bulletSpeed: 178, radius: 8, damage: 22, lifeSec: 3.4 },
+        // 最強武器②ワイヤーアーム（maou 専用）：両拳をワイヤーで主人公方向へ射出し、最大長 maxLen まで伸ばして
+        // 殴り、手繰り戻す（飛ばしっぱなしにしない）。extendSpeed で伸長、turnDeg/秒 のマイルド追尾（横移動で振り切れる）。
+        // damage は現状最強クラス(dash 52)超えの大ダメージだが、プレイヤー maxHp 100 未満＝満タンから一撃死しない値。
+        wirearm: { teleSec: 1.1, shotSec: 0.5, backSec: 0.35, maxLen: 210,
+                   extendSpeed: 640, fistRadius: 16, damage: 64, turnDeg: 55 },
         vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },
         ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2, 2.0, 2.6] },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.4, 2.6, 2.0, 2.6] },
         phase2: true, phase2HpRatio: 0.55, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
         rageText: 'マオウレクス かくせい！', bulletTint: '#38e1ff',
         rewardCoins: 500, deathCinematicSec: 1.8,

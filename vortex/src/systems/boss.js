@@ -71,6 +71,8 @@ export function createBoss(run) {
   let aim = 0;                  // 毎フレーム更新するプレイヤー方向角（砲身/弾に共用）
   // 攻撃の連射/掃射用アキュムレータ（stateT基準・決定的）
   let shotAcc = 0, shotIdx = 0, slamFired = false, chainVulcan = false;
+  let knuckleFired = false;         // ナックルウェーブの一斉発射を1回だけにするフラグ
+  let wire = null;                  // ワイヤーアーム（両拳＋ワイヤー）の表示状態。攻撃終了/撃破で必ず destroy
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
   let introStage = -1;          // maou 登場イベントのセリフ/テロップ進行段（-1=未使用/非final）
   const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
@@ -91,6 +93,75 @@ export function createBoss(run) {
     makeSaw('boss_cutter', 16);
     makeMuzzle('boss_muzzle', 16);
     makeBeamTex('boss_beam', 8, 16);
+    makeFist('boss_maou_fist');       // 最終ボス ワイヤーアームのゴツい鉄拳
+    makeTomahawk('boss_tomahawk');    // 最終ボス ナックルウェーブのトマホーク型ミサイル
+  }
+  // 最終ボスの最強武器「ワイヤーアーム」の拳＝ゴツい装甲鉄拳（右向き＝knuckle が +X 側）。
+  // MAOU_PAL 系のガンメタル＋シルバー縁＋赤/シアンのアクセント＋リベット。少し大きめに作る。
+  function makeFist(key) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const W = 24, H = 20;
+    const gun = 0x3a4150, sil = 0xaeb6c4, drk = 0x171b22, red = 0xc8202c, cy = 0x46e6ff, gold = 0xffd23f;
+    // シルバーの外殻（一回り大きい輪郭）＋右端の4つのナックル膨らみ
+    g.fillStyle(sil, 1);
+    g.fillRoundedRect(1, 2, 21, 16, 4);
+    for (let i = 0; i < 4; i++) g.fillCircle(22, 4.5 + i * 4, 2.4);
+    // ガンメタルの本体
+    g.fillStyle(gun, 1);
+    g.fillRoundedRect(3, 4, 18, 12, 3);
+    for (let i = 0; i < 4; i++) g.fillCircle(21, 5.5 + i * 4, 1.8);
+    // 手首カフ（左）＋シアンのエネルギーバンド
+    g.fillStyle(sil, 1); g.fillRect(0, 5, 5, 10);
+    g.fillStyle(drk, 1); g.fillRect(2, 5, 1, 10);
+    g.fillStyle(cy, 1); g.fillRect(0, 7, 3, 6);
+    // 拳を横断する赤いアクセント帯
+    g.fillStyle(red, 1); g.fillRect(8, 9, 9, 2);
+    // ナックルの黒い溝
+    g.fillStyle(drk, 1);
+    for (let i = 0; i < 4; i++) g.fillRect(18, 4.5 + i * 4, 1, 2);
+    // リベット（四隅の黒点）
+    g.fillCircle(6, 6, 1); g.fillCircle(6, 14, 1); g.fillCircle(15, 6, 1); g.fillCircle(15, 14, 1);
+    // 上縁の金ハイライト
+    g.fillStyle(gold, 1); g.fillRect(5, 3, 12, 1);
+    g.generateTexture(key, W, H);
+    g.destroy();
+  }
+  // ナックルウェーブのトマホーク型（BGM-109 巡航ミサイル）シルエット。ノーズ=下向き(+Y 前方＝
+  // updateBullets の missile 系と同じ回転規約)。細長い白胴＋赤ノーズ＋横翼＋尾翼＋噴射炎。
+  // 弾は白 tint で撃つ（tint:0xffffff）＝下の baked 配色（白/赤/オレンジ）がそのまま出て雑魚から浮く。
+  function makeTomahawk(key) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const W = 14, H = 34, cx = 7;
+    const white = 0xf2f6ff, sil = 0xb8c0cc, drk = 0x10131a,
+      red = 0xe23b2f, dred = 0x8f1a12, orange = 0xff8a2a, yellow = 0xffe24a, cy = 0x46e6ff;
+    // 噴射炎（尾・上端）：オレンジ外炎＋黄コア
+    g.fillStyle(orange, 1); g.fillTriangle(cx - 3.5, 6, cx + 3.5, 6, cx, 0);
+    g.fillStyle(yellow, 1); g.fillTriangle(cx - 1.8, 6, cx + 1.8, 6, cx, 1.5);
+    // 後部尾翼（X字・シルバー）
+    g.fillStyle(sil, 1);
+    g.fillTriangle(cx - 5, 5, cx - 1, 10, cx - 1, 5);
+    g.fillTriangle(cx + 5, 5, cx + 1, 10, cx + 1, 5);
+    // 円筒胴（白）＋暗い縁取り（背景から分離）
+    g.fillStyle(drk, 1); g.fillRect(cx - 3, 6, 6, 21);
+    g.fillStyle(white, 1); g.fillRect(cx - 2, 7, 4, 19);
+    g.fillStyle(sil, 1); g.fillRect(cx - 2, 7, 1, 19);
+    // 胴中央の横翼（シルバー・前寄り）＋暗縁
+    g.fillStyle(drk, 1);
+    g.fillTriangle(cx - 2, 15, cx - 7, 19, cx - 2, 19);
+    g.fillTriangle(cx + 2, 15, cx + 7, 19, cx + 2, 19);
+    g.fillStyle(sil, 1);
+    g.fillTriangle(cx - 2, 16, cx - 6, 19, cx - 2, 19);
+    g.fillTriangle(cx + 2, 16, cx + 6, 19, cx + 2, 19);
+    // シアンのバンド＋リベット
+    g.fillStyle(cy, 1); g.fillRect(cx - 2, 11, 4, 2);
+    g.fillStyle(drk, 1); g.fillRect(cx - 1, 9, 2, 1); g.fillRect(cx - 1, 23, 2, 1);
+    // 尖ったノーズ（下・赤）＋暗い先端縁
+    g.fillStyle(dred, 1); g.fillTriangle(cx - 3, 26, cx + 3, 26, cx, 34);
+    g.fillStyle(red, 1); g.fillTriangle(cx - 2.4, 27, cx + 2.4, 27, cx, 32.5);
+    g.generateTexture(key, W, H);
+    g.destroy();
   }
   function makeSprite(key, sprite) {
     if (run.textures.exists(key)) return;
@@ -179,7 +250,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; recoilT = 0; }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -264,6 +335,10 @@ export function createBoss(run) {
       case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge'); break;
       case 'nova':       state = 'novaTele';    stateT = cfg.nova.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'armslam':    state = 'slamTele';    stateT = cfg.armslam.telegraphSec; break;
+      case 'knuckle':    state = 'knuckleTele'; stateT = cfg.knuckle.telegraphSec; knuckleFired = false;
+                         introText('ナックルウェーブはっしゃ', '#ffd23f', 156, 18, 1); break;
+      case 'wirearm':    state = 'wireTele';    stateT = cfg.wirearm.teleSec;
+                         introText('ワイヤーアームはっしゃ', '#46e6ff', 156, 18, 1); break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
       case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
       default:           afterAttack(); break;
@@ -420,6 +495,27 @@ export function createBoss(run) {
         break;
       }
 
+      // ナックルウェーブ：予告（腕を振り上げ）→叩き合わせ（clap）の瞬間にトマホーク一斉発射。
+      case 'knuckleTele':
+        if (stateT <= 0) { state = 'knuckleHit'; stateT = cfg.knuckle.clapSec; knuckleFired = false; }
+        break;
+      case 'knuckleHit':
+        if (!knuckleFired && stateT <= cfg.knuckle.clapSec - 0.15) { knuckleFired = true; doKnuckle(); }
+        if (stateT <= 0) afterAttack();
+        break;
+
+      // ワイヤーアーム：予告（両腕を後方へ引き絞る）→射出（拳が伸びる・マイルド追尾）→収縮（手繰り戻す）。
+      case 'wireTele':
+        if (stateT <= 0) startWireShot();
+        break;
+      case 'wireShot':
+        updateWire(dt);
+        break;
+      case 'wireBack':
+        updateWireBack(dt);
+        if (stateT <= 0) { destroyWire(); afterAttack(); }
+        break;
+
       case 'ringTele':
         if (stateT <= 0) { fireRing(); afterAttack(); }
         break;
@@ -533,6 +629,127 @@ export function createBoss(run) {
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 22);
   }
 
+  // ナックルウェーブ（最終ボス専用）：両拳を叩き合わせた瞬間に、トマホーク型ミサイルを扇状へ一斉発射。
+  function doKnuckle() {
+    const kk = cfg.knuckle;
+    const half = kk.spreadDeg * 0.5 * D2R, mid = (kk.count - 1) / 2;
+    for (let i = 0; i < kk.count; i++) {
+      const a = aim + (mid > 0 ? (i - mid) / mid : 0) * half;
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * kk.bulletSpeed, Math.sin(a) * kk.bulletSpeed,
+        { radius: kk.radius, damage: kk.damage, life: kk.lifeSec, kind: 'tomahawk', tint: 0xffffff });
+    }
+    whiteFlash(0.34); Sound.sfx('knuckle'); Sound.sfx('shoot');
+    run.shake(240, 6); recoil(aim);
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 20);
+  }
+
+  // ============ ワイヤーアーム（最強武器・ロケットパンチ／両腕） ============
+  // 拳(2枚)＋ワイヤー(Graphics)を生成/表示。生成物は attack 終了時と destroyDisp/撃破時の両方で destroy。
+  function ensureWire() {
+    const s = disp.spriteScale;
+    if (!wire) {
+      wire = { arms: [], g: run.add.graphics().setDepth(11) };
+      for (const side of [1, -1]) {   // 右拳→左拳の2本
+        // 拳は前腕(armR 8px×s)より少し大きめの鉄拳（24px×s*0.5≒96px＝ボス本体に埋もれず殴りが映える）
+        const img = run.add.image(0, 0, 'boss_maou_fist').setDepth(13).setOrigin(0.5, 0.5).setScale(s * 0.5);
+        wire.arms.push({ side, sx: 0, sy: 0, fx: 0, fy: 0, ang: 0, len: 0, hit: false, backFrom: 0, img });
+      }
+    }
+    wire.g.setVisible(true);
+    for (const arm of wire.arms) arm.img.setVisible(true);
+  }
+  // 肩(拳の付け根)のワールド座標。armR ox:11 / oy:-1（左腕はミラー）に合わせる。
+  function shoulderOf(arm) {
+    const s = disp.spriteScale;
+    return { x: boss.x + arm.side * 11 * s, y: boss.y - 1 * s };
+  }
+  function startWireShot() {
+    state = 'wireShot'; stateT = cfg.wirearm.shotSec;
+    ensureWire();
+    const a0 = aimAngle();
+    for (const arm of wire.arms) {
+      const sh = shoulderOf(arm);
+      arm.len = 0; arm.hit = false; arm.ang = a0;
+      arm.sx = sh.x; arm.sy = sh.y; arm.fx = sh.x; arm.fy = sh.y;
+    }
+    Sound.sfx('wireShot'); run.shake(120, 4);
+    drawWire();
+  }
+  function updateWire(dt) {
+    const wk = cfg.wirearm;
+    for (const arm of wire.arms) {
+      const sh = shoulderOf(arm); arm.sx = sh.x; arm.sy = sh.y;
+      if (!arm.hit && arm.len < wk.maxLen) {
+        // マイルド追尾（予告で方向が読め、横に動けば振り切れる余地を残す＝理不尽にしない）
+        const desired = Math.atan2(run.player.y - arm.fy, run.player.x - arm.fx);
+        const diff = Phaser.Math.Angle.Wrap(desired - arm.ang);
+        const maxStep = wk.turnDeg * D2R * dt;
+        arm.ang += Math.max(-maxStep, Math.min(maxStep, diff));
+        arm.len = Math.min(wk.maxLen, arm.len + wk.extendSpeed * dt);
+      }
+      arm.fx = arm.sx + Math.cos(arm.ang) * arm.len;
+      arm.fy = arm.sy + Math.sin(arm.ang) * arm.len;
+      // 命中（拳先端の円が主人公に触れたら1回だけ命中）
+      if (!arm.hit) {
+        const dx = arm.fx - run.player.x, dy = arm.fy - run.player.y;
+        const rr = wk.fistRadius + run.player.radius;
+        if (dx * dx + dy * dy <= rr * rr) {
+          arm.hit = true; run.hitPlayer(wk.damage);
+          Sound.sfx('hit'); run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 10);
+        }
+      }
+    }
+    drawWire();
+    // 全拳が最大到達 or 命中 or 尺切れ → 大きな衝撃演出を挟んで収縮へ
+    const reached = wire.arms.every((a) => a.hit || a.len >= wk.maxLen);
+    if (reached || stateT <= 0) startWireBack();
+  }
+  function startWireBack() {
+    state = 'wireBack'; stateT = cfg.wirearm.backSec;
+    for (const arm of wire.arms) arm.backFrom = arm.len;
+    // 命中/最大到達の一撃感：大きな衝撃音＋強めシェイク＋whiteFlash(<0.5)＋一瞬のヒットストップ
+    Sound.sfx('metalSlam'); run.shake(260, 7); whiteFlash(0.4);
+    if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.07);
+    for (const arm of wire.arms) run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 12);
+  }
+  function updateWireBack(dt) {
+    const wk = cfg.wirearm;
+    const t = clamp01(1 - stateT / wk.backSec);   // 0→1
+    for (const arm of wire.arms) {
+      const sh = shoulderOf(arm); arm.sx = sh.x; arm.sy = sh.y;
+      arm.len = lerp(arm.backFrom, 0, t);
+      arm.fx = arm.sx + Math.cos(arm.ang) * arm.len;
+      arm.fy = arm.sy + Math.sin(arm.ang) * arm.len;
+    }
+    drawWire();
+  }
+  // 肩〜拳を結ぶ重厚なケーブルを毎フレーム再描画（2本の外装ケーブル＋シアン発光コア＋節）。
+  function drawWire() {
+    if (!wire) return;
+    const g = wire.g; g.clear();
+    for (const arm of wire.arms) {
+      const sx = arm.sx, sy = arm.sy, fx = arm.fx, fy = arm.fy;
+      const ang = Math.atan2(fy - sy, fx - sx);
+      const nx = Math.cos(ang + Math.PI / 2), ny = Math.sin(ang + Math.PI / 2);
+      const off = 2.4;
+      g.lineStyle(2.6, 0x3a4150, 1);   // 外装ケーブル2本（ガンメタル）
+      g.lineBetween(sx + nx * off, sy + ny * off, fx + nx * off, fy + ny * off);
+      g.lineBetween(sx - nx * off, sy - ny * off, fx - nx * off, fy - ny * off);
+      g.lineStyle(1.4, 0x46e6ff, 0.9);  // 発光コア（シアン）
+      g.lineBetween(sx, sy, fx, fy);
+      g.fillStyle(0xaeb6c4, 1);          // 節（シルバー）
+      const segs = 6;
+      for (let i = 1; i < segs; i++) { const t = i / segs; g.fillCircle(sx + (fx - sx) * t, sy + (fy - sy) * t, 1.6); }
+      arm.img.setPosition(fx, fy).setRotation(ang);   // 拳はテクスチャが右向き＝進行方向へそのまま回転
+    }
+  }
+  function destroyWire() {
+    if (!wire) return;
+    for (const arm of wire.arms) { if (arm.img) arm.img.destroy(); }
+    if (wire.g) wire.g.destroy();
+    wire = null;
+  }
+
   // 召喚の予告：湧く位置をリング状に光らせる（予告なし即湧きを防ぐ）
   function telegraphSummon() {
     Sound.sfx('warning');
@@ -575,21 +792,26 @@ export function createBoss(run) {
   // 生成物は必ず introEls で追跡し、撃破/破棄時に clearIntroEls で確実に destroy（リーク・二重発火防止）。
   function introText(text, color, y, sizePx, flickerRepeat) {
     const cam = run.cameras.main;
+    // depth 1992：レベルアップテロップ（fx.announce=1800）より前面へ。stroke を太く（4→6）して密集時も輪郭を保つ。
     const t = run.add.text(cam.width / 2, y, text, {
       fontFamily: 'monospace', fontSize: sizePx + 'px', color,
-      stroke: '#00131f', strokeThickness: 4, align: 'center',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(1500).setAlpha(0);
-    introEls.push(t);
+      stroke: '#00131f', strokeThickness: 6, align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1992).setAlpha(0);
+    // 背後の横長の暗プレート（他テロップ/雑魚と重なっても読めるように・子ども安全 alpha<0.5 厳守）。
+    const plate = run.add.image(cam.width / 2, y, 'white').setScrollFactor(0).setDepth(1991)
+      .setTint(0x00060f).setOrigin(0.5).setDisplaySize(t.width + 30, t.height + 10).setAlpha(0);
+    introEls.push(plate, t);
+    const removeEls = () => {
+      for (const el of [t, plate]) { const i = introEls.indexOf(el); if (i >= 0) introEls.splice(i, 1); el.destroy(); }
+    };
+    run.tweens.add({ targets: plate, alpha: 0.38, duration: 160, ease: 'Sine.out' });
     run.tweens.add({
       targets: t, alpha: 1, duration: 160, ease: 'Sine.out',
       onComplete: () => {
         run.tweens.add({
           targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat, ease: 'Sine.inOut',
           onComplete: () => {
-            run.tweens.add({
-              targets: t, alpha: 0, duration: 260, ease: 'Sine.in',
-              onComplete: () => { const i = introEls.indexOf(t); if (i >= 0) introEls.splice(i, 1); t.destroy(); },
-            });
+            run.tweens.add({ targets: [t, plate], alpha: 0, duration: 260, ease: 'Sine.in', onComplete: removeEls });
           },
         });
       },
@@ -681,15 +903,27 @@ export function createBoss(run) {
       spr: run.add.image(0, 0, 'core'),
     };
     // FB#2: 汎用弾(orb)は丸い危険弾(foe_orb)＝味方の星弾と形で区別。ミサイル/カッターは既存の見た目を維持。
-    const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile' : 'foe_orb';
+    // tomahawk（最終ボスのナックルウェーブ）は細長い巨大トマホーク＝進行方向へ向けて発射。
+    const isTom = kind === 'tomahawk';
+    const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
+      : isTom ? 'boss_tomahawk' : 'foe_orb';
     const r = opts.radius != null ? opts.radius : 4;
-    // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。
+    // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
+    const dispW = isTom ? r * 3.0 : r * 3.0;
+    const dispH = isTom ? r * 7.2 : r * 3.0;
+    const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2) : 0;   // 胴=+Y前方なので +90°
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
-      .setDisplaySize(r * 3.0, r * 3.0).setPosition(x, y).setRotation(0);
+      .setDisplaySize(dispW, dispH).setPosition(x, y).setRotation(rot0);
     // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
+    // tomahawk は進行方向へ長く伸びる明るいオレンジの噴射グロウ＝密集した雑魚の中でも大きく目立つ。
     const ta = Math.atan2(vy, vx);
-    d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
-      .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
+    if (isTom) {
+      d.glow.setVisible(true).setDepth(10).setTint(0xffa030)
+        .setRotation(ta).setDisplaySize(r * 9.0, r * 4.0).setPosition(x, y);
+    } else {
+      d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
+        .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
+    }
     bullets.push({
       active: true, x, y, vx, vy, kind,
       spin: opts.spin || 0, returns: !!opts.returns,
@@ -722,6 +956,14 @@ export function createBoss(run) {
         b.spr.setRotation(cur + Math.PI / 2);
         b.trailT -= dt;
         if (b.trailT <= 0) { b.trailT = 0.09; run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 2); }
+      } else if (b.kind === 'tomahawk') {
+        // 直進（回転は発射時に進行方向へ固定済み）。明るい噴射炎の尾を長く曳いて雑魚より目立たせる。
+        b.trailT -= dt;
+        if (b.trailT <= 0) {
+          b.trailT = 0.035;
+          run.spawnParticles(b.x - b.vx * 0.02, b.y - b.vy * 0.02, 0xffb020, 3);
+          run.spawnParticles(b.x - b.vx * 0.045, b.y - b.vy * 0.045, 0xffe24a, 2);
+        }
       } else if (b.kind === 'cutter') {
         b.spr.rotation += dt * b.spin;
         if (b.returns) {
@@ -806,6 +1048,19 @@ export function createBoss(run) {
     } else if (state === 'novaTele') {
       // ノヴァ：エネルギーを溜めるように両腕を大きく振り上げる
       armPose = lerp(0, -1.4, clamp01(1 - stateT / cfg.nova.telegraphSec));
+    } else if (state === 'knuckleTele') {
+      // ナックルウェーブ：両腕を大きく振り上げて叩き合わせに備える
+      armPose = lerp(0, -2.0, clamp01(1 - stateT / cfg.knuckle.telegraphSec));
+    } else if (state === 'knuckleHit') {
+      // 叩き合わせ：頂点から胸前へ一気に振り下ろす（ガーン）
+      const el = cfg.knuckle.clapSec - stateT;
+      armPose = lerp(-2.0, 0.9, clamp01(el / 0.15));
+    } else if (state === 'wireTele') {
+      // ワイヤーアーム予告：両腕を後方へ引き絞る（ロケットパンチのタメ）
+      armPose = lerp(0, -1.7, clamp01(1 - stateT / cfg.wirearm.teleSec));
+    } else if (state === 'wireShot' || state === 'wireBack') {
+      // 射出中：両腕を前方へ突き出す（拳を撃ち出した姿勢）
+      armPose = 1.0;
     }
     if (state === 'vulcanTele' || state === 'vulcanFire') upperSpin = Math.sin(run.elapsed * 18) * 0.12;
     if (state === 'novaTele' || state === 'novaFire') upperSpin = Math.sin(run.elapsed * 24) * 0.16;
@@ -977,6 +1232,7 @@ export function createBoss(run) {
   function destroyDisp() {
     clearIntroEls();     // 登場イベント途中で撃破/破棄されても text を確実に片付ける
     destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
+    destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();

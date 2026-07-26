@@ -469,6 +469,22 @@ const SFX = {
     tone({ type: 'sine', freq: 70, freqEnd: 55, dur: 0.9, gain: 0.13, attack: 0.05 });
     tone({ type: 'triangle', freq: 104, freqEnd: 98, dur: 0.8, gain: 0.05, attack: 0.05 });
   },
+  // 最終ボス ワイヤーアーム射出：「ギーン！」と一気に駆け上がる金属スイープ（拳がワイヤーで伸びる音）。
+  // 3層の上昇トーン＋金属質ノイズで鋭く。決定的（Math.random 不使用・noiseHit は LCG ノイズ）。
+  wireShot() {
+    tone({ type: 'sawtooth', freq: 300, freqEnd: 1900, dur: 0.34, gain: 0.16 });
+    tone({ type: 'square', freq: 600, freqEnd: 2700, dur: 0.30, gain: 0.08 });
+    tone({ type: 'triangle', freq: 920, freqEnd: 3300, dur: 0.26, gain: 0.06 });
+    noiseHit({ dur: 0.28, gain: 0.06, hpFreq: 2000, lpFreq: 9000 });
+  },
+  // 最終ボス ナックルウェーブ：両拳を叩き合わせる「ガーン！」の重い金属クラッシュ＋発射のきしみ。
+  knuckle() {
+    tone({ type: 'sine', freq: 240, freqEnd: 58, dur: 0.32, gain: 0.30, attack: 0.002 });
+    tone({ type: 'square', freq: 1200, freqEnd: 300, dur: 0.16, gain: 0.10 });
+    tone({ type: 'sawtooth', freq: 720, freqEnd: 180, dur: 0.12, gain: 0.06 });
+    noiseHit({ dur: 0.22, gain: 0.16, hpFreq: 400, lpFreq: 5000 });
+    noiseHit({ dur: 0.07, gain: 0.09, hpFreq: 3000, lpFreq: 12000 });
+  },
 };
 
 // ================= BGM =================

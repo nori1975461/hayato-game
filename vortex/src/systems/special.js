@@ -37,12 +37,17 @@ export function createSpecial(run) {
       const dx = e.x - px, dy = e.y - py;
       if (dx * dx + dy * dy <= rr) targets.push(e);
     }
+    const ds = S.distanceScale;
     for (const e of targets) {
       if (!e.active) continue;
       if (e.isBoss) {
-        run.dealDamage(e, S.bossDamage, e.color);   // ボスは即死させずダメージのみ（撃破経路は dealDamage が持つ）
+        // ボスへのダメージだけ「近いほど強い」3段階（接近戦を報いる調整）。雑魚には倍率を掛けない。
+        const dx = e.x - px, dy = e.y - py;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const mul = dist <= ds.nearDist ? ds.nearMul : dist <= ds.midDist ? ds.midMul : ds.farMul;
+        run.dealDamage(e, Math.round(S.bossDamage * mul), e.color);   // 即死させずダメージのみ（撃破経路は dealDamage が持つ）
       } else {
-        run.killEnemy(e, e.color);
+        run.killEnemy(e, e.color);   // 雑魚は距離を問わず即死（掃討の爽快感を維持）
       }
     }
     run.shake(260, 6);
