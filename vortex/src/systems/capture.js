@@ -110,17 +110,65 @@ export function createCapture(run) {
     const glow = run.add.image(x, y, 'glow')
       .setBlendMode(ADD).setDepth(4)
       .setTint(0xff6ec7).setScale(3.5);
-    // 下から立ち上がる光柱（8×76・ADD）
-    const pillar = run.add.image(x, y + 38, 'white')
+    // 下から一気に立ち上がる太い光柱（14×120・ADD）を成長トゥイーンで出す
+    const pillar = run.add.image(x, y + 44, 'white')
       .setBlendMode(ADD).setDepth(3)
-      .setTint(0xff9ee0).setOrigin(0.5, 1).setDisplaySize(8, 76).setAlpha(0.85);
+      .setTint(0xff9ee0).setOrigin(0.5, 1).setDisplaySize(14, 4).setAlpha(0.9);
+    run.tweens.add({ targets: pillar, displayHeight: 120, duration: 260, ease: 'Cubic.out' });
+    // 白い芯の細い光柱を重ねて中心を白熱させる
+    const pillar2 = run.add.image(x, y + 44, 'white')
+      .setBlendMode(ADD).setDepth(3)
+      .setTint(0xffffff).setOrigin(0.5, 1).setDisplaySize(5, 4).setAlpha(0.85);
+    run.tweens.add({ targets: pillar2, displayHeight: 96, duration: 260, ease: 'Cubic.out' });
+    // 常時ゆっくり逆回転する二重の光輪（華やかさを持続させる後光。回転は updateAltar 側）
+    const ring1 = run.add.image(x, y, 'w_ring')
+      .setBlendMode(ADD).setDepth(5).setTint(0xffd23f).setScale(1.6).setAlpha(0.85);
+    const ring2 = run.add.image(x, y, 'w_ring')
+      .setBlendMode(ADD).setDepth(5).setTint(0x7fd8ff).setScale(2.3).setAlpha(0.55);
     const spr = run.add.image(x, y, 'core').setDepth(12)
       .setTint(0xffffff).setScale(3.2);
     const label = run.add.text(x, y - 30, 'ごうせいの さいだん', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6f0',
     }).setOrigin(0.5).setDepth(13);
-    altar = { x, y, glow, spr, label, pillar };
+    altar = { x, y, glow, spr, label, pillar, pillar2, rings: [ring1, ring2] };
     Sound.sfx('altarFanfare');
+
+    // 登場バースト：放射する光条＋広がるリング波＋立ち上るきらめき＋粒子で祝祭感を出す
+    for (let i = 0; i < 12; i++) {
+      const ang = (i / 12) * Math.PI * 2;
+      const ray = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(5)
+        .setTint(i % 2 ? 0xffd23f : 0xff9ee0).setOrigin(0, 0.5).setRotation(ang)
+        .setDisplaySize(6, 3).setAlpha(0.9);
+      run.tweens.add({
+        targets: ray, displayWidth: run.rng.range(46, 66), alpha: 0,
+        duration: run.rng.range(420, 620), ease: 'Cubic.out',
+        onComplete: () => ray.destroy(),
+      });
+    }
+    for (let k = 0; k < 3; k++) {
+      run.time.delayedCall(k * 110, () => {
+        const wave = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(4)
+          .setTint(k % 2 ? 0xffd23f : 0xff9ee0).setScale(0.6).setAlpha(0.8);
+        run.tweens.add({
+          targets: wave, scale: 5.5, alpha: 0, duration: 560, ease: 'Cubic.out',
+          onComplete: () => wave.destroy(),
+        });
+      });
+    }
+    for (let s = 0; s < 14; s++) {
+      const star = run.add.image(x + run.rng.range(-22, 22), y + 30, 'w_star2')
+        .setBlendMode(ADD).setDepth(6)
+        .setTint(run.rng.chance(0.5) ? 0xffd23f : 0xffffff)
+        .setScale(run.rng.range(0.5, 1.1)).setAlpha(0.95);
+      run.tweens.add({
+        targets: star, y: y - run.rng.range(20, 70), alpha: 0, scale: 0.2,
+        duration: run.rng.range(600, 1000), delay: run.rng.range(0, 200), ease: 'Cubic.out',
+        onComplete: () => star.destroy(),
+      });
+    }
+    run.spawnParticles(x, y, 0xff9ee0, 20);
+    run.spawnParticles(x, y, 0xffd23f, 14);
+
     if (run.fx && run.fx.setTarget) {
       run.fx.setTarget('altar', x, y, { color: 0xff9ee0, label: 'さいだん' });
     }
@@ -136,6 +184,8 @@ export function createCapture(run) {
       altar.spr.destroy();
       altar.label.destroy();
       if (altar.pillar) altar.pillar.destroy();
+      if (altar.pillar2) altar.pillar2.destroy();
+      if (altar.rings) altar.rings.forEach((r) => r.destroy());
       altar = null;
     }
     if (run.fx && run.fx.clearTarget) run.fx.clearTarget('altar');
@@ -193,6 +243,13 @@ export function createCapture(run) {
     if (!altar) return;
     altar.spr.rotation += dt * 1.5;
     altar.glow.setScale(3.3 + Math.sin(run.elapsed * 3) * 0.3);
+    if (altar.rings) {
+      const p = 1 + Math.sin(run.elapsed * 4) * 0.12;
+      altar.rings[0].rotation += dt * 0.8;
+      altar.rings[0].setScale(1.6 * p);
+      altar.rings[1].rotation -= dt * 0.5;
+      altar.rings[1].setScale(2.3 * p);
+    }
     const dx = run.player.x - altar.x, dy = run.player.y - altar.y;
     if (dx * dx + dy * dy <= 26 * 26) {
       if (run.party.length >= BALANCE.altar.minParty) {

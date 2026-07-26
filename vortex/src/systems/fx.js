@@ -222,11 +222,20 @@ export function createFx(run) {
     const objs = [];
     const timers = [];
     let finished = false;
+    // 虹色の波（後光・光条・リング波用）
+    const HUES = [0xffd23f, 0xff6ec7, 0x7fd8ff, 0x9b6bff, 0x36e0ff, 0x66ff88];
+    const hue = (i) => HUES[((i % HUES.length) + HUES.length) % HUES.length];
 
     const dark = run.add.rectangle(W / 2, H / 2, W, H, 0x000010, 0)
       .setScrollFactor(0).setDepth(2050);
     objs.push(dark);
     run.tweens.add({ targets: dark, alpha: 0.72, duration: 300 });
+
+    // 中央で育つ後光。素材が寄るほど明るく脈動し「合成の予兆」を作る
+    const halo = run.add.image(cx, cy, 'glow').setScrollFactor(0).setDepth(2052)
+      .setBlendMode(ADD).setTint(0xffd23f).setScale(0.5).setAlpha(0);
+    objs.push(halo);
+    run.tweens.add({ targets: halo, scale: 4.5, alpha: 0.6, duration: 950, delay: 300, ease: 'Cubic.in' });
 
     const sprA = matSprite(defA, cx - 130, cy);
     const sprB = matSprite(defB, cx + 130, cy);
@@ -234,19 +243,46 @@ export function createFx(run) {
     run.tweens.add({ targets: sprA, x: cx, y: cy, duration: 900, delay: 300, ease: 'Cubic.in' });
     run.tweens.add({ targets: sprB, x: cx, y: cy, duration: 900, delay: 300, ease: 'Cubic.in' });
 
-    // 収束の瞬間：白フラッシュ＋shake＋粒子＋結果登場
+    // 素材の色が中央へ吸い込まれる集中線（左右の色を時間差で）
+    convergeLines(cx, cy, 16, colInt(defA.color), 150, 2053, 900);
+    timers.push(run.time.delayedCall(120, () =>
+      convergeLines(cx, cy, 12, colInt(defB.color), 150, 2053, 820)));
+
+    // 収束の瞬間：白フラッシュ＋色ウォッシュ＋閃光バースト＋虹の光条／リング波＋結果登場
     timers.push(run.time.delayedCall(1250, () => {
       if (finished) return;
       sprA.setVisible(false); sprB.setVisible(false);
       Sound.sfx('fusion');
-      run.shake(150, 5);
+      run.shake(180, 6);
       // 白フラッシュは子ども向け安全上限 alpha 0.45 を厳守（0.45超は禁止）
       const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xffffff, 0.45)
         .setScrollFactor(0).setDepth(2060);
       objs.push(flash);
       run.tweens.add({ targets: flash, alpha: 0, duration: 350, onComplete: () => flash.destroy() });
-      burstUI(cx, cy, 0xffd23f, 20, 2062);
-      burstUI(cx, cy, colInt(resultDef.color), 20, 2062);
+      // 結果色の加算ウォッシュ（全画面αは 0.5 未満・有色 ADD）
+      const wash = run.add.rectangle(W / 2, H / 2, W, H, colInt(resultDef.color), 0.4)
+        .setScrollFactor(0).setDepth(2059).setBlendMode(ADD);
+      objs.push(wash);
+      run.tweens.add({ targets: wash, alpha: 0, duration: 480, onComplete: () => wash.destroy() });
+
+      // 閃光バースト＋きらめきシャワー（部分 ADD 光は強く）
+      burstUI(cx, cy, 0xffd23f, 26, 2064);
+      burstUI(cx, cy, colInt(resultDef.color), 24, 2064);
+      burstUI(cx, cy, 0xffffff, 14, 2064);
+      // 虹色のリング波を数枚重ねて拡散（暗幕より上の depth で見せる）
+      for (let i = 0; i < 5; i++) {
+        run.time.delayedCall(i * 70, () => {
+          if (finished) return;
+          const r = run.add.image(cx, cy, 'glow').setScrollFactor(0).setDepth(2062)
+            .setBlendMode(ADD).setTint(hue(i)).setScale(0.6).setAlpha(0.85);
+          run.tweens.add({
+            targets: r, scale: 12, alpha: 0, duration: 520, ease: 'Cubic.out',
+            onComplete: () => r.destroy(),
+          });
+        });
+      }
+      // 放射状の光条（虹の波）
+      radialStreaks(cx, cy, 22, hue, 200, 2063, 520, run.rng.range(0, 1));
 
       const rkey = 'mon_' + resultDef.id;
       const rspr = (run.textures.exists(rkey)
@@ -255,6 +291,20 @@ export function createFx(run) {
         .setScrollFactor(0).setDepth(2058).setScale(0);
       objs.push(rspr);
       run.tweens.add({ targets: rspr, scale: 6, duration: 450, ease: 'Back.out' });
+
+      // 結果の背後にゆっくり回る虹の後光リング（誕生の荘厳さ）
+      const backring = run.add.image(cx, cy, 'w_ring').setScrollFactor(0).setDepth(2057)
+        .setBlendMode(ADD).setTint(0xffd23f).setScale(1).setAlpha(0.7);
+      objs.push(backring);
+      run.tweens.add({ targets: backring, scale: 3.4, rotation: 1.2, duration: 520, ease: 'Cubic.out' });
+
+      // きらめきシャワー（誕生後に周囲へ舞い散る）
+      for (let k = 0; k < 4; k++) {
+        timers.push(run.time.delayedCall(160 + k * 150, () => {
+          if (finished) return;
+          burstUI(cx + run.rng.range(-90, 90), cy + run.rng.range(-30, 40), hue(k + 2), 10, 2064);
+        }));
+      }
 
       const nameT = run.add.text(cx, 258, resultDef.name + ' たんじょう！！', {
         fontFamily: 'monospace', fontSize: '18px', color: colStr(resultDef.color),
