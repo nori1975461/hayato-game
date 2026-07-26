@@ -444,11 +444,17 @@ export function createOrbit(run) {
     star('deco_halo', 80, 16, 39, 12);    // 16条のサンバースト後光
 
     if (!run.textures.exists('deco_heart')) {
-      const g = G(); const s = 22, r = s * 0.26;
+      // キラ結晶（多面カットの菱形クリスタル）— 回復ハート(桃・丸み)と形も色も明確に別物にする
+      const g = G(); const s = 22;
       g.fillStyle(0xffffff, 1);
-      g.fillCircle(s * 0.32, s * 0.36, r);
-      g.fillCircle(s * 0.68, s * 0.36, r);
-      g.fillPoints([P(s * 0.08, s * 0.42), P(s * 0.92, s * 0.42), P(s * 0.5, s * 0.95)], true);
+      g.fillPoints([
+        P(s * 0.50, s * 0.03),   // 上の頂点
+        P(s * 0.80, s * 0.28),   // 右肩
+        P(s * 0.72, s * 0.62),   // 右腹
+        P(s * 0.50, s * 0.97),   // 下の頂点
+        P(s * 0.28, s * 0.62),   // 左腹
+        P(s * 0.20, s * 0.28),   // 左肩
+      ], true);
       g.generateTexture('deco_heart', s, s); g.destroy();
     }
     if (!run.textures.exists('deco_crown')) {
@@ -519,7 +525,7 @@ export function createOrbit(run) {
       img.role = 'sat'; img.idx = i; img.n = t.sats;
       img.baseScale = baseScale;
     }
-    // ハート衛星（衛星星の外側を逆回転）
+    // キラ結晶（衛星星の外側を逆回転・シアン）
     for (let i = 0; i < t.hearts; i++) {
       const img = add('deco_heart', 12, null);
       img.role = 'heart'; img.idx = i; img.n = t.hearts;
@@ -592,13 +598,17 @@ export function createOrbit(run) {
           d.setAlpha(0.95);
           break;
         }
-        case 'heart': {
+        case 'heart': {   // キラ結晶：外周を逆回転。固定シアン（回復ハートの桃と混同しない）
           const a = -t * 1.6 + (d.idx / d.n) * Math.PI * 2 + Math.PI / 4;
           const orbR = bodyR * 1.75;
           d.setPosition(o.x + Math.cos(a) * orbR, o.y + Math.sin(a) * orbR);
           const sc = (bodyR * 0.6 * d.baseScale) / 22;
           d.setScale(sc * (1 + Math.sin(t * 5 + d.idx * 2) * 0.15));
-          d.setTint(hueAt(t * 2 + d.idx * 3 + 1));
+          d.rotation += dt * 3;                              // 結晶をゆっくり自転させてキラッと
+          const tw = 0.5 + 0.5 * Math.sin(t * 5 + d.idx * 2);// シアン(0x36e0ff)→白コアへ明滅
+          const cr = 0x36 + Math.round((0xd8 - 0x36) * tw);
+          const cg = 0xe0 + Math.round((0xff - 0xe0) * tw);
+          d.setTint((cr << 16) | (cg << 8) | 0xff);
           d.setAlpha(0.95);
           break;
         }
