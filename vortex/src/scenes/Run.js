@@ -76,6 +76,9 @@ export class RunScene extends Phaser.Scene {
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4de1c0).setScale(1.6);
     this.playerImg = this.add.image(0, 0, 'player').setScale(2).setDepth(10);
+    // パワードスーツの兵士が構える銃/ライフル（本体より前面）。狙い角へ回転して撃つ（updateHeroWeapon）。
+    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(2).setDepth(11);
+    this._weaponAim = 0;    // 直近の狙い角（射程内に敵がいない間は維持して構えを保つ）
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
     // R4(#4/#8): 主人公の常時スターオーラ。周囲の敵へ自動近接ダメージ＋きらきら表示。
     this.playerAura = this.add.image(0, 0, 'w_star2').setBlendMode(ADD)
@@ -209,6 +212,7 @@ export class RunScene extends Phaser.Scene {
     this.elapsed += dt;
 
     this.updatePlayer(dt);
+    this.updateHeroWeapon(dt);
     this.updateHeroShot(dt);
     this.updateHeroAura(dt);
     this.orbit.update(dt);
@@ -288,11 +292,13 @@ export class RunScene extends Phaser.Scene {
   }
 
   // 変身演出（FB#5）。テクスチャ差し替え＋金リング＋星バースト＋ファンファーレ。
-  // ステージごとにグロー色も変わる（1=ミント/2=マゼンタ/3=金）→強くなったのが一目で分かる。
+  // ステージごとにグロー色も変わる（軍事系＝1=スチール/2=アンバー/3=金）→装甲が増したのが一目で分かる。
   transformPlayer(stage) {
     this.playerStage = stage;
     this.playerImg.setTexture('player_' + stage);
-    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xff6ec7 : 0x4de1c0;
+    // 武器も同じ段で進化（銃が大きく強そうに＝視覚的パワーアップ）。段階でスケールも少し拡大。
+    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(2 + (stage - 1) * 0.5);
+    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;
     this.playerGlow.setTint(glowColor).setScale(1.6 + (stage - 1) * 0.5);
     const x = this.player.x, y = this.player.y;
     // 広がる金リング×2（時間差）
@@ -324,7 +330,29 @@ export class RunScene extends Phaser.Scene {
     if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05);
   }
 
-  // 主人公の自動攻撃「スターショット」。射程内の最寄り敵へ発射（Lv8で2連・Lv16で3連）。
+  // 主人公の銃を最寄り敵へ構える（毎フレーム）。射程内に敵がいなければ前回の狙い角を維持。
+  // 右向き基準で描いた銃を狙い角へ回転し、左向き（背面側）のときは上下反転で逆さ表示を防ぐ。
+  updateHeroWeapon(dt) {
+    const H = BALANCE.hero;
+    const px = this.player.x, py = this.player.y;
+    let best = null, bestD2 = H.range * H.range;
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      const dx = e.x - px, dy = e.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; best = e; }
+    }
+    if (best) this._weaponAim = Math.atan2(best.y - py, best.x - px);
+    const ang = this._weaponAim;
+    const hold = 9;   // 手元から前方へ構えるオフセット
+    const gx = px + Math.cos(ang) * hold;
+    const gy = py + Math.sin(ang) * hold + 2;   // 手の高さ（やや下）
+    this.playerWeaponImg.setPosition(gx, gy).setRotation(ang)
+      .setFlipY(Math.cos(ang) < 0)   // 敵が左側のとき銃が逆さにならないよう上下反転
+      .setVisible(this.playerImg.visible);
+  }
+
+  // 主人公の自動攻撃。射程内の最寄り敵へ銃で発射（弾数は変身ステージ連動 1→2→3・stage3で貫通）。
   updateHeroShot(dt) {
     const H = BALANCE.hero;
     this.heroShotT -= dt;
@@ -350,15 +378,20 @@ export class RunScene extends Phaser.Scene {
     const pierce = stage >= H.pierceFromStage ? H.pierceCount : 0;
     const angles = [];
     for (let i = 0; i < nShots; i++) angles.push(ang + (i - (nShots - 1) / 2) * spread);
-    // 弾色は変身ステージ連動（1=ミント/2=マゼンタ/3=金）＝変身の実感をショットでも見せる
-    const shotColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xff6ec7 : 0x4de1c0;
+    // 弾色は変身ステージ連動の味方色（軍事系＝1=白/2=アンバー金/3=金）。敵弾(赤/橙/シアン/青)・XP(緑/紫)・ハート(桃)と必ず区別できる寒色白〜金で統一。
+    const shotColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xffc85a : 0xeef4ff;
+    // 銃口＝銃身の延長。段が上がるほど銃身が長く、トレーサーもわずかに太く（視覚的パワーアップ）。
+    const muzzleLen = 16 + (stage - 1) * 4;
+    const mx = px + Math.cos(ang) * muzzleLen;
+    const my = py + Math.sin(ang) * muzzleLen + 2;
+    const tr = H.bulletRadius + (stage - 1) * 0.6;
     for (const a of angles) {
-      this.spawnBullet(px, py, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
-        shotColor, dmg, H.bulletRadius, 'w_star2', pierce);   // Wave B: きらきらスター弾
+      this.spawnBullet(mx, my, Math.cos(a) * H.bulletSpeed, Math.sin(a) * H.bulletSpeed,
+        shotColor, dmg, tr, 'hero_tracer', pierce);   // 銃のトレーサー弾（進行方向へ細長い）
     }
-    // FB#5: 銃口位置に一瞬の閃光（発射の手応え。1斉射につき1回＝負荷を抑える）
-    if (this.fx && this.fx.muzzleFlash) this.fx.muzzleFlash(px, py, ang, shotColor);
-    Sound.sfx('starShot');   // FB#6: 主人公専用の派手な発射音（攻撃してる感触）
+    // 銃口（銃身の先端）で一瞬の閃光（発射の手応え。1斉射につき1回＝負荷を抑える）
+    if (this.fx && this.fx.muzzleFlash) this.fx.muzzleFlash(mx, my, ang, shotColor);
+    Sound.sfx('heroGun');   // 銃/ライフルの鋭いクラック＋メカ音（攻撃してる感触）
   }
 
   // R4(#4/#8): 主人公の常時スターオーラ。周囲radius内の敵へ auraTickSec ごとに自動近接ダメージ。
@@ -369,7 +402,7 @@ export class RunScene extends Phaser.Scene {
     const R = H.auraRadius + (this.playerStage - 1) * H.auraRadiusPerStage;
     // きらきら表示：オーラの星をゆっくり回転＋脈動（run.elapsed 基準で決定的・alpha<0.5）
     const beat = 1 + Math.sin(this.elapsed * 5) * 0.12;
-    const auraColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xff6ec7 : 0xfff0a0;
+    const auraColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xffb43a : 0xfff0a0;
     this.playerAura.setPosition(px, py)
       .setDisplaySize(R * 2 * beat, R * 2 * beat)
       .setRotation(this.elapsed * 1.5)
@@ -772,6 +805,9 @@ export class RunScene extends Phaser.Scene {
     // FB#3: 金白グローを強めて（0xfff2b0→0xfff8d0）味方弾の明るさをさらに主張。
     // プレイヤー/仲間の弾は直進なので、生成時に一度だけ向き・長さを決めれば毎フレームのコストは増えない。
     const ang = Math.atan2(vy, vx);
+    // 銃のトレーサーは進行方向へ細長く回転させる。プール再利用のため他の弾は回転0へ戻す。
+    if (tex === 'hero_tracer') disp.spr.setRotation(ang).setDisplaySize(radius * 4.8, radius * 2.0);
+    else disp.spr.setRotation(0);
     disp.glow.setVisible(true).setDepth(6).setTint(0xfff8d0)
       .setRotation(ang).setDisplaySize(radius * 8.4, radius * 3.2).setPosition(x, y);
     this.bullets.push({

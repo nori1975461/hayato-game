@@ -384,85 +384,134 @@ export const MONSTERS = [
 ];
 
 // プレイヤー3段階（項目12）。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。
-// PLAYER_SPRITES[0]（Stage1）は現行テイマー（12×14）をそのまま流用。
+// 軍事的パワードスーツの2段階変身（可愛さ排除。参考: スターシップ・トゥルーパーズ／Halo風重装甲兵）。
+// 段が上がるほど装甲が増し、シルエットが厚く・大きく・威圧的になる（3体が一目で別物）。
 export const PLAYER_SPRITES = [
-  // Stage1: モンスターテイマーの子ども。キャップ・バイザー紋章・ベルト・ブーツ。
+  // Stage1(Lv1-4): 軽装コンバットアーマー。無骨なヘルメット＋アンバー発光バイザー・小肩当て・胸プレート・装甲ブーツ（12×14）。
   {
     palette: {
-      h: '#2b2f77', // 帽子/髪
-      s: '#ffcf9e', // 肌
-      c: '#10203a', // 目/ブーツの暗色
-      a: '#4de1c0', // スーツ
-      v: '#ffffff', // バイザー紋章
-      b: '#ffd23f', // ベルト
+      g: '#3a4453', // ガンメタル装甲
+      s: '#8a99ad', // スチール(ハイライト)
+      d: '#161b22', // 近黒の影/ブーツ
+      t: '#c7a06a', // タン(砂漠装甲・肩当て/ベルト)
+      v: '#ffb43a', // アンバー発光バイザー
     },
     rows: [
-      '...hhhhhh...',
-      '..hhhhhhhh..',
-      '..hhhhhhhh..',
-      '..hssssssh..',
-      '..scsssscs..',
-      '..ssssssss..',
-      '...ssssss...',
-      '..aaaaaaaa..',
-      '.aaaavvaaaa.',
-      '.aaaaaaaaaa.',
-      'saaabbbbaaas',
-      '.aaaaaaaaaa.',
-      '..aaa..aaa..',
-      '..ccc..ccc..',
+      '...gggggg...',
+      '..gggggggg..',
+      '..gvvvvvvg..',
+      '..gssssssg..',
+      '...gssssg...',
+      '.ttggggggtt.',
+      '.tggssssggt.',
+      '.tgssssssgt.',
+      '..gggggggg..',
+      '..gttttttg..',
+      '..gggggggg..',
+      '..ggg..ggg..',
+      '..ggg..ggg..',
+      '..ddd..ddd..',
     ],
   },
-  // Stage2: スターテイマー。肩に短いマゼンタのマント・発光バイザー・金ベルト（16×15）。
+  // Stage2(Lv5-9): パワードスーツ。増加装甲＝大型パウルドロン・アンバーバイザー・胸装甲プレート・背面スラスター(アンバー噴気口)・装甲脚（14×15）。
   {
     palette: {
-      h: '#2b2f77', s: '#ffcf9e', c: '#10203a', a: '#4de1c0',
-      v: '#ffffff', b: '#ffd23f', m: '#ff6ec7',
+      g: '#3a4453', s: '#8a99ad', d: '#161b22', t: '#c7a06a', v: '#ffb43a',
     },
     rows: [
-      '....hhhhhhhh....',
-      '...hhhhhhhhhh...',
-      '...hhhhhhhhhh...',
-      '...hssssssssh...',
-      '...hscsssscsh...',
-      '...hvvvvvvvvh...',
-      '....ssssssss....',
-      '..mmaaaaaaaamm..',
-      '..maaaaaaaaaam..',
-      '..maaaavvaaaam..',
-      '..maaaaaaaaaam..',
-      '..aabbbbbbbbaa..',
-      '...aaaa..aaaa...',
-      '...aaaa..aaaa...',
-      '...cccc..cccc...',
+      '....gggggg....',
+      '...gggggggg...',
+      '...gggggggg...',
+      '...gvvvvvvg...',
+      '...gssssssg...',
+      '....gssssg....',
+      '.ttsggggggstt.',
+      'tttvggggggvttt',
+      '..gsssddsssg..',
+      '..gssssssssg..',
+      '...gggggggg...',
+      '..gttttttttg..',
+      '..gggg..gggg..',
+      '..gggg..gggg..',
+      '..dddd..dddd..',
     ],
   },
-  // Stage3: ボルテックスマスター。三ツ星クラウン＋発光バイザー＋胸エンブレム＋大マント（16×16）。
+  // Stage3(Lv10+): 重パワードエクソ。フル装甲最終形態＝巨大パウルドロン・ヘビーヘルメット(金クレスト)・胸のシアン炉心＋金リング・脚部フレーム・金/レッドのアクセント（16×16）。
   {
     palette: {
-      g: '#ffd23f', h: '#2b2f77', s: '#ffcf9e', c: '#10203a',
-      a: '#4de1c0', m: '#ff6ec7', v: '#ffffff',
+      g: '#3a4453', s: '#8a99ad', d: '#161b22', t: '#c7a06a', v: '#ffb43a',
+      o: '#ffd23f', // 金アクセント/クレスト/ベルト
+      y: '#3fe0ff', // シアン炉心
+      r: '#ff5a3c', // レッド発光アクセント(噴気口/膝)
     },
     rows: [
-      '.....g.gg.g.....',
+      '......oooo......',
       '....gggggggg....',
-      '....hhhhhhhh....',
-      '...hhhhhhhhhh...',
-      '...hssssssssh...',
-      '...hvcvvvvcvh...',
-      '....sssccsss....',
-      '..mmaaaaaaaamm..',
-      '..maaaggggaaam..',
-      '..maaaaaaaaaam..',
-      '..maaggggggaam..',
-      '.mmaaaaaaaaaamm.',
-      '.mm.aaa..aaa.mm.',
-      'mm..aaa..aaa..mm',
-      '....ccc..ccc....',
-      '....ggg..ggg....',
+      '...gggggggggg...',
+      '...gvvvvvvvvg...',
+      '...gsssddsssg...',
+      '....goooooog....',
+      '.ttsggggggggstt.',
+      'ttorggggggggrott',
+      'sttsggggggggstts',
+      '..gssssssssssg..',
+      '..gsssoyyosssg..',
+      '..gssssssssssg..',
+      '..gtttooootttg..',
+      '..ggggg..ggggg..',
+      '..gggrg..grggg..',
+      '..ddddd..ddddd..',
     ],
   },
 ];
 
 // 互換用: 単数の PLAYER_SPRITE は Stage1 を指す（既存参照を壊さない）。
 export const PLAYER_SPRITE = PLAYER_SPRITES[0];
+
+// 主人公の武器＝段階進化する銃/ライフル（PLAYER_SPRITES と同じ段で進化。ユーザー要望「武器も銃系に」）。
+// 全て右向き＝銃口(v/アンバー)が +X 側。Run.js が狙い角へ setRotation して構える（左向きは setFlipY で整える）。
+// 配色はアーマーと統一（ガンメタルg/スチールs/近黒d/アンバー銃口v／Stage3のみ金o・レッドr）。
+// 段が上がるほど銃身が長く太く威圧的に（Stage1小型→Stage2アサルト→Stage3重機関砲）。全行同長。
+export const HERO_GUNS = [
+  // Stage1: コンパクトなサブマシンガン（短い銃身＋小マガジン＋グリップ。小さめ）。12×6。
+  {
+    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a' },
+    rows: [
+      '..ssss......',
+      '.ggggggggvv.',
+      '.ggggggggss.',
+      '.dg.dd......',
+      '.d..dd......',
+      '............',
+    ],
+  },
+  // Stage2: アサルトライフル（厚い機関部＋長い銃身＋長マガジン＝一回り大きく強そう）。14×8。
+  {
+    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a' },
+    rows: [
+      '..sss.........',
+      '.gggggggggggvv',
+      '.gggggggggggss',
+      '.gggggg.......',
+      '...dd.dd......',
+      '...dd.dd......',
+      '......dd......',
+      '..............',
+    ],
+  },
+  // Stage3: 重機関砲/多砲身ガトリング（太い3列砲身＋金の砲口リング＋レッド炉心＋ドラムマガジン＝最も大きく威圧的）。16×9。
+  {
+    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a', o: '#ffd23f', r: '#ff5a3c' },
+    rows: [
+      '...ssss.........',
+      '..gggggggg......',
+      '.ggggggggggggovv',
+      '.gggrrgggggggovv',
+      '.ggggggggggggovv',
+      '.gooooooog......',
+      '.ggggggggg......',
+      '.dd.ggggg.......',
+      '.dd.ggggg.......',
+    ],
+  },
+];

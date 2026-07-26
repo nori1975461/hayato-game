@@ -125,6 +125,14 @@ const SFX = {
     tone({ type: 'sine', freq: 1500, freqEnd: 2200, start: 0.02, dur: 0.06, gain: 0.05 });
     noiseHit({ dur: 0.025, gain: 0.04, hpFreq: 3500, lpFreq: 13000 });
   },
+  // 主人公パワードスーツの銃/ライフル発射。鋭いクラック＋機械的なメカ音（作動音）。
+  // starShot（きらきら系）と別系統の硬い金属音。手数が多いので極短＋控えめゲインで連射しても耳に痛くしない。
+  heroGun() {
+    tone({ type: 'square', freq: 900, freqEnd: 300, dur: 0.05, gain: 0.14 });       // 鋭いクラック
+    tone({ type: 'sawtooth', freq: 260, freqEnd: 120, dur: 0.06, gain: 0.06 });     // 低い芯（反動の重み）
+    noiseHit({ dur: 0.035, gain: 0.10, hpFreq: 1800, lpFreq: 11000 });              // 発砲のノイズ
+    noiseHit({ start: 0.02, dur: 0.03, gain: 0.05, hpFreq: 4000, lpFreq: 13000 });  // 機械の作動音（薬莢排出）
+  },
   // 雑魚撃破の「ポンっ」（Wave C）。多発するので極短＋控えめゲインで耳に痛くしない
   pop() {
     tone({ type: 'sine', freq: 880, freqEnd: 1320, dur: 0.06, gain: 0.12 });
