@@ -154,20 +154,33 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
-  // FB#2: 敵弾（丸い危険弾）。中身の詰まった円＋上下左右の小さなトゲで「あぶない」形に。
-  // 味方の5点スター弾（尖り）とも XPジェム（ひし形）とも輪郭が異なる＝子どもが形で敵弾と見分けられる。
+  // FB(機械軍団化): 敵弾＝異空間ロボット軍団の「メカ・エネルギー弾」。横長ヘキサゴンの装甲殻＋上下のトゲで
+  // 角ばった危険形にし、味方の5点スター弾／緑紫のカットジェム／桃ハートと輪郭で明確に区別する。
+  // makeGem と同じく面ごとに白アルファを変えて焼き込む＝Run 側が単色 tint しても「明るいコア→暗い装甲リム」の
+  // 立体エネルギー弾に見える（外殻ほど暗く、中心コアほど白熱）。
   makeFoeOrb(key, size) {
-    const c = size / 2, r = c - 1.5, nub = size * 0.18;
-    const nubs = [[c, 0.5], [c, size - 0.5], [0.5, c], [size - 0.5, c]];
-    this.makeMask(key, size, (x, y) => {
-      const dx = x - c, dy = y - c;
-      if (dx * dx + dy * dy <= r * r) return true;
-      for (const n of nubs) {
-        const tx = x - n[0], ty = y - n[1];
-        if (tx * tx + ty * ty <= nub * nub) return true;
-      }
-      return false;
-    });
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const k = size / 12;   // 基準12px系で頂点を定義しスケール
+    const P = (arr) => this.toPoints(arr.map((v) => v * k));
+    // [頂点列(12px系), 白アルファ]。外殻(暗)→中心コア(白1.0)の順に重ねて描く。
+    const facets = [
+      // 装甲リム：横長ヘキサゴン（左右に尖った機械弾の外殻・最も暗い）
+      [[0.5, 6, 3.2, 1.6, 8.8, 1.6, 11.5, 6, 8.8, 10.4, 3.2, 10.4], 0.40],
+      [[5.1, 1.6, 6.9, 1.6, 6, 0.2], 0.40],       // 上フィン（トゲ＝あぶない）
+      [[5.1, 10.4, 6.9, 10.4, 6, 11.8], 0.40],    // 下フィン（トゲ）
+      // 中間プレート（テックな段差・切り欠きで機械感）
+      [[2.4, 6, 4.2, 3.2, 5.0, 3.2, 5.0, 4.4, 7.0, 4.4, 7.0, 3.2, 7.8, 3.2, 9.6, 6, 7.8, 8.8, 7.0, 8.8, 7.0, 7.6, 5.0, 7.6, 5.0, 8.8, 4.2, 8.8], 0.66],
+      // 内側エネルギー（明）
+      [[4.0, 6, 5.2, 4.4, 6.8, 4.4, 8.0, 6, 6.8, 7.6, 5.2, 7.6], 0.90],
+      // 中心コア（最高輝度・白熱）
+      [[5.0, 6, 6, 4.9, 7.0, 6, 6, 7.1], 1.00],
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, size, size);
+    g.destroy();
   }
 
   makeSpark(key, size) {

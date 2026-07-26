@@ -27,6 +27,13 @@ const darkenC = (c, t) => {
   const m = (v) => Math.round(v * (1 - t));
   return (m(r) << 16) | (m(g) << 8) | m(b);
 };
+// 機械軍団の弾を「電撃・プラズマ色」へ：各チャンネルを輝度から離して彩度を上げる（灰色は素通し）。
+const saturateC = (c, t) => {
+  const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
+  const l = 0.3 * r + 0.59 * g + 0.11 * b;
+  const m = (v) => Math.max(0, Math.min(255, Math.round(v + (v - l) * t)));
+  return (m(r) << 16) | (m(g) << 8) | m(b);
+};
 
 const START_PARTY = ['starpuppy', 'pikabit'];
 
@@ -633,12 +640,12 @@ export class RunScene extends Phaser.Scene {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'bullet'),
     };
-    // FB#2: 敵弾は丸い危険弾（foe_orb）＋赤い危険フチで味方の星弾と区別。個性色(color)は弾本体に残す。
+    // FB(機械軍団化): 敵弾は角ばったメカ・エネルギー弾（foe_orb＝白熱コア＋暗い装甲リムを焼き込み済み）＋
+    // 赤い危険フチで味方の星弾と区別。個性色(color)は残しつつ彩度を上げて「電撃・プラズマ色」の兵器らしくする。
     // FB#5: 一回り大きく（2.4→3.0）＋進行方向へ短い赤トレイルで迫力を足す。
-    // FB#3: 本体を少し濃く（darkenC）・フチを深紅（0xff2f2f→0xcc1420）へ落とし「重く危険」に。
-    //       味方の明るい星／桃のハートと色でも一目で分離させる。
+    //       緑紫のジェム／桃のハートとは形（尖った機械弾）でも色でも一目で分離させる。
     const ang = Math.atan2(dirY, dirX);
-    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(darkenC(color, 0.18))
+    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(saturateC(color, 0.42))
       .setDisplaySize(radius * 3.0, radius * 3.0).setPosition(x, y);
     disp.glow.setVisible(true).setDepth(6).setTint(0xcc1420)
       .setRotation(ang).setDisplaySize(radius * 4.4, radius * 2.4).setPosition(x, y);

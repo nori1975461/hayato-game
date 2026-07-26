@@ -136,7 +136,7 @@ export const BALANCE = {
 
   // どうくつ・たからばこ
   cave: {
-    times: [60, 180], lifeSec: 25, minDist: 260, maxDist: 320, touchRadius: 24,
+    times: [50, 115, 175, 245, 310], lifeSec: 25, minDist: 260, maxDist: 320, touchRadius: 24,
     rewards: [
       { id: 'ring',   label: 'ぶき パワーリング',   weight: 3, stat: 'damageMult', add: 0.30 },
       { id: 'shield', label: 'ぼうぐ ほしのたて',   weight: 3, stat: 'maxHpAdd',   add: 30, invulnSec: 2 },
