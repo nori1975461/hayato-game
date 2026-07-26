@@ -458,11 +458,14 @@ const SFX = {
     noiseHit({ dur: 0.02, gain: 0.04, hpFreq: 4000, lpFreq: 12000 });
   },
   // 固有名スラムの金属着弾：低音ドロップ＋金属質の矩形＋ノイズ（重いが短い）
+  // 拳の着弾＝殴られた大衝撃。より深い低音ドロップ＋鋭いアタックの金属クラッシュで「ドゴォン！」の重量感を強める。
   metalSlam() {
-    tone({ type: 'sine', freq: 220, freqEnd: 40, dur: 0.28, gain: 0.30, attack: 0.002 });
-    tone({ type: 'square', freq: 880, freqEnd: 180, dur: 0.10, gain: 0.08 });
-    noiseHit({ dur: 0.18, gain: 0.14, hpFreq: 300, lpFreq: 4000 });
-    noiseHit({ dur: 0.06, gain: 0.08, hpFreq: 3000, lpFreq: 12000 });
+    tone({ type: 'sine', freq: 260, freqEnd: 26, dur: 0.36, gain: 0.34, attack: 0.001 });
+    tone({ type: 'triangle', freq: 130, freqEnd: 22, dur: 0.32, gain: 0.16, attack: 0.001 });
+    tone({ type: 'square', freq: 980, freqEnd: 150, dur: 0.12, gain: 0.10 });
+    noiseHit({ dur: 0.05, gain: 0.16, hpFreq: 120, lpFreq: 6000 });  // アタックの一撃（鋭い立ち上がり）
+    noiseHit({ dur: 0.22, gain: 0.15, hpFreq: 260, lpFreq: 4000 });  // 胴鳴りの余韻
+    noiseHit({ dur: 0.07, gain: 0.10, hpFreq: 3000, lpFreq: 13000 }); // 金属質の高域きらめき
   },
   // 虚空のうなり：低い不穏なハム（緊張はごく小音量・短時間で・直後に必ず解決させる）
   voidHum() {
@@ -470,20 +473,42 @@ const SFX = {
     tone({ type: 'triangle', freq: 104, freqEnd: 98, dur: 0.8, gain: 0.05, attack: 0.05 });
   },
   // 最終ボス ワイヤーアーム射出：「ギーン！」と一気に駆け上がる金属スイープ（拳がワイヤーで伸びる音）。
-  // 3層の上昇トーン＋金属質ノイズで鋭く。決定的（Math.random 不使用・noiseHit は LCG ノイズ）。
+  // 4層の上昇トーン＋厚い金属ノイズで鋭く激しく。到達周波数を上げて「引き絞って射出した」鋭さを強調。決定的。
   wireShot() {
-    tone({ type: 'sawtooth', freq: 300, freqEnd: 1900, dur: 0.34, gain: 0.16 });
-    tone({ type: 'square', freq: 600, freqEnd: 2700, dur: 0.30, gain: 0.08 });
-    tone({ type: 'triangle', freq: 920, freqEnd: 3300, dur: 0.26, gain: 0.06 });
-    noiseHit({ dur: 0.28, gain: 0.06, hpFreq: 2000, lpFreq: 9000 });
+    tone({ type: 'sawtooth', freq: 320, freqEnd: 2600, dur: 0.36, gain: 0.18 });
+    tone({ type: 'square', freq: 640, freqEnd: 3600, dur: 0.32, gain: 0.10 });
+    tone({ type: 'square', freq: 900, freqEnd: 4400, dur: 0.28, gain: 0.06, detune: 12 });
+    tone({ type: 'triangle', freq: 1200, freqEnd: 5000, dur: 0.24, gain: 0.07 });
+    noiseHit({ dur: 0.05, gain: 0.10, hpFreq: 1500, lpFreq: 9000 });   // 射出の噛みつくアタック
+    noiseHit({ dur: 0.30, gain: 0.09, hpFreq: 2400, lpFreq: 11000 });  // 金属質の擦過ノイズ（厚め）
   },
   // 最終ボス ナックルウェーブ：両拳を叩き合わせる「ガーン！」の重い金属クラッシュ＋発射のきしみ。
+  // 低音の一撃感を深く（freqを最低域まで）＋金属クラッシュのノイズを厚くして「ドガァン！」と激しく。
   knuckle() {
-    tone({ type: 'sine', freq: 240, freqEnd: 58, dur: 0.32, gain: 0.30, attack: 0.002 });
-    tone({ type: 'square', freq: 1200, freqEnd: 300, dur: 0.16, gain: 0.10 });
-    tone({ type: 'sawtooth', freq: 720, freqEnd: 180, dur: 0.12, gain: 0.06 });
-    noiseHit({ dur: 0.22, gain: 0.16, hpFreq: 400, lpFreq: 5000 });
-    noiseHit({ dur: 0.07, gain: 0.09, hpFreq: 3000, lpFreq: 12000 });
+    tone({ type: 'sine', freq: 280, freqEnd: 30, dur: 0.40, gain: 0.34, attack: 0.001 });
+    tone({ type: 'triangle', freq: 140, freqEnd: 24, dur: 0.36, gain: 0.16, attack: 0.001 });
+    tone({ type: 'square', freq: 1400, freqEnd: 260, dur: 0.18, gain: 0.12 });
+    tone({ type: 'sawtooth', freq: 820, freqEnd: 150, dur: 0.14, gain: 0.08 });
+    noiseHit({ dur: 0.06, gain: 0.17, hpFreq: 150, lpFreq: 6000 });    // 叩き合わせた瞬間の鋭いアタック
+    noiseHit({ dur: 0.26, gain: 0.16, hpFreq: 350, lpFreq: 5000 });    // 重い金属の胴鳴り
+    noiseHit({ dur: 0.09, gain: 0.10, hpFreq: 3000, lpFreq: 13000 });  // 金属片が散る高域
+  },
+  // 最終ボス ワイヤーアームの拳が飛来する音：「シュイィィン」と迫る金属ドップラー。
+  // うなりを効かせた金属トーンが上がりながら音量も増して「拳が突進してくる」迫力を出す。wireShot 直後に鳴らす。
+  wireFly() {
+    tone({ type: 'sawtooth', freq: 380, freqEnd: 1500, dur: 0.42, gain: 0.14, attack: 0.06 });
+    tone({ type: 'square', freq: 760, freqEnd: 3000, dur: 0.40, gain: 0.07, attack: 0.08, detune: 8 });
+    tone({ type: 'triangle', freq: 1140, freqEnd: 4200, dur: 0.34, gain: 0.05, attack: 0.10 });
+    noiseHit({ dur: 0.40, gain: 0.07, hpFreq: 1800, lpFreq: 10000 });  // 空気を切り裂く金属のうなり
+  },
+  // 最終ボス ナックルウェーブのミサイル飛翔：ジェット/ロケットの噴射轟音＋上昇ホイッスル。
+  // 噴射ノイズを厚く敷き、鋭いホイッスルが駆け上がって「複数ミサイルが噴き出して飛んでくる」迫力を出す。
+  missileFly() {
+    noiseHit({ dur: 0.06, gain: 0.14, hpFreq: 200, lpFreq: 5000 });    // 点火の一撃
+    noiseHit({ dur: 0.44, gain: 0.11, hpFreq: 500, lpFreq: 6000 });    // 噴射の轟音（厚い低〜中域ノイズ）
+    tone({ type: 'sawtooth', freq: 90, freqEnd: 60, dur: 0.44, gain: 0.10, attack: 0.004 }); // 推進の低いうなり
+    tone({ type: 'triangle', freq: 700, freqEnd: 2400, dur: 0.40, gain: 0.08, attack: 0.02 }); // 上昇ホイッスル
+    tone({ type: 'square', freq: 1050, freqEnd: 3400, dur: 0.34, gain: 0.04, attack: 0.03, detune: 10 });
   },
 };
 

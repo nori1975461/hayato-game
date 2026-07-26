@@ -638,7 +638,7 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * kk.bulletSpeed, Math.sin(a) * kk.bulletSpeed,
         { radius: kk.radius, damage: kk.damage, life: kk.lifeSec, kind: 'tomahawk', tint: 0xffffff });
     }
-    whiteFlash(0.34); Sound.sfx('knuckle'); Sound.sfx('shoot');
+    whiteFlash(0.34); Sound.sfx('knuckle'); Sound.sfx('missileFly'); Sound.sfx('shoot');
     run.shake(240, 6); recoil(aim);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 20);
   }
@@ -672,7 +672,7 @@ export function createBoss(run) {
       arm.len = 0; arm.hit = false; arm.ang = a0;
       arm.sx = sh.x; arm.sy = sh.y; arm.fx = sh.x; arm.fy = sh.y;
     }
-    Sound.sfx('wireShot'); run.shake(120, 4);
+    Sound.sfx('wireShot'); Sound.sfx('wireFly'); run.shake(120, 4);
     drawWire();
   }
   function updateWire(dt) {
