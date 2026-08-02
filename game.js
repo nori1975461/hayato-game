@@ -2628,6 +2628,10 @@ const PLAYER_SIZE = 24;
 const ENEMY_SIZE = 24;
 const TANK_SIZE = 64; // ストーンゴーレムは特大サイズ
 const BOSS_SIZE = 160;   // ボスは緑の敵の5倍
+// ふみつけ着地予告の影＝当たり判定（横/縦半径）。描画と判定でこの定数を共有し「影の見た目＝当たり範囲」を一致させる。
+// 影の楕円の外にプレイヤー中心が出ていればダメージなし（当たり判定はマージンなしの厳しめ）。
+const STOMP_SHADOW_RX = 55;
+const STOMP_SHADOW_RY = 22;
 const TALLY_COUNT_FRAMES = 150;
 
 let state = 'title'; // title / playing / tally / shop / clear / gameover / zukan
@@ -4837,6 +4841,7 @@ function runBossAct(e, pc, ecx, ecy) {
       e.y -= 9; // 画面の上へ飛び上がる
     } else if (a.t < landT) {
       if (a.t < lockT) { a.tx = pc.x; a.ty = pc.y; } // 影がプレイヤーを追いかける
+      else a.locked = true;                          // 着地点が確定（以後は動かない＝今のうちに影の外へ逃げれば回避できる）
     } else if (a.t === landT) {
       // ドッスーン！！と着地。二重の衝撃波＋土けむりの柱＋画面フラッシュ
       e.x = a.tx - e.size / 2;
@@ -4860,8 +4865,10 @@ function runBossAct(e, pc, ecx, ecy) {
           color: Math.random() < 0.5 ? '#94b0c2' : '#f4f4f4',
         });
       }
-      const d2 = (pc.x - a.tx) ** 2 + (pc.y - a.ty) ** 2;
-      if (invincibleTimer === 0 && d2 < 80 ** 2) hurtPlayer();
+      // 着地予告の影（楕円）の内側にプレイヤー中心があるときだけ踏まれる。影から出ていれば回避成功。
+      const dx = pc.x - a.tx, dy = pc.y - a.ty;
+      const inShadow = (dx * dx) / (STOMP_SHADOW_RX * STOMP_SHADOW_RX) + (dy * dy) / (STOMP_SHADOW_RY * STOMP_SHADOW_RY) < 1;
+      if (invincibleTimer === 0 && inShadow) hurtPlayer();
     } else if (a.t > landT + 40) {
       e.act = null;
     }
@@ -7855,14 +7862,17 @@ function render() {
   // ふみつけ攻撃の着地予告の影
   for (const e of enemies) {
     if (e.boss && e.act && e.act.kind === 'stomp' && e.airborne) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      const a = e.act;
+      // 着地点が確定（locked）したら赤く強く明滅させ「もう動かない＝今すぐ影の外へ逃げろ」を伝える
+      const alert = a.locked && Math.floor(gframe / 4) % 2 === 0;
+      ctx.fillStyle = alert ? 'rgba(177, 62, 83, 0.55)' : 'rgba(0, 0, 0, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(e.act.tx, e.act.ty, 55, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(a.tx, a.ty, STOMP_SHADOW_RX, STOMP_SHADOW_RY, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#b13e53';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = a.locked ? 3 : 2;
       ctx.stroke();
-      if (Math.floor(gframe / 8) % 2 === 0) drawText('！', e.act.tx - 4, e.act.ty - 8, '#b13e53', 16);
+      if (Math.floor(gframe / 8) % 2 === 0) drawText('！', a.tx - 4, a.ty - 8, '#b13e53', 16);
     }
   }
 
