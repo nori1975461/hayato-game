@@ -1894,7 +1894,7 @@ const BOSS_TYPES = [
     desc: 'ライオンの からだに ひとの かおを もつ いきもの。ギリシャの はなしでは なぞなぞを だし、こたえられない ものを たべてしまう。',
     serifu: 'わたしの かべを こえられるかな？' },
   { name: 'ハデス',         origin: 'ギリシャしんわ', sprite: 'hades',     aura: '#ef7d57', pattern: 'rain',   shot: 'ball',
-    gimmicks: ['rage', 'pillars'],   melee: ['punch'], hpMul: 1.15, pillarFx: { name: 'ごうかばしら！！', colors: ['#ffcd75', '#ef7d57', '#b13e53'], count: 5, cycle: 320, slow: 0, hpGate: 0.92 }, rageRemap: { K: '#5d1520', P: '#b13e53' },
+    gimmicks: ['rage', 'pillars'],   melee: ['punch'], hpMul: 1.15, pillarFx: { name: 'ごうかばしら！！', colors: ['#ffcd75', '#ef7d57', '#b13e53'], count: 5, cycle: 320, slow: 0, hpGate: 0.92 }, rageRemap: { K: '#5d1520' },
     desc: 'ギリシャしんわで めいかい（しごの せかい）を おさめる おうさま。ゼウスや ポセイドンの あにで、しずかで こうへいな かみ。',
     serifu: 'めいかいへ ようこそ…' },
   { name: 'スルト',         origin: 'ほくおうしんわ', sprite: 'surtr',     aura: '#ef7d57', pattern: 'mix',    shot: 'fire',
@@ -1922,7 +1922,7 @@ const BOSS_TYPES = [
     desc: 'しごの せかいで、しんだ ひとの つみを さばく おうさま。きんいろの かみを さかだてた わかき せんしの すがたで あらわれ、じごくの ごうかを りょうてに あつめて はなつ。',
     serifu: 'おまえの つみを かぞえよ！' },
   { name: 'ゼウス',         origin: 'ギリシャしんわ', sprite: 'zeus',      aura: '#ffcd75', pattern: 'cross',  shot: 'bolt',
-    gimmicks: ['shield', 'callboss'], melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { S: '#b13e53', b: '#5d1520' },
+    gimmicks: ['shield', 'callboss'], melee: ['dive'], hpMul: 1.2, ballColors: ['#ffcd75', '#f4f4f4', '#ffcd75'], rageRemap: { b: '#b13e53', B: '#5d1520' },
     desc: 'ギリシャしんわの さいこうしん。てんくうを おさめ、かみなりを じざいに あやつる。オリンポスの かみがみの おうさま。',
     serifu: 'てんばつを くらうがいい！' },
   { name: 'アマテラス',     origin: 'にほんしんわ',   sprite: 'amaterasu', aura: '#ffcd75', pattern: 'ring',   shot: 'light',
@@ -1965,8 +1965,8 @@ const BOSS_TYPES = [
     serifu: 'もりを まもるため おまえを ふみつぶす！' },
   { name: 'ヴリトラ',       origin: 'インドしんわ',       sprite: 'vritra',   aura: '#8b4f8b', pattern: 'wide', shot: 'trident', big: true,
     gimmicks: ['rage', 'callboss', 'coil'], melee: ['tail', 'stomp', 'punch'], hpMul: 1.8, shotSpMul: 0.82,
-    remap: { N: '#2b2b3a', L: '#9a8a7a', P: '#6b2d8b', p: '#9a4fc9', W: '#d4b483', O: '#6b4423', V: '#3a1650', Y: '#ffd23e', R: '#ff2e4d', T: '#d4b483', C: '#41a6f6', D: '#73eff7', b: '#3b7dd8' }, ballColors: ['#41a6f6', '#9a4fc9', '#4a2c17'],
-    form2Remap: { N: '#1a0f08', L: '#ff9d2e', P: '#7a2410', p: '#ff6b1a', W: '#ffcd75', O: '#3d1f0a', V: '#2a0d05', Y: '#ffcd2e', R: '#f4f4f4', T: '#c9a66b', C: '#ff9d2e', D: '#ffcd75', b: '#3d1f0a' }, form2Aura: '#ff6b1a',
+    remap: { P: '#6b2d8b', p: '#9a4fc9', W: '#d4b483', V: '#3a1650', Y: '#ffd23e', R: '#ff2e4d', T: '#d4b483', C: '#41a6f6', D: '#73eff7', b: '#3b7dd8' }, ballColors: ['#41a6f6', '#9a4fc9', '#4a2c17'],
+    form2Remap: { P: '#7a2410', p: '#ff6b1a', W: '#ffcd75', V: '#2a0d05', Y: '#ffcd2e', R: '#f4f4f4', T: '#c9a66b', C: '#ff9d2e', D: '#ffcd75', b: '#3d1f0a' }, form2Aura: '#ff6b1a',
     form2Serifu: 'かわいた だいちの いかりを うけよ…！',
     desc: 'インドしんわの ひでりを おこす おおへびの りゅう。みずを せきとめて ふらせず、ひとびとを くるしめた。かみ インドラに たおされる。',
     serifu: 'だいちの みずを すべて わがものに…！' },
@@ -1990,7 +1990,7 @@ const BOSS_TYPES = [
     gimmicks: ['rage', 'summon', 'callboss', 'storm', 'weakpoint'], melee: ['dive', 'tail', 'stomp'], mods: { bounce: true }, hpMul: 3.77, points: 20000,
     remap: { R: '#ff2e4d', D: '#a8eaff' }, ballColors: ['#ffcd75', '#f4f4f4', '#73eff7'],
     breathName: 'いなずまのブレス！！', breathColors: ['#3b5dc9', '#73eff7', '#ffcd75'],
-    form2Remap: { N: '#381038', L: '#5d275d', b: '#8b4f8b', Y: '#f4f4f4', D: '#f4f4f4', C: '#ff77a8', R: '#ff2e4d' }, form2Aura: '#b567b5',
+    form2Remap: { N: '#381038', b: '#8b4f8b', Y: '#f4f4f4', D: '#f4f4f4', C: '#ff77a8', R: '#ff2e4d' }, form2Aura: '#b567b5',
     deathTalk: true, // 撃破時に専用の断末魔イベント（ジギムントのdeathEventとは別系統）
     deathColors: ['#1a1c2c', '#3b5dc9', '#73eff7', '#b567b5', '#f4f4f4'], // 崩れ落ちる体の雷パレット（紺→青→水色→紫→白）
     deathSpark: true, // 崩壊中に稲妻エフェクトを散らす
