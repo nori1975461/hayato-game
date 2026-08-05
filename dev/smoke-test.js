@@ -178,9 +178,12 @@ step('ボス戦の必殺技3回制限＋自動チャージ＋巨大弾', () => {
 });
 
 step('分裂ボスの初期HPは通常の半分', () => {
-  run('stage = 3; bossActive = false; warningTimer = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();');
+  // ボスの並びはプレイごとに変わるのでステージ番号を固定できない。
+  // hpMul=1の分裂ボス（ヒュドラ）が今回配置されたステージを探して戦う。
+  run('(function(){ const i = BOSS_TYPES.findIndex(t => t.gimmicks.includes("split") && !t.hpMul); stage = stageOrder.indexOf(i) + 1; })();');
+  run('bossActive = false; warningTimer = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();');
   const hp = run('enemies.find(e => e.boss).maxHp');
-  const full = run('Math.round(26 + stage * 16 + bossCount * 4)'); // ヒュドラはhpMul=1
+  const full = run('Math.round(26 + stage * 16 + bossCount * 4)'); // この分裂ボスはhpMul=1
   if (Math.abs(hp - Math.round(full * 0.5)) > 1) throw new Error(`分裂ボスHPが半分でない: ${hp} (通常${full})`);
   // 倒すと分裂→子のHPは親(半減後)の35%になっていること
   run('(function(){ killEnemy(enemies.find(e => e.boss)); })();');
@@ -192,7 +195,10 @@ step('分裂ボスの初期HPは通常の半分', () => {
 });
 
 step('ボスへの攻撃ヒットでポイント加算＆武器進化', () => {
-  run('stage = 9; bossActive = false; warningTimer = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();'); // ハデス（盾・弱点なし）
+  // 並びはプレイごとに変わるのでステージ番号を固定できない。
+  // 弱点コア持ちはコアに当てないとダメージが通らないので、weakpointを持たないボスの居るステージで検証する。
+  run('(function(){ const i = BOSS_TYPES.findIndex(t => !t.gimmicks.includes("weakpoint")); stage = stageOrder.indexOf(i) + 1; })();');
+  run('bossActive = false; warningTimer = 0; enemies = enemies.filter(e => !e.boss); spawnBoss();');
   run('score = 540; weaponIdx = weaponForScore(540);'); // 剣(550)の直前
   const before = run('score');
   run('(function(){ const b = enemies.find(e => e.boss); damageBoss(b, 1, b.x + b.size / 2, b.y + b.size / 2); })();');

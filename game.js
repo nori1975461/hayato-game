@@ -1849,8 +1849,32 @@ const STAGES = [
 ];
 const LAST_STAGE = STAGES.length; // 28
 
+// ボスの並びはプレイごとに変わる（毎回おなじ順番だと後半のボスに会えないままになるため）。
+// ただし入れ替えるのは「同じくらいの強さのボス同士」だけ。全体をシャッフルすると
+// 3面にライリュウ(hpMul 3.77)が出るような事故が起きるので、難易度帯の中に閉じている。
+// STAGESとBOSS_TYPESは同じ添字で対（8番目=こだいいせき＋スフィンクス）なので添字ごと入れ替え、
+// 「スフィンクスは古代いせきに出る」という世界観の組み合わせは崩さない。
+// 物語の区切りである20面のジギムントと、最終ボスの28面ライリュウは動かさない。
+const STAGE_TIERS = [[0, 8], [8, 17], [17, 19], [19, 20], [20, 24], [24, 27], [27, 28]];
+let stageOrder = STAGES.map((_, i) => i);
+function buildStageOrder() {
+  const order = STAGES.map((_, i) => i);
+  for (const [from, to] of STAGE_TIERS) {
+    for (let i = to - 1; i > from; i--) {
+      const j = from + Math.floor(Math.random() * (i - from + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
+  stageOrder = order;
+}
+
+// 現在のステージに割り当てられた世界・ボス（stageOrder経由で引く）
+function stageSlot() {
+  return stageOrder[Math.min(stage, LAST_STAGE) - 1];
+}
+
 function currentStage() {
-  return STAGES[Math.min(stage, LAST_STAGE) - 1];
+  return STAGES[stageSlot()];
 }
 
 // ---------- ステージごとのボス（神話の神々20体） ----------
@@ -2004,7 +2028,7 @@ const SIGMUND_FORM2_REMAP = { K: '#5d1520', P: '#ffcd75', p: '#b13e53' };
 const SIGMUND_FORM2_AURA = '#ff2e4d';
 
 function currentBossType() {
-  return BOSS_TYPES[Math.min(stage, LAST_STAGE) - 1];
+  return BOSS_TYPES[stageSlot()];
 }
 
 // ---------- おみせ（5ステージごとのけっさん後に開く） ----------
@@ -2532,7 +2556,8 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.key === 'b' || e.key === 'B') {
       startGame();
-      stage = debugStage;
+      // 並びはプレイごとに変わるので、選んだボスが今回配置されたステージへ飛ぶ
+      stage = stageOrder.indexOf(Math.min(debugStage, LAST_STAGE) - 1) + 1;
       nextBossScore = 0; // 直後の警告演出を経てすぐボスへ突入（デバッグ用ステージスキップ）
     }
     if (e.key === 'c' || e.key === 'C') {
@@ -2722,6 +2747,7 @@ function baseLives() { return stage <= 26 ? 7 : 8; }
 function maxLives() { return Math.min(baseLives() + (gear.helm ? 2 : 0), stage <= 26 ? 9 : 8); }
 
 function startGame() {
+  buildStageOrder(); // 今回のプレイのボスの並びを決める（難易度帯の中だけで入れ替わる）
   player = { x: W / 2 - PLAYER_SIZE / 2, y: H / 2 - PLAYER_SIZE / 2, speed: 2.3 };
   enemies = [];
   pendingEnemies = [];
@@ -2913,8 +2939,10 @@ function summonMinions(boss) {
 // 召喚体は boss:true のまま summoned:true を持ち、進行判定からは除外される小型ボス。
 function callBoss(boss) {
   const idx = BOSS_TYPES.indexOf(boss.type);
-  // 自分より前に登場したボス（index が小さい方）からランダムに1体えらぶ
-  const pool = BOSS_TYPES.slice(0, Math.max(1, idx));
+  // 自分より前のステージに出たボスからランダムに1体えらぶ。
+  // 並びはプレイごとに変わるので、図鑑の並び順ではなく今回の出現順(stageOrder)で「過去」を判定する
+  const pos = stageOrder.indexOf(idx);
+  const pool = stageOrder.slice(0, Math.max(1, pos)).map((i) => BOSS_TYPES[i]);
   const src = pool[Math.floor(Math.random() * pool.length)];
   // 召喚体は再帰召喚（callboss/summon/split）も近接攻撃もしない安全なコピー型を使う
   const childType = { ...src, gimmicks: [], melee: [] };
@@ -3306,7 +3334,7 @@ function killEnemy(e, lightningDepth = 2) {
         bossActive = false;
         nextBossScore = Math.max(nextBossScore + 4000 + stage * 200, score + 3000);
         const cleared = stage;
-        recordBossDefeat(Math.min(cleared, LAST_STAGE) - 1);
+        recordBossDefeat(stageOrder[Math.min(cleared, LAST_STAGE) - 1]); // 並びが変わるのでステージ番号ではなく実際のボスindexで記録する
         if (cleared >= LAST_STAGE) {
           finalClear = true;
           pendingTally = 110;
