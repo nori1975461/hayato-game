@@ -1,5 +1,5 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
-import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_GUNS } from '../data/monsters.js';
+import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_GUNS, HERO_FISTS } from '../data/monsters.js';
 import { ENEMIES, BOSSES } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { createRng } from '../core/rng.js';
@@ -22,8 +22,10 @@ export class BootScene extends Phaser.Scene {
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
-    // 主人公の武器（段階進化する銃/ライフル）。狙い角へ回転させて構える。
+    // 主人公のサブ武器（段階進化する銃/ライフル）。狙い角へ回転させて構える。
     HERO_GUNS.forEach((s, i) => this.makeGrid('hero_gun' + (i + 1), s));
+    // R12: 主人公の主武器（クラッシュアーム＝殴る瞬間だけ突き出す拳）。
+    HERO_FISTS.forEach((s, i) => this.makeGrid('hero_fist' + (i + 1), s));
     // ボス（Wave R3：ロボット6体・7パーツリグ）。sprites の各パーツを boss_<id>_<part> でテクスチャ化。
     for (const d of BOSSES) {
       for (const [k, s] of Object.entries(d.sprites)) this.makeGrid('boss_' + d.id + '_' + k, s);

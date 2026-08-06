@@ -383,18 +383,22 @@ export const MONSTERS = [
   },
 ];
 
-// プレイヤー3段階（項目12）。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。
-// 軍事的パワードスーツの2段階変身（可愛さ排除。参考: スターシップ・トゥルーパーズ／Halo風重装甲兵）。
-// 段が上がるほど装甲が増し、シルエットが厚く・大きく・威圧的になる（3体が一目で別物）。
+// プレイヤー3段階。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。
+// R12でキャラクター特性を「突撃兵」に確定し、それに合わせて全面再設計した。
+// 主武器は銃ではなく拳＝両腕の熱を帯びたガントレット（クラッシュアーム）で、正面から見て
+// 「拳を構えて踏み込む」ボクサー型のシルエットになっている。段が上がるほど腕が外へ張り出し、
+// 装甲が厚くなる（3体が一目で別物）。熱色 h/v は味方色の統一ルール（味方＝白〜金、敵＝赤）に
+// 従いオレンジ〜金に寄せ、敵弾の深紅とは混同しない。
 export const PLAYER_SPRITES = [
-  // Stage1(Lv1-4): 軽装コンバットアーマー。無骨なヘルメット＋アンバー発光バイザー・小肩当て・胸プレート・装甲ブーツ（12×14）。
+  // Stage1(Lv1-4): アサルト・トルーパー。軽装＋小型ガントレット。拳が体の両脇に張り出す（12×14）。
   {
     palette: {
       g: '#3a4453', // ガンメタル装甲
       s: '#8a99ad', // スチール(ハイライト)
       d: '#161b22', // 近黒の影/ブーツ
-      t: '#c7a06a', // タン(砂漠装甲・肩当て/ベルト)
-      v: '#ffb43a', // アンバー発光バイザー
+      o: '#ffd23f', // 金アクセント(ベルト)
+      v: '#ffd23f', // 金の発光バイザー
+      h: '#ff8a1f', // 熱オレンジ(ガントレット＝殴る腕)
     },
     rows: [
       '...gggggg...',
@@ -402,64 +406,66 @@ export const PLAYER_SPRITES = [
       '..gvvvvvvg..',
       '..gssssssg..',
       '...gssssg...',
-      '.ttggggggtt.',
-      '.tggssssggt.',
-      '.tgssssssgt.',
-      '..gggggggg..',
-      '..gttttttg..',
+      '.ssggggggss.',
+      'hhsggggggshh',
+      'hhhgssssghhh',
+      '.hhgssssghh.',
+      '..goooooog..',
       '..gggggggg..',
       '..ggg..ggg..',
       '..ggg..ggg..',
       '..ddd..ddd..',
     ],
   },
-  // Stage2(Lv5-9): パワードスーツ。増加装甲＝大型パウルドロン・アンバーバイザー・胸装甲プレート・背面スラスター(アンバー噴気口)・装甲脚（14×15）。
+  // Stage2(Lv5-9): ブレイカー・エクソ。両腕が大型パワーアーム化し、腰に熱噴気口が付く（14×15）。
   {
     palette: {
-      g: '#3a4453', s: '#8a99ad', d: '#161b22', t: '#c7a06a', v: '#ffb43a',
+      g: '#3a4453', s: '#8a99ad', d: '#161b22', o: '#ffd23f', v: '#ffd23f', h: '#ff8a1f',
     },
     rows: [
       '....gggggg....',
       '...gggggggg...',
-      '...gggggggg...',
       '...gvvvvvvg...',
       '...gssssssg...',
       '....gssssg....',
-      '.ttsggggggstt.',
-      'tttvggggggvttt',
-      '..gsssddsssg..',
-      '..gssssssssg..',
-      '...gggggggg...',
-      '..gttttttttg..',
+      'ssggggggggggss',
+      'hhsggggggggshh',
+      'hhhggssssgghhh',
+      'hhhgssddssghhh',
+      '.hhgssssssghh.',
+      '..ghoooooohg..',
+      '..gggggggggg..',
       '..gggg..gggg..',
       '..gggg..gggg..',
       '..dddd..dddd..',
     ],
   },
-  // Stage3(Lv10+): 重パワードエクソ。フル装甲最終形態＝巨大パウルドロン・ヘビーヘルメット(金クレスト)・胸のシアン炉心＋金リング・脚部フレーム・金/レッドのアクセント（16×16）。
+  // Stage3(Lv10+): タイタン・スマッシャー。頭に2本の金の角が立ち、肩は最も厚く、胸に大きなシアン炉心
+  // ＝Stage1/2 とシルエットの段階で見分けがつく最終形態（16×16）。
   {
     palette: {
-      g: '#3a4453', s: '#8a99ad', d: '#161b22', t: '#c7a06a', v: '#ffb43a',
+      g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffd23f', h: '#ff8a1f',
       o: '#ffd23f', // 金アクセント/クレスト/ベルト
       y: '#3fe0ff', // シアン炉心
-      r: '#ff5a3c', // レッド発光アクセント(噴気口/膝)
     },
     rows: [
-      '......oooo......',
-      '....gggggggg....',
+      '...o........o...',
+      '...o........o...',
+      '...oo......oo...',
+      '...oggggggggo...',
       '...gggggggggg...',
       '...gvvvvvvvvg...',
-      '...gsssddsssg...',
+      '...gssssssssg...',
       '....goooooog....',
-      '.ttsggggggggstt.',
-      'ttorggggggggrott',
-      'sttsggggggggstts',
+      'sssggggggggggsss',
+      'hhsggggggggggshh',
+      'hhhggssssssgghhh',
+      'hhhgsoyyyyosghhh',
+      '.hhgssssssssghh.',
       '..gssssssssssg..',
-      '..gsssoyyosssg..',
-      '..gssssssssssg..',
-      '..gtttooootttg..',
+      '..goooooooooog..',
       '..ggggg..ggggg..',
-      '..gggrg..grggg..',
+      '..ggghg..ghggg..',
       '..ddddd..ddddd..',
     ],
   },
@@ -468,7 +474,9 @@ export const PLAYER_SPRITES = [
 // 互換用: 単数の PLAYER_SPRITE は Stage1 を指す（既存参照を壊さない）。
 export const PLAYER_SPRITE = PLAYER_SPRITES[0];
 
-// 主人公の武器＝段階進化する銃/ライフル（PLAYER_SPRITES と同じ段で進化。ユーザー要望「武器も銃系に」）。
+// 主人公のサブ武器＝段階進化する銃/ライフル（PLAYER_SPRITES と同じ段で進化）。
+// R12で主人公が突撃兵になったため、銃は「拳が届かない距離の敵を撃つ牽制」の位置づけへ降格した
+// （主武器は下の HERO_FISTS＝クラッシュアーム）。銃そのものの見た目・進化は従来どおり維持する。
 // 全て右向き＝銃口(v/アンバー)が +X 側。Run.js が狙い角へ setRotation して構える（左向きは setFlipY で整える）。
 // 配色はアーマーと統一（ガンメタルg/スチールs/近黒d/アンバー銃口v／Stage3のみ金o・レッドr）。
 // 段が上がるほど銃身が長く太く威圧的に（Stage1小型→Stage2アサルト→Stage3重機関砲）。全行同長。
@@ -512,6 +520,56 @@ export const HERO_GUNS = [
       '.ggggggggg......',
       '.dd.ggggg.......',
       '.dd.ggggg.......',
+    ],
+  },
+];
+
+// R12: 主人公の主武器＝クラッシュアーム（殴る瞬間だけ拳を前方へ突き出す）。
+// 全て右向き＝打撃面(v/金)が +X 側。Run.js が狙い角へ setRotation し、殴りの一瞬だけ表示する
+// （常時出すと画面が拳だらけになるので、パンチのモーション中だけ可視）。
+// 熱(h)の部分は連撃ヒートに応じて実行時に tint を明るくするので、素は暗めのオレンジで描く。
+// 段が上がるほど腕が長く太くなる（Stage1 小型ガントレット→2 パワーアーム→3 巨大破砕アーム）。
+export const HERO_FISTS = [
+  // Stage1: 小型ガントレット。8×6。
+  {
+    palette: { g: '#3a4453', h: '#ff8a1f', v: '#ffd23f' },
+    rows: [
+      '..gghhh.',
+      '.gghhhhh',
+      'ggghhhhv',
+      'ggghhhhv',
+      '.gghhhhh',
+      '..gghhh.',
+    ],
+  },
+  // Stage2: パワーアーム（腕が伸び、打撃面が広がる）。12×8。
+  {
+    palette: { g: '#3a4453', h: '#ff8a1f', v: '#ffd23f' },
+    rows: [
+      '...gggghhhh.',
+      '..gggghhhhhh',
+      '.ggggghhhhhv',
+      'gggggghhhhvv',
+      'gggggghhhhvv',
+      '.ggggghhhhhv',
+      '..gggghhhhhh',
+      '...gggghhhh.',
+    ],
+  },
+  // Stage3: 巨大破砕アーム（金のパワーリング入り・打撃面が最大）。16×10。
+  {
+    palette: { g: '#3a4453', h: '#ff8a1f', v: '#ffd23f', o: '#ffd23f' },
+    rows: [
+      '....ggggghhhhh..',
+      '..gggggghhhhhhh.',
+      '.gggggggghhhhhhv',
+      'ggggoogghhhhhhvv',
+      'ggggoogghhhhhhvv',
+      'ggggoogghhhhhhvv',
+      'ggggoogghhhhhhvv',
+      '.gggggggghhhhhhv',
+      '..gggggghhhhhhh.',
+      '....ggggghhhhh..',
     ],
   },
 ];
