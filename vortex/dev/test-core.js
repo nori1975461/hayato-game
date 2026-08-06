@@ -168,16 +168,47 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   assert(flips, 'orbit: 2Lv帯の境界でのみフォームが反転する（帯内は不変）');
 }
 
-// --- Wave R4: 主人公スターオーラ／ショット強化の hero 設定が数値・妥当 ---
+// --- R12: 主人公＝突撃兵。主武器クラッシュアーム（melee）とサブ武器の銃の設定が数値・妥当 ---
 {
   const H = BALANCE.hero;
-  const nums = ['auraRadius', 'auraRadiusPerStage', 'auraTickSec', 'auraDamage', 'pierceFromStage', 'pierceCount'];
-  const ok = !!H && nums.every((k) => typeof H[k] === 'number' && Number.isFinite(H[k]) && H[k] >= 0);
-  assert(ok, 'balance: hero のオーラ/貫通パラメータが全て数値');
   assert(Array.isArray(H.shotByStage) && H.shotByStage.length === 3
     && H.shotByStage.every((n) => Number.isInteger(n) && n >= 1),
     'balance: hero.shotByStage が3段の正整数（弾数1→2→3）');
-  assert(H.auraDamage > 0 && H.auraTickSec > 0, 'balance: hero.auraDamage/auraTickSec が正（オーラが実際に効く）');
+  assert(typeof H.pierceFromStage === 'number' && typeof H.pierceCount === 'number',
+    'balance: hero の貫通パラメータが数値');
+
+  const M = H.melee;
+  const nums = ['radius', 'radiusPerStage', 'intervalSec', 'damage', 'damagePerStage', 'maxTargets',
+                'closeDist', 'closeMul', 'bossMul', 'knockback', 'knockbackSec',
+                'heatMax', 'heatPerHit', 'heatDecayPerSec', 'heatDamageMulPerStep',
+                'punchSec', 'punchLunge'];
+  assert(!!M && nums.every((k) => typeof M[k] === 'number' && Number.isFinite(M[k]) && M[k] >= 0),
+    'balance: hero.melee のパラメータが全て数値');
+  assert(M.damage > 0 && M.intervalSec > 0, 'balance: hero.melee が実際に効く（damage/intervalSec が正）');
+  assert(M.closeMul > 1, 'balance: 踏み込みボーナス closeMul > 1（近づくほど強いという特性の根幹）');
+  assert(M.bossMul > 0 && M.bossMul <= 0.5,
+    'balance: 拳のボスへのダメージは半減以下（接近戦を報いるがボス戦を壊さない）');
+  assert(M.maxTargets >= 1 && M.maxTargets <= 8,
+    'balance: 拳の巻き込みは1〜8体（囲まれても捌けるが火力過多にしない）');
+  // 拳が主・銃が従であることを数値で守る（DPS比較：拳=1段目の素damage/interval、銃=damageBase/interval）
+  const meleeDps = M.damage / M.intervalSec;
+  const gunDps = H.damageBase / H.intervalSec;
+  assert(meleeDps > gunDps * 2,
+    'balance: 拳のDPSが銃の2倍超（主人公=突撃兵＝主武器は拳・銃は牽制のサブ）');
+  // ヒートで上がる火力の上限（暴走防止）
+  assert(M.heatMax * M.heatDamageMulPerStep <= 0.6,
+    'balance: ヒート満タンの火力ボーナスは+60%以内');
+}
+
+// --- R12: 被弾フィードバック（ノックバック・低HP警告）の player 設定 ---
+{
+  const P = BALANCE.player;
+  assert(typeof P.hurtKnockback === 'number' && P.hurtKnockback > 0,
+    'balance: player.hurtKnockback が正（被弾で押し返される）');
+  assert(P.hurtKnockSec > 0 && P.hurtKnockSec < 0.35,
+    'balance: 被弾ノックバックは0.35秒未満（操作を奪わない長さ）');
+  assert(P.lowHpRatio > 0 && P.lowHpRatio < 0.6,
+    'balance: 低HP警告のしきい値が0〜60%の範囲');
 }
 
 // --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---

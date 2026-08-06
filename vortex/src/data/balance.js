@@ -3,18 +3,40 @@
 export const BALANCE = {
   view: { width: 640, height: 360 },
   runDurationSec: 420,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）。Wave R2でステージ尺を延長
-  player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7 },
+  // R12: 被弾に「押し返される」重みを持たせる（hurtKnockback）。lowHpRatio を割ると画面周縁が赤く脈打つ。
+  player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7,
+            hurtKnockback: 150, hurtKnockSec: 0.18, lowHpRatio: 0.3 },
 
-  // 主人公の自動攻撃「スターショット」
+  // 主人公＝突撃兵（R12でキャラクター特性を確定）。主武器は拳（クラッシュアーム）、銃は牽制のサブ。
   hero: {
+    // --- サブ武器：銃（近接が届かない距離の敵を撃つ） ---
     intervalSec: 1.55, bulletSpeed: 360, range: 240, bulletRadius: 4,   // FB#4: 弾速+20%・手数-約1割（intervalSec+約10%）
     damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
     spreadDeg: 12,   // R4: 旧 twinLevel/tripleLevel（プレイヤーLv基準の2連/3連）は shotByStage（playerStage基準）へ移行し削除
-    // R4(#4/#8): 主人公にも「攻撃してる感覚」を。常時スターオーラ（周囲の敵へ自動近接ダメージ）。
-    // 主力はあくまで公転仲間なので威力は控えめ。playerStage(1/2/3) で範囲が広がる。
-    auraRadius: 28, auraRadiusPerStage: 10, auraTickSec: 0.5, auraDamage: 4,
     // ショット強化：弾数は playerStage 連動（1→2→3）。stage3 で貫通1（2体まで貫く）。
     shotByStage: [1, 2, 3], pierceFromStage: 3, pierceCount: 1,
+
+    // --- 主武器：クラッシュアーム（R12・自動近接連撃） ---
+    // 設計の核＝「操作を増やさずに駆け引きを作る」。プレイヤーができるのは移動だけなので、
+    // "どれだけ踏み込むか" がそのまま火力になるよう、距離とヒートの2軸で威力を変える。
+    //   ① closeDist 以内まで踏み込むと closeMul 倍（＝敵に触れる距離が一番強い＝一番危険）
+    //   ② 殴り続けると heat が溜まり heatDamageMulPerStep ずつ加算（離れると decay で冷める）
+    // 旧スターオーラ（auraDamage 4・tick 0.5秒＝実質8dps の飾り）を置き換える主役。
+    melee: {
+      radius: 34, radiusPerStage: 9,        // 拳の届く範囲（Stage1=34 / 2=43 / 3=52）
+      intervalSec: 0.3,                     // 殴る間隔（旧オーラ0.5秒より速く＝連撃の手応え）
+      damage: 12, damagePerStage: 6,        // Stage1=12 / 2=18 / 3=24（1発の重みを出す）
+      maxTargets: 5,                        // 1回の振りで巻き込める敵数（囲まれても薙ぎ払える）
+      closeDist: 20, closeMul: 1.7,         // 至近ボーナス：踏み込むほど強い
+      bossMul: 0.5,                         // ボスへは半減（接近リスクに報いるがボス戦を壊さない）
+      knockback: 150, knockbackSec: 0.12,   // 殴った敵を弾く（押し返せる手応え）
+      // ヒート：連撃で腕が熱を持つ。火力（+4%/段・最大+40%）と見た目の派手さが連動する。
+      // 収支に注意：殴る間隔が 0.3秒なので1回あたりの減衰は heatDecayPerSec×0.3＝0.9。
+      // heatPerHit=2 との差し引きで実質 +1.1/回 ＝ 殴り続けて約3秒で満タン、離れると約3.3秒で冷める。
+      // （heatPerHit=1 だと実質 +0.1/回 にしかならず、実プレイでは永遠に溜まらない。CDP実測で判明）
+      heatMax: 10, heatPerHit: 2, heatDecayPerSec: 3, heatDamageMulPerStep: 0.04,
+      punchSec: 0.14, punchLunge: 7,        // 踏み込みモーション（尺・前へ出るpx）
+    },
   },
 
   // Wave R2: 公転仲間は最大3人（火力過多防止）。開始2人・180秒で3人目を解禁（強さカーブを緩やかに）

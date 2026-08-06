@@ -624,7 +624,7 @@ export function createBoss(run) {
         { radius: sk.shockRadius, damage: sk.shockDamage, life: 2.5 });
     }
     const d = Math.hypot(run.player.x - boss.x, run.player.y - boss.y);
-    if (d <= sk.meleeRadius + run.player.radius) run.hitPlayer(sk.meleeDamage);
+    if (d <= sk.meleeRadius + run.player.radius) run.hitPlayer(sk.meleeDamage, boss.x, boss.y);
     run.shake(280, 7); Sound.sfx('bigBoom');
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 22);
   }
@@ -694,7 +694,7 @@ export function createBoss(run) {
         const dx = arm.fx - run.player.x, dy = arm.fy - run.player.y;
         const rr = wk.fistRadius + run.player.radius;
         if (dx * dx + dy * dy <= rr * rr) {
-          arm.hit = true; run.hitPlayer(wk.damage);
+          arm.hit = true; run.hitPlayer(wk.damage, arm.fx, arm.fy);
           Sound.sfx('hit'); run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 10);
         }
       }
@@ -890,7 +890,7 @@ export function createBoss(run) {
     const ddx = run.player.x - cx, ddy = run.player.y - cy;
     const half = beam.width / 2 + run.player.radius;
     beam.dmgT -= dt;
-    if (ddx * ddx + ddy * ddy <= half * half && beam.dmgT <= 0) { run.hitPlayer(beam.dmg); beam.dmgT = 0.25; }
+    if (ddx * ddx + ddy * ddy <= half * half && beam.dmgT <= 0) { run.hitPlayer(beam.dmg, cx, cy); beam.dmgT = 0.25; }
   }
 
   // ============ ボス弾（プレイヤーへ当たる・kind別に挙動） ============
@@ -985,14 +985,14 @@ export function createBoss(run) {
         b.active = false;
         if (b.kind === 'missile' && b.blast > 0) {
           const dx = b.x - px, dy = b.y - py, rr = 30 + run.player.radius;
-          if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(b.blast);
+          if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(b.blast, b.x, b.y);
           run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8);
         }
       } else {
         const rr = run.player.radius + (b.kind === 'orb' ? 4 : 6);
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
-          run.hitPlayer(b.dmg); b.active = false;
+          run.hitPlayer(b.dmg, b.x, b.y); b.active = false;
           if (b.kind === 'missile') { run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8); Sound.sfx('hit'); }
         }
       }
@@ -1276,7 +1276,7 @@ export function createBoss(run) {
       const dmg = (state === 'dash') ? cfg.dash.damage : cfg.bodyDamage;
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
-      if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg);
+      if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
     }
 
     updateBullets(dt);

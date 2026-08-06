@@ -76,15 +76,26 @@ export class RunScene extends Phaser.Scene {
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4de1c0).setScale(1.6);
     this.playerImg = this.add.image(0, 0, 'player').setScale(2).setDepth(10);
-    // パワードスーツの兵士が構える銃/ライフル（本体より前面）。狙い角へ回転して撃つ（updateHeroWeapon）。
-    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(2).setDepth(11);
+    // サブ武器の銃/ライフル（本体より前面）。狙い角へ回転して構える（updateHeroWeapon）。
+    // R12: 主武器が拳になったので、銃は本体を隠さないサイズまで縮小した（旧scale2は本体より
+    // 大きく、正面から見て銃しか見えない絵になっていた＝PNG目視で判明）。
+    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(1.1).setDepth(11);
     this._weaponAim = 0;    // 直近の狙い角（射程内に敵がいない間は維持して構えを保つ）
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
-    // R4(#4/#8): 主人公の常時スターオーラ。周囲の敵へ自動近接ダメージ＋きらきら表示。
+    // R12: 主武器＝クラッシュアーム。殴る瞬間だけ拳を前方へ突き出す（常時表示だと画面が拳で埋まる）。
+    // 加算合成にすると熱色が飽和して「黄色い四角」に潰れ、腕と拳の形が読めなくなったので通常描画。
+    // 光り物（衝撃リング・光の筋）は fx.heroImpact 側が担当し、役割を分けている。
+    this.playerFistImg = this.add.image(0, 0, 'hero_fist1')
+      .setScale(2).setDepth(12).setVisible(false);
+    // 拳の間合いを示す熱のオーラ（旧スターオーラの表示を転用）。ヒートで色と明るさが上がる。
     this.playerAura = this.add.image(0, 0, 'w_star2').setBlendMode(ADD)
-      .setDepth(7).setTint(0xfff0a0).setAlpha(0.3);
-    this._auraTick = new Map();   // 敵id→最終ダメージ時刻（auraTickSec でゲート）
-    this._auraSfxT = -1;
+      .setDepth(7).setTint(0xff8a1f).setAlpha(0.3);
+    this._meleeT = 0;       // 次に殴るまでの残り秒
+    this._heat = 0;         // 連撃ヒート（0..melee.heatMax）。殴ると増え、離れると冷める
+    this._punchT = 0;       // 踏み込みモーションの残り秒
+    this._punchAng = 0;     // 踏み込み方向（直近に殴った敵の方向）
+    this._knockX = 0; this._knockY = 0; this._knockT = 0;   // 被弾ノックバック（押し返される）
+    this._lowHp = false;    // 体力が危険域か（周縁の赤い警告の on/off）
 
     // --- パーティ（開始編成） ---
     this.party = START_PARTY.map((id) => ({ def: MONSTERS.find((m) => m.id === id) }));
@@ -214,7 +225,8 @@ export class RunScene extends Phaser.Scene {
     this.updatePlayer(dt);
     this.updateHeroWeapon(dt);
     this.updateHeroShot(dt);
-    this.updateHeroAura(dt);
+    this.updateHeroMelee(dt);   // R12: 主武器（クラッシュアーム）。_punchT/_punchAng を決める
+    this.updateHeroFist(dt);    // R12: 殴りモーション中だけ拳を描画（melee の直後に読む）
     this.orbit.update(dt);
     this.spawner.update(dt);
     this.boss.update(dt);
@@ -266,14 +278,35 @@ export class RunScene extends Phaser.Scene {
     if (k.right.isDown || k.d.isDown) dx += 1;
     if (k.up.isDown || k.w.isDown) dy -= 1;
     if (k.down.isDown || k.s.isDown) dy += 1;
+    const P = BALANCE.player;
     if (dx || dy) {
       const inv = 1 / Math.hypot(dx, dy);
-      const sp = BALANCE.player.speed * this.stats.moveMult;
+      const sp = P.speed * this.stats.moveMult;
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
     }
-    this.playerImg.setPosition(this.player.x, this.player.y);
-    this.playerGlow.setPosition(this.player.x, this.player.y);
+    // R12: 被弾ノックバック。減衰しながら加害者と反対方向へ押し出される＝「効いた」重み。
+    // 操作を奪う長さにはしない（hurtKnockSec は0.2秒未満）。
+    if (this._knockT > 0) {
+      this._knockT -= dt;
+      const kf = Math.max(0, this._knockT / P.hurtKnockSec);
+      this.player.x += this._knockX * kf * dt;
+      this.player.y += this._knockY * kf * dt;
+    }
+
+    // R12: 殴りの踏み込み。素早く前へ出てゆっくり戻る。見た目だけで当たり判定は動かさない
+    // （判定まで動かすと、避けたつもりの敵弾に当たる理不尽になる）。
+    let ox = 0, oy = 0;
+    if (this._punchT > 0) {
+      this._punchT -= dt;
+      const M = BALANCE.hero.melee;
+      const p = 1 - Math.max(0, this._punchT / M.punchSec);   // 0→1 の進行度
+      const lunge = M.punchLunge * (p < 0.3 ? p / 0.3 : (1 - p) / 0.7);
+      ox = Math.cos(this._punchAng) * lunge;
+      oy = Math.sin(this._punchAng) * lunge;
+    }
+    this.playerImg.setPosition(this.player.x + ox, this.player.y + oy);
+    this.playerGlow.setPosition(this.player.x + ox, this.player.y + oy);
 
     // 無敵・被弾フラッシュ
     if (this.player.invuln > 0) {
@@ -289,6 +322,14 @@ export class RunScene extends Phaser.Scene {
     } else {
       this.playerImg.clearTint();
     }
+
+    // R12: 体力が危険域に入ったら画面周縁を赤く脈打たせ、入った瞬間だけ警告音を鳴らす。
+    const low = this.player.hp <= this.player.maxHp * P.lowHpRatio;
+    if (low !== this._lowHp) {
+      this._lowHp = low;
+      if (this.fx && this.fx.setLowHp) this.fx.setLowHp(low);
+      if (low) Sound.sfx('lowHp');
+    }
   }
 
   // 変身演出（FB#5）。テクスチャ差し替え＋金リング＋星バースト＋ファンファーレ。
@@ -296,8 +337,13 @@ export class RunScene extends Phaser.Scene {
   transformPlayer(stage) {
     this.playerStage = stage;
     this.playerImg.setTexture('player_' + stage);
-    // 武器も同じ段で進化（銃が大きく強そうに＝視覚的パワーアップ）。段階でスケールも少し拡大。
-    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(2 + (stage - 1) * 0.5);
+    // R12: 段が上がるほど本体も一回り大きく（12×14→14×15→16×16 のドット差だけでは
+    // 「重装甲になった」感が薄かったため、表示スケールでも差を付ける。当たり判定は不変）。
+    this.playerImg.setScale(2 + (stage - 1) * 0.15);
+    // サブ武器の銃も同じ段で進化するが、拳の主役を食わないよう本体より小さいスケールに留める。
+    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(1.1 + (stage - 1) * 0.25);
+    // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
+    this.playerFistImg.setTexture('hero_fist' + stage).setScale(2 + (stage - 1) * 0.35);
     const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;
     this.playerGlow.setTint(glowColor).setScale(1.6 + (stage - 1) * 0.5);
     const x = this.player.x, y = this.player.y;
@@ -318,54 +364,87 @@ export class RunScene extends Phaser.Scene {
     this.shake(160, 4);
   }
 
-  hitPlayer(dmg) {
+  // 被弾。R12で srcX/srcY（加害者の位置）を任意で受け取れるようにした。渡されたときは
+  // その反対方向へ押し返され、画面端の光り方でも「どっちからやられたか」が分かる。
+  // 引数なしの旧呼び出しもそのまま動く（方向演出とノックバックが省かれるだけ）。
+  hitPlayer(dmg, srcX, srcY) {
     if (this.player.invuln > 0) return;
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
     this.player.flashT = 0.12;
+    // R12: 被弾で連撃ヒートが半分に落ちる。踏み込んで殴り続けるほど積み上がるものを、
+    // 被弾で失う＝突撃兵のリスクとリターンをヒート1つで表現する（全損にはしない）。
+    this._heat = Math.floor(this._heat / 2);
+
+    const P = BALANCE.player;
+    // ダメージの重み（最大HP比）。音・シェイク・フラッシュ・ヒットストップの強さをこれで揃える
+    // ＝かすり傷と大ダメージが同じ手応えにならない。
+    const ratio = Math.max(0, Math.min(1, dmg / Math.max(1, this.player.maxHp)));
+    let dirX = null, dirY = null;
+    if (srcX != null && srcY != null) {
+      const dx = this.player.x - srcX, dy = this.player.y - srcY;
+      const d = Math.hypot(dx, dy) || 1;
+      this._knockX = (dx / d) * P.hurtKnockback;
+      this._knockY = (dy / d) * P.hurtKnockback;
+      this._knockT = P.hurtKnockSec;
+      dirX = -dx / d; dirY = -dy / d;   // 画面端は「敵がいる側」を光らせる
+    }
     // FB#7: 被弾の手応え。専用の被弾音＋強めシェイク＋赤フラッシュ＋ごく短いヒットストップを重ねる。
-    Sound.sfx('hurt');
-    this.shake(180, 5);
-    if (this.fx && this.fx.playerHurt) this.fx.playerHurt();
-    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05);
+    Sound.sfx('hurt', ratio);
+    this.shake(180 + Math.round(140 * ratio), 5 + Math.round(4 * ratio));
+    if (this.fx && this.fx.playerHurt) this.fx.playerHurt(dirX, dirY, ratio);
+    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05 + 0.07 * ratio);
   }
 
-  // 主人公の銃を最寄り敵へ構える（毎フレーム）。射程内に敵がいなければ前回の狙い角を維持。
-  // 右向き基準で描いた銃を狙い角へ回転し、左向き（背面側）のときは上下反転で逆さ表示を防ぐ。
-  updateHeroWeapon(dt) {
+  // R12: 拳の間合い（melee）を返す。銃・拳・オーラ表示で同じ値を使う。
+  meleeRange() {
+    const M = BALANCE.hero.melee;
+    return M.radius + (this.playerStage - 1) * M.radiusPerStage;
+  }
+
+  // 銃の狙い先を選ぶ。R12: 拳の間合いの「外」にいる敵を優先＝銃は拳が届かない敵への牽制。
+  // 間合いの外に敵がいなければ射程内の最寄りを狙う（構えと発射が止まらないように）。
+  findShotTarget() {
     const H = BALANCE.hero;
     const px = this.player.x, py = this.player.y;
-    let best = null, bestD2 = H.range * H.range;
+    const mr2 = this.meleeRange() * this.meleeRange();
+    let outer = null, outerD2 = H.range * H.range;
+    let any = null, anyD2 = H.range * H.range;
     for (const e of this.enemies) {
       if (!e.active) continue;
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
-      if (d2 < bestD2) { bestD2 = d2; best = e; }
+      if (d2 < anyD2) { anyD2 = d2; any = e; }
+      if (d2 > mr2 && d2 < outerD2) { outerD2 = d2; outer = e; }
     }
+    return outer || any;
+  }
+
+  // 主人公の銃を狙い先へ構える（毎フレーム）。射程内に敵がいなければ前回の狙い角を維持。
+  // 右向き基準で描いた銃を狙い角へ回転し、左向き（背面側）のときは上下反転で逆さ表示を防ぐ。
+  updateHeroWeapon(dt) {
+    const px = this.player.x, py = this.player.y;
+    const best = this.findShotTarget();
     if (best) this._weaponAim = Math.atan2(best.y - py, best.x - px);
     const ang = this._weaponAim;
-    const hold = 9;   // 手元から前方へ構えるオフセット
+    const hold = 10;   // 手元から前方へ構えるオフセット
     const gx = px + Math.cos(ang) * hold;
-    const gy = py + Math.sin(ang) * hold + 2;   // 手の高さ（やや下）
+    // R12: 腰だめの高さへ下げる。拳は体の正面〜上を通るので、銃を下げると2つの武器が重ならない。
+    // 胸の炉心（Stage3）やバイザーを銃で隠さない高さに調整してある。
+    const gy = py + Math.sin(ang) * hold + 7;
     this.playerWeaponImg.setPosition(gx, gy).setRotation(ang)
       .setFlipY(Math.cos(ang) < 0)   // 敵が左側のとき銃が逆さにならないよう上下反転
       .setVisible(this.playerImg.visible);
   }
 
-  // 主人公の自動攻撃。射程内の最寄り敵へ銃で発射（弾数は変身ステージ連動 1→2→3・stage3で貫通）。
+  // 主人公のサブ攻撃。拳が届かない敵へ銃で発射（弾数は変身ステージ連動 1→2→3・stage3で貫通）。
   updateHeroShot(dt) {
     const H = BALANCE.hero;
     this.heroShotT -= dt;
     if (this.heroShotT > 0) return;
 
     const px = this.player.x, py = this.player.y;
-    let best = null, bestD2 = H.range * H.range;
-    for (const e of this.enemies) {
-      if (!e.active) continue;
-      const dx = e.x - px, dy = e.y - py;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestD2) { bestD2 = d2; best = e; }
-    }
+    const best = this.findShotTarget();
     if (!best) return; // 射程内に敵がいなければ待機（タイマー維持）
 
     this.heroShotT = H.intervalSec;
@@ -394,42 +473,101 @@ export class RunScene extends Phaser.Scene {
     Sound.sfx('heroGun');   // 銃/ライフルの鋭いクラック＋メカ音（攻撃してる感触）
   }
 
-  // R4(#4/#8): 主人公の常時スターオーラ。周囲radius内の敵へ auraTickSec ごとに自動近接ダメージ。
-  // 「主人公自身が常に攻撃判定を持つ」＝撃ってる感覚（HAYATO参考）。主力は仲間なので威力は控えめ。
-  updateHeroAura(dt) {
-    const H = BALANCE.hero;
+  // R12: 主人公の主武器＝クラッシュアーム（自動近接連撃）。旧スターオーラ（0.5秒ごと4ダメージの
+  // 実質的な飾り）を置き換える、突撃兵の主役。
+  //
+  // 設計の核は「操作を増やさずに駆け引きを作る」こと。プレイヤーにできるのは移動だけなので、
+  // "どれだけ踏み込むか" がそのまま火力になるよう2軸で威力を変える：
+  //   ① 至近（melee.closeDist 以内）まで踏み込むと closeMul 倍＝一番危険な距離が一番強い
+  //   ② 殴り続けるとヒートが溜まって火力・音・エフェクトが上がり、離れる/被弾すると失う
+  // ボスへは bossMul で半減（接近リスクには報いるが、ボス戦の設計は壊さない）。
+  updateHeroMelee(dt) {
+    const M = BALANCE.hero.melee;
+    // ヒートは常に冷め続ける（殴るたび加算されるので、殴り続けている間だけ維持される）
+    if (this._heat > 0) this._heat = Math.max(0, this._heat - M.heatDecayPerSec * dt);
+    const heatN = this._heat / M.heatMax;
+
     const px = this.player.x, py = this.player.y;
-    const R = H.auraRadius + (this.playerStage - 1) * H.auraRadiusPerStage;
-    // きらきら表示：オーラの星をゆっくり回転＋脈動（run.elapsed 基準で決定的・alpha<0.5）
-    const beat = 1 + Math.sin(this.elapsed * 5) * 0.12;
-    const auraColor = this.playerStage >= 3 ? 0xffd23f : this.playerStage === 2 ? 0xffb43a : 0xfff0a0;
+    const R = this.meleeRange();
+
+    // 間合いを示す熱のオーラ。ヒートが上がるほど色が金へ寄り、速く回り、明るくなる
+    // （run.elapsed 基準で決定的・rng不使用・alpha は子ども安全上限を大きく下回る）。
+    const beat = 1 + Math.sin(this.elapsed * 5) * (0.08 + 0.08 * heatN);
+    const auraColor = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffa62b : 0xff8a1f;
     this.playerAura.setPosition(px, py)
       .setDisplaySize(R * 2 * beat, R * 2 * beat)
-      .setRotation(this.elapsed * 1.5)
+      .setRotation(this.elapsed * (1.5 + 3 * heatN))
       .setTint(auraColor)
-      .setAlpha(0.22 + 0.12 * (0.5 + 0.5 * Math.sin(this.elapsed * 4)));
-    // 自動近接ダメージ（敵ごと tick ゲート・ボスは対象外＝バランス保護）
-    const dmg = Math.max(1, Math.round(H.auraDamage * this.stats.heroMult));
-    let hitAny = false;
+      .setAlpha(0.16 + 0.18 * heatN + 0.06 * (0.5 + 0.5 * Math.sin(this.elapsed * 6)));
+
+    this._meleeT -= dt;
+    if (this._meleeT > 0) return;
+
+    // 間合い内の敵を薙ぎ払う（巻き込みは maxTargets 体まで＝囲まれても捌けるが火力過多にはしない）
+    const dmgBase = (M.damage + (this.playerStage - 1) * M.damagePerStage)
+      * this.stats.heroMult * (1 + this._heat * M.heatDamageMulPerStep);
+    let hits = 0;
+    let bestAng = this._weaponAim, bestD2 = Infinity;
     for (const e of this.enemies) {
-      if (!e.active || e.isBoss) continue;
-      const rr = R + e.radius;
+      if (!e.active) continue;
       const dx = e.x - px, dy = e.y - py;
-      if (dx * dx + dy * dy <= rr * rr) {
-        const last = this._auraTick.get(e.id);
-        if (last == null || this.elapsed - last >= H.auraTickSec) {
-          this._auraTick.set(e.id, this.elapsed);
-          this.dealDamage(e, dmg, auraColor);
-          hitAny = true;
-        }
+      const d2 = dx * dx + dy * dy;
+      const rr = R + e.radius;
+      if (d2 > rr * rr) continue;
+      // 踏み込みモーションの向きは常に最寄りの敵へ（巻き込み上限に達した後も探索は続ける）
+      if (d2 < bestD2) { bestD2 = d2; bestAng = Math.atan2(dy, dx); }
+      if (hits >= M.maxTargets) continue;
+      hits++;
+      const d = Math.sqrt(d2) || 1;
+      const closeMul = d <= M.closeDist ? M.closeMul : 1;   // 密着ボーナス（中心間距離で判定）
+      const dmg = Math.max(1, Math.round(dmgBase * closeMul * (e.isBoss ? M.bossMul : 1)));
+      this.dealDamage(e, dmg, auraColor);
+      // 殴った敵を弾く（押し返せる手応え。updateEnemies が減衰させながら適用する）
+      if (e.active) {
+        e.knockX = (dx / d) * M.knockback;
+        e.knockY = (dy / d) * M.knockback;
+        e.knockT = M.knockbackSec;
       }
     }
-    if (this._auraTick.size > 128) this._auraTick.clear();
-    // 当たった時だけ控えめに鳴らす（多発しても耳に痛くないよう間引く）
-    if (hitAny && this.elapsed - this._auraSfxT >= 0.18) {
-      this._auraSfxT = this.elapsed;
-      Sound.sfx('pop');
+
+    // 空振り（間合いに敵なし）。短い間隔で再判定して、敵が入った瞬間に殴れるようにする
+    if (hits === 0) { this._meleeT = 0.06; return; }
+
+    this._meleeT = M.intervalSec;
+    const before = this._heat;
+    this._heat = Math.min(M.heatMax, this._heat + M.heatPerHit);
+    if (before < M.heatMax && this._heat >= M.heatMax) Sound.sfx('heatMax');   // 満タンは1回だけ
+
+    // 踏み込みモーション＋打点のインパクト＋打撃音（ヒートで派手さと音程が上がる）
+    this._punchAng = bestAng;
+    this._punchT = M.punchSec;
+    const heatNow = this._heat / M.heatMax;
+    if (this.fx && this.fx.heroImpact) {
+      this.fx.heroImpact(px + Math.cos(bestAng) * R * 0.55, py + Math.sin(bestAng) * R * 0.55,
+        bestAng, heatNow);
     }
+    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.03);   // ごく短いヒットストップ
+    Sound.sfx('heroPunch', heatNow);
+  }
+
+  // R12: 殴りモーション中だけ拳を前方へ突き出して描く。素早く出て、ゆっくり戻る。
+  updateHeroFist(dt) {
+    if (this._punchT <= 0) { this.playerFistImg.setVisible(false); return; }
+    const M = BALANCE.hero.melee;
+    const p = 1 - Math.max(0, this._punchT / M.punchSec);   // 0→1 の進行度
+    const ext = p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7;    // 突き出し量 0→1→0
+    const ang = this._punchAng;
+    const reach = 9 + (12 + (this.playerStage - 1) * 5) * ext;
+    const heatN = this._heat / M.heatMax;
+    // 素は白（スプライト本来のガンメタルの腕＋オレンジの拳を見せる）。熱いときだけ金へ寄せる。
+    const tint = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffdcb0 : 0xffffff;
+    this.playerFistImg
+      .setPosition(this.player.x + Math.cos(ang) * reach, this.player.y + Math.sin(ang) * reach + 1)
+      .setRotation(ang)
+      .setFlipY(Math.cos(ang) < 0)   // 左を向いたとき拳が逆さにならないよう反転
+      .setTint(tint)
+      .setAlpha(0.7 + 0.3 * ext)
+      .setVisible(this.playerImg.visible);
   }
 
   // ============ 敵 ============
@@ -456,6 +594,7 @@ export class RunScene extends Phaser.Scene {
       isElite, slowMark: -1, flashT: 0, baseScale: scale,
       sinePhase: this.rng.range(0, Math.PI * 2),
       chargeState: 'approach', chargeT: 0, dashX: 0, dashY: 0,
+      knockX: 0, knockY: 0, knockT: 0,   // R12: 殴られたときのノックバック（プール再利用時に必ず0へ戻す）
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
@@ -530,6 +669,14 @@ export class RunScene extends Phaser.Scene {
 
       e.x += vx * slow * dt;
       e.y += vy * slow * dt;
+      // R12: 殴られたノックバック。減衰しながら押し出される＝拳で押し返せる手応え。
+      // 移動そのものは止めない（棒立ちにすると「固まった」ように見えるため）。
+      if (e.knockT > 0) {
+        e.knockT -= dt;
+        const kf = Math.max(0, e.knockT / BALANCE.hero.melee.knockbackSec);
+        e.x += e.knockX * kf * dt;
+        e.y += e.knockY * kf * dt;
+      }
       // ぷるぷる：生成時に消費済みの sinePhase を位相ずらしに流用する（乱数を追加消費しない）
       const bob = Math.sin(this.elapsed * X.bobHz + e.sinePhase);
       const bs = e.baseScale || 2;
@@ -552,9 +699,9 @@ export class RunScene extends Phaser.Scene {
         if (!e.active) continue;   // selfdestruct で自壊した個体は接触判定に進めない
       }
 
-      // プレイヤー接触
+      // プレイヤー接触（R12: ぶつかってきた敵の位置を渡して、その反対へ押し返される）
       const rr = this.player.radius + e.radius;
-      if (dist <= rr) this.hitPlayer(e.damage);
+      if (dist <= rr) this.hitPlayer(e.damage, e.x, e.y);
     }
   }
 
@@ -633,7 +780,7 @@ export class RunScene extends Phaser.Scene {
     const dist = Math.hypot(dx, dy) || 1;
     if (A.type === 'quake') {
       // 地面叩き：自分中心の衝撃波。範囲内ならダメージ＋拡大リング演出
-      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage);
+      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
       const ring = this.add.image(e.x, e.y, 'w_ring').setBlendMode(ADD).setDepth(11)
         .setTint(e.color).setScale(0.4).setAlpha(0.45);
       this.tweens.add({
@@ -646,7 +793,7 @@ export class RunScene extends Phaser.Scene {
       e.dashT = A.dashSec;
     } else if (A.type === 'selfdestruct') {
       // 自爆：範囲内ならダメージ→自壊（XP/コアは通常付与）。派手なバースト＋ポン
-      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage);
+      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
       this.spawnParticles(e.x, e.y, e.color, 22);
       this.popFx(e.x, e.y, e.color);
       this.killEnemy(e, e.color);
@@ -704,7 +851,7 @@ export class RunScene extends Phaser.Scene {
       if (b.life <= 0) { b.active = false; continue; }
       const rr = this.player.radius + b.radius;
       const dx = b.x - px, dy = b.y - py;
-      if (dx * dx + dy * dy <= rr * rr) { this.hitPlayer(b.dmg); b.active = false; }
+      if (dx * dx + dy * dy <= rr * rr) { this.hitPlayer(b.dmg, b.x, b.y); b.active = false; }
     }
   }
 
