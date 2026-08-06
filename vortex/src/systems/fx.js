@@ -624,11 +624,82 @@ export function createFx(run) {
   // ---- 被弾フィードバック（FB#7・赤フラッシュ。子ども安全: 加算・alpha<0.5・短命） ----
   // 全画面を一瞬だけ赤く縁取り、Run.hitPlayer のシェイク＋被弾音＋ヒットストップと重ねて
   // 「効いた！」手応えを出す。萎縮させないよう alpha は控えめ・220ms で消す。
-  function playerHurt() {
-    const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xff2b2b, 0.30)
+  // R12: 引数を追加。(dirX,dirY)＝プレイヤーから見た加害者の方向、ratio＝最大HPに対するダメージ割合。
+  //   ① 全画面フラッシュの濃さがダメージ量に比例（かすり傷と大ダメージが区別できる）
+  //   ② 食らった方向の画面端が強く光る＝「どっちからやられたか」が一目で分かる
+  // いずれも rng 不使用（毎回の被弾で乱数を消費すると autotest の決定性が壊れる）。
+  function playerHurt(dirX, dirY, ratio) {
+    const r = ratio == null ? 0.35 : Math.max(0, Math.min(1, ratio));
+    const a = Math.min(0.44, 0.22 + 0.34 * r);   // 子ども安全: 上限0.5未満を厳守
+    const flash = run.add.rectangle(W / 2, H / 2, W, H, 0xff2b2b, a)
       .setScrollFactor(0).setDepth(2080).setBlendMode(ADD);
     run.tweens.add({ targets: flash, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
     ripple(run.player.x, run.player.y, 0xff5a5a, 1);
+
+    // 被弾方向の画面端を光らせる（縦横で強い方の1辺だけ＝どこから来たかを断定的に見せる）
+    if (dirX != null && dirY != null && (dirX !== 0 || dirY !== 0)) {
+      const horiz = Math.abs(dirX) >= Math.abs(dirY);
+      const band = 46;
+      let bx, by, bw, bh;
+      if (horiz) { bw = band; bh = H; by = H / 2; bx = dirX > 0 ? W - band / 2 : band / 2; }
+      else { bw = W; bh = band; bx = W / 2; by = dirY > 0 ? H - band / 2 : band / 2; }
+      const edge = run.add.rectangle(bx, by, bw, bh, 0xff3b3b, Math.min(0.45, 0.26 + 0.24 * r))
+        .setScrollFactor(0).setDepth(2081).setBlendMode(ADD);
+      run.tweens.add({ targets: edge, alpha: 0, duration: 300, onComplete: () => edge.destroy() });
+    }
+  }
+
+  // ---- R12: 体力が危険域の間だけ画面周縁を赤く脈打たせる（維持表示） ----
+  // Run が毎フレーム setLowHp(真偽) を呼び、状態が変わったときだけ生成/破棄する。
+  // 上下左右4本の帯（加算）で「視界の端が赤い」表現。中央は塞がないのでプレイの邪魔をしない。
+  let lowHpEls = null;
+  function setLowHp(on) {
+    if (!!on === !!lowHpEls) return;
+    if (on) {
+      const band = 30;
+      lowHpEls = [
+        run.add.rectangle(W / 2, band / 2, W, band, 0xff2b2b, 0.14),
+        run.add.rectangle(W / 2, H - band / 2, W, band, 0xff2b2b, 0.14),
+        run.add.rectangle(band / 2, H / 2, band, H, 0xff2b2b, 0.14),
+        run.add.rectangle(W - band / 2, H / 2, band, H, 0xff2b2b, 0.14),
+      ];
+      for (const el of lowHpEls) el.setScrollFactor(0).setDepth(2070).setBlendMode(ADD);
+    } else {
+      for (const el of lowHpEls) el.destroy();
+      lowHpEls = null;
+    }
+  }
+
+  // ---- R12: 突撃兵の殴打インパクト（主人公の主武器＝クラッシュアーム） ----
+  // 0.3秒ごとに発生するので rng を一切使わず（決定性維持）、プール再利用＋短命tweenで軽く済ませる。
+  // heat(0..1)＝連撃ヒートが上がるほどリングが大きく明るく、抜ける光の筋も増える
+  // ＝「殴り続けた分だけ画面が派手になる」手応えの中核。
+  const ringPool = [], shardPool = [];
+  function heroImpact(x, y, angle, heat) {
+    const h = heat == null ? 0 : Math.max(0, Math.min(1, heat));
+    const color = h > 0.6 ? 0xffd23f : h > 0.25 ? 0xffa62b : 0xff8a1f;   // 熱いほど金へ寄る
+    // 打点の衝撃リング
+    const ring = ringPool.pop() || run.add.image(0, 0, 'w_ring').setBlendMode(ADD);
+    ring.setTexture('w_ring').setActive(true).setVisible(true).setDepth(13)
+      .setTint(color).setPosition(x, y).setScale(0.18).setAlpha(0.85).setRotation(angle || 0);
+    run.tweens.add({
+      targets: ring, scale: 0.75 + 0.5 * h, alpha: 0, duration: 190,
+      onComplete: () => { ring.setVisible(false); ringPool.push(ring); },
+    });
+    // 拳の向きへ抜ける光の筋（決定的な角度。ヒートが高いほど本数が増える）
+    const n = h > 0.55 ? 5 : 3;
+    for (let i = 0; i < n; i++) {
+      const spread = 0.5;
+      const ang = (angle || 0) + (i - (n - 1) / 2) * spread;
+      const sh = shardPool.pop() || run.add.image(0, 0, 'white').setBlendMode(ADD);
+      sh.setTexture('white').setActive(true).setVisible(true).setDepth(13)
+        .setTint(color).setOrigin(0, 0.5).setRotation(ang).setPosition(x, y)
+        .setDisplaySize(6, 2.4 + 1.6 * h).setAlpha(0.9);
+      run.tweens.add({
+        targets: sh, displayWidth: 20 + 22 * h, alpha: 0, duration: 170, ease: 'Cubic.out',
+        onComplete: () => { sh.setVisible(false); shardPool.push(sh); },
+      });
+    }
   }
 
   // ---- 発射マズルフラッシュ / 着弾スパーク（FB#5・弾の迫力） ----
@@ -666,12 +737,17 @@ export function createFx(run) {
 
   function update(dt) {
     updateTargets(dt);
+    // R12: 危険域の周縁警告を脈動させる（run.elapsed 基準＝決定的・rng不使用）
+    if (lowHpEls) {
+      const a = 0.10 + 0.09 * (0.5 + 0.5 * Math.sin(run.elapsed * 6));
+      for (const el of lowHpEls) el.setAlpha(a);
+    }
   }
 
   return {
     update, powerupFlash, announce, setTarget, clearTarget,
     fusionCinematic, evolveBurst, bossWarning, bossVictory, rushWarning,
     weaponLevelUp, specialBlast, specialReady, playerHurt,
-    muzzleFlash, hitSpark,
+    muzzleFlash, hitSpark, heroImpact, setLowHp,
   };
 }
