@@ -10,7 +10,10 @@ export const BALANCE = {
   // 主人公＝突撃兵（R12でキャラクター特性を確定）。主武器は拳（クラッシュアーム）、銃は牽制のサブ。
   hero: {
     // --- サブ武器：銃（近接が届かない距離の敵を撃つ） ---
-    intervalSec: 1.55, bulletSpeed: 360, range: 240, bulletRadius: 4,   // FB#4: 弾速+20%・手数-約1割（intervalSec+約10%）
+    // ⚠️ range 240 は「牽制」を名乗りながら実質の主力だった（敵を遠方で削りきるので、拳の間合いに
+    // 敵が到達しない）。突撃兵の主武器は拳という設計に合わせ、射程を短く・手数を落として、
+    // 「近づいてくる敵を足止めするだけ」の役割へ本当に降格させる。
+    intervalSec: 1.9, bulletSpeed: 360, range: 175, bulletRadius: 4,   // FB#4: 弾速+20%・手数-約1割（intervalSec+約10%）
     damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
     spreadDeg: 12,   // R4: 旧 twinLevel/tripleLevel（プレイヤーLv基準の2連/3連）は shotByStage（playerStage基準）へ移行し削除
     // ショット強化：弾数は playerStage 連動（1→2→3）。stage3 で貫通1（2体まで貫く）。
@@ -23,11 +26,19 @@ export const BALANCE = {
     //   ② 殴り続けると heat が溜まり heatDamageMulPerStep ずつ加算（離れると decay で冷める）
     // 旧スターオーラ（auraDamage 4・tick 0.5秒＝実質8dps の飾り）を置き換える主役。
     melee: {
-      radius: 34, radiusPerStage: 9,        // 拳の届く範囲（Stage1=34 / 2=43 / 3=52）
+      // 拳の届く範囲（Stage1=58 / 2=68 / 3=78）。
+      // ⚠️ 旧34は「実プレイで一度も殴れない」死に値だった：なかまは公転半径48の上を回りながら
+      // SLASHのhitRadius18で66pxまで叩き、主人公の銃も240px先から削るため、敵は34pxに入る前に
+      // 全滅する（実測40秒＝31体撃破・平均撃破距離57px・間合い内で倒れた敵0体・殴り0回）。
+      // ただし広げるほど拳が遠くで敵を倒してしまい、かえって敵が近づかない（70にしたら最寄り距離が
+      // 27→62pxへ後退＝自己相殺）。間合いは近接らしい58に留め、頻度は敵の密度側で確保する。
+      radius: 58, radiusPerStage: 10,
       intervalSec: 0.3,                     // 殴る間隔（旧オーラ0.5秒より速く＝連撃の手応え）
       damage: 12, damagePerStage: 6,        // Stage1=12 / 2=18 / 3=24（1発の重みを出す）
       maxTargets: 5,                        // 1回の振りで巻き込める敵数（囲まれても薙ぎ払える）
-      closeDist: 20, closeMul: 1.7,         // 至近ボーナス：踏み込むほど強い
+      // 至近ボーナス：踏み込むほど強い。間合いを広げたぶん「踏み込む」意味が薄れないよう、
+      // ボーナス圏は間合いの半分以下（26/56）に保つ＝わざわざ近づいた者だけが1.7倍を取れる。
+      closeDist: 26, closeMul: 1.7,
       bossMul: 0.5,                         // ボスへは半減（接近リスクに報いるがボス戦を壊さない）
       knockback: 150, knockbackSec: 0.12,   // 殴った敵を弾く（押し返せる手応え）
       // ヒート：連撃で腕が熱を持つ。火力（+4%/段・最大+40%）と見た目の派手さが連動する。
@@ -35,7 +46,8 @@ export const BALANCE = {
       // heatPerHit=2 との差し引きで実質 +1.1/回 ＝ 殴り続けて約3秒で満タン、離れると約3.3秒で冷める。
       // （heatPerHit=1 だと実質 +0.1/回 にしかならず、実プレイでは永遠に溜まらない。CDP実測で判明）
       heatMax: 10, heatPerHit: 2, heatDecayPerSec: 3, heatDamageMulPerStep: 0.04,
-      punchSec: 0.14, punchLunge: 7,        // 踏み込みモーション（尺・前へ出るpx）
+      // 踏み込みモーション。0.14秒＝8フレームは速すぎて「殴った絵」が見えなかったので 0.2秒へ。
+      punchSec: 0.2, punchLunge: 7,
     },
   },
 
@@ -71,8 +83,11 @@ export const BALANCE = {
   // v5(Wave C): 中盤以降の密度不足を解消。湧き数は小数のまま累積するので階段状に増えない。
   // Wave R2: ステージ尺420sへ合わせて強さカーブを14ステップ(=420s)に延長。開幕を易しく(hpMultStart0.9,
   // spawnIntervalStart1.9)し、終盤の硬さは微増(hpMultEnd3.4)。
-  wave: { stepSec: 30, steps: 14, spawnIntervalStart: 1.9, spawnIntervalEnd: 0.45,
-          hpMultStart: 0.9, hpMultEnd: 3.4, spawnCountStart: 1, spawnCountEnd: 5 },
+  // R12c: 序盤の湧きが 1.9秒に1体＝0.53体/秒しかなく、拳の間合いへ敵が到達する前に
+  // なかまと銃が処理しきっていた（＝突撃兵なのに殴る相手がいない）。序盤だけ約2.5倍に厚くして
+  // 「群がる敵を殴り倒す」絵を成立させる（0.53体/秒→2.6体/秒）。終盤側（IntervalEnd/CountEnd）は据え置き＝最終密度は不変。
+  wave: { stepSec: 30, steps: 14, spawnIntervalStart: 1.15, spawnIntervalEnd: 0.45,
+          hpMultStart: 0.9, hpMultEnd: 3.4, spawnCountStart: 3, spawnCountEnd: 5 },
   enemyCap: 220,
   // 敵数上限は時間で段階的に上がる（序盤はむしろ軽く、後半で「囲まれる」密度になる）。Wave R2で5段化
   capSteps: [

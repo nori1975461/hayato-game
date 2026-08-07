@@ -82,7 +82,7 @@ export class RunScene extends Phaser.Scene {
     // サブ武器の銃/ライフル（本体より前面）。狙い角へ回転して構える（updateHeroWeapon）。
     // R12: 主武器が拳になったので、銃は本体を隠さないサイズまで縮小した（旧scale2は本体より
     // 大きく、正面から見て銃しか見えない絵になっていた＝PNG目視で判明）。
-    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(1.4).setDepth(11);
+    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(1.0).setDepth(11);
     this._weaponAim = 0;    // 直近の狙い角（射程内に敵がいない間は維持して構えを保つ）
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
     // R12: 主武器＝クラッシュアーム。殴る瞬間だけ拳を前方へ突き出す（常時表示だと画面が拳で埋まる）。
@@ -90,8 +90,9 @@ export class RunScene extends Phaser.Scene {
     // 光り物（衝撃リング・光の筋）は fx.heroImpact 側が担当し、役割を分けている。
     this.playerFistImg = this.add.image(0, 0, 'hero_fist1')
       .setScale(2.6).setDepth(12).setVisible(false);
-    // 拳の間合いを示す熱のオーラ（旧スターオーラの表示を転用）。ヒートで色と明るさが上がる。
-    this.playerAura = this.add.image(0, 0, 'w_star2').setBlendMode(ADD)
+    // 拳の間合いを示す熱のリング。ヒートで色と明るさが上がる。
+    // 星形（旧 w_star2）だと「どこまで届くか」が読めず、間合いを詰める判断ができなかったので輪にした。
+    this.playerAura = this.add.image(0, 0, 'w_ring').setBlendMode(ADD)
       .setDepth(7).setTint(0xff8a1f).setAlpha(0.3);
     this._meleeT = 0;       // 次に殴るまでの残り秒
     this._heat = 0;         // 連撃ヒート（0..melee.heatMax）。殴ると増え、離れると冷める
@@ -345,8 +346,8 @@ export class RunScene extends Phaser.Scene {
     // R12b: 1段=33×39px / 2段=42×45px / 3段=51×58px。なかま(40×40px)と並べても主人公が
     // 埋もれず、段が上がるほど明確に大きくなる（当たり判定は不変）。
     this.playerImg.setScale(2.8 + (stage - 1) * 0.2);
-    // サブ武器の銃も同じ段で進化するが、拳の主役を食わないよう本体より小さいスケールに留める。
-    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(1.4 + (stage - 1) * 0.3);
+    // サブ武器の銃も同じ段で進化するが、拳の主役を食わないよう小さめに留める（R12c で更に縮小）。
+    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(1.0 + (stage - 1) * 0.2);
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
     this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
     const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;
@@ -436,11 +437,13 @@ export class RunScene extends Phaser.Scene {
     const best = this.findShotTarget();
     if (best) this._weaponAim = Math.atan2(best.y - py, best.x - px);
     const ang = this._weaponAim;
-    const hold = 12;   // 手元から前方へ構えるオフセット（本体拡大に合わせて外へ）
+    // R12c: 銃を主人公の正面〜顔の前で構えると、主武器のはずの拳より銃が目立つ
+    // （実プレイFB「武器が銃だけ」の一因）。手元を体に寄せ、腰の高さまで下げて脇構えにする。
+    const hold = 9;    // 手元から前方へ構えるオフセット
     const gx = px + Math.cos(ang) * hold;
-    // R12: 腰だめの高さへ下げる。拳は体の正面〜上を通るので、銃を下げると2つの武器が重ならない。
+    // 腰だめの高さ。拳は体の正面〜上を通るので、銃を下げると2つの武器が重ならない。
     // 胸の炉心（Stage3）やバイザーを銃で隠さない高さに調整してある。
-    const gy = py + Math.sin(ang) * hold + 7;
+    const gy = py + Math.sin(ang) * hold * 0.6 + 11;
     this.playerWeaponImg.setPosition(gx, gy).setRotation(ang)
       .setFlipY(Math.cos(ang) < 0)   // 敵が左側のとき銃が逆さにならないよう上下反転
       .setVisible(this.playerImg.visible);
@@ -561,22 +564,30 @@ export class RunScene extends Phaser.Scene {
 
   // R12: 殴りモーション中だけ拳を前方へ突き出して描く。素早く出て、ゆっくり戻る。
   updateHeroFist(dt) {
-    if (this._punchT <= 0) { this.playerFistImg.setVisible(false); return; }
     const M = BALANCE.hero.melee;
-    const p = 1 - Math.max(0, this._punchT / M.punchSec);   // 0→1 の進行度
-    const ext = p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7;    // 突き出し量 0→1→0
-    const ang = this._punchAng;
-    // R12b: 本体を拡大した分、拳も外へ押し出す（旧値だと突き出しても体の中に埋もれた）。
-    const reach = 11 + (15 + (this.playerStage - 1) * 6) * ext;
+    // R12c: 殴っていない間も拳を前方に構えたままにする。旧実装は殴る 0.14 秒だけ表示していたので、
+    // 常時表示の銃だけが目に入り「主武器が拳」だと伝わらなかった（実プレイFB「武器が銃だけ」）。
+    const punching = this._punchT > 0;
+    const p = punching ? 1 - Math.max(0, this._punchT / M.punchSec) : 0;   // 0→1 の進行度
+    // 突き出し量。構え(0.45)を底にして、殴る瞬間だけ 1 まで伸びて戻る＝待機と打撃が別物に見える。
+    const ext = punching ? Math.max(0.45, p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7) : 0.45;
+    // 構え中は銃と同じ狙い角へ（＝敵の方へ拳を向けて構える）。殴る瞬間は殴った相手の方向で固定。
+    const ang = punching ? this._punchAng : this._weaponAim;
+    // R12b/c: 本体を拡大した分、拳も外へ押し出す。ベース16は「構え(ext0.45)でも拳が体の輪郭より
+    // 外に出る」下限＝Stage1の体半幅16.8px。ここを下回ると構えの拳が胴体に埋もれて見えない。
+    const reach = 16 + (15 + (this.playerStage - 1) * 6) * ext;
     const heatN = this._heat / M.heatMax;
     // 素は白（スプライト本来のガンメタルの腕＋オレンジの拳を見せる）。熱いときだけ金へ寄せる。
     const tint = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffdcb0 : 0xffffff;
+    // 構え中はわずかに上下に揺れる（静止画に見えないように・elapsed基準でrng不使用）
+    const bob = punching ? 0 : Math.sin(this.elapsed * 6) * 1.2;
     this.playerFistImg
-      .setPosition(this.player.x + Math.cos(ang) * reach, this.player.y + Math.sin(ang) * reach + 1)
+      .setPosition(this.player.x + Math.cos(ang) * reach,
+                   this.player.y + Math.sin(ang) * reach + 1 + bob)
       .setRotation(ang)
       .setFlipY(Math.cos(ang) < 0)   // 左を向いたとき拳が逆さにならないよう反転
       .setTint(tint)
-      .setAlpha(0.7 + 0.3 * ext)
+      .setAlpha(punching ? 0.9 + 0.1 * ext : 0.9)
       .setVisible(this.playerImg.visible);
   }
 
