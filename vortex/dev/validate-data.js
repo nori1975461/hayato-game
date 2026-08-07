@@ -94,7 +94,8 @@ validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE');
 check(Array.isArray(PLAYER_SPRITES) && PLAYER_SPRITES.length === 3,
   `PLAYER_SPRITES が3枚の配列でない（len=${Array.isArray(PLAYER_SPRITES) ? PLAYER_SPRITES.length : 'not array'}）`);
 if (Array.isArray(PLAYER_SPRITES)) {
-  PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`));
+  // R12: 最終形態(Stage3)は頭上に金の角が伸びるぶん縦に長い（16×18）。主人公だけ上限を20まで許す。
+  PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`, 8, 20));
 }
 
 // --- BOSSES（Wave R3：ロボット6体・7パーツリグ）---

@@ -74,19 +74,22 @@ export class RunScene extends Phaser.Scene {
     const P = BALANCE.player;
     this.player = { x: 0, y: 0, hp: P.hp, maxHp: P.hp, radius: P.radius, invuln: 0, flashT: 0 };
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
-      .setDepth(8).setTint(0x4de1c0).setScale(1.6);
-    this.playerImg = this.add.image(0, 0, 'player').setScale(2).setDepth(10);
+      .setDepth(8).setTint(0x9fb4c8).setScale(2.2).setAlpha(0.55);
+    // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
+    // 「画面で一番小さいのが主人公」だと再設計しても見えないので、なかまと同格以上まで拡大する
+    // （当たり判定 radius はゲームバランスなので不変。見た目だけ大きくする）。
+    this.playerImg = this.add.image(0, 0, 'player').setScale(2.8).setDepth(10);
     // サブ武器の銃/ライフル（本体より前面）。狙い角へ回転して構える（updateHeroWeapon）。
     // R12: 主武器が拳になったので、銃は本体を隠さないサイズまで縮小した（旧scale2は本体より
     // 大きく、正面から見て銃しか見えない絵になっていた＝PNG目視で判明）。
-    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(1.1).setDepth(11);
+    this.playerWeaponImg = this.add.image(0, 0, 'hero_gun1').setScale(1.4).setDepth(11);
     this._weaponAim = 0;    // 直近の狙い角（射程内に敵がいない間は維持して構えを保つ）
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
     // R12: 主武器＝クラッシュアーム。殴る瞬間だけ拳を前方へ突き出す（常時表示だと画面が拳で埋まる）。
     // 加算合成にすると熱色が飽和して「黄色い四角」に潰れ、腕と拳の形が読めなくなったので通常描画。
     // 光り物（衝撃リング・光の筋）は fx.heroImpact 側が担当し、役割を分けている。
     this.playerFistImg = this.add.image(0, 0, 'hero_fist1')
-      .setScale(2).setDepth(12).setVisible(false);
+      .setScale(2.6).setDepth(12).setVisible(false);
     // 拳の間合いを示す熱のオーラ（旧スターオーラの表示を転用）。ヒートで色と明るさが上がる。
     this.playerAura = this.add.image(0, 0, 'w_star2').setBlendMode(ADD)
       .setDepth(7).setTint(0xff8a1f).setAlpha(0.3);
@@ -339,13 +342,15 @@ export class RunScene extends Phaser.Scene {
     this.playerImg.setTexture('player_' + stage);
     // R12: 段が上がるほど本体も一回り大きく（12×14→14×15→16×16 のドット差だけでは
     // 「重装甲になった」感が薄かったため、表示スケールでも差を付ける。当たり判定は不変）。
-    this.playerImg.setScale(2 + (stage - 1) * 0.15);
+    // R12b: 1段=33×39px / 2段=42×45px / 3段=51×58px。なかま(40×40px)と並べても主人公が
+    // 埋もれず、段が上がるほど明確に大きくなる（当たり判定は不変）。
+    this.playerImg.setScale(2.8 + (stage - 1) * 0.2);
     // サブ武器の銃も同じ段で進化するが、拳の主役を食わないよう本体より小さいスケールに留める。
-    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(1.1 + (stage - 1) * 0.25);
+    this.playerWeaponImg.setTexture('hero_gun' + stage).setScale(1.4 + (stage - 1) * 0.3);
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
-    this.playerFistImg.setTexture('hero_fist' + stage).setScale(2 + (stage - 1) * 0.35);
+    this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
     const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;
-    this.playerGlow.setTint(glowColor).setScale(1.6 + (stage - 1) * 0.5);
+    this.playerGlow.setTint(glowColor).setScale(2.2 + (stage - 1) * 0.55).setAlpha(0.55);
     const x = this.player.x, y = this.player.y;
     // 広がる金リング×2（時間差）
     for (let i = 0; i < 2; i++) {
@@ -357,7 +362,11 @@ export class RunScene extends Phaser.Scene {
       });
     }
     // 本体がポンッと膨らんで戻る＋星の爆発
-    this.tweens.add({ targets: this.playerImg, scale: 3.2, duration: 160, yoyo: true, ease: 'Quad.Out' });
+    // 膨らみは「今のスケールの1.4倍」。固定値にすると拡大後のスケールと並んで膨らまなくなる。
+    this.tweens.add({
+      targets: this.playerImg, scale: this.playerImg.scaleX * 1.4,
+      duration: 160, yoyo: true, ease: 'Quad.Out',
+    });
     this.spawnParticles(x, y, glowColor, 24);
     this.popFx(x, y, 0xffd23f);
     Sound.sfx('evolve');
@@ -427,7 +436,7 @@ export class RunScene extends Phaser.Scene {
     const best = this.findShotTarget();
     if (best) this._weaponAim = Math.atan2(best.y - py, best.x - px);
     const ang = this._weaponAim;
-    const hold = 10;   // 手元から前方へ構えるオフセット
+    const hold = 12;   // 手元から前方へ構えるオフセット（本体拡大に合わせて外へ）
     const gx = px + Math.cos(ang) * hold;
     // R12: 腰だめの高さへ下げる。拳は体の正面〜上を通るので、銃を下げると2つの武器が重ならない。
     // 胸の炉心（Stage3）やバイザーを銃で隠さない高さに調整してある。
@@ -557,7 +566,8 @@ export class RunScene extends Phaser.Scene {
     const p = 1 - Math.max(0, this._punchT / M.punchSec);   // 0→1 の進行度
     const ext = p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7;    // 突き出し量 0→1→0
     const ang = this._punchAng;
-    const reach = 9 + (12 + (this.playerStage - 1) * 5) * ext;
+    // R12b: 本体を拡大した分、拳も外へ押し出す（旧値だと突き出しても体の中に埋もれた）。
+    const reach = 11 + (15 + (this.playerStage - 1) * 6) * ext;
     const heatN = this._heat / M.heatMax;
     // 素は白（スプライト本来のガンメタルの腕＋オレンジの拳を見せる）。熱いときだけ金へ寄せる。
     const tint = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffdcb0 : 0xffffff;

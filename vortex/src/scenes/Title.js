@@ -33,7 +33,7 @@ export class TitleScene extends Phaser.Scene {
 
     // デモ的に自機とグローを回す。シーン再入のたびに配列を作り直す
     // （破棄済み GameObject 参照の蓄積を防ぐ）。
-    const demo = this.add.image(W / 2, 236, 'player_1').setScale(2.4);
+    const demo = this.add.image(W / 2, 236, 'player_1').setScale(3.2);
     this.orbit = [];
     for (let i = 0; i < 5; i++) {
       const g = this.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD)
