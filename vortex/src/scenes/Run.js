@@ -80,7 +80,7 @@ export class RunScene extends Phaser.Scene {
     const P = BALANCE.player;
     this.player = { x: 0, y: 0, hp: P.hp, maxHp: P.hp, radius: P.radius, invuln: 0, flashT: 0 };
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
-      .setDepth(8).setTint(0x9fb4c8).setScale(2.2).setAlpha(0.55);
+      .setDepth(8).setTint(0x4f8cff).setScale(2.2).setAlpha(0.55);   // R16: コバルトのオーラ（ブレイブギア配色）
     // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
     // 「画面で一番小さいのが主人公」だと再設計しても見えないので、なかまと同格以上まで拡大する
     // （当たり判定 radius はゲームバランスなので不変。見た目だけ大きくする）。
@@ -341,7 +341,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   // 変身演出（FB#5）。テクスチャ差し替え＋金リング＋星バースト＋ファンファーレ。
-  // ステージごとにグロー色も変わる（軍事系＝1=スチール/2=アンバー/3=金）→装甲が増したのが一目で分かる。
+  // ステージごとにグロー色も変わる（R16ブレイブギア＝1=コバルト/2=スカイ/3=金）→ギアの成長が一目で分かる。
   transformPlayer(stage) {
     this.playerStage = stage;
     this.playerImg.setTexture('player_' + stage);
@@ -350,7 +350,7 @@ export class RunScene extends Phaser.Scene {
     // 少年ではない、という正典§22の一点をここで守っている（当たり判定 radius 7 も不変）。
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
     this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
-    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;
+    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0x9fe0ff : 0x4f8cff;
     this.playerGlow.setTint(glowColor).setScale(2.2 + (stage - 1) * 0.55).setAlpha(0.55);
     const x = this.player.x, y = this.player.y;
     // 広がる金リング×2（時間差）
