@@ -84,7 +84,8 @@ export class RunScene extends Phaser.Scene {
     // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
     // 「画面で一番小さいのが主人公」だと再設計しても見えないので、なかまと同格以上まで拡大する
     // （当たり判定 radius はゲームバランスなので不変。見た目だけ大きくする）。
-    this.playerImg = this.add.image(0, 0, 'player').setScale(2.8).setDepth(10);
+    // R15: 拡大率は全段 3.0 で固定。少年は成長しない（大きくなるのは腕だけ＝テクスチャ側で表現）。
+    this.playerImg = this.add.image(0, 0, 'player').setScale(3.0).setDepth(10);
     this._weaponAim = 0;    // 直近の狙い角（索敵範囲に敵がいない間は維持して構えを保つ）
     this.playerStage = 1;   // Lv5→2 / Lv10→3 でテクスチャごと変身（FB#5）
     // R12: 主武器＝クラッシュアーム。殴る瞬間だけ拳を前方へ突き出す（常時表示だと画面が拳で埋まる）。
@@ -344,11 +345,9 @@ export class RunScene extends Phaser.Scene {
   transformPlayer(stage) {
     this.playerStage = stage;
     this.playerImg.setTexture('player_' + stage);
-    // R12: 段が上がるほど本体も一回り大きく（12×14→14×15→16×16 のドット差だけでは
-    // 「重装甲になった」感が薄かったため、表示スケールでも差を付ける。当たり判定は不変）。
-    // R12b: 1段=33×39px / 2段=42×45px / 3段=51×58px。なかま(40×40px)と並べても主人公が
-    // 埋もれず、段が上がるほど明確に大きくなる（当たり判定は不変）。
-    this.playerImg.setScale(2.8 + (stage - 1) * 0.2);
+    // R15: **拡大率は変えない**（全段 scale 3.0 ＝ 48×54px）。3枚のテクスチャは同じ16×18で
+    // 少年の画素が完全に同一なので、変化するのは腕の列だけになる。大きくなるのは腕であって
+    // 少年ではない、という正典§22の一点をここで守っている（当たり判定 radius 7 も不変）。
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
     this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
     const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xffb43a : 0x9fb4c8;

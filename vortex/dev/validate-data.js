@@ -90,12 +90,26 @@ for (const m of MONSTERS) {
 }
 
 // --- PLAYER_SPRITE / PLAYER_SPRITES ---
-validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE');
+// R15: 主人公は3段とも 16×18 の同一キャンバス（少年の画素は不変で腕の列だけが変わる）。
+// 雑魚の上限16より縦に長いので、主人公だけ上限を20まで許す（互換用の単数 PLAYER_SPRITE も同じ）。
+validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE', 8, 20);
 check(Array.isArray(PLAYER_SPRITES) && PLAYER_SPRITES.length === 3,
   `PLAYER_SPRITES が3枚の配列でない（len=${Array.isArray(PLAYER_SPRITES) ? PLAYER_SPRITES.length : 'not array'}）`);
 if (Array.isArray(PLAYER_SPRITES)) {
-  // R12: 最終形態(Stage3)は頭上に金の角が伸びるぶん縦に長い（16×18）。主人公だけ上限を20まで許す。
   PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`, 8, 20));
+  // R15の核: 3段は同寸で、少年そのものは1ドットも変わらない＝「成長するのは腕だけ」を仕様で固定する。
+  // 不変なのは①頭（0-5行）②脚と裾（13-17行）③胴の芯（6-12行の5〜10列）。
+  // 腕の列（0-4/11-15列）は装甲が伸びて肌を覆うので、段ごとに変わってよい（前腕型の成長そのもの）。
+  const bodyOf = (s) => s.rows
+    .map((r, y) => (y <= 5 || y >= 13 ? r : r.slice(5, 11)))
+    .join('|');
+  const base = bodyOf(PLAYER_SPRITES[0]);
+  PLAYER_SPRITES.forEach((s, i) => {
+    check(s.rows.length === 18 && s.rows[0].length === 16,
+      `PLAYER_SPRITES[${i}]: 16×18 でない（少年の体は3段で同寸）`);
+    check(bodyOf(s) === base,
+      `PLAYER_SPRITES[${i}]: 少年本体の画素が Stage1 と違う（成長するのは腕だけ＝SPEC§24）`);
+  });
 }
 
 // --- BOSSES（Wave R3：ロボット6体・7パーツリグ）---
