@@ -1,5 +1,5 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
-import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_GUNS, HERO_FISTS } from '../data/monsters.js';
+import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_FISTS } from '../data/monsters.js';
 import { ENEMIES, BOSSES } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { createRng } from '../core/rng.js';
@@ -22,8 +22,7 @@ export class BootScene extends Phaser.Scene {
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
-    // 主人公のサブ武器（段階進化する銃/ライフル）。狙い角へ回転させて構える。
-    HERO_GUNS.forEach((s, i) => this.makeGrid('hero_gun' + (i + 1), s));
+    // R14: 銃は全廃（hero_gun/hero_tracer テクスチャは作らない）。主人公は拳＋腕の技のみ。
     // R12: 主人公の主武器（クラッシュアーム＝殴る瞬間だけ突き出す拳）。
     HERO_FISTS.forEach((s, i) => this.makeGrid('hero_fist' + (i + 1), s));
     // ボス（Wave R3：ロボット6体・7パーツリグ）。sprites の各パーツを boss_<id>_<part> でテクスチャ化。
@@ -37,7 +36,6 @@ export class BootScene extends Phaser.Scene {
     this.makeGlow('glow', 32);
     this.makeBullet('bullet', 8);
     this.makeStar('core', 12, 6, 2.6, 5);   // スターコア（5点星）
-    this.makeTracer('hero_tracer', 14, 6);   // 主人公の銃の弾（細長いトレーサー/ボルト・実行時に軍事系色で tint）
     this.makeGem('gem', 12);                  // XPジェム（多面カットのクリスタル・実行時に寒色で tint）
     this.makeHeart('heart', 12);              // FB#1: 体力回復アイテム（ハート・実行時に赤/桃で tint）
     this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・味方のスター弾と形で区別）
@@ -105,21 +103,6 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1);
     g.fillCircle(size / 2, size / 2, size / 2 - 1);
     g.generateTexture(key, size, size);
-    g.destroy();
-  }
-
-  // 主人公の銃のトレーサー弾。右向き(+X)に伸びる細長いボルト。白で描き実行時に tint。
-  // makeGem 同様に外周ほど薄く中核ほど白熱させ、単色 tint でも「明るいコア＋にじむ尾」の銃弾に見える。
-  makeTracer(key, w, h) {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    const cy = h / 2;
-    g.fillStyle(0xffffff, 0.32);           // 外周のにじみ
-    g.fillEllipse(w / 2, cy, w, h);
-    g.fillStyle(0xffffff, 0.7);            // 中核のボルト
-    g.fillEllipse(w / 2, cy, w * 0.86, h * 0.5);
-    g.fillStyle(0xffffff, 1);              // 白熱コア（細い芯線）
-    g.fillRect(1, cy - 0.5, w - 2, 1);
-    g.generateTexture(key, w, h);
     g.destroy();
   }
 

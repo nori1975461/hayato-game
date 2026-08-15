@@ -7,17 +7,49 @@ export const BALANCE = {
   player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7,
             hurtKnockback: 150, hurtKnockSec: 0.18, lowHpRatio: 0.3 },
 
-  // 主人公＝突撃兵（R12でキャラクター特性を確定）。主武器は拳（クラッシュアーム）、銃は牽制のサブ。
+  // 主人公＝近接のみ（R14・SPEC§22）。主武器は拳（クラッシュアーム）。銃は全廃し、
+  // 変身（＝ゆりかごの腕の復元）で「腕の技」が解放される：Stage2 ワイヤーアーム／Stage3 アームスラム。
+  // 最終ボス（マオウレクス）と同じ技＝ミラーマッチ（技の型の一致は正典の核。boss.js の同名攻撃を参照）。
   hero: {
-    // --- サブ武器：銃（近接が届かない距離の敵を撃つ） ---
-    // ⚠️ range 240 は「牽制」を名乗りながら実質の主力だった（敵を遠方で削りきるので、拳の間合いに
-    // 敵が到達しない）。突撃兵の主武器は拳という設計に合わせ、射程を短く・手数を落として、
-    // 「近づいてくる敵を足止めするだけ」の役割へ本当に降格させる。
-    intervalSec: 1.9, bulletSpeed: 360, range: 175, bulletRadius: 4,   // FB#4: 弾速+20%・手数-約1割（intervalSec+約10%）
-    damageBase: 6, damagePerTwoLevels: 1,   // damage = base + floor(level/2)
-    spreadDeg: 12,   // R4: 旧 twinLevel/tripleLevel（プレイヤーLv基準の2連/3連）は shotByStage（playerStage基準）へ移行し削除
-    // ショット強化：弾数は playerStage 連動（1→2→3）。stage3 で貫通1（2体まで貫く）。
-    shotByStage: [1, 2, 3], pierceFromStage: 3, pierceCount: 1,
+    // 構えの狙い角に使う索敵距離（拳とワイヤーアームが同じ角を使う）。攻撃の射程ではない。
+    aimRange: 260,
+
+    // --- 腕の技①：ワイヤーアーム（Stage2で解放・自動発動・rng不使用） ---
+    // 拳が届かない敵へ片腕をワイヤーで射出し、道中の敵を殴って戻す。旧銃（range175の牽制）の
+    // 「遠い敵への手当て」役を腕の技で置き換える。主役は拳なので発動間隔は長めに留める。
+    wireArm: {
+      unlockStage: 2,
+      intervalSec: 3.2,               // 発動間隔。拳(0.3秒)の主役を食わない頻度
+      maxLen: 170, extendSpeed: 520,  // 最大到達≒旧銃射程。伸び切りまで約0.33秒
+      backSec: 0.22,                  // 手繰り戻す時間
+      turnDegPerSec: 200,             // マイルド追尾（boss.js wirearm と同じ方式・振り切れる余地を残す）
+      fistRadius: 10,                 // 拳先端の当たり半径
+      damage: 16, damagePerStage: 6,  // Stage2=16 / Stage3=22
+      maxHits: 4,                     // 1射で殴れる敵数（伸びる道中を薙ぎ払う）
+      knockback: 220, knockbackSec: 0.15,
+      bossMul: 0.5,                   // ボスへは拳と同じく半減
+    },
+
+    // --- 腕の技②：アームスラム（Stage3で解放・自動発動・rng不使用） ---
+    // 両腕を振り上げて叩きつけ、放射状の衝撃波を走らせる。boss.js armslam の**構造まで含めた**ミラー
+    // （ボスも meleeRadius46 の小さな着弾＋shockCount9 の走る衝撃波であって、巨大な円ではない）。
+    // 予告（振り上げ）→叩きつけ、はボスの予告つき攻撃（育児安全設計の名残）と同じ文法。
+    //
+    // ⚠️ 半径だけの範囲攻撃にしてはいけない（実測で判明・SPEC§23.5）：Stage3 の主人公は
+    // 拳78px＋仲間66pxで周囲を刈り続けるため、95px以内に敵が1体でもいる時間は全体の8.6%しかない。
+    // 自分のキル圏の内側を対象にする技は、条件を何体にしようと成立しない。**外へ走る波**が本体。
+    armSlam: {
+      unlockStage: 3,
+      cooldownSec: 6,
+      triggerRadius: 170,             // この距離に敵がいれば振る（波が届く範囲＝キル圏の外側を見る）
+      minEnemies: 2,                  // triggerRadius 内にこれ以上いるとき（空振りの絵を作らない）
+      radius: 62, damage: 26,         // 直接の着弾。少年の体格で破綻しない大きさに留める
+      telegraphSec: 0.35,             // 振り上げのタメ（自分の技なので短い）
+      knockback: 260, knockbackSec: 0.2,
+      shockCount: 10,                 // 放射状に走る衝撃波の本数（ボスは9・こちらは全方位10）
+      shockSpeed: 210, shockRadius: 7, shockDamage: 18, shockLife: 1.1,
+      bossMul: 0.5,
+    },
 
     // --- 主武器：クラッシュアーム（R12・自動近接連撃） ---
     // 設計の核＝「操作を増やさずに駆け引きを作る」。プレイヤーができるのは移動だけなので、
@@ -28,7 +60,7 @@ export const BALANCE = {
     melee: {
       // 拳の届く範囲（Stage1=58 / 2=68 / 3=78）。
       // ⚠️ 旧34は「実プレイで一度も殴れない」死に値だった：なかまは公転半径48の上を回りながら
-      // SLASHのhitRadius18で66pxまで叩き、主人公の銃も240px先から削るため、敵は34pxに入る前に
+      // SLASHのhitRadius18で66pxまで叩き、当時の銃も240px先から削るため、敵は34pxに入る前に
       // 全滅する（実測40秒＝31体撃破・平均撃破距離57px・間合い内で倒れた敵0体・殴り0回）。
       // ただし広げるほど拳が遠くで敵を倒してしまい、かえって敵が近づかない（70にしたら最寄り距離が
       // 27→62pxへ後退＝自己相殺）。間合いは近接らしい58に留め、頻度は敵の密度側で確保する。
@@ -167,7 +199,7 @@ export const BALANCE = {
       desc: 'HPぜんかいふく ＋ さいだいHP+20',
       effects: [{ stat: 'maxHpAdd', add: 20 }], heal: 'full' },
     { id: 'rainbow_hero', label: 'にじ:ヒーローパワー',
-      desc: 'じぶんの スターショットが 1.5ばい',
+      desc: 'じぶんの こうげきが 1.5ばい',
       effects: [{ stat: 'heroMult', add: 0.5 }] },
   ],
 

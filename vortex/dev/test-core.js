@@ -168,14 +168,16 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   assert(flips, 'orbit: 2Lv帯の境界でのみフォームが反転する（帯内は不変）');
 }
 
-// --- R12: 主人公＝突撃兵。主武器クラッシュアーム（melee）とサブ武器の銃の設定が数値・妥当 ---
+// --- R14: 主人公は近接のみ（SPEC§22）。主武器クラッシュアーム＋腕の技2種の設定が数値・妥当 ---
 {
   const H = BALANCE.hero;
-  assert(Array.isArray(H.shotByStage) && H.shotByStage.length === 3
-    && H.shotByStage.every((n) => Number.isInteger(n) && n >= 1),
-    'balance: hero.shotByStage が3段の正整数（弾数1→2→3）');
-  assert(typeof H.pierceFromStage === 'number' && typeof H.pierceCount === 'number',
-    'balance: hero の貫通パラメータが数値');
+  // 銃は全廃した。遠距離パラメータが復活していないことを恒久ガードする（SPEC§22 死亡部品）
+  const gunKeys = ['range', 'bulletSpeed', 'bulletRadius', 'damageBase', 'damagePerTwoLevels',
+                   'spreadDeg', 'shotByStage', 'pierceFromStage', 'pierceCount', 'intervalSec'];
+  assert(gunKeys.every((k) => H[k] === undefined),
+    'balance: hero に銃（遠距離）のパラメータが残っていない＝主人公は近接のみ');
+  assert(typeof H.aimRange === 'number' && H.aimRange > 0,
+    'balance: hero.aimRange（構えの索敵距離）が正の数値');
 
   const M = H.melee;
   const nums = ['radius', 'radiusPerStage', 'intervalSec', 'damage', 'damagePerStage', 'maxTargets',
@@ -190,14 +192,43 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
     'balance: 拳のボスへのダメージは半減以下（接近戦を報いるがボス戦を壊さない）');
   assert(M.maxTargets >= 1 && M.maxTargets <= 8,
     'balance: 拳の巻き込みは1〜8体（囲まれても捌けるが火力過多にしない）');
-  // 拳が主・銃が従であることを数値で守る（DPS比較：拳=1段目の素damage/interval、銃=damageBase/interval）
-  const meleeDps = M.damage / M.intervalSec;
-  const gunDps = H.damageBase / H.intervalSec;
-  assert(meleeDps > gunDps * 2,
-    'balance: 拳のDPSが銃の2倍超（主人公=突撃兵＝主武器は拳・銃は牽制のサブ）');
   // ヒートで上がる火力の上限（暴走防止）
   assert(M.heatMax * M.heatDamageMulPerStep <= 0.6,
     'balance: ヒート満タンの火力ボーナスは+60%以内');
+
+  // --- 腕の技①ワイヤーアーム（Stage2解放） ---
+  const W = H.wireArm;
+  const wNums = ['unlockStage', 'intervalSec', 'maxLen', 'extendSpeed', 'backSec', 'turnDegPerSec',
+                 'fistRadius', 'damage', 'damagePerStage', 'maxHits', 'knockback', 'knockbackSec', 'bossMul'];
+  assert(!!W && wNums.every((k) => typeof W[k] === 'number' && Number.isFinite(W[k]) && W[k] >= 0),
+    'balance: hero.wireArm のパラメータが全て数値');
+  assert(W.unlockStage === 2, 'balance: ワイヤーアームは Stage2 で解放（腕の復元＝技の解放）');
+  assert(W.bossMul > 0 && W.bossMul <= 0.5, 'balance: ワイヤーアームのボスへのダメージは半減以下');
+  // 拳が主役であることを数値で守る（拳のDPS ≫ 腕の技のDPS）
+  const meleeDps = M.damage / M.intervalSec;
+  const wireDps = (W.damage * W.maxHits) / W.intervalSec;
+  assert(meleeDps > wireDps,
+    'balance: 拳のDPSがワイヤーアームを上回る（主武器は拳・腕の技は補助）');
+
+  // --- 腕の技②アームスラム（Stage3解放） ---
+  const S = H.armSlam;
+  const sNums = ['unlockStage', 'cooldownSec', 'minEnemies', 'triggerRadius', 'radius', 'damage',
+                 'telegraphSec', 'knockback', 'knockbackSec', 'bossMul',
+                 'shockCount', 'shockSpeed', 'shockRadius', 'shockDamage'];
+  assert(!!S && sNums.every((k) => typeof S[k] === 'number' && Number.isFinite(S[k]) && S[k] >= 0),
+    'balance: hero.armSlam のパラメータが全て数値');
+  assert(S.unlockStage === 3, 'balance: アームスラムは Stage3 で解放（最終形＝ボスと同じ技）');
+  assert(S.telegraphSec > 0, 'balance: アームスラムに予告がある（ボスの育児安全設計と同じ文法）');
+  assert(S.minEnemies >= 2, 'balance: アームスラムは複数体が密集したときだけ出る（空振りの絵を作らない）');
+  assert(S.bossMul > 0 && S.bossMul <= 0.5, 'balance: アームスラムのボスへのダメージは半減以下');
+  // ⚠️ 恒久ガード（SPEC§23.5 の実測）：発動判定は「自分のキル圏の外側」を見なければならない。
+  // 着弾半径で数えると Stage3 では 8.6% の時間しか条件が成立せず、技が死ぬ。
+  assert(S.triggerRadius > S.radius * 2,
+    'balance: アームスラムの発動判定はキル圏の外側を見る（triggerRadius が着弾半径の2倍超）');
+  assert(S.shockCount >= 8 && S.shockSpeed > 0,
+    'balance: アームスラムの本体は放射状に走る衝撃波（8本以上・速度が正）');
+  // 少年の体格で破綻しない着弾サイズ（画面は640×360）。巨大な円にしない＝ボスの meleeRadius46 相当。
+  assert(S.radius <= 80, 'balance: アームスラムの着弾半径は80px以下（少年の叩きつけとして絵が破綻しない）');
 }
 
 // --- R12: 被弾フィードバック（ノックバック・低HP警告）の player 設定 ---

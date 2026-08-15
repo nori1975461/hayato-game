@@ -476,55 +476,8 @@ export const PLAYER_SPRITES = [
 // 互換用: 単数の PLAYER_SPRITE は Stage1 を指す（既存参照を壊さない）。
 export const PLAYER_SPRITE = PLAYER_SPRITES[0];
 
-// 主人公のサブ武器＝段階進化する銃/ライフル（PLAYER_SPRITES と同じ段で進化）。
-// R12で主人公が突撃兵になったため、銃は「拳が届かない距離の敵を撃つ牽制」の位置づけへ降格した
-// （主武器は下の HERO_FISTS＝クラッシュアーム）。銃そのものの見た目・進化は従来どおり維持する。
-// 全て右向き＝銃口(v/アンバー)が +X 側。Run.js が狙い角へ setRotation して構える（左向きは setFlipY で整える）。
-// 配色はアーマーと統一（ガンメタルg/スチールs/近黒d/アンバー銃口v／Stage3のみ金o・レッドr）。
-// 段が上がるほど銃身が長く太く威圧的に（Stage1小型→Stage2アサルト→Stage3重機関砲）。全行同長。
-export const HERO_GUNS = [
-  // Stage1: コンパクトなサブマシンガン（短い銃身＋小マガジン＋グリップ。小さめ）。12×6。
-  {
-    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a' },
-    rows: [
-      '..ssss......',
-      '.ggggggggvv.',
-      '.ggggggggss.',
-      '.dg.dd......',
-      '.d..dd......',
-      '............',
-    ],
-  },
-  // Stage2: アサルトライフル（厚い機関部＋長い銃身＋長マガジン＝一回り大きく強そう）。14×8。
-  {
-    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a' },
-    rows: [
-      '..sss.........',
-      '.gggggggggggvv',
-      '.gggggggggggss',
-      '.gggggg.......',
-      '...dd.dd......',
-      '...dd.dd......',
-      '......dd......',
-      '..............',
-    ],
-  },
-  // Stage3: 重機関砲/多砲身ガトリング（太い3列砲身＋金の砲口リング＋レッド炉心＋ドラムマガジン＝最も大きく威圧的）。16×9。
-  {
-    palette: { g: '#3a4453', s: '#8a99ad', d: '#161b22', v: '#ffb43a', o: '#ffd23f', r: '#ff5a3c' },
-    rows: [
-      '...ssss.........',
-      '..gggggggg......',
-      '.ggggggggggggovv',
-      '.gggrrgggggggovv',
-      '.ggggggggggggovv',
-      '.gooooooog......',
-      '.ggggggggg......',
-      '.dd.ggggg.......',
-      '.dd.ggggg.......',
-    ],
-  },
-];
+// R14（SPEC§22）: 銃は全廃した（主人公は近接のみ。旧 HERO_GUNS は削除）。
+// 遠い敵への手当てはワイヤーアーム（Stage2解放・Run.js updateHeroWire）が拳のまま担う。
 
 // R12: 主人公の主武器＝クラッシュアーム（殴る瞬間だけ拳を前方へ突き出す）。
 // 全て右向き＝打撃面(v/金)が +X 側。Run.js が狙い角へ setRotation し、殴りの一瞬だけ表示する
