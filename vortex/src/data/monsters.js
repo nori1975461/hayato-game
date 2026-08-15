@@ -443,12 +443,16 @@ export const PLAYER_SPRITES = [
       '....fff..fff....',
     ],
   },
-  // Stage2(Lv5-9): 前腕の半ばまで戻り、こぶしが体の外へ2ドットせり出す（20×18・幅60px）。
-  // 少年の画素は Stage1 と完全に同一（キャンバスの左右に2列ずつ足しただけ）。
+  // Stage2(Lv5-9): 肩から下が戻る（20×18）。R15c: ユーザー決定で被覆を前腕型→**肩から下**へ拡大。
+  // 造形の文法（モダンに見せる3点・SPEC§24.6）：
+  //  ①肩当て(パウルドロン)が張り→肘で絞り→拳で再び開く「くびれ」シルエット（塊/ミトン禁止）
+  //  ②輪郭に斜めの段差を作る（水平垂直だけだと鈍重）
+  //  ③心臓の金(c)が肩から拳へ1本の筋で流れる（装飾ではなく §22 の熱漏れ＝縫い目）
   {
     palette: {
       w: '#e8e4d8', f: '#f0c8a0', k: '#7a5a3c', e: '#2a2028',
       g: '#55647c', s: '#cfe0f2', c: '#ffd23f', h: '#ff8a1f',
+      d: '#232c3d', // 関節の継ぎ目（暗色は装甲の内側だけ＝外縁に使うと背景に溶ける）
     },
     rows: [
       '........kkkk........',
@@ -457,13 +461,13 @@ export const PLAYER_SPRITES = [
       '.......feffef.......',
       '........ffff........',
       '.......wwwwww.......',
-      '......fwwwwwwf......',
-      '......gwwwwwwg......',
-      '...chggwwwwwwggss...',
-      '..cchggwwwwwwggsss..',
-      '..cchggwwwwwwggsss..',
-      '...chggwwwwwwggss...',
-      '.......wwwwww.......',
+      '..ssssgwwwwwwgssss..',
+      '..sggggwwwwwwggggs..',
+      '..sggg.wwwwww.gggs..',
+      '..sddg.wwwwww.gdds..',
+      '..sggg.wwwwww.gggs..',
+      '..cchg.wwwwww.gsss..',
+      '...chg.wwwwww.gss...',
       '.......ww..ww.......',
       '.......ff..ff.......',
       '.......ff..ff.......',
@@ -471,13 +475,15 @@ export const PLAYER_SPRITES = [
       '......fff..fff......',
     ],
   },
-  // Stage3(Lv10+): 守り手の腕の本来の形（24×18・幅72px）。こぶしは少年の頭より大きい＝
+  // Stage3(Lv10+): 守り手の腕の完全な形（24×18・拳の行はキャンバス幅いっぱい＝72px）。
+  // 肩当ては首の横まで立ち上がり、肘で強く絞れ、こぶしは少年の頭より大きい＝
   // かつてポッドを抱きとめた大人の機械の腕を、12歳がそのまま着けている。
-  // それでも肩から上は生身のまま＝最後まで「腕を借りている少年」に見える。
+  // それでも頭・胴・脚は生身のまま＝最後まで「腕を借りている少年」に見える。
   {
     palette: {
       w: '#e8e4d8', f: '#f0c8a0', k: '#7a5a3c', e: '#2a2028',
       g: '#55647c', s: '#cfe0f2', c: '#ffd23f', h: '#ff8a1f',
+      d: '#232c3d', // 関節の継ぎ目（暗色は装甲の内側だけ）
     },
     rows: [
       '..........kkkk..........',
@@ -485,14 +491,14 @@ export const PLAYER_SPRITES = [
       '.........kffffk.........',
       '.........feffef.........',
       '..........ffff..........',
-      '.........wwwwww.........',
-      '........fwwwwwwf........',
-      '........gwwwwwwg........',
-      '....cchggwwwwwwggsss....',
-      '..ccchhggwwwwwwggsssss..',
-      '.ccchhhggwwwwwwggssssss.',
-      '..ccchhggwwwwwwggsssss..',
-      '....cchggwwwwwwggsss....',
+      '.ssssss..wwwwww..ssssss.',
+      '.sgggggggwwwwwwgggggggs.',
+      '.sgggggggwwwwwwgggggggs.',
+      '.scgggg..wwwwww..gggggs.',
+      '.scgggg..wwwwww..gggggs.',
+      '.sddggg..wwwwww..gggdds.',
+      '.cchhgg..wwwwww..ggssss.',
+      '..chhgg..wwwwww..ggsss..',
       '.........ww..ww.........',
       '.........ff..ff.........',
       '.........ff..ff.........',
