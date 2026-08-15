@@ -90,24 +90,33 @@ for (const m of MONSTERS) {
 }
 
 // --- PLAYER_SPRITE / PLAYER_SPRITES ---
-// R15: 主人公は3段とも 16×18 の同一キャンバス（少年の画素は不変で腕の列だけが変わる）。
-// 雑魚の上限16より縦に長いので、主人公だけ上限を20まで許す（互換用の単数 PLAYER_SPRITE も同じ）。
-validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE', 8, 20);
+// R15/R15b: 主人公は幅 16→20→24・高さ18固定（少年の画素は不変で、広がるのは腕がせり出すぶんだけ）。
+// 雑魚の上限16より大きいので、主人公だけ上限を24まで許す（互換用の単数 PLAYER_SPRITE も同じ）。
+validateSprite(PLAYER_SPRITE, 'PLAYER_SPRITE', 8, 24);
 check(Array.isArray(PLAYER_SPRITES) && PLAYER_SPRITES.length === 3,
   `PLAYER_SPRITES が3枚の配列でない（len=${Array.isArray(PLAYER_SPRITES) ? PLAYER_SPRITES.length : 'not array'}）`);
 if (Array.isArray(PLAYER_SPRITES)) {
-  PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`, 8, 20));
-  // R15の核: 3段は同寸で、少年そのものは1ドットも変わらない＝「成長するのは腕だけ」を仕様で固定する。
-  // 不変なのは①頭（0-5行）②脚と裾（13-17行）③胴の芯（6-12行の5〜10列）。
-  // 腕の列（0-4/11-15列）は装甲が伸びて肌を覆うので、段ごとに変わってよい（前腕型の成長そのもの）。
-  const bodyOf = (s) => s.rows
-    .map((r, y) => (y <= 5 || y >= 13 ? r : r.slice(5, 11)))
-    .join('|');
-  const base = bodyOf(PLAYER_SPRITES[0]);
+  PLAYER_SPRITES.forEach((s, i) => validateSprite(s, `PLAYER_SPRITES[${i}]`, 8, 24));
+  // R15の核: 少年そのものは1ドットも変わらない＝「成長するのは腕だけ」を仕様で固定する。
+  // R15b: 幅は 16/20/24（腕のせり出し＝レベルアップのシルエット差）。高さは18固定。
+  // 少年の芯はキャンバス中央の16列に常に置き、①頭（0-5行）②脚と裾（13-17行）
+  // ③胴の芯（6-12行の中央16列のうち5〜10列）が Stage1 と完全一致すること。
+  // 腕の列は装甲が伸びて肌を覆う・外へせり出すので、段ごとに変わってよい。
+  const WIDTHS = [16, 20, 24];
+  const coreOf = (s) => {
+    const off = (s.rows[0].length - 16) / 2;
+    return s.rows
+      .map((r, y) => {
+        const c = r.slice(off, off + 16);
+        return y <= 5 || y >= 13 ? c : c.slice(5, 11);
+      })
+      .join('|');
+  };
+  const base = coreOf(PLAYER_SPRITES[0]);
   PLAYER_SPRITES.forEach((s, i) => {
-    check(s.rows.length === 18 && s.rows[0].length === 16,
-      `PLAYER_SPRITES[${i}]: 16×18 でない（少年の体は3段で同寸）`);
-    check(bodyOf(s) === base,
+    check(s.rows.length === 18 && s.rows[0].length === WIDTHS[i],
+      `PLAYER_SPRITES[${i}]: ${WIDTHS[i]}×18 でない（幅16/20/24＝腕だけが広がる）`);
+    check(coreOf(s) === base,
       `PLAYER_SPRITES[${i}]: 少年本体の画素が Stage1 と違う（成長するのは腕だけ＝SPEC§24）`);
   });
 }

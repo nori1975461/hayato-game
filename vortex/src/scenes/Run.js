@@ -715,9 +715,11 @@ export class RunScene extends Phaser.Scene {
         .setVisible(this.playerImg.visible);
       return;
     }
-    // R12b/c: 本体を拡大した分、拳も外へ押し出す。ベース16は「構え(ext0.45)でも拳が体の輪郭より
-    // 外に出る」下限＝Stage1の体半幅16.8px。ここを下回ると構えの拳が胴体に埋もれて見えない。
-    const reach = 16 + (15 + (this.playerStage - 1) * 6) * ext;
+    // R12b/c: 構え(ext0.45)でも拳が体の輪郭より外に出る下限を守る（埋もれると見えない）。
+    // R15b: スプライト幅が段で 48→60→72px に広がる（腕のせり出し）ので、ベースも
+    // 16 + 7/段 で外へ押し出す（Stage1=16 / 2=23 / 3=30 ＝ 各段の体半幅 24/30/36px の内側すれすれ
+    // から突き出す）。これを忘れると構えの拳が描いた腕の中に沈む。
+    const reach = 16 + (this.playerStage - 1) * 7 + (15 + (this.playerStage - 1) * 6) * ext;
     const heatN = this._heat / M.heatMax;
     // 素は白（スプライト本来のガンメタルの腕＋オレンジの拳を見せる）。熱いときだけ金へ寄せる。
     const tint = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffdcb0 : 0xffffff;
