@@ -170,6 +170,12 @@ for (const e of ENEMIES) {
     check(typeof e[k] === 'number' && e[k] > 0, `${label}: ${k} が正の数値でない`);
   }
   validateSprite(e.sprite, label);
+  // R19: 雑魚は「ガンメタルの機体＋役割を示す1色」で統一した。Run.spawnEnemy は def.color で
+  //   背後のグローを塗るので、パレットの役割色 r とずれると本体と後光が別色に光って役割が読めなくなる。
+  //   スプライトだけ直して color を直し忘れる事故を恒久的に止める。
+  const pr = e.sprite && e.sprite.palette && e.sprite.palette.r;
+  check(pr === e.color,
+    `${label}: color "${e.color}" と sprite.palette.r "${pr}" が不一致（役割色は本体と背後グローで必ず一致させる）`);
   // attack（Wave R1：予告付き攻撃）。type が既知・telegraphSec>0 を軽く検証する
   if (e.attack !== undefined) {
     check(e.attack && typeof e.attack === 'object', `${label}: attack がオブジェクトでない`);
