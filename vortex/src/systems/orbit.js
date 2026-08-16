@@ -7,6 +7,11 @@ import { Sound } from '../audio/sound.js';
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
 
+// R19: 「味方の攻撃はすべて金白」に統一する。仲間の体色（o.color）を攻撃にも使うと
+// 全10色が画面へ散り、敵弾・拾い物と色が衝突して避けられなくなるため。
+// 体色は本体グロー（o.glow）と装飾だけに残し、誰の攻撃かは形で読ませる。
+const ALLY_ATK = 0xffe9a8;
+
 // ── FB#4: 武器レベルアップの「まとう装飾」を段階的に派手化（HAYATO本体の40段階武器を参考）。
 // maxLevel(=12) を6つの見た目ティアに束ね、帯が上がるごとに装飾が累積で足され
 // 「明らかに別物へ変わった」と一目で分かるようにする。テーマ＝可愛さ×派手さ・限界突破。
@@ -159,7 +164,7 @@ export function createOrbit(run) {
           o.aura = run.add.image(0, 0, 'w_bubble')
             .setBlendMode(Phaser.BlendModes.ADD).setDepth(3);
         }
-        o.aura.setTint(o.color).setAlpha(0.75)
+        o.aura.setTint(ALLY_ATK).setAlpha(0.75)   // R19: 攻撃圏なので金白（体色は本体グローに残す）
           .setDisplaySize(o.fieldRadius * 2, o.fieldRadius * 2).setVisible(true);
       } else if (o.aura) {
         o.aura.setVisible(false);
@@ -175,7 +180,7 @@ export function createOrbit(run) {
         const tex = run.textures.exists(o.form.tex) ? o.form.tex : 'white';
         const wsize = o.form.kind === 'melee' ? (big ? 26 : 20) : (big ? 18 : 14);
         o.weaponSpr.setTexture(tex)
-          .setTint(o.form.tex === 'w_rainbow' ? 0xffffff : o.color)
+          .setTint(o.form.tex === 'w_rainbow' ? 0xffffff : ALLY_ATK)
           .setDisplaySize(wsize, wsize).setVisible(true);
       } else if (o.weaponSpr) {
         o.weaponSpr.setVisible(false);
@@ -234,7 +239,7 @@ export function createOrbit(run) {
         const last = o.slash.get(e.id);
         if (last == null || run.elapsed - last >= o.slashTick) {
           o.slash.set(e.id, run.elapsed);
-          run.dealDamage(e, dmg, o.color);
+          run.dealDamage(e, dmg, ALLY_ATK);
           // 近接フォームの打撃音（多発するので orb ごとに間引く・rng不使用）
           if (o.form && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.18)) {
             o.meleeSfxT = run.elapsed;
@@ -270,7 +275,7 @@ export function createOrbit(run) {
     for (let i = 0; i < n; i++) {
       const a = ang + (i - (n - 1) / 2) * step;
       run.spawnBullet(o.x, o.y, Math.cos(a) * sp, Math.sin(a) * sp,
-        o.color, dmg, o.bulletRadius, tex);
+        ALLY_ATK, dmg, o.bulletRadius, tex);
     }
     // FB#5: 発射位置に一瞬の閃光（味方共通の金白フラッシュ・1斉射につき1回）
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(o.x, o.y, ang, 0xfff2b0);
@@ -283,7 +288,7 @@ export function createOrbit(run) {
     o.beamT = o.beamInterval;
     // プレイヤー→公転体の延長方向（radial 外向き）
     run.activateBeam(o.x, o.y, aimAngle, o.beamLength, o.beamWidth,
-      o.color, memberDamage(o));
+      ALLY_ATK, memberDamage(o));
     Sound.sfx((o.form && o.form.sfx) || 'beam');
   }
 
@@ -302,7 +307,7 @@ export function createOrbit(run) {
       if (dx * dx + dy * dy <= rr * rr) {
         e.slowMark = run.elapsed;      // 移動側が参照して減速
         if (doTick) {
-          run.dealDamage(e, o.fieldTick, o.color);
+          run.dealDamage(e, o.fieldTick, ALLY_ATK);
           // もこもこスポンジ（近接FIELD）の控えめな当たり音（間引く）
           if (o.form && o.form.kind === 'melee'
               && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.4)) {
@@ -334,9 +339,9 @@ export function createOrbit(run) {
       o.boomT = o.boomInterval;
       const ang = Math.atan2(best.y - o.y, best.x - o.x);
       const btex = (o.form && run.textures.exists(o.form.tex)) ? o.form.tex : 'w_cookie';
-      const spr = run.add.image(o.x, o.y, btex).setDepth(12).setTint(o.color);
+      const spr = run.add.image(o.x, o.y, btex).setDepth(12).setTint(ALLY_ATK);
       const glow = run.add.image(o.x, o.y, 'glow')
-        .setBlendMode(Phaser.BlendModes.ADD).setDepth(6).setTint(o.color).setScale(0.7);
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(6).setTint(ALLY_ATK).setScale(0.7);
       o.boomerang = {
         x: o.x, y: o.y, dirx: Math.cos(ang), diry: Math.sin(ang),
         phase: 'out', dist: 0, hit: new Map(), spr, glow,
@@ -377,7 +382,7 @@ export function createOrbit(run) {
         const last = b.hit.get(e.id);
         if (last == null || run.elapsed - last >= o.boomTick) {
           b.hit.set(e.id, run.elapsed);
-          run.dealDamage(e, dmg, o.color);
+          run.dealDamage(e, dmg, ALLY_ATK);
         }
       }
     }
@@ -393,7 +398,7 @@ export function createOrbit(run) {
       o.ringT = o.ringInterval;
       const rtex = (o.form && run.textures.exists(o.form.tex)) ? o.form.tex : 'w_ring';
       const spr = run.add.image(o.x, o.y, rtex)
-        .setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setTint(o.color);
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setTint(ALLY_ATK);
       rings.push({ cx: o.x, cy: o.y, r: 0, hitSet: new Set(), spr });
       Sound.sfx((o.form && o.form.sfx) || 'ringwave');
     }
@@ -417,7 +422,7 @@ export function createOrbit(run) {
         const d = Math.hypot(dx, dy);
         if (Math.abs(d - g.r) <= halfT + e.radius) {
           g.hitSet.add(e.id);
-          run.dealDamage(e, dmg, o.color);
+          run.dealDamage(e, dmg, ALLY_ATK);
         }
       }
     }

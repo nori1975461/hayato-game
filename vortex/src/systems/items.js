@@ -18,19 +18,21 @@ export function createItems(run) {
     const x = run.player.x + Math.cos(ang) * d;
     const y = run.player.y + Math.sin(ang) * d;
 
+    // R19: 旧色は #ffd23f/#ffe066＝主人公の金と同一だった。金は「味方の攻撃」に統一したので、
+    //   どうくつは近い色相のライラックへ逃がす（最小ΔE 30.9／明側 25.9・全画面色に対して検算済み）。
     const glow = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(6)
-      .setTint(0xffd23f).setScale(3);
-    const spr = run.add.image(x, y, 'core').setDepth(12).setTint(0xffe066).setScale(2.4);
+      .setTint(0xffb0e8).setScale(3);
+    const spr = run.add.image(x, y, 'core').setDepth(12).setTint(0xffc9ee).setScale(2.4);
     const label = run.add.text(x, y - 26, 'どうくつ', {
-      fontFamily: 'monospace', fontSize: '11px', color: '#ffe066',
+      fontFamily: 'monospace', fontSize: '11px', color: '#ffc9ee',
       stroke: '#1b1030', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(13);
 
     cave = { x, y, life: C.lifeSec, glow, spr, label };
 
     Sound.sfx('altar');
-    if (run.fx && run.fx.announce) run.fx.announce('どうくつが あらわれた！', '#ffe066');
-    if (run.fx && run.fx.setTarget) run.fx.setTarget('cave', x, y, { color: 0xffd23f, label: 'どうくつ' });
+    if (run.fx && run.fx.announce) run.fx.announce('どうくつが あらわれた！', '#ffc9ee');
+    if (run.fx && run.fx.setTarget) run.fx.setTarget('cave', x, y, { color: 0xffb0e8, label: 'どうくつ' });
   }
 
   function closeCave() {
@@ -69,8 +71,8 @@ export function createItems(run) {
     if (r.coins) run.coins += r.coins;
 
     Sound.sfx('powerup');
-    run.floatText(run.player.x, run.player.y - 34, r.label + '！', '#ffe066');
-    if (run.fx && run.fx.announce) run.fx.announce(r.label + ' ゲット！', '#ffe066');
+    run.floatText(run.player.x, run.player.y - 34, r.label + '！', '#ffc9ee');
+    if (run.fx && run.fx.announce) run.fx.announce(r.label + ' ゲット！', '#ffc9ee');
     if (run.fx && run.fx.powerupFlash) run.fx.powerupFlash(null);
   }
 
@@ -80,10 +82,10 @@ export function createItems(run) {
 
     Sound.sfx('chest');
     run.shake(120, 3);
-    run.spawnParticles(x, y, 0xffd23f, 24);
+    run.spawnParticles(x, y, 0xffb0e8, 24);
 
     // たからばこがポップして弾ける演出
-    const chest = run.add.image(x, y, 'core').setDepth(1300).setTint(0xffe066).setScale(0.1);
+    const chest = run.add.image(x, y, 'core').setDepth(1300).setTint(0xffc9ee).setScale(0.1);
     run.tweens.add({
       targets: chest, scale: 3.2, duration: 260, ease: 'Back.out',
       onComplete: () => run.tweens.add({
