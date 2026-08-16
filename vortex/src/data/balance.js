@@ -263,7 +263,8 @@ export const BALANCE = {
         summon: { count: 5, enemyId: 'chibit', ringRadius: 55 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.0, 2.0] },
         phase2: false, phase2HpRatio: 0.5, phase2IdleMult: 0.8, phase2DashSpeedMult: 1.12,
-        rageText: '', bulletTint: '#7fd0ff',
+        // R19d: 弾色は #7fd0ff（仲間スターパピー #7fd8ff と ΔE 5.8＝ほぼ同色）だった。毒々しい蛍光グリーンへ。
+        rageText: '', bulletTint: '#1dff12',
         rewardCoins: 150, deathCinematicSec: 1.2,
       },
       // 3. 中ボス「ウズバルカン」（~180秒）。バルカン掃射＋アームスラム＋phase2「ぶちギレ」。
@@ -284,7 +285,9 @@ export const BALANCE = {
         summon: { count: 6, enemyId: 'chibit', ringRadius: 60 },
         idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.5] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
-        rageText: 'ウズバルカン ぶちギレ！', bulletTint: '#ffd23f',
+        // R19d: 弾色は #ffd23f（主人公の金と完全同一・ΔE 0.0）だった。「味方の攻撃＝金」に統一した以上、
+        //   ボスの弾が味方の攻撃に見えてしまうので灼熱の橙赤へ。乱射バルカンには金より似合う。
+        rageText: 'ウズバルカン ぶちギレ！', bulletTint: '#ff3d00',
         rewardCoins: 220, deathCinematicSec: 1.5,
       },
       // 4. 中+ボス「ウェイブロード」（~240秒）。波動砲（薙ぎビーム）＋アームスラム＋召喚＋phase2。
