@@ -4,101 +4,121 @@
 //   attack.type = 'quake'（衝撃波）/'divebomb'（急降下突進）/'selfdestruct'（自爆）/'lockbeam'（狙撃弾）/'spread'（扇状弾）。
 //   実処理は Run.updateEnemyAttack が解釈する。予告(telegraphSec)を必ず挟む＝理不尽な即死を出さない。
 // BOSS は ENEMIES 配列に入れず別 export（出現プール/重み検証を汚さない）。
+//
+// R17d: 5種のビジュアルを刷新。造形は「Aシャープ戦闘機械」を基調に、ボンバとスナイパだけ
+//   世話道具（哺乳瓶・ベビーモニタ）のシルエットをAの素材で描く＝正典§22の皮肉を形に残す。
+// R19: 体は全機共通のガンメタルで統一し、役割ごとに変えるのは眼・コア＝ MACHINE_PALETTE の r だけ。
+//   艦隊としての統一感と、脅威の種類の即判別を両立させる。
+//   ⚠️ def.color は sprite.palette.r と必ず一致させること（Run.spawnEnemy が def.color で背後のグローと
+//      撃破パーティクルを塗るため、ズレると「眼と後光が違う色の機体」になる）。validate-data.js が恒久ガード。
+const MACHINE = { k: '#171b24', g: '#67748c', s: '#c8d6ea', f: '#3d4658' };
+const machinePalette = (role) => ({ ...MACHINE, r: role });
+
+// 役割色（R19b・画面上の全色とのCIELAB距離を実測して決定）
+const ROLE = {
+  gareon: '#ff2438',   // 壁＝血赤
+  chibit: '#94ad3e',   // 量産＝オリーブライム（最も数が出るぶん最も目立たなくてよい）
+  bomba: '#ff6a1f',    // 特攻＝警告橙
+  snipa: '#e84dff',    // 狙撃＝紫紅
+  turret: '#5ff0d0',   // 砲台＝ミント
+};
 
 export const ENEMIES = [
   {
-    // 壁役：紅白の重装甲タンク。じわじわ迫り、たまに地面を叩いて衝撃波（quake）を出す。
+    // 壁役：角付きの重楔形。じわじわ迫り、たまに地面を叩いて衝撃波（quake）を出す。
     id: 'gareon',
     name: 'ガレオン',
     movement: 'chase',
-    color: '#d5382f',
+    color: ROLE.gareon,
     hp: 14,   // FB#3: 序盤の近接1ヒット(≈4dmg)で3〜4発。壁役なので雑魚内では最も硬いまま
     speed: 22,
     damage: 16,
     radius: 9,
     attack: { type: 'quake', intervalSec: 3.5, telegraphSec: 0.5, range: 60, aoe: 46, damage: 14 },
     sprite: {
-      palette: { k: '#14171d', w: '#d9dde2', r: '#d5382f', y: '#ffcf3d', e: '#ff5a4d', t: '#3a3f47' },
+      palette: machinePalette(ROLE.gareon),
       rows: [
-        '..k......k..',
-        '..k.wwww.k..',
-        '.kwwwwwwwwk.',
-        'kwywwwwwwywk',
-        'kwwwwwwwwwwk',
-        'kkkkkkkkkkkk',
-        'kkkeeeeeekkk',
-        'krrrrrrrrrrk',
-        'kwywwwwwwywk',
-        '.kwwwwwwwwk.',
-        '.tttttttttt.',
-        '.t.tt.tt.tt.',
+        's..........s',
+        'ks........sk',
+        '.ksggggggsk.',
+        '.sgffffffgs.',
+        'sgfkrrrrkfgs',
+        'sgfkrrrrkfgs',
+        '.sgffkkffgs.',
+        '.ksgffffgsk.',
+        '..ksgffgsk..',
+        '...ksggsk...',
+        '....kssk....',
+        '.....ss.....',
       ],
     },
   },
   {
-    // 手数役：黄の量産ドローン。ふらふら寄り（sine）、たまに急降下突進（divebomb）で刺しに来る。
+    // 手数役：フィン付きの小型ダート。ふらふら寄り（sine）、たまに急降下突進（divebomb）で刺しに来る。
     id: 'chibit',
     name: 'チビット',
     movement: 'sine',
-    color: '#ffcf3d',
+    color: ROLE.chibit,
     hp: 4,   // FB#3: 手数役の量産機。近接1〜2発で弾ける（最弱）
     speed: 62,
     damage: 7,
     radius: 5,
     attack: { type: 'divebomb', intervalSec: 4.0, telegraphSec: 0.3, range: 80, dashSec: 0.4, dashMult: 2.6 },
     sprite: {
-      palette: { k: '#14171d', m: '#8a929c', l: '#c2c8d0', y: '#ffcf3d', j: '#40454d' },
+      palette: machinePalette(ROLE.chibit),
       rows: [
-        '.....kk.....',
-        '.....mm.....',
-        '...kmmmmk...',
-        '..kmllllmk..',
-        '..kkkkkkkk..',
-        '..kkyyyykk..',
-        '..kmmmmmmk..',
-        '..kmyllymk..',
-        '...kmmmmk...',
-        '..kj....jk..',
-        '.mm......mm.',
-        'mm........mm',
+        '..s......s..',
+        '..ss....ss..',
+        '...sggggs...',
+        '...gfrrfg...',
+        '...gfrrfg...',
+        '....gffg....',
+        '....gffg....',
+        '.....gg.....',
+        '.....gg.....',
+        '.....ss.....',
+        '............',
+        '............',
       ],
     },
   },
   {
-    // 特攻役：オレンジの重機。溜めて突進(charge)し、間合いに入ると導火線を光らせて自爆（selfdestruct）。
+    // 特攻役：哺乳瓶の形をした爆弾（D形×A素材）。溜めて突進(charge)し、間合いで自爆（selfdestruct）。
+    //   世話道具が凶器になっている＝正典§22の皮肉を最も強く出す機体。
     id: 'bomba',
     name: 'ボンバ',
     movement: 'charge',
-    color: '#ff8a2a',
+    color: ROLE.bomba,
     hp: 8,   // FB#3: 特攻役。近接2〜3発で倒せる紙装甲（自爆前に処理できる）
     speed: 46,
     damage: 8,
     radius: 7,
     attack: { type: 'selfdestruct', intervalSec: 0, telegraphSec: 0.7, range: 40, aoe: 50, damage: 26 },
     sprite: {
-      palette: { k: '#14171d', o: '#ff8a2a', d: '#b85e18', e: '#ff3020', y: '#ffcf3d', t: '#3a3f47' },
+      palette: machinePalette(ROLE.bomba),
       rows: [
-        '....k..k....',
-        '....y..y....',
-        '...kooook...',
-        '..koddddok..',
-        '.koddeeddok.',
-        'koddeeeeddok',
-        'koddeeeeddok',
-        '.koddeeddok.',
-        '..koddddok..',
-        '...kooook...',
-        '..ttoooott..',
-        '..t.tttt.t..',
+        '.....gg.....',
+        '....sggs....',
+        '...ssssss...',
+        '..sgffffgs..',
+        '..sgkrrkgs..',
+        '..sgrrrrgs..',
+        '..sgrrrrgs..',
+        '..sgkrrkgs..',
+        '..sgffffgs..',
+        '...sgffgs...',
+        '...ssssss...',
+        '............',
       ],
     },
   },
   {
-    // 遠距離厄介役：ガンメタルの狙撃機。渦を巻いて間合いを取り(spiral)、狙いを定めて速い弾を撃つ（lockbeam）。
+    // 遠距離厄介役：ベビーモニタのレンズから細い銃身が伸びた狙撃機（D形×A素材）。
+    //   渦を巻いて間合いを取り(spiral)、狙いを定めて速い弾を撃つ（lockbeam）。銃身は1px厚＝細長さがライフルの記号。
     id: 'snipa',
     name: 'スナイパ',
     movement: 'spiral',
-    color: '#ff3b3b',
+    color: ROLE.snipa,
     hp: 9,   // FB#3: 狙撃役。近接3発前後
     speed: 40,
     damage: 10,
@@ -106,29 +126,30 @@ export const ENEMIES = [
     // FB#4: 狙撃弾を +20%（240→288）で速く＝避けにくく。弾数は1発なので据え置き
     attack: { type: 'lockbeam', intervalSec: 4.5, telegraphSec: 0.9, range: 230, bulletSpeed: 288, bulletRadius: 3, damage: 12 },
     sprite: {
-      palette: { k: '#14171d', m: '#6b6f78', l: '#9a9ea6', e: '#ff3b3b', b: '#42454c', j: '#2e3138' },
+      palette: machinePalette(ROLE.snipa),
       rows: [
-        '.....kk.....',
-        '....kmmk....',
-        '...keeeek...',
-        '..kleeeelk..',
-        '..kkkkkkkk..',
-        'bbkmmmmmmk..',
-        'bbkmllllmk..',
-        '..kmmmmmmk..',
-        '..kj....jk..',
-        '.mm......mm.',
-        '..mm....mm..',
-        '.kk......kk.',
+        '.sggggs.....',
+        'sgffffgs....',
+        'sgkrrkgs....',
+        'sgrkkrgsssss',
+        'sgrkkrgs....',
+        'sgkrrkgs....',
+        'sgffffgs....',
+        '.sggggs.....',
+        '...gg.......',
+        '....gg......',
+        '..sggggs....',
+        '............',
       ],
     },
   },
   {
-    // 砲台役：白装甲の浮遊ドローン。一定距離を保って浮遊(hover)し、扇状の3連弾（spread）を撒く。
+    // 砲台役：甲板から長砲身が3本突き出す艦砲。一定距離を保って浮遊(hover)し、扇状の3連弾（spread）を撒く。
+    //   砲身の本数と実際の弾数(count:3)を一致させ、見た目がそのまま攻撃の予告になるようにしている。
     id: 'turret',
     name: 'タレット',
     movement: 'hover',
-    color: '#7fe8ff',
+    color: ROLE.turret,
     hp: 12,   // FB#3: 砲台役。雑魚内では硬め＝近接3発前後
     speed: 30,
     damage: 9,
@@ -138,20 +159,20 @@ export const ENEMIES = [
     //       2発は約-33%で「約1割減」を超え唯一の弾幕を過度に弱めるため3のまま維持）
     attack: { type: 'spread', intervalSec: 3.8, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 9 },
     sprite: {
-      palette: { k: '#14171d', w: '#e2e6ea', l: '#f4f6f8', y: '#ffd23f', r: '#ff3b2f', c: '#7fe8ff' },
+      palette: machinePalette(ROLE.turret),
       rows: [
-        '...kwwwwk...',
-        '..kwllllwk..',
-        '.kwyywwyywk.',
-        'kwwwkkkkwwwk',
-        'kwwkkrrkkwwk',
-        'kwwkkrrkkwwk',
-        'kwwwkkkkwwwk',
-        '.kwwwwwwwwk.',
-        'rr.kwwwwk.rr',
-        '...kwwwwk...',
-        '....krrk....',
-        '...cc..cc...',
+        '.kk..kk..kk.',
+        '.sg..sg..sg.',
+        '.sg..sg..sg.',
+        '.sg..sg..sg.',
+        '.ssssssssss.',
+        'sgffkrrkffgs',
+        'sgffkrrkffgs',
+        'ssgffffffgss',
+        '.ksggggggsk.',
+        '..ssssssss..',
+        '..kk....kk..',
+        '............',
       ],
     },
   },
