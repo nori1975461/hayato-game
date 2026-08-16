@@ -38,7 +38,11 @@ export class BootScene extends Phaser.Scene {
     this.makeStar('core', 12, 6, 2.6, 5);   // スターコア（5点星）
     this.makeGem('gem', 12);                  // XPジェム（多面カットのクリスタル・実行時に寒色で tint）
     this.makeHeart('heart', 12);              // FB#1: 体力回復アイテム（ハート・実行時に赤/桃で tint）
-    this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・味方のスター弾と形で区別）
+    this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・ボスの汎用弾で使う）
+    // R18b: 雑魚の敵弾は撃った相手が形で分かるようにする（丸い点だと3種とも同じに見えた）。
+    //   進行方向へ回して使うので、どちらも「左が後ろ・右が先端」の向きで定義する。
+    this.makeFoeDart('foe_dart', 24, 8);      // 狙撃＝細長い徹甲ダート（穂先＋矢羽）
+    this.makeFoeShell('foe_shell', 18, 10);   // 砲台＝鈍頭の榴弾シェル（弾帯＋尾フィン）
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
@@ -183,6 +187,47 @@ export class BootScene extends Phaser.Scene {
       g.fillPoints(P(pts), true);
     }
     g.generateTexture(key, size, size);
+    g.destroy();
+  }
+
+  // R18b: 狙撃の徹甲ダート。全高の三角穂先＋細い軸＋V字の矢羽。
+  //   穂先を軸より明るく焼いておくと、単色 tint でも「矢」として読める（面ごとに白アルファを変える makeGem と同じ手）。
+  makeFoeDart(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      // 外形（穂先〜軸〜矢羽をひと筆で）
+      [[23.8, 4, 14, 0.1, 14, 3.0, 4, 3.0, 0.2, 0.2, 2.8, 3.7, 2.8, 4.3, 0.2, 7.8, 4, 5.0, 14, 5.0, 14, 7.9], 0.55],
+      [[23.2, 4, 14.4, 0.6, 14.4, 7.4], 0.88],   // 穂先（明）
+      [[14, 3.2, 3.5, 3.2, 3.5, 4.8, 14, 4.8], 0.22],   // 軸の陰
+      [[23.6, 4, 19.5, 2.2, 19.5, 5.8], 1.0],    // 先端の白熱
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // R18b: 砲台の榴弾シェル。鈍頭の弾頭キャップ＋弾帯のリング＋胴より背の高い尾フィン。
+  //   ダートと逆に「鈍く・太く」焼くことで、同じ単色でも重い弾として読める。
+  makeFoeShell(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      [[17.6, 4.4, 17.6, 5.6, 15.6, 7.6, 13.0, 8.9, 4.0, 8.9, 4.0, 9.8, 0.2, 9.8,
+        0.2, 0.2, 4.0, 0.2, 4.0, 1.1, 13.0, 1.1, 15.6, 2.4], 0.42],   // 外形＋尾フィン
+      [[15.6, 5, 12.4, 2.0, 4.6, 2.0, 4.6, 8.0, 12.4, 8.0], 0.45],    // 胴
+      [[6.2, 2.0, 7.8, 2.0, 7.8, 8.0, 6.2, 8.0], 0.80],               // 弾帯
+      [[17.4, 4.4, 17.4, 5.6, 15.0, 7.0, 15.0, 3.0], 1.0],            // 弾頭キャップ（白熱）
+      [[5.2, 4.4, 0.5, 4.4, 0.5, 5.6, 5.2, 5.6], 0.70],               // 噴射口
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
     g.destroy();
   }
 

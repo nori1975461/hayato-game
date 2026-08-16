@@ -27,12 +27,11 @@ const darkenC = (c, t) => {
   const m = (v) => Math.round(v * (1 - t));
   return (m(r) << 16) | (m(g) << 8) | m(b);
 };
-// 機械軍団の弾を「電撃・プラズマ色」へ：各チャンネルを輝度から離して彩度を上げる（灰色は素通し）。
-const saturateC = (c, t) => {
-  const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
-  const l = 0.3 * r + 0.59 * g + 0.11 * b;
-  const m = (v) => Math.max(0, Math.min(255, Math.round(v + (v - l) * t)));
-  return (m(r) << 16) | (m(g) << 8) | m(b);
+// R18b: 敵弾の形。表示サイズは baseRadius を基準にした比率で決めるので、当たり半径が変わっても形が崩れない。
+const FOE_BULLET_SHAPE = {
+  dart:  { tex: 'foe_dart',  baseRadius: 3, w: 24, h: 8,  glowW: 46, glowH: 9 },
+  shell: { tex: 'foe_shell', baseRadius: 4, w: 18, h: 10, glowW: 30, glowH: 14 },
+  orb:   { tex: 'foe_orb',   baseRadius: 4, w: 12, h: 12, glowW: 18, glowH: 10 },
 };
 
 const START_PARTY = ['starpuppy', 'pikabit'];
@@ -350,7 +349,9 @@ export class RunScene extends Phaser.Scene {
     // 少年ではない、という正典§22の一点をここで守っている（当たり判定 radius 7 も不変）。
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
     this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
-    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0x9fe0ff : 0x4f8cff;
+    // R19: Stage2 は 0x9fe0ff（仲間スターパピー #7fd8ff と ΔE 7.6＝ほぼ同色）だったのでペリウィンクルへ。
+    //   コバルト→ペリウィンクル→金の三段が、そのまま「昇っていく」順に見える。
+    const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xb9c4ff : 0x4f8cff;
     this.playerGlow.setTint(glowColor).setScale(2.2 + (stage - 1) * 0.55).setAlpha(0.55);
     const x = this.player.x, y = this.player.y;
     // 広がる金リング×2（時間差）
@@ -521,7 +522,7 @@ export class RunScene extends Phaser.Scene {
     g.lineStyle(2.4, 0x55647c, 1);                 // 外装ケーブル2本（主人公の装甲色）
     g.lineBetween(sx + nx * off, sy + ny * off, fx + nx * off, fy + ny * off);
     g.lineBetween(sx - nx * off, sy - ny * off, fx - nx * off, fy - ny * off);
-    g.lineStyle(1.4, 0xffb43a, 0.9);               // 発光コア（味方色＝アンバー。敵のシアンと区別）
+    g.lineStyle(1.4, 0xffe9a8, 0.9);               // 発光コア（味方の攻撃＝金白で統一。R19：旧アンバーは特攻ボンバの橙と ΔE 7.9 で紛らわしかった）
     g.lineBetween(sx, sy, fx, fy);
     g.fillStyle(0xcfe0f2, 1);                      // 節（スチール）
     for (let i = 1; i < 6; i++) {
@@ -964,7 +965,7 @@ export class RunScene extends Phaser.Scene {
       this.killEnemy(e, e.color);
     } else if (A.type === 'lockbeam') {
       // 狙撃：ロック方向へ速い弾を1発
-      this.spawnFoeBullet(e.x, e.y, e.lockX, e.lockY, A.bulletSpeed, A.bulletRadius, A.damage, e.color);
+      this.spawnFoeBullet(e.x, e.y, e.lockX, e.lockY, A.bulletSpeed, A.bulletRadius, A.damage, e.color, 'dart');
       Sound.sfx('shoot');
     } else if (A.type === 'spread') {
       // 扇状：プレイヤー方向を中心に count 発
@@ -973,27 +974,33 @@ export class RunScene extends Phaser.Scene {
       const mid = (A.count - 1) / 2;
       for (let i = 0; i < A.count; i++) {
         const a = base + (i - mid) * step;
-        this.spawnFoeBullet(e.x, e.y, Math.cos(a), Math.sin(a), A.bulletSpeed, A.bulletRadius, A.damage, e.color);
+        this.spawnFoeBullet(e.x, e.y, Math.cos(a), Math.sin(a), A.bulletSpeed, A.bulletRadius, A.damage, e.color, 'shell');
       }
       Sound.sfx('shoot');
     }
   }
 
   // ============ 敵弾（Wave R1・プレイヤーへ当たる） ============
-  spawnFoeBullet(x, y, dirX, dirY, speed, radius, dmg, color) {
+  // R18b: 「誰が撃った弾か」を形で分かるようにする。丸い foe_orb だと狙撃も砲台も同じ点にしか見えなかった。
+  //   kind='dart'（狙撃＝細長い徹甲弾）/ 'shell'（砲台＝鈍く重い榴弾）。省略時は従来の丸弾。
+  //   ⚠️ 見た目だけの変更で当たり判定(radius)は不変。
+  // R19: 弾は役割色そのままで描く。以前は saturateC で彩度を上げ、赤いグロー(0xcc1420)を後ろに敷いていたが、
+  //   役割色を画面上の全色との距離で厳密に選んだ以上、実行時に色を動かすと選定が無意味になる（ミントは
+  //   ΔE11.1 ずれていた）。グローも役割色にして「どの敵の弾か」を色で一貫させる。
+  spawnFoeBullet(x, y, dirX, dirY, speed, radius, dmg, color, kind) {
     const disp = this._foeBulletPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'bullet'),
     };
-    // FB(機械軍団化): 敵弾は角ばったメカ・エネルギー弾（foe_orb＝白熱コア＋暗い装甲リムを焼き込み済み）＋
-    // 赤い危険フチで味方の星弾と区別。個性色(color)は残しつつ彩度を上げて「電撃・プラズマ色」の兵器らしくする。
-    // FB#5: 一回り大きく（2.4→3.0）＋進行方向へ短い赤トレイルで迫力を足す。
-    //       緑紫のジェム／桃のハートとは形（尖った機械弾）でも色でも一目で分離させる。
     const ang = Math.atan2(dirY, dirX);
-    disp.spr.setTexture('foe_orb').setVisible(true).setDepth(11).setTint(saturateC(color, 0.42))
-      .setDisplaySize(radius * 3.0, radius * 3.0).setPosition(x, y);
-    disp.glow.setVisible(true).setDepth(6).setTint(0xcc1420)
-      .setRotation(ang).setDisplaySize(radius * 4.4, radius * 2.4).setPosition(x, y);
+    const S = FOE_BULLET_SHAPE[kind] || FOE_BULLET_SHAPE.orb;
+    const k = radius / S.baseRadius;    // エリート等で radius が変わっても比率を保つ
+    // 呼び出し元は e.color（spawnEnemy が int 済みの数値）を渡す。文字列 '#rrggbb' でも受けられるようにする
+    const tint = typeof color === 'string' ? int(color) : color;
+    disp.spr.setTexture(S.tex).setVisible(true).setDepth(11).setTint(tint)
+      .setRotation(ang).setDisplaySize(S.w * k, S.h * k).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(tint)
+      .setRotation(ang).setDisplaySize(S.glowW * k, S.glowH * k).setPosition(x, y);
     this.foeBullets.push({
       active: true, x, y, vx: dirX * speed, vy: dirY * speed,
       radius, dmg, life: 3, spr: disp.spr, glow: disp.glow,
@@ -1206,11 +1213,12 @@ export class RunScene extends Phaser.Scene {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'gem'),
     };
-    // FB: 宝石が敵弾（赤glowの丸い foe_orb・本体は敵色 tint）と紛らわしい対策。
-    // 敵色域（赤/橙/黄/シアン/青/灰）にもハートの桃にも被らない寒色系の固定色に統一する。
-    //   旧: 小=0x66ffcc（緑シアン→シアン敵と被る）/ 大=0xffd23f（金→黄敵 0xffcf3d とほぼ一致）＝これが紛らわしさの原因。
-    //   新: 小=エメラルド緑 / 大=アメジスト紫（どちらも敵に存在しない色）。多面カット形状と合わせ、赤い敵弾と色でも形でも即分離。
-    const tint = big ? 0xb060ff : 0x33e070;
+    // R19: 拾い物は「敵が絶対に使わない色」に置く。敵は必ずガンメタルの体＋有彩の役割色なので、
+    //   小＝プラチナ（無彩色）は構造上どの敵とも被らない。大＝青紫は、狙撃のダート弾（紫紅）から
+    //   離すために従来の 0xb060ff より青へ寄せた（ΔE 21.5→27.3）。拾おうとして被弾するのが最悪なので、
+    //   拾い物と敵弾の距離だけは最優先で確保する。
+    //   旧: 小=0x33e070（緑→砲台のミントや仲間トゲロンと同系）/ 大=0xb060ff。
+    const tint = big ? 0x9558ff : 0xefeef2;
     disp.spr.setVisible(true).setDepth(12).setTint(tint)
       .setScale(big ? 1.7 : 1.05).setPosition(x, y);
     disp.glow.setVisible(true).setDepth(6).setTint(tint)
@@ -1258,18 +1266,19 @@ export class RunScene extends Phaser.Scene {
     if (this.rng.chance(rate)) this.spawnHeal(e.x, e.y);
   }
 
-  // gem/core と同じ表示（spr＋glow）機構。桃/マゼンタのハートで、寒色（緑/紫）の多面カットジェムとも明確に別物に見せる。
-  // FB#3: 危険赤の敵弾（foe_orb）と紛れないよう、ハートは明るい桃〜マゼンタへ寄せ＋上側を白ハイライト。
-  //       上ほど白い4隅tint（0xffd0ec）で「つやのある可愛い桃ハート＝回復」を強調し、濃い赤丸弾と即分離。
+  // gem/core と同じ表示（spr＋glow）機構。ハートの形＋赤桃で「回復」を一目で伝える。
+  // R19: 旧 0xff4da6 は仲間オーラゼリーの桃（#ff6ec7）と ΔE 14.7 で紛らわしかったため、赤寄りの桃へ。
+  //   回復の記号としてはむしろ自然になる。グローも一緒に動かさないと分離が中途半端になる（本体だけ変えると
+  //   後光が桃のまま残る）。
   spawnHeal(x, y) {
     const disp = this._heartPool.pop() || {
       glow: this.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: this.add.image(0, 0, 'heart'),
     };
     disp.spr.setTexture('heart').setVisible(true).setDepth(12)
-      .setTint(0xffd0ec, 0xffd0ec, 0xff4da6, 0xff4da6)   // 上=白桃ハイライト / 下=鮮やかマゼンタ桃
+      .setTint(0xffc2cc, 0xffc2cc, 0xff4d6d, 0xff4d6d)   // 上=白桃ハイライト / 下=赤寄りの桃
       .setScale(1.6).setPosition(x, y).setRotation(0);
-    disp.glow.setVisible(true).setDepth(6).setTint(0xff9edf).setScale(1.1).setPosition(x, y);
+    disp.glow.setVisible(true).setDepth(6).setTint(0xff8fa8).setScale(1.1).setPosition(x, y);
     // ふわふわ位相は生成順で散らす（乱数を追加消費しない）
     this.hearts.push({ active: true, x, y, life: BALANCE.healItem.lifeSec,
       phase: this.hearts.length * 0.7, spr: disp.spr, glow: disp.glow });
