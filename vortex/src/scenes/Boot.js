@@ -38,11 +38,14 @@ export class BootScene extends Phaser.Scene {
     this.makeStar('core', 12, 6, 2.6, 5);   // スターコア（5点星）
     this.makeGem('gem', 12);                  // XPジェム（多面カットのクリスタル・実行時に寒色で tint）
     this.makeHeart('heart', 12);              // FB#1: 体力回復アイテム（ハート・実行時に赤/桃で tint）
-    this.makeFoeOrb('foe_orb', 12);           // FB#2: 敵弾（丸い危険弾・ボスの汎用弾で使う）
+    this.makeFoeOrb('foe_orb', 12);           // FB#2: 丸い危険弾（現在は未使用の予備テクスチャ。boss_boltに役目を譲った）
     // R18b: 雑魚の敵弾は撃った相手が形で分かるようにする（丸い点だと3種とも同じに見えた）。
     //   進行方向へ回して使うので、どちらも「左が後ろ・右が先端」の向きで定義する。
     this.makeFoeDart('foe_dart', 24, 8);      // 狙撃＝細長い徹甲ダート（穂先＋矢羽）
     this.makeFoeShell('foe_shell', 18, 10);   // 砲台＝鈍頭の榴弾シェル（弾帯＋尾フィン）
+    // R20 Gate2: ボス汎用弾（machinegun/vulcan/ring/nova/shockwave）を丸い点からプラズマ・ボルトへ。
+    //   +Xが進行方向の鏃形＝dart/shellと同じ「左が後ろ・右が先端」の向き。設計意図はscratchpad/render-foe-bolt.mjsのNOTES参照。
+    this.makeFoeBolt('boss_bolt', 16, 10);
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
@@ -222,6 +225,35 @@ export class BootScene extends Phaser.Scene {
       [[6.2, 2.0, 7.8, 2.0, 7.8, 8.0, 6.2, 8.0], 0.80],               // 弾帯
       [[17.4, 4.4, 17.4, 5.6, 15.0, 7.0, 15.0, 3.0], 1.0],            // 弾頭キャップ（白熱）
       [[5.2, 4.4, 0.5, 4.4, 0.5, 5.6, 5.2, 5.6], 0.70],               // 噴射口
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // R20 Gate2: ボス汎用弾「プラズマ・ボルト」。texf文法（二段の闇＝穴k/溝j・4段面塗り・recの逆説）を
+  // 弾へ翻訳した鏃形。dart/shellと同じ「+Xが進行方向・左が後ろ・右が先端」の向きで定義する。
+  // 後ろの二又ノッチ（穴＝未処理のまま切り欠き）と先端の白熱コアで、単色tintでも矢として読める。
+  // 設計の全根拠は vortex/scratchpad/render-foe-bolt.mjs のNOTES参照（16×10・r=4基準）。
+  makeFoeBolt(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      // 全形＝溝jの底。後ろが二又の鏃（ノッチ）。後端の上下角は1px面取り。
+      [[1.1, 0, 7, 0, 16, 4.4, 16, 5.6, 7, 10, 1.1, 10,
+        0, 8.9, 3.6, 5, 0, 1.1], 0.42],
+      // 後板＝矢羽（休符：無処理の平板）。上下の外縁行だけ前板と繋げて溝を塞ぐ。
+      [[1.1, 0, 4, 0, 4, 1, 3, 1, 3, 2, 6.6, 5, 3, 8, 3, 9, 4, 9, 4, 10, 1.1, 10,
+        0, 8.9, 3.6, 5, 0, 1.1], 0.3103],
+      // 前板＝頭（大きな平板）。後板との隙間1pxがそのまま溝になる。
+      [[4, 0, 7, 0, 16, 4.4, 16, 5.6, 7, 10, 4, 10, 4, 8, 7.6, 5, 4, 2], 0.3103],
+      // 受光ベベル＝前板の先端側の塊。
+      [[5.5, 0, 7, 0, 16, 4.4, 16, 5.6, 7, 10, 5.5, 10, 10, 5], 0.45],
+      // 芯＝白熱（切っ先まで届く塊）。
+      [[11.6, 4, 16, 4, 16, 6, 11.6, 6], 1.0],
     ];
     for (const [pts, a] of facets) {
       g.fillStyle(0xffffff, a);

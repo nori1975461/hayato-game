@@ -904,14 +904,19 @@ export function createBoss(run) {
     };
     // FB#2: 汎用弾(orb)は丸い危険弾(foe_orb)＝味方の星弾と形で区別。ミサイル/カッターは既存の見た目を維持。
     // tomahawk（最終ボスのナックルウェーブ）は細長い巨大トマホーク＝進行方向へ向けて発射。
+    // R20 Gate2: 汎用弾(orb)は丸い点からプラズマ・ボルト（boss_bolt・鏃形）へ。dart/shellと同じ
+    //   「+Xが進行方向」の向きで焼いてあるので、進行方向へ向けて発射する（tomahawkと同じ考え方・オフセットなし）。
     const isTom = kind === 'tomahawk';
+    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
-      : isTom ? 'boss_tomahawk' : 'foe_orb';
+      : isTom ? 'boss_tomahawk' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
-    const dispW = isTom ? r * 3.0 : r * 3.0;
-    const dispH = isTom ? r * 7.2 : r * 3.0;
-    const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2) : 0;   // 胴=+Y前方なので +90°
+    // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
+    const dispW = isTom ? r * 3.0 : isOrb ? r * 4.0 : r * 3.0;
+    const dispH = isTom ? r * 7.2 : isOrb ? r * 2.5 : r * 3.0;
+    const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
+      : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルトは+Xが先端＝オフセットなし
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
       .setDisplaySize(dispW, dispH).setPosition(x, y).setRotation(rot0);
     // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
@@ -975,9 +980,9 @@ export function createBoss(run) {
             b.vy += (Math.sin(a) * sp - b.vy) * Math.min(1, dt * 2.5);
           }
         }
-      } else {
-        b.spr.rotation += dt * 6;
       }
+      // ボルト（既定kind）は直進のみ＝回転は発射時に進行方向へ固定済み（dart/shellと同じ考え方）。
+      // 旧foe_orbは形が円対称だったため常時回転で動きを出していたが、ボルトは鏃形なので回すと向きが崩れる。
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       b.spr.setPosition(b.x, b.y);
       b.glow.setPosition(b.x, b.y);
