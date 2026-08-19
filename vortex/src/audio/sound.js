@@ -328,14 +328,31 @@ const SFX = {
   // ── R12: 突撃兵（主人公の主武器＝クラッシュアーム） ──
   // 殴打。引数 heat(0..1) は連撃ヒート。殴り続けるほど音程と芯が上がり「乗ってくる」感触を出す。
   // 0.3秒間隔で鳴り続けるので、極短＋控えめゲインで連打しても耳に痛くしない。
-  heroPunch(heat) {
+  // R21: pitch（±5%の揺らぎ）を受ける。イースの打撃が連打でも機械的に聞こえないのは、
+  // 1発ごとに音程と質感が僅かに違うため。さらに「殴った」実感を出すため、低域の芯を
+  // 一段厚くし（sineの倍音としてtriangleを重ねる）、立ち上がりの噛みつきをノイズで作る。
+  heroPunch(heat, pitch) {
     const h = heat == null ? 0 : Math.max(0, Math.min(1, heat));
-    const base = 210 + 120 * h;
-    tone({ type: 'square', freq: base, freqEnd: base * 0.42, dur: 0.06, gain: 0.15 });        // 打撃の当たり
-    tone({ type: 'sine', freq: base * 0.5, freqEnd: base * 0.28, dur: 0.11, gain: 0.13, attack: 0.002 }); // 芯の重さ
-    noiseHit({ dur: 0.04, gain: 0.09 + 0.05 * h, hpFreq: 900, lpFreq: 6000 + 4000 * h });      // 金属の擦れ
+    const q = pitch == null ? 1 : pitch;
+    const base = (210 + 120 * h) * q;
+    tone({ type: 'square', freq: base, freqEnd: base * 0.42, dur: 0.06, gain: 0.16 });        // 打撃の当たり
+    tone({ type: 'sine', freq: base * 0.5, freqEnd: base * 0.28, dur: 0.12, gain: 0.15, attack: 0.002 }); // 芯の重さ
+    // 芯の一段下。骨に響く重さはここで出る（低すぎると小型スピーカーで消えるので0.34倍まで）
+    tone({ type: 'triangle', freq: base * 0.34, freqEnd: base * 0.2, dur: 0.14, gain: 0.10, attack: 0.003 });
+    noiseHit({ dur: 0.045, gain: 0.11 + 0.05 * h, hpFreq: 700, lpFreq: 6000 + 4000 * h });     // 金属の擦れ
     // ヒートが高いときだけ、拳の熱が抜ける高音のきらめきを重ねる（派手さの上乗せ）
-    if (h > 0.55) tone({ type: 'triangle', freq: 900 + 500 * h, freqEnd: 1600 + 700 * h, start: 0.02, dur: 0.07, gain: 0.06 });
+    if (h > 0.55) tone({ type: 'triangle', freq: (900 + 500 * h) * q, freqEnd: (1600 + 700 * h) * q, start: 0.02, dur: 0.07, gain: 0.06 });
+  },
+  // R21: 仲間の攻撃が敵に当たった音（新設）。着手前は仲間側に命中音が存在せず、
+  // 鳴っていたのは「武器を振った音」だけだった＝当たっても無反応に見えていた主因。
+  // 6体×高頻度で当たるので、短く・軽く・低音を持たせない（heroPunch の主役を食わない）。
+  // 呼び出し側が最短間隔で間引く前提の音量設計。
+  allyHit(power, pitch) {
+    const p = power == null ? 0.5 : Math.max(0, Math.min(1, power));
+    const q = pitch == null ? 1 : pitch;
+    const base = (620 + 220 * p) * q;
+    tone({ type: 'square', freq: base, freqEnd: base * 0.55, dur: 0.035, gain: 0.055 + 0.02 * p });
+    noiseHit({ dur: 0.028, gain: 0.045 + 0.02 * p, hpFreq: 2600, lpFreq: 11000 });
   },
   // ヒート満タン到達の合図（1回だけ鳴らす）。上昇アルペジオで「腕が焼けた」高揚を出す。
   heatMax() {
@@ -846,13 +863,15 @@ export const Sound = {
   // init前・未対応環境でも例外を出さず無音で無視する。
   // R12: 任意の arg を音側へ渡せる（heroPunch のヒート・hurt のダメージ重みなど）。
   // 既存の引数なしSFXは arg を単に無視するので後方互換。
-  sfx(name, arg) {
+  // R21: 第3引数 pitch（周波数倍率・既定1）を足した。同じ打撃音が同じ音程で連打されると
+  // 機械的に聞こえるため、呼び出し側が ±5% ずらして渡す。既存SFXは無視するので後方互換。
+  sfx(name, arg, pitch) {
     if (!ctx || muted) return;
     const fn = SFX[name];
     if (!fn) return;
     try {
       if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
-      fn(arg);
+      fn(arg, pitch);
     } catch (e) {
       // 再生失敗は握りつぶす（ゲーム進行を止めない）
     }

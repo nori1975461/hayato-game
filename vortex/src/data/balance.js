@@ -83,6 +83,44 @@ export const BALANCE = {
     },
   },
 
+  // R21: 打撃感（イース風）。実プレイFB「当たった感触がほぼない・殴る爽快感が皆無」への対応。
+  // ⚠️着手前の実測で判明した欠落：拳にも仲間の攻撃にも画面振動が一切なく（Run.updateHeroMelee /
+  //   orbit.js のどこにも shake 呼び出しがない）、仲間には命中音そのものが無かった（発射音だけ）。
+  //   ヒットストップも 0.03秒固定で強さに連動していなかった。ここを power(0..1) 一本へ統一する。
+  // 好みは文章で決められないので、プリセットを数値で並べてゲーム内キー 1〜4 で即切替して選ぶ。
+  hitFeel: {
+    defaultPreset: 2,          // 起動時のプリセット（0基点・2='イース'）
+    // 仲間の攻撃は6体×高頻度で当たるため、素通しにすると音と揺れが渋滞して逆に何も感じなくなる。
+    // 「最も近い1発だけ」に間引くのが要点（イースも1撃ごとに1回しか鳴らない）。
+    allySfxMinSec: 0.085,      // 仲間の命中音の最短間隔
+    allyShakeMinSec: 0.05,     // 仲間の命中による揺れの最短間隔
+    dmgTextMinSec: 0.05,       // ダメージ数字の最短間隔
+    killShakeMul: 1.6,         // 撃破した瞬間だけ揺れを増す（トドメの手応え）
+    presets: [
+      // heroShake/allyShake = [振幅px, 持続ms]。stop = [最小秒, 最大秒]（power で補間）。
+      {
+        id: 'off', name: '現行（変更なし）',
+        heroShake: [0, 0], allyShake: [0, 0], stop: [0.03, 0.03],
+        allySfx: false, pitch: false, dmgText: false, squash: 0, sparkMul: 1,
+      },
+      {
+        id: 'mild', name: 'ひかえめ',
+        heroShake: [2.5, 90], allyShake: [1.2, 70], stop: [0.03, 0.045],
+        allySfx: true, pitch: true, dmgText: false, squash: 0.10, sparkMul: 1.2,
+      },
+      {
+        id: 'ys', name: 'イース',
+        heroShake: [5, 130], allyShake: [2.2, 90], stop: [0.045, 0.075],
+        allySfx: true, pitch: true, dmgText: true, squash: 0.18, sparkMul: 1.7,
+      },
+      {
+        id: 'max', name: 'やりすぎ',
+        heroShake: [8, 170], allyShake: [3.4, 110], stop: [0.06, 0.10],
+        allySfx: true, pitch: true, dmgText: true, squash: 0.26, sparkMul: 2.3,
+      },
+    ],
+  },
+
   // Wave R2: 公転仲間は最大3人（火力過多防止）。開始2人・180秒で3人目を解禁（強さカーブを緩やかに）
   orbit: {
     baseRadius: 48, baseAngularDeg: 120, maxSlots: 3,
