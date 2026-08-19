@@ -11,11 +11,14 @@ import { createFx } from '../systems/fx.js';
 import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
 import { createSpecial } from '../systems/special.js';
+import { createHitFx } from '../systems/hitfx.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
 const int = (c) => parseInt(c.slice(1), 16);
+// R21: 被弾のつぶれが戻りきるまでの秒数（短いほど鋭い。0.12秒＝約7フレーム）
+const R21_SQUASH_SEC = 0.12;
 // FB#2/#3: 弾/ハートの色判別用。数値カラーを白へ寄せて明色化 / 黒へ寄せて濃色化する。
 const lightenC = (c, t) => {
   const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
@@ -133,6 +136,16 @@ export class RunScene extends Phaser.Scene {
     this._hitSparkT = -1;        // FB#5: 弾の着弾スパークの表示スロットル（多発時の負荷を抑える）
     this._eid = 0;
 
+    // --- R21: 打撃感（イース風）---
+    // hitfx はヒットストップの強さ連動とSEピッチ揺らぎだけを担当する（画面振動は既存の
+    // this.shake＝Phaserのカメラシェイクをそのまま使う。実績のある実装を置き換える利得がない）。
+    // ⚠️ 専用の独立乱数を持つので run.rng を一切消費しない＝autotest の決定性は無傷。
+    this.hitfx = createHitFx({ seed: (this.seed >>> 0) || 1 });
+    this._hitFeelIdx = BALANCE.hitFeel.defaultPreset;
+    this._allySfxT = -1;         // 仲間の命中音のスロットル
+    this._allyShakeT = -1;       // 仲間の命中による揺れのスロットル
+    this._dmgTextT = -1;         // ダメージ数字のスロットル
+
     // --- カメラ ---
     this.cameras.main.startFollow(this.playerImg, true, 0.18, 0.18);
     this.cameras.main.setBackgroundColor('#0a0a1e');
@@ -179,6 +192,19 @@ export class RunScene extends Phaser.Scene {
     kb.on('keydown-T', () => { if (!this.paused) this.spawner.spawnBurst(300); });
     kb.on('keydown-G', () => { if (!this.paused) this.capture.forceDropCore(); });
     kb.on('keydown-SPACE', () => { if (!this.paused && !this.ended) this.special.fire(); });
+
+    // R21: 打撃感プリセットの即時切替（テスト用）。好みは文章で決められないので、
+    // 実プレイ中に 1〜4 で切り替えて体感で選ぶ。選ばれた番号を既定値にして確定させる。
+    const feelKeys = ['ONE', 'TWO', 'THREE', 'FOUR'];
+    feelKeys.forEach((k, i) => {
+      kb.on('keydown-' + k, () => {
+        if (this.paused || this.ended) return;
+        if (i >= BALANCE.hitFeel.presets.length) return;
+        this._hitFeelIdx = i;
+        const p = this.hitFeel();
+        if (this.fx) this.fx.announce('打撃感 ' + (i + 1) + '：' + p.name, '#ffe9a8');
+      });
+    });
   }
 
   togglePause() {
@@ -493,7 +519,7 @@ export class RunScene extends Phaser.Scene {
         if (dx * dx + dy * dy > rr * rr) continue;
         w.hits.add(e.id);
         const dmg = Math.max(1, Math.round(dmgBase * (e.isBoss ? W.bossMul : 1)));
-        this.dealDamage(e, dmg, 0xffc85a);
+        this.dealDamage(e, dmg, 0xffc85a, 'hero');
         if (e.active) {
           const d = Math.hypot(dx, dy) || 1;
           e.knockX = (-dx / d) * W.knockback;
@@ -584,7 +610,7 @@ export class RunScene extends Phaser.Scene {
       const rr = S.radius + e.radius;
       if (d2 > rr * rr) continue;
       const dmg = Math.max(1, Math.round(dmgBase * (e.isBoss ? S.bossMul : 1)));
-      this.dealDamage(e, dmg, 0xffd23f);
+      this.dealDamage(e, dmg, 0xffd23f, 'hero');
       if (e.active) {
         const d = Math.sqrt(d2) || 1;
         e.knockX = (dx / d) * S.knockback;
@@ -648,6 +674,7 @@ export class RunScene extends Phaser.Scene {
     const dmgBase = (M.damage + (this.playerStage - 1) * M.damagePerStage)
       * this.stats.heroMult * (1 + this._heat * M.heatDamageMulPerStep);
     let hits = 0;
+    let killedThisSwing = false;   // R21: トドメを刺した振りだけ揺れを増す
     let bestAng = this._weaponAim, bestD2 = Infinity;
     for (const e of this.enemies) {
       if (!e.active) continue;
@@ -662,7 +689,9 @@ export class RunScene extends Phaser.Scene {
       const d = Math.sqrt(d2) || 1;
       const closeMul = d <= M.closeDist ? M.closeMul : 1;   // 密着ボーナス（中心間距離で判定）
       const dmg = Math.max(1, Math.round(dmgBase * closeMul * (e.isBoss ? M.bossMul : 1)));
-      this.dealDamage(e, dmg, auraColor);
+      const wasAlive = e.hp;
+      this.dealDamage(e, dmg, auraColor, 'hero');
+      if (wasAlive - dmg <= 0) killedThisSwing = true;
       // 殴った敵を弾く（押し返せる手応え。updateEnemies が減衰させながら適用する）
       if (e.active) {
         e.knockX = (dx / d) * M.knockback;
@@ -687,8 +716,19 @@ export class RunScene extends Phaser.Scene {
       this.fx.heroImpact(px + Math.cos(bestAng) * R * 0.55, py + Math.sin(bestAng) * R * 0.55,
         bestAng, heatNow);
     }
-    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.03);   // ごく短いヒットストップ
-    Sound.sfx('heroPunch', heatNow);
+    // R21: イース風の打撃感。着手前はここに画面振動が一切なく、ヒットストップも0.03秒固定だった。
+    // 強さ power は「巻き込んだ体数」と「ヒート」で決める＝踏み込んで大勢を熱く殴るほど画面が動く。
+    const P = this.hitFeel();
+    const power = Math.max(0, Math.min(1, 0.35 + 0.15 * (hits - 1) + 0.4 * heatNow));
+    if (!this.cinematic) {
+      const stop = P.stop[0] + (P.stop[1] - P.stop[0]) * power;
+      this.freezeT = Math.max(this.freezeT, stop);
+    }
+    if (P.heroShake[0] > 0) {
+      const mul = killedThisSwing ? BALANCE.hitFeel.killShakeMul : 1;
+      this.shake(P.heroShake[1], P.heroShake[0] * (0.7 + 0.3 * power) * mul);
+    }
+    Sound.sfx('heroPunch', heatNow, P.pitch ? this.hitfx.pitch() : 1);
   }
 
   // R12: 殴りモーション中だけ拳を前方へ突き出して描く。素早く出て、ゆっくり戻る。
@@ -761,6 +801,7 @@ export class RunScene extends Phaser.Scene {
       sinePhase: this.rng.range(0, Math.PI * 2),
       chargeState: 'approach', chargeT: 0, dashX: 0, dashY: 0,
       knockX: 0, knockY: 0, knockT: 0,   // R12: 殴られたときのノックバック（プール再利用時に必ず0へ戻す）
+      squashT: 0, squashAmp: 0,          // R21: 被弾のつぶれ（プール再利用時に必ず0へ戻す）
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
@@ -846,7 +887,16 @@ export class RunScene extends Phaser.Scene {
       // ぷるぷる：生成時に消費済みの sinePhase を位相ずらしに流用する（乱数を追加消費しない）
       const bob = Math.sin(this.elapsed * X.bobHz + e.sinePhase);
       const bs = e.baseScale || 2;
-      e.spr.setScale(bs * (1 + bob * X.bobAmp), bs * (1 - bob * X.bobAmp));
+      // R21: 被弾のつぶれ。殴られた瞬間だけ横に潰れて縦に縮む＝「効いている」ことが
+      // 一目で分かる。白フラッシュは色が変わるだけなので、形が変わるこちらの方が強く効く。
+      let sqx = 1, sqy = 1;
+      if (e.squashT > 0) {
+        e.squashT -= dt;
+        const k = Math.max(0, e.squashT / R21_SQUASH_SEC);   // 1→0
+        sqx = 1 + (e.squashAmp || 0) * k;
+        sqy = 1 - (e.squashAmp || 0) * k * 0.75;
+      }
+      e.spr.setScale(bs * (1 + bob * X.bobAmp) * sqx, bs * (1 - bob * X.bobAmp) * sqy);
       e.spr.setRotation(bob * X.tiltAmp);
       e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6);
       e.glow.setPosition(e.x, e.y);
@@ -1027,12 +1077,56 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  dealDamage(e, dmg, color) {
+  // R21: 第4引数 src（'hero' / 'ally' / null）を追加。当たった側の反応（つぶれ・数字・
+  // 仲間の命中音と揺れ）をここに集約する。src 省略時は従来どおりの最小反応で後方互換。
+  // ⚠️ 主人公の揺れ・ヒットストップ・打撃音は updateHeroMelee 側が持つ。1回の振りで最大5体に
+  //    当たるので、ここで鳴らすと1発の殴りで5回揺れて5回鳴る（＝渋滞して逆に何も感じない）。
+  dealDamage(e, dmg, color, src) {
     if (!e.active) return;
     e.hp -= dmg;
     e.flashT = 0.08;
     this.spawnHitMark(e.x, e.y, color);
-    if (e.hp <= 0) this.killEnemy(e, color);
+
+    const P = this.hitFeel();
+    const willKill = e.hp <= 0;
+    // 強さ 0..1。1発のダメージが敵の最大HPに占める割合で決める（相手にとっての重さ）。
+    const power = Math.max(0, Math.min(1, dmg / Math.max(1, e.maxHp || 1)));
+
+    if (P.squash > 0 && !e.isBoss) {
+      e.squashT = R21_SQUASH_SEC;
+      e.squashAmp = P.squash * (0.55 + 0.45 * power);
+    }
+
+    if (P.dmgText && this.elapsed - this._dmgTextT >= BALANCE.hitFeel.dmgTextMinSec) {
+      this._dmgTextT = this.elapsed;
+      this.floatText(e.x, e.y - 14, String(dmg), willKill ? '#fff2b0' : '#ffffff');
+    }
+
+    // 仲間の攻撃だけはここで音と揺れを出す（発生源が6体に散っていて集約点がないため）。
+    // 素通しにすると音が渋滞するので、最も手前の1発だけに間引く。
+    if (src === 'ally') {
+      if (P.allySfx && this.elapsed - this._allySfxT >= BALANCE.hitFeel.allySfxMinSec) {
+        this._allySfxT = this.elapsed;
+        Sound.sfx('allyHit', power, P.pitch ? this.hitfx.pitch() : 1);
+      }
+      if (P.allyShake[0] > 0 && this.elapsed - this._allyShakeT >= BALANCE.hitFeel.allyShakeMinSec) {
+        this._allyShakeT = this.elapsed;
+        const mul = willKill ? BALANCE.hitFeel.killShakeMul : 1;
+        this.shake(P.allyShake[1], P.allyShake[0] * mul);
+      }
+      if (this.fx && this.fx.hitSpark && this.elapsed - this._hitSparkT >= 0.03) {
+        this._hitSparkT = this.elapsed;
+        this.fx.hitSpark(e.x, e.y, color);
+      }
+    }
+
+    if (willKill) this.killEnemy(e, color);
+  }
+
+  // R21: 現在の打撃感プリセット。ゲーム内でキー1〜4から切り替えて体感で選ぶ。
+  hitFeel() {
+    const list = BALANCE.hitFeel.presets;
+    return list[Math.max(0, Math.min(list.length - 1, this._hitFeelIdx))];
   }
 
   // Wave B: 肉球のヒットマーク。連続ヒットで埋め尽くさないよう時間で間引く。
@@ -1156,12 +1250,9 @@ export class RunScene extends Phaser.Scene {
         const rr = b.radius + e.radius;
         const dx = e.x - b.x, dy = e.y - b.y;
         if (dx * dx + dy * dy <= rr * rr) {
-          this.dealDamage(e, b.damage, b.color);
-          // FB#5: 着弾スパーク（弾が当たった手応え）。多発時はスロットルで負荷を抑える。
-          if (this.fx && this.fx.hitSpark && this.elapsed - this._hitSparkT >= 0.03) {
-            this._hitSparkT = this.elapsed;
-            this.fx.hitSpark(e.x, e.y, b.color);
-          }
+          // R21: 着弾スパークは dealDamage('ally') 側へ集約した（FB#5でここに直書きしていた
+          // ぶんを移した。仲間の全攻撃で同じ反応にするため・スロットルも共通）。
+          this.dealDamage(e, b.damage, b.color, 'ally');
           if (b.pierce > 0) {
             b.pierce -= 1;
             b.hit.add(e.id);          // まだ飛ぶ（次の敵を貫く）
@@ -1187,7 +1278,7 @@ export class RunScene extends Phaser.Scene {
       const cx = x + dirX * t, cy = y + dirY * t;
       const dx = e.x - cx, dy = e.y - cy;
       const rr = half + e.radius;
-      if (dx * dx + dy * dy <= rr * rr) this.dealDamage(e, damage, color);
+      if (dx * dx + dy * dy <= rr * rr) this.dealDamage(e, damage, color, 'ally');
     }
     // 見た目（durationSec でフェード消滅）
     // Wave B: にじビーム。w_rainbow は彩色済みなので tint は白（＝色を潰さない）

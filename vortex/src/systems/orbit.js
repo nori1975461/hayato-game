@@ -239,7 +239,7 @@ export function createOrbit(run) {
         const last = o.slash.get(e.id);
         if (last == null || run.elapsed - last >= o.slashTick) {
           o.slash.set(e.id, run.elapsed);
-          run.dealDamage(e, dmg, ALLY_ATK);
+          run.dealDamage(e, dmg, ALLY_ATK, 'ally');
           // 近接フォームの打撃音（多発するので orb ごとに間引く・rng不使用）
           if (o.form && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.18)) {
             o.meleeSfxT = run.elapsed;
@@ -307,7 +307,7 @@ export function createOrbit(run) {
       if (dx * dx + dy * dy <= rr * rr) {
         e.slowMark = run.elapsed;      // 移動側が参照して減速
         if (doTick) {
-          run.dealDamage(e, o.fieldTick, ALLY_ATK);
+          run.dealDamage(e, o.fieldTick, ALLY_ATK, 'ally');
           // もこもこスポンジ（近接FIELD）の控えめな当たり音（間引く）
           if (o.form && o.form.kind === 'melee'
               && (o.meleeSfxT < 0 || run.elapsed - o.meleeSfxT >= 0.4)) {
@@ -382,7 +382,7 @@ export function createOrbit(run) {
         const last = b.hit.get(e.id);
         if (last == null || run.elapsed - last >= o.boomTick) {
           b.hit.set(e.id, run.elapsed);
-          run.dealDamage(e, dmg, ALLY_ATK);
+          run.dealDamage(e, dmg, ALLY_ATK, 'ally');
         }
       }
     }
@@ -422,7 +422,7 @@ export function createOrbit(run) {
         const d = Math.hypot(dx, dy);
         if (Math.abs(d - g.r) <= halfT + e.radius) {
           g.hitSet.add(e.id);
-          run.dealDamage(e, dmg, ALLY_ATK);
+          run.dealDamage(e, dmg, ALLY_ATK, 'ally');
         }
       }
     }
