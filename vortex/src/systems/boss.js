@@ -74,6 +74,9 @@ export function createBoss(run) {
   let knuckleFired = false;         // ナックルウェーブの一斉発射を1回だけにするフラグ
   let wire = null;                  // ワイヤーアーム（両拳＋ワイヤー）の表示状態。攻撃終了/撃破で必ず destroy
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
+  // R21W2: 予告を主人公の一撃で割られた直後の隙。recoilT は描画オフセット専用で state を止めない
+  // ため、スタンの代用にはならない。別変数として持つ。
+  let bossStagT = 0;
   let introStage = -1;          // maou 登場イベントのセリフ/テロップ進行段（-1=未使用/非final）
   const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
   let introDim = null;          // 登場イベント中の暗幕（雑魚を沈めボス/セリフを引き立てる・intro 終了で破棄）
@@ -350,6 +353,20 @@ export function createBoss(run) {
     if (chainVulcan) { chainVulcan = false; startAttackByName('vulcan'); return; }
     endAttackChase();
   }
+  // R21W2: 予告中のボスに手動の一撃を当てると割り込める＝ボス戦でも「倒すのは手動」が効く。
+  // ボスによろけは持ち込まない（独自のライフサイクルとHPバーを壊すため）。代わりにこれ。
+  function breakTelegraph() {
+    if (!boss || !boss.active || !isTelegraph(state)) return false;
+    destroyWire();
+    if (beamImg) { beamImg.destroy(); beamImg = null; }
+    resetAttackVars();
+    recoil(aim);
+    endAttackChase();                       // 通常の攻撃終了と同じ経路（後始末の漏れを作らない）
+    bossStagT = BALANCE.hero.strike.bossBreakSec;
+    Sound.sfx('metalSlam');
+    return true;
+  }
+
   function endAttackChase() {
     state = 'chase';
     stateT = idleDur(cfg.idleSec.betweenAttacks[attackIdx]);
@@ -362,6 +379,7 @@ export function createBoss(run) {
     const nx = dx / dist, ny = dy / dist;
     aim = Math.atan2(dy, dx);
     stateT -= dt;
+    if (bossStagT > 0) bossStagT -= dt;   // R21W2
 
     switch (state) {
       // 最終ボス登場イベント：移動/攻撃はせず、経過秒でセリフ→セリフ→テロップを1回ずつ出す。
@@ -1301,6 +1319,10 @@ export function createBoss(run) {
     get active() { return !!(boss && boss.active); },
     get warned() { return warnedArr.some(Boolean); },
     get entity() { return boss; },
+    // R21W2: 予告ブレイク（Run.doStrike が呼ぶ）
+    breakTelegraph,
+    get telegraphing() { return isTelegraph(state); },
+    get staggered() { return bossStagT > 0; },
     // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）
     get state() { return state; },
     get bulletCount() { return bullets.length; },
