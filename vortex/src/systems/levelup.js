@@ -51,11 +51,14 @@ export function createLevelup(run) {
     if (AU.bonusEveryLevels > 0 && run.level % AU.bonusEveryLevels === 0) {
       const all = BALANCE.rainbowUpgrades.find(u => u.id === 'rainbow_all');
       if (all) apply(all);
-      run.player.hp = run.player.maxHp;
+      run.player.hp = Math.min(run.player.maxHp, run.player.hp + run.player.maxHp * 0.4);   // R21W2: 全回復をやめる
     }
 
     // なかまの武器レベルアップ（上限に達したら通常のパワーアップ演出）
     const leveled = !!(run.orbit && run.orbit.levelUp && run.orbit.levelUp());
+    // R21W2: 上限に達すると levelUp が false を返して rebuild が走らず、radiusMult の変化が
+    // 仲間の射程クランプへ反映されない。フォーム周期でも11秒以内に自己修復するが明示的に直す。
+    if (!leveled && run.orbit && run.orbit.rebuild) run.orbit.rebuild();
     if (leveled && run.fx && run.fx.weaponLevelUp) {
       run.fx.weaponLevelUp(run.orbit.weaponLevel, partyNames());
     } else if (up && run.fx && run.fx.powerupFlash) {
@@ -101,8 +104,10 @@ export function createLevelup(run) {
   // ---- 効果適用 ----
   function applyStat(stat, add) {
     if (stat === 'maxHpAdd') {
+      // R21W2: 最大HP増と回復を分離する。「+35 かつ 35回復」だと被ダメージを回復が常に上回り、
+      // 実測でHPが30%を下回った時間が0秒になっていた（＝被弾の緊張感が成立しない）。
       run.player.maxHp += add;
-      run.player.hp = Math.min(run.player.maxHp, run.player.hp + add);
+      run.player.hp = Math.min(run.player.maxHp, run.player.hp + Math.round(add * 0.3));
     } else {
       run.stats[stat] = (run.stats[stat] || 0) + add;
     }

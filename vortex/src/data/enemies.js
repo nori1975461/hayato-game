@@ -31,10 +31,10 @@ export const ENEMIES = [
     movement: 'chase',
     color: ROLE.gareon,
     hp: 14,   // FB#3: 序盤の近接1ヒット(≈4dmg)で3〜4発。壁役なので雑魚内では最も硬いまま
-    speed: 22,
+    speed: 26,   // R21W2
     damage: 16,
     radius: 9,
-    attack: { type: 'quake', intervalSec: 3.5, telegraphSec: 0.5, range: 60, aoe: 46, damage: 14 },
+    attack: { type: 'quake', intervalSec: 3.5, telegraphSec: 0.65, range: 96, aoe: 56, damage: 18 },   // R21W2
     sprite: {
       palette: machinePalette(ROLE.gareon),
       rows: [
@@ -63,7 +63,7 @@ export const ENEMIES = [
     speed: 62,
     damage: 7,
     radius: 5,
-    attack: { type: 'divebomb', intervalSec: 4.0, telegraphSec: 0.3, range: 80, dashSec: 0.4, dashMult: 2.6 },
+    attack: { type: 'divebomb', intervalSec: 3.4, telegraphSec: 0.4, range: 100, dashSec: 0.55, dashMult: 3.1 },   // R21W2
     sprite: {
       palette: machinePalette(ROLE.chibit),
       rows: [
@@ -93,7 +93,7 @@ export const ENEMIES = [
     speed: 46,
     damage: 8,
     radius: 7,
-    attack: { type: 'selfdestruct', intervalSec: 0, telegraphSec: 0.7, range: 40, aoe: 50, damage: 26 },
+    attack: { type: 'selfdestruct', intervalSec: 0, telegraphSec: 0.6, range: 52, aoe: 50, damage: 28 },   // R21W2
     sprite: {
       palette: machinePalette(ROLE.bomba),
       rows: [
@@ -124,7 +124,7 @@ export const ENEMIES = [
     damage: 10,
     radius: 6,
     // FB#4: 狙撃弾を +20%（240→288）で速く＝避けにくく。弾数は1発なので据え置き
-    attack: { type: 'lockbeam', intervalSec: 4.5, telegraphSec: 0.9, range: 230, bulletSpeed: 288, bulletRadius: 3, damage: 12 },
+    attack: { type: 'lockbeam', intervalSec: 3.8, telegraphSec: 0.7, range: 230, bulletSpeed: 330, bulletRadius: 3, damage: 12 },   // R21W2
     sprite: {
       palette: machinePalette(ROLE.snipa),
       rows: [
@@ -154,10 +154,10 @@ export const ENEMIES = [
     speed: 30,
     damage: 9,
     radius: 7,
-    hoverDist: 150,
+    hoverDist: 160,   // R21W2: 仲間の到達上限 allyMaxReach 132 の確実に外側へ
     // FB#4: 扇状弾を +20%（150→180）で速く。count は3（唯一の複数弾攻撃だが、-10%だと2.7で3へ丸まり、
     //       2発は約-33%で「約1割減」を超え唯一の弾幕を過度に弱めるため3のまま維持）
-    attack: { type: 'spread', intervalSec: 3.8, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 9 },
+    attack: { type: 'spread', intervalSec: 3.2, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 11 },   // R21W2
     sprite: {
       palette: machinePalette(ROLE.turret),
       rows: [
