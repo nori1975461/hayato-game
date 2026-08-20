@@ -327,7 +327,9 @@ export function createFx(run) {
 
     timers.push(run.time.delayedCall(2600, finish));
     // スキップ（クリック / SPACE）
-    run.input.once('pointerdown', finish);
+    // R21W2: 攻撃が左クリック（押しっぱなし連射）になったので、そのままだと合成シネマが
+    // 押下0.4秒以内に必ずスキップされる。入場後 450ms はクリックを受け付けない。
+    run.time.delayedCall(450, () => { if (run.input) run.input.once('pointerdown', finish); });
     if (run.input.keyboard) run.input.keyboard.once('keydown-SPACE', finish);
   }
 

@@ -118,7 +118,7 @@ export class ResultScene extends Phaser.Scene {
     };
     this.input.keyboard.on('keydown-R', toTitle);
     this.input.keyboard.on('keydown-SPACE', toTitle);
-    this.input.on('pointerdown', toTitle);
+    this.time.delayedCall(450, () => { this.input.on('pointerdown', toTitle); });   // R21W2: 残クリック対策
   }
 
   update(_t, delta) {
