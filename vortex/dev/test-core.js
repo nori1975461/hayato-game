@@ -147,27 +147,43 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   assert(archeOk, 'data: 全フォームの archetype が enum 内・tex/sfx が文字列');
 }
 
-// --- Wave R4: 帯計算 formIndex=floor((lv-1)/2)%2 が近接↔遠距離を交互に切り替える ---
+// --- R21W2: フォームは「時間と個体番号」で決まる（武器レベルからは独立） ---
+// 旧実装 formIndexFor(lv)=floor((lv-1)/2)%2 は maxLevel 12 が遠距離の帯に当たるため、
+// weaponLevel 11 到達（実測94秒）以降ラン終了まで遠距離に固定されていた（遠距離時間比 実測85.7%）。
+// maxLevel を13にしても今度は近接へ固定されるだけで直らない。原因はパリティではなく
+// 「単調増加して飽和する変数の関数であること」。ここはその再発を恒久ガードする。
 {
-  const formIndexFor = (lv) => (Math.floor((lv - 1) / 2) % 2);
-  // Lv1,2=0(近接) / Lv3,4=1(遠距離) / Lv5,6=0(近接) / Lv7,8=1 / Lv9,10=0 / Lv11,12=1
-  const expect = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 0, 7: 1, 8: 1, 9: 0, 10: 0, 11: 1, 12: 1 };
-  let ok = true;
-  for (const [lv, idx] of Object.entries(expect)) {
-    if (formIndexFor(Number(lv)) !== idx) ok = false;
-  }
-  assert(ok, 'balance/orbit: 帯計算が2Lv帯ごとに近接↔遠距離を交互に切り替える');
-  // 帯境界（Lv2→3, Lv4→5, ...）で必ずフォームが反転すること
-  let flips = true;
-  for (let lv = 2; lv <= 11; lv++) {
-    const boundary = (lv % 2 === 0);   // 偶数→次の奇数で帯が変わる
-    const changed = formIndexFor(lv) !== formIndexFor(lv + 1);
-    if (boundary && !changed) flips = false;
-    if (!boundary && changed) flips = false;
-  }
-  assert(flips, 'orbit: 2Lv帯の境界でのみフォームが反転する（帯内は不変）');
-}
+  const CY = BALANCE.orbit.formCycleSec;
+  const formIndexFor = (i, t) => ((Math.floor(t / CY) + i) % 2);
+  assert(typeof CY === "number" && CY > 0, "balance: orbit.formCycleSec が正の数値");
 
+  // (a) 周期ごとに必ず反転する
+  let flips = true;
+  for (let k = 0; k < 40; k++) {
+    if (formIndexFor(0, CY * k + 0.01) === formIndexFor(0, CY * (k + 1) + 0.01)) flips = false;
+  }
+  assert(flips, "orbit: フォームは formCycleSec ごとに必ず反転する（永久固定にならない）");
+
+  // (b) 同時刻に隣り合う個体は必ず別フォーム＝常に約半分が近接で主人公の隣にいる
+  let split = true;
+  for (let k = 0; k < 12; k++) {
+    const t = CY * k + 3;
+    if (formIndexFor(0, t) === formIndexFor(1, t)) split = false;
+  }
+  assert(split, "orbit: 同時刻に隣の個体は別フォーム（常に約半数が近接＝一緒に殴っている絵）");
+
+  // (c) 武器レベルに一切依存しない（旧実装の再発ガード）
+  assert(formIndexFor.length === 2, "orbit: formIndexFor は (個体番号, 時間) の2引数＝武器レベルに依存しない");
+
+  // (d) 遠距離で過ごす時間比が 45〜55% に収まる（実測85.7%だった偏りの再発ガード）
+  let ranged = 0, total = 0;
+  for (let t = 0; t < 420; t += 0.5) {
+    for (let i = 0; i < 3; i++) { total++; if (formIndexFor(i, t) === 1) ranged++; }
+  }
+  const pct = ranged / total * 100;
+  assert(pct >= 45 && pct <= 55,
+    "orbit: 420秒×3体で遠距離フォームの時間比が45〜55%（実測85.7%の偏りの再発ガード）: " + pct.toFixed(1) + "%");
+}
 // --- R14: 主人公は近接のみ（SPEC§22）。主武器クラッシュアーム＋腕の技2種の設定が数値・妥当 ---
 {
   const H = BALANCE.hero;
@@ -187,7 +203,10 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   assert(!!M && nums.every((k) => typeof M[k] === 'number' && Number.isFinite(M[k]) && M[k] >= 0),
     'balance: hero.melee のパラメータが全て数値');
   assert(M.damage > 0 && M.intervalSec > 0, 'balance: hero.melee が実際に効く（damage/intervalSec が正）');
-  assert(M.closeMul > 1, 'balance: 踏み込みボーナス closeMul > 1（近づくほど強いという特性の根幹）');
+  // R21W2: 踏み込みの報酬は手動の一撃（hero.strike の踏み込み突進）へ移した。
+  // 自動拳は「弱い牽制」なので密着ボーナスを持たない（closeMul 1.0 を許す）。
+  assert(M.closeMul >= 1, 'balance: 自動拳の密着倍率は1.0以上（踏み込みの報酬は strike 側へ移した）');
+  assert(M.heatPerHit === 0, 'balance: 自動拳ではヒートが溜まらない（ヒートは手動の一撃の報酬）');
   assert(M.bossMul > 0 && M.bossMul <= 0.5,
     'balance: 拳のボスへのダメージは半減以下（接近戦を報いるがボス戦を壊さない）');
   assert(M.maxTargets >= 1 && M.maxTargets <= 8,
@@ -196,41 +215,90 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   assert(M.heatMax * M.heatDamageMulPerStep <= 0.6,
     'balance: ヒート満タンの火力ボーナスは+60%以内');
 
-  // --- 腕の技①ワイヤーアーム（Stage2解放） ---
-  const W = H.wireArm;
-  const wNums = ['unlockStage', 'intervalSec', 'maxLen', 'extendSpeed', 'backSec', 'turnDegPerSec',
-                 'fistRadius', 'damage', 'damagePerStage', 'maxHits', 'knockback', 'knockbackSec', 'bossMul'];
-  assert(!!W && wNums.every((k) => typeof W[k] === 'number' && Number.isFinite(W[k]) && W[k] >= 0),
-    'balance: hero.wireArm のパラメータが全て数値');
-  assert(W.unlockStage === 2, 'balance: ワイヤーアームは Stage2 で解放（腕の復元＝技の解放）');
-  assert(W.bossMul > 0 && W.bossMul <= 0.5, 'balance: ワイヤーアームのボスへのダメージは半減以下');
-  // 拳が主役であることを数値で守る（拳のDPS ≫ 腕の技のDPS）
-  const meleeDps = M.damage / M.intervalSec;
-  const wireDps = (W.damage * W.maxHits) / W.intervalSec;
-  assert(meleeDps > wireDps,
-    'balance: 拳のDPSがワイヤーアームを上回る（主武器は拳・腕の技は補助）');
+  // --- R21W2: 旧ワイヤーアーム／アームスラムは廃止した（自動発動＝プレイヤーの入力が0回） ---
+  assert(H.wireArm === undefined && H.armSlam === undefined,
+    'balance: 自動発動の腕の技が復活していない（R21W2で廃止）');
 
-  // --- 腕の技②アームスラム（Stage3解放） ---
-  const S = H.armSlam;
-  const sNums = ['unlockStage', 'cooldownSec', 'minEnemies', 'triggerRadius', 'radius', 'damage',
-                 'telegraphSec', 'knockback', 'knockbackSec', 'bossMul',
-                 'shockCount', 'shockSpeed', 'shockRadius', 'shockDamage'];
-  assert(!!S && sNums.every((k) => typeof S[k] === 'number' && Number.isFinite(S[k]) && S[k] >= 0),
-    'balance: hero.armSlam のパラメータが全て数値');
-  assert(S.unlockStage === 3, 'balance: アームスラムは Stage3 で解放（最終形＝ボスと同じ技）');
-  assert(S.telegraphSec > 0, 'balance: アームスラムに予告がある（ボスの育児安全設計と同じ文法）');
-  assert(S.minEnemies >= 2, 'balance: アームスラムは複数体が密集したときだけ出る（空振りの絵を作らない）');
-  assert(S.bossMul > 0 && S.bossMul <= 0.5, 'balance: アームスラムのボスへのダメージは半減以下');
-  // ⚠️ 恒久ガード（SPEC§23.5 の実測）：発動判定は「自分のキル圏の外側」を見なければならない。
-  // 着弾半径で数えると Stage3 では 8.6% の時間しか条件が成立せず、技が死ぬ。
-  assert(S.triggerRadius > S.radius * 2,
-    'balance: アームスラムの発動判定はキル圏の外側を見る（triggerRadius が着弾半径の2倍超）');
-  assert(S.shockCount >= 8 && S.shockSpeed > 0,
-    'balance: アームスラムの本体は放射状に走る衝撃波（8本以上・速度が正）');
-  // 少年の体格で破綻しない着弾サイズ（画面は640×360）。巨大な円にしない＝ボスの meleeRadius46 相当。
-  assert(S.radius <= 80, 'balance: アームスラムの着弾半径は80px以下（少年の叩きつけとして絵が破綻しない）');
+  // --- R21W2: 手動の一撃（ブレイクストライク） ---
+  const S = H.strike;
+  const sNums = ['reach', 'reachPerStage', 'arcDeg', 'cooldownSec', 'whiffSec', 'recoverSec',
+                 'whiffRecoverSec', 'lungeMax', 'lungeSec', 'iframeSec', 'damage', 'damagePerStage',
+                 'maxTargets', 'knockback', 'knockbackSec', 'heatPerHit', 'heatPerChain',
+                 'bossMul', 'bossBreakMul', 'bossBreakSec', 'counterMul'];
+  assert(!!S && sNums.every((k) => typeof S[k] === "number" && Number.isFinite(S[k])),
+    'balance: hero.strike のパラメータが全て数値');
+
+  // 空振りのほうが長い＝連打が支配戦略にならない（狙う意味を作る）
+  assert(S.whiffSec > S.cooldownSec,
+    'balance: 空振りのクールダウンが命中時より長い（連打を支配戦略から外す）');
+
+  // ヒート収支：手動1回あたりの加算が、その間の減衰を上回る（溜まらない技にしない）
+  assert(S.heatPerHit > M.heatDecayPerSec * S.cooldownSec,
+    'balance: 手動の一撃でヒートが実際に溜まる（加算 > クールダウン中の減衰）');
+
+  // 手動だけが等倍。仲間の対ボス倍率より十分に大きいこと＝ボス戦でも主役が主人公
+  assert(S.bossMul >= BALANCE.orbit.bossMul * 4,
+    'balance: 手動の一撃のボス倍率が仲間の4倍以上（ボス戦で手動が主役）');
+  assert(M.bossMul < S.bossMul,
+    'balance: 自動拳のボス倍率は手動より低い（自動は牽制）');
+
+  // 手動の間合いは自動より外側＝役割の分離が絵で分かる
+  assert(S.reach > M.radius && (S.reach + 2 * S.reachPerStage) > (M.radius + 2 * M.radiusPerStage),
+    'balance: 手動の一撃の間合いが自動拳より外側（全ステージで）');
+
+  // ★一撃が一撃であり続ける：Stage3の火力が終盤の最硬雑魚を1発で割れること
+  const hpEnd = BALANCE.wave.hpMultEnd;
+  const hardest = Math.max(...Object.values(ENEMIES).map((e) => e.hp)) * hpEnd;
+  assert(S.damage + 2 * S.damagePerStage >= hardest,
+    'balance: Stage3の手動一撃が終盤の最硬雑魚を1発で倒せる（' +
+    (S.damage + 2 * S.damagePerStage) + " >= " + hardest.toFixed(1) + "）");
+
+  // --- R21W2: よろけ（瀕死） ---
+  const G = BALANCE.stagger;
+  const gNums = ['sec', 'warnSec', 'speedMul', 'rebootHpRatio', 'rebootSpeedMul', 'rebootDamageMul',
+                 'gemMul', 'burstRadius', 'burstFalloff', 'burstMaxChain', 'burstDamage'];
+  assert(!!G && gNums.every((k) => typeof G[k] === "number" && Number.isFinite(G[k]) && G[k] >= 0),
+    'balance: stagger のパラメータが全て数値');
+  assert(G.speedMul > 0,
+    'balance: よろけは止まらない（speedMul>0）＝歩いてくるので被弾の緊張感が下がらない');
+  assert(G.warnSec > 0 && G.warnSec < G.sec,
+    'balance: よろけの復帰予告が寿命より短い（期限が見える）');
+  assert(G.rebootHpRatio > 0 && G.rebootHpRatio < 1,
+    'balance: 復帰体のHPは満タンではない（取りこぼしの罰であって理不尽にはしない）');
+
+  // ★獲物が必ず届く：最も遅い敵でも、よろけの寿命内に手動の間合いへ入れること
+  const slowest = Math.min(...Object.values(ENEMIES).map((e) => e.speed));
+  const travel = G.sec * slowest * G.speedMul;
+  assert(travel >= BALANCE.orbit.allyMaxReach - S.reach,
+    'balance: 最も遅い敵でもよろけの寿命内に手動の間合いへ届く（' +
+    travel.toFixed(1) + " >= " + (BALANCE.orbit.allyMaxReach - S.reach) + "）");
+
+  // --- R21W2: 仲間の到達距離（実測で最大538px＝画面外まで届いていた） ---
+  const O = BALANCE.orbit;
+  assert(typeof O.allyMaxReach === "number" && O.allyMaxReach > 0,
+    'balance: orbit.allyMaxReach が正の数値');
+  // 画面内保証半径（view高の半分180 − カメラ遅延追従のずれ）。これを超えると画面外の敵を倒す。
+  assert(O.allyMaxReach <= 163,
+    'balance: 仲間の到達が画面内保証半径163px以内（画面外の敵を倒さない）');
+  // 射手（turret）は構造的に仲間の圏外に置く＝プレイヤーが出向かないと黙らない敵を作る
+  const turret = Object.values(ENEMIES).find((e) => e.id === 'turret');
+  assert(!!turret && O.allyMaxReach < turret.hoverDist - 20,
+    'balance: 砲台の滞空距離が仲間の到達より20px以上外（射手はプレイヤーが行かないと黙らない）');
+  assert(BALANCE.archetypes.SHOT.range <= O.allyMaxReach,
+    'balance: 仲間の索敵距離が到達上限以内（届かない敵を狙って空撃ちしない）');
+
+  // 安全網の下限：最弱の仲間でも数発で獲物を作れること（弱くしすぎると手を止めた瞬間に死ぬ）
+  // 武器レベル上限まで育った最弱の仲間の1発。これで終盤の最硬雑魚を5発以内に削れること。
+  // 弱くしすぎると『手を止めた瞬間に死ぬ』ゲームになる＝安全網の下限を数値で守る。
+  // FIELD型（オーラジェリー）は毎ティック1ダメージを継続で与える設計なので、
+  // 1発の重さを見るこの判定からは除く（DPSは tickDamageAdd 側で伸びる）。
+  const hitters = Object.values(MONSTERS).filter((m) => m.forms[0].archetype !== 'FIELD');
+  const weakestBase = Math.min(...hitters.map((m) => m.baseDamage));
+  const grown = weakestBase * (1 + BALANCE.weapon.damageAddPerLevel * (BALANCE.weapon.maxLevel - 1));
+  assert(grown * 5 >= hardest,
+    'balance: 育ちきった最弱の仲間が終盤の最硬雑魚を5発以内に削れる（安全網の下限）: ' +
+    (grown * 5).toFixed(1) + ' >= ' + hardest.toFixed(1));
 }
-
 // --- R12: 被弾フィードバック（ノックバック・低HP警告）の player 設定 ---
 {
   const P = BALANCE.player;
