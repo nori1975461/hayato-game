@@ -1404,6 +1404,7 @@ export class RunScene extends Phaser.Scene {
       if (b.life <= 0) { b.active = false; continue; }
       for (const e of this.enemies) {
         if (!e.active) continue;
+        if (e.stag) continue;   // R21W2: よろけは素通り。当たり扱いにすると弾が消えて仲間の火力が無音で落ちる
         if (b.hit && b.hit.has(e.id)) continue;   // 貫通弾は同じ敵に二度当てない
         const rr = b.radius + e.radius;
         const dx = e.x - b.x, dy = e.y - b.y;
@@ -1429,6 +1430,7 @@ export class RunScene extends Phaser.Scene {
     const half = width / 2;
     for (const e of this.enemies) {
       if (!e.active) continue;
+      if (e.stag) continue;   // R21W2: よろけは素通り（弾と同じ扱いに揃える）
       // 点(e)と線分[A, A+dir*length]の距離
       const rx = e.x - x, ry = e.y - y;
       let t = rx * dirX + ry * dirY;
