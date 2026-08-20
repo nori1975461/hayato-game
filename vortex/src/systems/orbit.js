@@ -31,9 +31,14 @@ const DECO_TIERS = [
   { sats: 6, hearts: 2, halo: 2, crown: true,  ribbon: true,  wings: true,  sparks: 6, pulse: 0.18, glowMul: 2.00 },
 ];
 const decoTierIndex = (lv) => Math.min(DECO_TIERS.length - 1, Math.max(0, Math.floor((lv - 1) / 2)));
-// ── R4: 武器フォームチェンジ。weaponLevel の2Lv帯ごとに form0(近接)↔form1(遠距離)を交互に。
-// band=floor((lv-1)/2)、formIndex=band%2。帯0(Lv1-2)=近接／帯1(Lv3-4)=遠距離／帯2(Lv5-6)=近接…
-const formIndexFor = (lv) => (Math.floor((lv - 1) / 2) % 2);
+// ── R4/R21W2: 武器フォームチェンジ。form0(近接)↔form1(遠距離)。
+// ⚠️ 旧実装は weaponLevel の2Lv帯で決めていたが、maxLevel(12) が帯5＝遠距離に当たるため、
+//    weaponLevel 11 到達（実測94秒）以降ラン終了まで遠距離に固定されていた（遠距離時間比 実測85.7%）。
+//    maxLevel を13にしても formIndexFor(13)=0 で今度は近接へ固定されるだけで直らない。
+//    原因はパリティではなく「単調増加して飽和する変数の関数であること」。
+// 時間と個体番号で決める。run.rng を一切消費しない決定的な式（シード固定テストを壊さない）。
+// +i により常にパーティの約半分が近接＝誰かが必ず主人公の隣で殴っている絵になる。
+const formIndexFor = (i, t) => ((Math.floor(t / BALANCE.orbit.formCycleSec) + i) % 2);
 // 虹シマー：連続位相 ph をHUESインデックスへ巡回（各装飾で位相をずらすと全体で虹グラデに見える）
 const hueAt = (ph) => HUES[((Math.floor(ph) % HUES.length) + HUES.length) % HUES.length];
 
@@ -43,6 +48,7 @@ export function createOrbit(run) {
   const W = BALANCE.weapon;
   const orbs = [];          // 公転体の内部状態（run.party と1:1で同期）
   let angle = 0;            // 全体の公転位相（ラジアン）
+  let formPhase = -1;       // R21W2: フォーム往復の現在位相（formCycleSec ごとに繰り上がる）
   let weaponLevel = 1;      // ★取得で上がる武器レベル（全なかま共通・1..W.maxLevel）
 
   // FB#2: 合成なかまだけ「実効武器レベル」に +weaponLevelBonus（レベル起因の成長を上乗せ）。
@@ -93,7 +99,7 @@ export function createOrbit(run) {
       // R4: 現フォームを決定（進化体に forms が無ければ基本形から継承）。実効 archetype はフォーム側。
       // FB#2: フォーム帯も実効レベル基準（合成なかまは別フォーム帯になりうる）。
       const forms = src.forms || base.forms;
-      o.form = forms ? forms[formIndexFor(el)] : null;
+      o.form = forms ? forms[formIndexFor(i, run.elapsed)] : null;
       o.archetype = o.form ? o.form.archetype : base.archetype;
       // R4: フォーム帯切替で archetype が別物へ変わったら、旧 archetype の飛翔中スプライト
       //     (boomerang/ringwave) を破棄する（どの update からも参照されず画面に固着＋リークするため）。
@@ -188,8 +194,22 @@ export function createOrbit(run) {
 
       // ★武器レベルに応じた「まとう装飾」を再構築（ティアが上がるほど別物の見た目へ）
       // FB#2: 実効レベル el で選ぶので、合成なかまは装飾ティアも一段上がって見た目でも強さが伝わる。
+      clampReach(o);
       buildDeco(o, el, big);
     }
+  }
+
+  // R21W2: 仲間の到達距離を BALANCE.orbit.allyMaxReach 以内へ揃える。
+  // 合成倍率(fused.*Mult)や成長加算が個別値を跳ね上げるので、balance.js の数値表ではなくここが正典。
+  function clampReach(o) {
+    const orbR = BALANCE.orbit.baseRadius * run.stats.radiusMult;
+    const room = Math.max(8, BALANCE.orbit.allyMaxReach - orbR);
+    if (o.hitRadius   > room) o.hitRadius   = room;
+    if (o.beamLength  > room) o.beamLength  = room;
+    if (o.boomDist    > room) o.boomDist    = room;
+    if (o.ringMaxR    > room) o.ringMaxR    = room;
+    // FIELD は主人公中心なので公転半径を引かない
+    if (o.fieldRadius > BALANCE.orbit.allyMaxReach) o.fieldRadius = BALANCE.orbit.allyMaxReach;
   }
 
   function memberDamage(o) {
@@ -199,6 +219,11 @@ export function createOrbit(run) {
   }
 
   function update(dt) {
+    // R21W2: フォーム往復。位相が繰り上がった瞬間に全員まとめて作り直す。
+    // 全員が同時に反転するので rebuild は formCycleSec に1回だけ。飛翔体の破棄は
+    // rebuild 内の releaseWeaponVisuals（archetype が変わったら破棄）がそのまま担う。
+    const ph = Math.floor(run.elapsed / BALANCE.orbit.formCycleSec);
+    if (ph !== formPhase) { formPhase = ph; rebuild(); }
     const px = run.player.x, py = run.player.y;
     const angMult = run.stats.angularMult;
     const radius = BALANCE.orbit.baseRadius * run.stats.radiusMult;
@@ -232,7 +257,7 @@ export function createOrbit(run) {
     const hitR = o.hitRadius;
     const dmg = memberDamage(o);
     for (const e of run.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.stag) continue;   // R21W2: よろけは仲間の標的外
       const rr = hitR + e.radius;
       const dx = e.x - o.x, dy = e.y - o.y;
       if (dx * dx + dy * dy <= rr * rr) {
@@ -259,7 +284,7 @@ export function createOrbit(run) {
     // range 内の最寄り敵
     let best = null, bestD = A.SHOT.range * A.SHOT.range;
     for (const e of run.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.stag) continue;   // R21W2: よろけは仲間の標的外
       const dx = e.x - o.x, dy = e.y - o.y;
       const d = dx * dx + dy * dy;
       if (d < bestD) { bestD = d; best = e; }
@@ -301,7 +326,7 @@ export function createOrbit(run) {
     const doTick = o.fieldT <= 0;
     if (doTick) o.fieldT = o.fieldTickSec;
     for (const e of run.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.stag) continue;   // R21W2: よろけは仲間の標的外
       const dx = e.x - px, dy = e.y - py;
       const rr = R + e.radius;
       if (dx * dx + dy * dy <= rr * rr) {
@@ -330,7 +355,7 @@ export function createOrbit(run) {
       const range = o.boomDist * 1.5;
       let best = null, bestD = range * range;
       for (const e of run.enemies) {
-        if (!e.active) continue;
+        if (!e.active || e.stag) continue;   // R21W2: よろけは仲間の標的外
         const dx = e.x - o.x, dy = e.y - o.y;
         const d = dx * dx + dy * dy;
         if (d < bestD) { bestD = d; best = e; }
@@ -375,7 +400,7 @@ export function createOrbit(run) {
 
     const hr = o.boomRadius;
     for (const e of run.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.stag) continue;   // R21W2: よろけは仲間の標的外
       const rr = hr + e.radius;
       const ex = e.x - b.x, ey = e.y - b.y;
       if (ex * ex + ey * ey <= rr * rr) {
@@ -417,7 +442,7 @@ export function createOrbit(run) {
       g.spr.setPosition(g.cx, g.cy).setDisplaySize(size, size)
         .setAlpha(Math.max(0, 1 - g.r / o.ringMaxR));
       for (const e of run.enemies) {
-        if (!e.active || g.hitSet.has(e.id)) continue;
+        if (!e.active || e.stag || g.hitSet.has(e.id)) continue;   // R21W2: よろけは仲間の標的外
         const dx = e.x - g.cx, dy = e.y - g.cy;
         const d = Math.hypot(dx, dy);
         if (Math.abs(d - g.r) <= halfT + e.radius) {
@@ -737,7 +762,7 @@ export function createOrbit(run) {
     // orb がまだ無い場合でも band から kind を算出して返す（表示が空にならないように）。
     get currentForm() {
       if (orbs.length && orbs[0].form) return orbs[0].form;
-      const idx = formIndexFor(weaponLevel);
+      const idx = formIndexFor(0, run.elapsed);
       return { kind: idx === 0 ? 'melee' : 'ranged', name: '' };
     },
   };

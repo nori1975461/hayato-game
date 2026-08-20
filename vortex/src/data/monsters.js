@@ -507,7 +507,7 @@ export const PLAYER_SPRITES = [
 export const PLAYER_SPRITE = PLAYER_SPRITES[0];
 
 // R14（SPEC§22）: 銃は全廃した（主人公は近接のみ。旧 HERO_GUNS は削除）。
-// 遠い敵への手当てはワイヤーアーム（Stage2解放・Run.js updateHeroWire）が拳のまま担う。
+// 遠い敵への手当ては手動の一撃の踏み込み突進（R21W2・Run.js doStrike）が担う。
 
 // R12: 主人公の主武器＝クラッシュアーム。全て右向き＝打撃面(v/金)が +X 側。
 // Run.js が狙い角へ setRotation し、構え(常時)と殴り(突き出し)の両方で表示する。

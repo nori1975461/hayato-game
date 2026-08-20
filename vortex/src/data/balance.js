@@ -4,7 +4,7 @@ export const BALANCE = {
   view: { width: 640, height: 360 },
   runDurationSec: 420,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）。Wave R2でステージ尺を延長
   // R12: 被弾に「押し返される」重みを持たせる（hurtKnockback）。lowHpRatio を割ると画面周縁が赤く脈打つ。
-  player: { hp: 100, speed: 120, invulnSec: 0.8, radius: 7,
+  player: { hp: 100, speed: 120, invulnSec: 0.55, radius: 7,   // R21W2: 0.8秒では96px分を素通りできた
             hurtKnockback: 150, hurtKnockSec: 0.18, lowHpRatio: 0.3 },
 
   // 主人公＝近接のみ（R14・SPEC§22）。主武器は拳（クラッシュアーム）。銃は全廃し、
@@ -14,41 +14,26 @@ export const BALANCE = {
     // 構えの狙い角に使う索敵距離（拳とワイヤーアームが同じ角を使う）。攻撃の射程ではない。
     aimRange: 260,
 
-    // --- 腕の技①：ワイヤーアーム（Stage2で解放・自動発動・rng不使用） ---
-    // 拳が届かない敵へ片腕をワイヤーで射出し、道中の敵を殴って戻す。旧銃（range175の牽制）の
-    // 「遠い敵への手当て」役を腕の技で置き換える。主役は拳なので発動間隔は長めに留める。
-    wireArm: {
-      unlockStage: 2,
-      intervalSec: 3.2,               // 発動間隔。拳(0.3秒)の主役を食わない頻度
-      maxLen: 170, extendSpeed: 520,  // 最大到達≒旧銃射程。伸び切りまで約0.33秒
-      backSec: 0.22,                  // 手繰り戻す時間
-      turnDegPerSec: 200,             // マイルド追尾（boss.js wirearm と同じ方式・振り切れる余地を残す）
-      fistRadius: 10,                 // 拳先端の当たり半径
-      damage: 16, damagePerStage: 6,  // Stage2=16 / Stage3=22
-      maxHits: 4,                     // 1射で殴れる敵数（伸びる道中を薙ぎ払う）
-      knockback: 220, knockbackSec: 0.15,
-      bossMul: 0.5,                   // ボスへは拳と同じく半減
-    },
-
-    // --- 腕の技②：アームスラム（Stage3で解放・自動発動・rng不使用） ---
-    // 両腕を振り上げて叩きつけ、放射状の衝撃波を走らせる。boss.js armslam の**構造まで含めた**ミラー
-    // （ボスも meleeRadius46 の小さな着弾＋shockCount9 の走る衝撃波であって、巨大な円ではない）。
-    // 予告（振り上げ）→叩きつけ、はボスの予告つき攻撃（育児安全設計の名残）と同じ文法。
-    //
-    // ⚠️ 半径だけの範囲攻撃にしてはいけない（実測で判明・SPEC§23.5）：Stage3 の主人公は
-    // 拳78px＋仲間66pxで周囲を刈り続けるため、95px以内に敵が1体でもいる時間は全体の8.6%しかない。
-    // 自分のキル圏の内側を対象にする技は、条件を何体にしようと成立しない。**外へ走る波**が本体。
-    armSlam: {
-      unlockStage: 3,
-      cooldownSec: 6,
-      triggerRadius: 170,             // この距離に敵がいれば振る（波が届く範囲＝キル圏の外側を見る）
-      minEnemies: 2,                  // triggerRadius 内にこれ以上いるとき（空振りの絵を作らない）
-      radius: 62, damage: 26,         // 直接の着弾。少年の体格で破綻しない大きさに留める
-      telegraphSec: 0.35,             // 振り上げのタメ（自分の技なので短い）
-      knockback: 260, knockbackSec: 0.2,
-      shockCount: 10,                 // 放射状に走る衝撃波の本数（ボスは9・こちらは全方位10）
-      shockSpeed: 210, shockRadius: 7, shockDamage: 18, shockLife: 1.1,
-      bossMul: 0.5,
+    // --- 主武器の主役：ブレイクストライク（R21 Wave 2・手動の一撃） ---
+    // 設計の核＝「倒すのは手動の一撃」。仲間と自動拳は敵を削るだけで**とどめを刺せない**（Run.dealDamage の関門）。
+    // HPが尽きた敵は「よろけ」(BALANCE.stagger)になって漂い、この一撃だけがそれを割る。
+    // ⚠️ 距離で担当を分ける設計は実測により不可能と確定している（仲間の加害距離 中央値180px・最大538px・
+    //    画面内最大は約367px＝仲間は画面外の敵まで倒していた）。担当は距離ではなく「とどめの権利」で分ける。
+    // 旧ワイヤーアーム／アームスラムは廃止（自動発動＝プレイヤーの決断が0回だったため。R21 Wave 2で承認済み）。
+    strike: {
+      reach: 78, reachPerStage: 12,        // 扇の半径 Stage1=78 / 2=90 / 3=102（自動拳46/52/58の外側）
+      arcDeg: 96,                          // 扇の開き（カーソル方向が中心）
+      cooldownSec: 0.36,                   // 命中時のクールダウン
+      whiffSec: 0.58,                      // 空振り時（命中より長い＝連打を支配戦略から外す）
+      recoverSec: 0.10, whiffRecoverSec: 0.30,   // 硬直（この間は移動 x0.6）
+      lungeMax: 96, lungeSec: 0.09, iframeSec: 0.14,   // 踏み込み突進（＝加速して殴る）
+      damage: 34, damagePerStage: 12,      // 34 / 46 / 58。終盤の最硬雑魚(gareon 45.6)をStage3で一撃
+      maxTargets: 4,                       // 直撃の対象数（連鎖は別枠）
+      knockback: 260, knockbackSec: 0.12,  // 減衰除数が melee.knockbackSec 固定なので 0.12 に揃える
+      heatPerHit: 2, heatPerChain: 1, heatOnWhiff: -2,   // ヒートは手動でしか溜まらない
+      bossMul: 1.0,                        // 手動だけが等倍（自動は melee 0.5 / 仲間は orbit.bossMul）
+      bossBreakMul: 2.4, bossBreakSec: 1.4,   // ボスの予告を割った直後の追撃倍率と持続
+      counterMul: 1.8,                     // 予告中の敵に当てた時（atkState が telegraph）
     },
 
     // --- 主武器：クラッシュアーム（R12・自動近接連撃） ---
@@ -64,23 +49,37 @@ export const BALANCE = {
       // 全滅する（実測40秒＝31体撃破・平均撃破距離57px・間合い内で倒れた敵0体・殴り0回）。
       // ただし広げるほど拳が遠くで敵を倒してしまい、かえって敵が近づかない（70にしたら最寄り距離が
       // 27→62pxへ後退＝自己相殺）。間合いは近接らしい58に留め、頻度は敵の密度側で確保する。
-      radius: 58, radiusPerStage: 10,
-      intervalSec: 0.3,                     // 殴る間隔（旧オーラ0.5秒より速く＝連撃の手応え）
-      damage: 12, damagePerStage: 6,        // Stage1=12 / 2=18 / 3=24（1発の重みを出す）
-      maxTargets: 5,                        // 1回の振りで巻き込める敵数（囲まれても薙ぎ払える）
+      radius: 46, radiusPerStage: 6,        // R21W2: 手動(78/90/102)の内側へ。役割の分離が絵で分かる
+      intervalSec: 0.55,                    // R21W2: 牽制なので遅い（旧0.3）
+      damage: 4, damagePerStage: 2,         // R21W2: 4/6/8。実効29DPS（旧112DPS・-74%）＝削るだけ
+      maxTargets: 2,                        // R21W2: 薙ぐ絵は残すが数は絞る
       // 至近ボーナス：踏み込むほど強い。間合いを広げたぶん「踏み込む」意味が薄れないよう、
       // ボーナス圏は間合いの半分以下（26/56）に保つ＝わざわざ近づいた者だけが1.7倍を取れる。
-      closeDist: 26, closeMul: 1.7,
+      closeDist: 26, closeMul: 1.0,         // R21W2: 踏み込みの報酬は strike 側へ移した
       bossMul: 0.5,                         // ボスへは半減（接近リスクに報いるがボス戦を壊さない）
-      knockback: 150, knockbackSec: 0.12,   // 殴った敵を弾く（押し返せる手応え）
+      knockback: 120, knockbackSec: 0.12,   // 殴った敵を弾く（押し返せる手応え）
       // ヒート：連撃で腕が熱を持つ。火力（+4%/段・最大+40%）と見た目の派手さが連動する。
       // 収支に注意：殴る間隔が 0.3秒なので1回あたりの減衰は heatDecayPerSec×0.3＝0.9。
       // heatPerHit=2 との差し引きで実質 +1.1/回 ＝ 殴り続けて約3秒で満タン、離れると約3.3秒で冷める。
       // （heatPerHit=1 だと実質 +0.1/回 にしかならず、実プレイでは永遠に溜まらない。CDP実測で判明）
-      heatMax: 10, heatPerHit: 2, heatDecayPerSec: 3, heatDamageMulPerStep: 0.04,
+      heatMax: 10, heatPerHit: 0, heatDecayPerSec: 3, heatDamageMulPerStep: 0.04,   // R21W2: 自動ではヒートは溜まらない
       // 踏み込みモーション。0.14秒＝8フレームは速すぎて「殴った絵」が見えなかったので 0.2秒へ。
       punchSec: 0.2, punchLunge: 7,
     },
+  },
+
+  // R21 Wave 2: よろけ（瀕死）。仲間と自動拳はHPを0にできても**とどめを刺せず**、敵はこの状態で漂う。
+  // 「仲間が強い＝主人公の出番が減る」という逆相関を、「仲間が強い＝獲物が増える」正の相関へ反転させる。
+  // ⚠️ よろけは攻撃をやめるが**接触ダメージは維持し、主人公へ歩き続ける**。攻撃も接触も無くすと
+  //    被弾の緊張感（このゲームの2大合格基準の片方）が下がるため。実測：現行はHP30%未満の時間が0秒だった。
+  stagger: {
+    sec: 4.5, warnSec: 1.2,            // 4.5秒で復帰。残り1.2秒は橙・4Hz脈動で予告
+    speedMul: 0.55,                    // 遅くなるが止まらない（歩いて主人公の間合いへ入る）
+    tint: 0x9fe8ff, ringAlpha: 0.42,   // 青白＝「これは自分の獲物」。覚える語彙は1色だけ
+    rebootHpRatio: 0.45, rebootSpeedMul: 1.25, rebootDamageMul: 1.25, rebootTint: 0xff5a5a,
+    gemMul: 2,                         // 手動で割った時のXP倍率（殴る動機）
+    burstRadius: 76, burstFalloff: 0.92, burstMaxChain: 6,   // 炸裂連鎖（群れの中心を叩くほど得）
+    burstDamage: 16, burstDelayMs: 45,
   },
 
   // R21: 打撃感（イース風）。実プレイFB「当たった感触がほぼない・殴る爽快感が皆無」への対応。
@@ -95,27 +94,36 @@ export const BALANCE = {
     allySfxMinSec: 0.085,      // 仲間の命中音の最短間隔
     allyShakeMinSec: 0.05,     // 仲間の命中による揺れの最短間隔
     dmgTextMinSec: 0.05,       // ダメージ数字の最短間隔
-    killShakeMul: 1.6,         // 撃破した瞬間だけ揺れを増す（トドメの手応え）
+    killShakeMul: 1.35,        // 撃破した瞬間だけ揺れを増す（トドメの手応え）
+    // ★R21W2の設計原則：振幅は頻度と逆相関で設計する。被弾の9pxは酔わない（稀だから）が、
+    //   毎秒1〜3回起きる攻撃の8pxは「いきすぎ・酔う」と実プレイで判定された。
+    //   稀な出来事には大きく、頻繁な出来事には小さく割り当てる。
+    freezeCapSec: 0.16,        // ヒットストップの総量上限（被弾0.12と重なる渋滞を防ぐ）
+    chainPitchStep: 0.05, chainPitchMax: 1.45,   // 連鎖1段ごとに半音上げる
     presets: [
       // heroShake/allyShake = [振幅px, 持続ms]。stop = [最小秒, 最大秒]（power で補間）。
       {
         id: 'off', name: '現行（変更なし）',
         heroShake: [0, 0], allyShake: [0, 0], stop: [0.03, 0.03],
+        autoShake: [0, 0], strikeShake: [0, 0], breakShake: [0, 0], chainShake: [0, 0],
         allySfx: false, pitch: false, dmgText: false, squash: 0, sparkMul: 1,
       },
       {
         id: 'mild', name: 'ひかえめ',
         heroShake: [2.5, 90], allyShake: [1.2, 70], stop: [0.03, 0.045],
+        autoShake: [0, 0], strikeShake: [3, 110], breakShake: [4, 120], chainShake: [4.5, 130],
         allySfx: true, pitch: true, dmgText: false, squash: 0.10, sparkMul: 1.2,
       },
       {
         id: 'ys', name: 'イース',
         heroShake: [5, 130], allyShake: [2.2, 90], stop: [0.045, 0.075],
+        autoShake: [0, 0], strikeShake: [5, 120], breakShake: [6, 140], chainShake: [7, 150],
         allySfx: true, pitch: true, dmgText: true, squash: 0.18, sparkMul: 1.7,
       },
       {
         id: 'max', name: 'やりすぎ',
-        heroShake: [8, 170], allyShake: [3.4, 110], stop: [0.06, 0.10],
+        heroShake: [6.5, 170], allyShake: [3.4, 110], stop: [0.06, 0.10],
+        autoShake: [0, 0], strikeShake: [6, 140], breakShake: [7.5, 160], chainShake: [8, 170],
         allySfx: true, pitch: true, dmgText: true, squash: 0.26, sparkMul: 2.3,
       },
     ],
@@ -124,16 +132,22 @@ export const BALANCE = {
   // Wave R2: 公転仲間は最大3人（火力過多防止）。開始2人・180秒で3人目を解禁（強さカーブを緩やかに）
   orbit: {
     baseRadius: 48, baseAngularDeg: 120, maxSlots: 3,
+    // R21W2: 仲間の到達距離の上限。実測で仲間は最大538px先（画面外）の敵まで倒しており、
+    // 敵が主人公に届く前に消えていた＝殴る機会と殴られる脅威が同時に失われていた。
+    // 132の根拠：画面内保証半径163px未満／turret の hoverDist 160 より内側／主人公の1入力射程194px以内。
+    allyMaxReach: 132,
+    bossMul: 0.12,        // 仲間の対ボス倍率（従来は倍率なしで、主人公だけ半減という真逆の構造だった）
+    formCycleSec: 11,     // フォーム往復の周期。wave.stepSec 30 / rush 50 と位相ロックしない値
     slotSchedule: [{ untilSec: 180, slots: 2 }, { untilSec: 9999, slots: 3 }],
   },
   archetypes: {
     SLASH: { tickSec: 0.25, hitRadius: 18 },
-    SHOT:  { intervalSec: 0.88, bulletSpeed: 315, range: 220, bulletRadius: 3 },  // FB#4: 弾速+20%・手数-約1割
-    BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 160, width: 6 },
+    SHOT:  { intervalSec: 0.88, bulletSpeed: 315, range: 110, bulletRadius: 3 },  // R21W2: range は索敵のみ（飛距離は Run のリーシュが決める）
+    BEAM:  { intervalSec: 3.5, durationSec: 0.4, length: 60, width: 6 },
     FIELD: { radius: 60, slowFactor: 0.6, tickSec: 0.5, tickDamage: 1 },
     // Wave B: かわいい武器の新アーキタイプ
-    BOOMERANG: { intervalSec: 1.6, speed: 260, maxDist: 120, hitRadius: 14, tickSec: 0.25 },
-    RINGWAVE:  { intervalSec: 1.5, maxRadius: 95, expandSpeed: 220, thickness: 16 },
+    BOOMERANG: { intervalSec: 1.6, speed: 260, maxDist: 52, hitRadius: 14, tickSec: 0.25 },
+    RINGWAVE:  { intervalSec: 1.5, maxRadius: 52, expandSpeed: 220, thickness: 16 },
   },
 
   // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
@@ -156,7 +170,7 @@ export const BALANCE = {
   // R12c: 序盤の湧きが 1.9秒に1体＝0.53体/秒しかなく、拳の間合いへ敵が到達する前に
   // なかまと銃が処理しきっていた（＝突撃兵なのに殴る相手がいない）。序盤だけ約2.5倍に厚くして
   // 「群がる敵を殴り倒す」絵を成立させる（0.53体/秒→2.6体/秒）。終盤側（IntervalEnd/CountEnd）は据え置き＝最終密度は不変。
-  wave: { stepSec: 30, steps: 14, spawnIntervalStart: 1.15, spawnIntervalEnd: 0.45,
+  wave: { stepSec: 30, steps: 14, spawnIntervalStart: 0.95, spawnIntervalEnd: 0.45,
           hpMultStart: 0.9, hpMultEnd: 3.4, spawnCountStart: 3, spawnCountEnd: 5 },
   enemyCap: 220,
   // 敵数上限は時間で段階的に上がる（序盤はむしろ軽く、後半で「囲まれる」密度になる）。Wave R2で5段化
@@ -189,13 +203,13 @@ export const BALANCE = {
   weapon: {
     maxLevel: 12,
     damageAddPerLevel: 0.28,
-    slash: { hitRadiusAdd: 2.2, tickSecMult: 0.955, tickSecMin: 0.10 },
-    shot:  { intervalMult: 0.945, intervalMin: 0.18, bulletSpeedAdd: 9, bulletRadiusAdd: 0.32,
+    slash: { hitRadiusAdd: 1.6, tickSecMult: 0.955, tickSecMin: 0.10 },
+    shot:  { intervalMult: 0.945, intervalMin: 0.18, bulletSpeedAdd: 0, bulletRadiusAdd: 0.32,
              extraShotEvery: 3, maxShots: 5, spreadDeg: 10 },
-    beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 13, widthAdd: 1.1 },
-    field: { radiusAdd: 5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
-    boomerang: { intervalMult: 0.955, intervalMin: 0.5, maxDistAdd: 6, hitRadiusAdd: 0.8, speedAdd: 8 },
-    ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 5, expandSpeedAdd: 8, thicknessAdd: 0.6 },
+    beam:  { intervalMult: 0.94, intervalMin: 1.2, lengthAdd: 0.6, widthAdd: 1.1 },
+    field: { radiusAdd: 1.5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
+    boomerang: { intervalMult: 0.955, intervalMin: 0.5, maxDistAdd: 1.2, hitRadiusAdd: 0.8, speedAdd: 8 },
+    ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 1.2, expandSpeedAdd: 8, thicknessAdd: 0.6 },
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ10回まで）
@@ -220,9 +234,9 @@ export const BALANCE = {
   upgrades: [
     { id: 'atk',    label: 'こうげき +30%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
     { id: 'spin',   label: 'かいてん +35%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.35 },
-    { id: 'radius', label: 'きどう +22%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.22 },
+    { id: 'radius', label: 'きどう +12%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.12 },
     { id: 'move',   label: 'いどう +16%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.16 },
-    { id: 'hp',     label: 'たいりょく +35', desc: 'さいだいHPアップ ＋ 35かいふく',   stat: 'maxHpAdd',    add: 35 },
+    { id: 'hp',     label: 'たいりょく +30', desc: 'さいだいHPアップ ＋ すこしかいふく', stat: 'maxHpAdd',    add: 30 },
     { id: 'catch',  label: 'ほかく +10%',    desc: 'スターコアが おちやすくなる',      stat: 'captureAdd',  add: 0.10 },
     { id: 'magnet', label: 'じしゃく +50px', desc: 'ジェムを すいよせる はんい アップ', stat: 'magnetAdd',   add: 50 },
   ],
@@ -421,7 +435,7 @@ export const BALANCE = {
 
   // Wave R1: 序盤は手数(chibit)＋壁(gareon)、中盤で狙撃(snipa)/特攻(bomba)、後半で砲台(turret)も加わり役割が増える
   spawnPhases: [
-    { untilSec: 60,   weights: { chibit: 0.70, gareon: 0.30 } },
+    { untilSec: 60,   weights: { chibit: 0.58, gareon: 0.27, snipa: 0.15 } },   // R21W2: 開幕から射手を入れる（開始54秒の被弾ゼロ帯を解消）
     { untilSec: 120,  weights: { chibit: 0.42, gareon: 0.23, snipa: 0.20, bomba: 0.15 } },
     { untilSec: 240,  weights: { chibit: 0.26, gareon: 0.20, snipa: 0.20, turret: 0.19, bomba: 0.15 } },
     { untilSec: 9999, weights: { chibit: 0.18, gareon: 0.22, snipa: 0.22, turret: 0.20, bomba: 0.18 } },

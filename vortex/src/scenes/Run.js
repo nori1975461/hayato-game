@@ -64,13 +64,17 @@ export class RunScene extends Phaser.Scene {
     this.ended = false;
     this.cinematic = false;   // 合成/ボス撃破など進行停止する演出中
     this.freezeT = 0;         // ヒットストップ残り秒
-    // R14（SPEC§22）: 銃は全廃。腕の技＝ワイヤーアーム(Stage2)／アームスラム(Stage3)の状態。
-    this._wireT = BALANCE.hero.wireArm.intervalSec;
-    this._wire = null;          // 射出中の状態 { ang, len, phase:'out'|'back', backT, backFrom, hits }
-    this._wireG = null;         // ワイヤー描画用 Graphics（遅延生成・使い回し）
-    this._wireImg = null;       // 飛んでいく拳の画像（遅延生成・使い回し）
-    this._slamCd = BALANCE.hero.armSlam.cooldownSec;
-    this._slamTele = 0;         // 振り上げ予告の残り秒（>0 の間は拳を頭上へ構える）
+    // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
+    // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
+    this._strikeT = 0;          // クールダウンの残り秒
+    this._strikeRecover = 0;    // 硬直の残り秒（この間は移動が鈍る）
+    this._strikeIfr = 0;        // 踏み込み中の無敵の残り秒
+    this._lungeT = 0;           // 踏み込み突進の残り秒
+    this._lungeVX = 0; this._lungeVY = 0;
+    this._pointerSeen = false;  // マウスを一度でも使ったか（使うまではキーボードだけで完走できる）
+    this._jKey = null;
+    this._stagPool = [];        // よろけリングの使い回しプール
+    this._chainCount = 0;       // 直近の炸裂連鎖の段数（HUD/演出用）
 
     // 強化ステータス
     this.stats = {
@@ -168,6 +172,9 @@ export class RunScene extends Phaser.Scene {
     if (this.withAudio) Sound.startBgm();
 
     this.events.once('shutdown', () => {
+      for (const r of this._stagPool) r.destroy();   // R21W2: よろけリングのプール
+      this._stagPool.length = 0;
+      for (const e of this.enemies) if (e.stagRing) { e.stagRing.destroy(); e.stagRing = null; }
       if (this.boss) this.boss.destroy();
       if (this.items) this.items.destroy();
       if (this.fx && this.fx.destroy) this.fx.destroy();
@@ -186,6 +193,13 @@ export class RunScene extends Phaser.Scene {
     });
 
     const kb = this.input.keyboard;
+    // R21W2: 手動の一撃。発火は update 内の isDown ポーリング（pointerdown イベントだと
+    // 合成シネマのスキップ処理と二重発火するため）。ここでは「使ったか」だけを拾う。
+    if (this.input.mouse) this.input.mouse.disableContextMenu();
+    this.input.on('pointerdown', () => { this._pointerSeen = true; });
+    this.input.on('pointermove', () => { this._pointerSeen = true; });
+    this._jKey = kb.addKey(KC.J);   // 左クリックの代替（キーボードだけでも完走できる）
+
     kb.on('keydown-P', () => { if (!this.ended) this.togglePause(); });
     kb.on('keydown-M', () => this.toggleMute());
     kb.on('keydown-R', () => { if (this.paused) this.restartRun(); });
@@ -257,8 +271,7 @@ export class RunScene extends Phaser.Scene {
     this.updatePlayer(dt);
     this.updateHeroAim(dt);     // R14: 構えの狙い角だけを決める（銃は全廃）
     this.updateHeroMelee(dt);   // R12: 主武器（クラッシュアーム）。_punchT/_punchAng を決める
-    this.updateHeroSlam(dt);    // R14: 腕の技②アームスラム（Stage3・melee の後＝間合い情報を使う）
-    this.updateHeroWire(dt);    // R14: 腕の技①ワイヤーアーム（Stage2）
+    this.updateHeroStrike(dt);  // R21W2: 手動の一撃（melee の後＝間合い情報を使う）
     this.updateHeroFist(dt);    // R12: 殴りモーション中だけ拳を描画（melee の直後に読む）
     this.orbit.update(dt);
     this.spawner.update(dt);
@@ -314,7 +327,7 @@ export class RunScene extends Phaser.Scene {
     const P = BALANCE.player;
     if (dx || dy) {
       const inv = 1 / Math.hypot(dx, dy);
-      const sp = P.speed * this.stats.moveMult;
+      const sp = P.speed * this.stats.moveMult * (this._strikeRecover > 0 ? 0.6 : 1);   // R21W2: 硬直中は鈍る
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
     }
@@ -405,7 +418,7 @@ export class RunScene extends Phaser.Scene {
   // その反対方向へ押し返され、画面端の光り方でも「どっちからやられたか」が分かる。
   // 引数なしの旧呼び出しもそのまま動く（方向演出とノックバックが省かれるだけ）。
   hitPlayer(dmg, srcX, srcY) {
-    if (this.player.invuln > 0) return;
+    if (this.player.invuln > 0 || this._strikeIfr > 0) return;   // R21W2: 踏み込み中は無敵
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
     this.player.flashT = 0.12;
@@ -448,12 +461,14 @@ export class RunScene extends Phaser.Scene {
   }
 
   // 索敵：range 以内で最も近い敵（active のみ）。腕の技と構えが共用する。
-  nearestEnemy(range, minDist = 0) {
+  // R21W2: stagOnly=true でよろけている敵だけを探す（手動の狙いはまず獲物へ向く）
+  nearestEnemy(range, minDist = 0, stagOnly = false) {
     const px = this.player.x, py = this.player.y;
     let best = null, bestD2 = range * range;
     const min2 = minDist * minDist;
     for (const e of this.enemies) {
       if (!e.active) continue;
+      if (stagOnly && !e.stag) continue;
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
       if (d2 < min2 || d2 >= bestD2) continue;
@@ -462,184 +477,267 @@ export class RunScene extends Phaser.Scene {
     return best;
   }
 
-  // ============ 腕の技①：ワイヤーアーム（Stage2解放・SPEC§22） ============
-  // ゆりかごの腕が本来の形へ戻るほど、腕そのものが技になる。肘から先をワイヤーで射出し、
-  // 伸びる道中の敵を殴って手繰り戻す。マオウレクスの同名攻撃（boss.js wirearm）のミラー。
-  // 追尾はマイルド（振り切れる余地を残す）・rng は一切消費しない（autotest の決定性）。
-  updateHeroWire(dt) {
-    const W = BALANCE.hero.wireArm;
-    if (this.playerStage < W.unlockStage) { this.hideWire(); return; }
+  // ============ R21 Wave 2：手動の一撃（ブレイクストライク） ============
+  // このゲームの合格基準は「①攻撃の爽快感 ②被弾の緊張感」の2つだけ。
+  // 旧構造では仲間が画面外(最大538px)まで敵を掃除しており、敵が主人公に届く前に消えていた＝
+  // 殴る機会と殴られる脅威が同時に失われていた（実測：撃破シェア主人公37.9%／HP30%未満の時間0秒）。
+  // そこで「仲間と自動拳は削れるがとどめを刺せない」関門を dealDamage に置き、
+  // HPが尽きた敵は「よろけ」になって漂う。この一撃だけがそれを割る＝撃破は原則100%主人公。
+  // 距離では分けない（実測により空間分割は不可能と確定している）。分けるのは「とどめの権利」。
 
-    if (!this._wire) {
-      this._wireT -= dt;
-      if (this._wireT > 0) { this.hideWire(); return; }
-      // 拳の間合いの外にいる敵だけを狙う＝拳で殴れる相手は拳に任せる（主役を食わない）
-      const target = this.nearestEnemy(W.maxLen, this.meleeRange());
-      if (!target) return;   // 相手がいなければタイマーを保持したまま待つ
-      this._wireT = W.intervalSec;
-      this._wire = {
-        ang: Math.atan2(target.y - this.player.y, target.x - this.player.x),
-        len: 0, phase: 'out', backT: 0, backFrom: 0, hits: new Set(),
-      };
-      Sound.sfx('wireShot'); Sound.sfx('wireFly');
-      this.shake(90, 3);
-    }
+  strikeRange() {
+    const S = BALANCE.hero.strike;
+    return S.reach + (this.playerStage - 1) * S.reachPerStage;
+  }
 
-    const w = this._wire;
+  // 狙う向き。マウスを使っていればカーソル方向、まだなら最寄りのよろけ→最寄り敵。
+  strikeAim() {
     const px = this.player.x, py = this.player.y;
-    if (w.phase === 'out') {
-      // マイルド追尾（予告のない自分の技なので、ボスより素直に曲がる）
-      const t = this.nearestEnemy(W.maxLen * 1.2);
-      if (t) {
-        const desired = Math.atan2(t.y - (py + Math.sin(w.ang) * w.len),
-                                   t.x - (px + Math.cos(w.ang) * w.len));
-        const diff = Phaser.Math.Angle.Wrap(desired - w.ang);
-        const maxStep = W.turnDegPerSec * (Math.PI / 180) * dt;
-        w.ang += Math.max(-maxStep, Math.min(maxStep, diff));
-      }
-      w.len = Math.min(W.maxLen, w.len + W.extendSpeed * dt);
-      if (w.len >= W.maxLen) { w.phase = 'back'; w.backT = W.backSec; w.backFrom = w.len; }
-    } else {
-      w.backT -= dt;
-      const p = Math.max(0, Math.min(1, 1 - w.backT / W.backSec));
-      w.len = w.backFrom * (1 - p);
-      if (w.backT <= 0) { this._wire = null; this.hideWire(); return; }
+    if (this._pointerSeen && this.input.activePointer) {
+      // ★毎フレーム変換する。カメラは遅延追従(0.18)なので worldX をキャッシュすると狙いがずれる。
+      const w = this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y);
+      return Math.atan2(w.y - py, w.x - px);
     }
-
-    const fx = px + Math.cos(w.ang) * w.len;
-    const fy = py + Math.sin(w.ang) * w.len;
-    // 拳先端の当たり判定（伸びも戻りも殴る＝往復で1体につき1回まで）
-    if (w.hits.size < W.maxHits) {
-      const dmgBase = (W.damage + (this.playerStage - W.unlockStage) * W.damagePerStage)
-        * this.stats.heroMult;
-      for (const e of this.enemies) {
-        if (!e.active || w.hits.has(e.id)) continue;
-        const dx = e.x - fx, dy = e.y - fy;
-        const rr = W.fistRadius + e.radius;
-        if (dx * dx + dy * dy > rr * rr) continue;
-        w.hits.add(e.id);
-        const dmg = Math.max(1, Math.round(dmgBase * (e.isBoss ? W.bossMul : 1)));
-        this.dealDamage(e, dmg, 0xffc85a, 'hero');
-        if (e.active) {
-          const d = Math.hypot(dx, dy) || 1;
-          e.knockX = (-dx / d) * W.knockback;
-          e.knockY = (-dy / d) * W.knockback;
-          e.knockT = W.knockbackSec;
-        }
-        if (this.fx && this.fx.heroImpact) this.fx.heroImpact(fx, fy, w.ang, 0.7);
-        Sound.sfx('metalSlam');
-        if (w.hits.size >= W.maxHits) break;
-      }
-    }
-    this.drawWire(px, py, fx, fy, w.ang);
+    const t = this.nearestEnemy(BALANCE.hero.aimRange, 0, true) || this.nearestEnemy(BALANCE.hero.aimRange);
+    return t ? Math.atan2(t.y - py, t.x - px) : this._weaponAim;
   }
 
-  // 肩〜拳を結ぶケーブルと、飛んでいく拳を描く（boss.js drawWire と同じ見せ方の主人公版）。
-  drawWire(sx, sy, fx, fy, ang) {
-    if (!this._wireG) this._wireG = this.add.graphics().setDepth(11);
-    if (!this._wireImg) {
-      this._wireImg = this.add.image(0, 0, 'hero_fist' + this.playerStage)
-        .setDepth(13).setScale(2.6);
-    }
-    const g = this._wireG;
-    g.clear().setVisible(true);
-    const nx = Math.cos(ang + Math.PI / 2), ny = Math.sin(ang + Math.PI / 2);
-    const off = 2.2;
-    g.lineStyle(2.4, 0x55647c, 1);                 // 外装ケーブル2本（主人公の装甲色）
-    g.lineBetween(sx + nx * off, sy + ny * off, fx + nx * off, fy + ny * off);
-    g.lineBetween(sx - nx * off, sy - ny * off, fx - nx * off, fy - ny * off);
-    g.lineStyle(1.4, 0xffe9a8, 0.9);               // 発光コア（味方の攻撃＝金白で統一。R19：旧アンバーは特攻ボンバの橙と ΔE 7.9 で紛らわしかった）
-    g.lineBetween(sx, sy, fx, fy);
-    g.fillStyle(0xcfe0f2, 1);                      // 節（スチール）
-    for (let i = 1; i < 6; i++) {
-      const t = i / 6;
-      g.fillCircle(sx + (fx - sx) * t, sy + (fy - sy) * t, 1.5);
-    }
-    this._wireImg.setTexture('hero_fist' + this.playerStage)
-      .setScale(2.6 + (this.playerStage - 1) * 0.4)
-      .setPosition(fx, fy).setRotation(ang)
-      .setFlipY(Math.cos(ang) < 0)
-      .setVisible(true);
-  }
-
-  hideWire() {
-    if (this._wireG) this._wireG.clear().setVisible(false);
-    if (this._wireImg) this._wireImg.setVisible(false);
-  }
-
-  // ============ 腕の技②：アームスラム（Stage3解放・SPEC§22） ============
-  // 両腕を振り上げて叩きつける範囲打撃。マオウレクスの armslam のミラー。
-  // 予告（振り上げ）→叩きつけ という文法もボスと同じ＝「壊れ方の一致」を操作感で見せる。
-  // 囲まれたときだけ出る（minEnemies）＝空振りの絵を作らず、密集を捌く技として意味を持たせる。
-  updateHeroSlam(dt) {
-    const S = BALANCE.hero.armSlam;
-    if (this.playerStage < S.unlockStage) return;
-
-    if (this._slamTele > 0) {
-      this._slamTele -= dt;
-      if (this._slamTele <= 0) this.doHeroSlam();
-      return;
-    }
-    this._slamCd -= dt;
-    if (this._slamCd > 0) return;
-
-    // ⚠️ 判定は着弾半径(radius)ではなく triggerRadius で行う。自分のキル圏の内側には敵が
-    // ほとんど存在しない（実測 8.6%）ので、着弾半径で数えると永久に発動しない（SPEC§23.5）。
+  // 踏み込みの距離を決めるための標的（扇の中で最も近い敵）
+  strikeTarget(ang) {
+    const S = BALANCE.hero.strike;
     const px = this.player.x, py = this.player.y;
-    let n = 0;
-    for (const e of this.enemies) {
-      if (!e.active) continue;
-      const dx = e.x - px, dy = e.y - py;
-      if (dx * dx + dy * dy <= S.triggerRadius * S.triggerRadius) n++;
-      if (n >= S.minEnemies) break;
-    }
-    if (n < S.minEnemies) return;
-    this._slamTele = S.telegraphSec;   // 振り上げ開始（updateHeroFist が拳を頭上へ持ち上げる）
-    Sound.sfx('warning');
-  }
-
-  doHeroSlam() {
-    const S = BALANCE.hero.armSlam;
-    this._slamCd = S.cooldownSec;
-    const px = this.player.x, py = this.player.y;
-    const dmgBase = S.damage * this.stats.heroMult;
+    const half = Phaser.Math.DegToRad(S.arcDeg) * 0.5;
+    const maxD = this.strikeRange() + S.lungeMax;
+    let best = null, bestD2 = maxD * maxD;
     for (const e of this.enemies) {
       if (!e.active) continue;
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
-      const rr = S.radius + e.radius;
-      if (d2 > rr * rr) continue;
-      const dmg = Math.max(1, Math.round(dmgBase * (e.isBoss ? S.bossMul : 1)));
-      this.dealDamage(e, dmg, 0xffd23f, 'hero');
+      if (d2 >= bestD2) continue;
+      if (Math.abs(this.angDiff(Math.atan2(dy, dx), ang)) > half) continue;
+      bestD2 = d2; best = e;
+    }
+    return best;
+  }
+
+  angDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+
+  updateHeroStrike(dt) {
+    const S = BALANCE.hero.strike;
+    if (this._strikeT > 0) this._strikeT -= dt;
+    if (this._strikeRecover > 0) this._strikeRecover -= dt;
+    if (this._strikeIfr > 0) this._strikeIfr -= dt;
+
+    // 踏み込み突進（＝加速して殴る）。速度は残り時間に比例して落ちる ease-out。
+    // ピーク速度を 2L/T にすると積分が L になり、狙った距離ちょうど進む。
+    if (this._lungeT > 0) {
+      const k = Math.max(0, this._lungeT / S.lungeSec);
+      this._lungeT -= dt;
+      this.player.x += this._lungeVX * k * dt;
+      this.player.y += this._lungeVY * k * dt;
+    }
+
+    if (this._strikeT > 0 || this.cinematic || this.paused || this.ended) return;
+    const p = this.input.activePointer;
+    const want = (p && p.isDown) || (this._jKey && this._jKey.isDown);
+    if (want) this.doStrike();
+  }
+
+  doStrike() {
+    const S = BALANCE.hero.strike;
+    const G = BALANCE.stagger;
+    const P = this.hitFeel();
+    const M = BALANCE.hero.melee;
+    const px = this.player.x, py = this.player.y;
+    const ang = this.strikeAim();
+    this._weaponAim = ang;
+
+    // 踏み込み：標的までの距離ぶんだけ詰める（近い敵には出ず、遠い敵には出る＝1入力で射程可変）
+    const tgt = this.strikeTarget(ang);
+    let lunge = 0;
+    if (tgt) {
+      const d = Math.hypot(tgt.x - px, tgt.y - py);
+      lunge = Math.max(0, Math.min(S.lungeMax, d - this.strikeRange() * 0.6));
+    }
+    if (lunge > 0) {
+      this._lungeT = S.lungeSec;
+      this._lungeVX = Math.cos(ang) * lunge * 2 / S.lungeSec;
+      this._lungeVY = Math.sin(ang) * lunge * 2 / S.lungeSec;
+      this._strikeIfr = S.iframeSec;
+    }
+    // 判定は踏み込み後の位置で、押した瞬間に確定させる（入力の遅延をゼロにするため）。
+    const hx = px + Math.cos(ang) * lunge, hy = py + Math.sin(ang) * lunge;
+    const R = this.strikeRange();
+    const half = Phaser.Math.DegToRad(S.arcDeg) * 0.5;
+
+    const list = [];
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      const dx = e.x - hx, dy = e.y - hy;
+      const rr = R + e.radius;
+      if (dx * dx + dy * dy > rr * rr) continue;
+      if (Math.abs(this.angDiff(Math.atan2(dy, dx), ang)) > half) continue;
+      list.push(e);
+      if (list.length >= S.maxTargets) break;
+    }
+
+    this._punchAng = ang;
+    this._punchT = M.punchSec;
+
+    // ── 空振り：音も揺れも出さない。当たった時との差を作ることが目的。
+    if (list.length === 0) {
+      this._strikeT = S.whiffSec;
+      this._strikeRecover = S.whiffRecoverSec;
+      this._heat = Math.max(0, this._heat + S.heatOnWhiff);
+      Sound.sfx('tick', 0, 0.7);
+      return;
+    }
+
+    const heatMul = 1 + this._heat * M.heatDamageMulPerStep;
+    const dmgBase = (S.damage + (this.playerStage - 1) * S.damagePerStage)
+      * this.stats.heroMult * heatMul;
+    let broke = 0, chain = 0, hitBoss = false;
+    for (const e of list) {
+      if (!e.active) continue;
+      if (e.stag) {
+        // よろけを割る＝本命。炸裂が周囲のよろけへ連鎖する（群れの中心を叩くほど得）。
+        const r = this.burstStagger(e.x, e.y);
+        broke += r.total; chain = Math.max(chain, r.chain);
+        continue;
+      }
+      if (e.isBoss) {
+        hitBoss = true;
+        if (this.boss && this.boss.breakTelegraph && this.boss.breakTelegraph()) chain = Math.max(chain, 1);
+      }
+      // 予告中の敵に当てるとカウンター（＝敵の攻撃を止めた証明）
+      let mul = 1;
+      if (e.atkState === 'telegraph') {
+        mul = S.counterMul;
+        e.atkState = 'ready';
+        e.atkT = (e.def.attack ? e.def.attack.intervalSec : 1);
+        if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
+      }
+      if (e.isBoss) mul *= S.bossMul;
+      this.dealDamage(e, Math.max(1, Math.round(dmgBase * mul)), 0xffd23f, 'manual');
       if (e.active) {
-        const d = Math.sqrt(d2) || 1;
-        e.knockX = (dx / d) * S.knockback;
-        e.knockY = (dy / d) * S.knockback;
+        const d = Math.hypot(e.x - hx, e.y - hy) || 1;
+        e.knockX = ((e.x - hx) / d) * S.knockback;
+        e.knockY = ((e.y - hy) / d) * S.knockback;
         e.knockT = S.knockbackSec;
       }
     }
-    // 放射状に走る衝撃波。**これが技の本体**＝キル圏の外にいる敵へ届く唯一の手段。
-    // ボスの doSlam（shockCount 本を等間隔に撒く）と同じ構造。rng は使わない。
-    const sdmg = Math.max(1, Math.round(S.shockDamage * this.stats.heroMult));
-    for (let i = 0; i < S.shockCount; i++) {
-      const a = (Math.PI * 2 * i) / S.shockCount;
-      this.spawnBullet(px, py, Math.cos(a) * S.shockSpeed, Math.sin(a) * S.shockSpeed,
-        0xffd23f, sdmg, S.shockRadius, 'bullet', 3);   // pierce3＝波は数体を貫いて進む
+
+    this._chainCount = chain;
+    this._strikeT = S.cooldownSec;
+    this._strikeRecover = S.recoverSec;
+    const before = this._heat;
+    this._heat = Math.min(M.heatMax, this._heat + S.heatPerHit + S.heatPerChain * chain);
+    if (before < M.heatMax && this._heat >= M.heatMax) Sound.sfx('heatMax');
+    const heatNow = this._heat / M.heatMax;
+
+    if (this.fx && this.fx.heroImpact) {
+      this.fx.heroImpact(hx + Math.cos(ang) * R * 0.5, hy + Math.sin(ang) * R * 0.5, ang, heatNow);
     }
-    // 叩きつけの衝撃：広がるリング＋粒子＋重い金属音＋短いヒットストップ（全画面αは使わない）
-    const ring = this.add.image(px, py, 'w_ring').setBlendMode(ADD).setDepth(13)
-      .setTint(0xffd23f).setDisplaySize(S.radius * 0.6, S.radius * 0.6).setAlpha(0.85);
-    this.tweens.add({
-      targets: ring, displayWidth: S.radius * 2.4, displayHeight: S.radius * 2.4,
-      alpha: 0, duration: 320, onComplete: () => ring.destroy(),
-    });
-    this.spawnParticles(px, py, 0xffd23f, 18);
-    if (this.fx && this.fx.heroImpact) this.fx.heroImpact(px, py, this._weaponAim, 1);
-    Sound.sfx('metalSlam');
-    this.shake(240, 6);
-    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.06);
+    // 振幅は頻度と逆相関で割り当てる（自動0／通常5／ブレイク6／連鎖3段以上7）。
+    const sh = chain >= 3 ? P.chainShake : broke > 0 ? P.breakShake : P.strikeShake;
+    if (sh && sh[0] > 0) this.shake(sh[1], sh[0]);
+    if (!this.cinematic) {
+      const stop = broke > 0 ? 0.075 : 0.05;
+      this.freezeT = Math.min(BALANCE.hitFeel.freezeCapSec, Math.max(this.freezeT, stop));
+    }
+    if (broke > 0) {
+      Sound.sfx('metalSlam');
+      const pit = Math.min(BALANCE.hitFeel.chainPitchMax, 1 + BALANCE.hitFeel.chainPitchStep * chain);
+      Sound.sfx('heroPunch', heatNow, pit);
+    } else {
+      Sound.sfx('heroPunch', heatNow, P.pitch ? this.hitfx.pitch() : 1);
+    }
+    if (hitBoss && this.fx && this.fx.hitSpark) this.fx.hitSpark(hx, hy, 0xffd23f);
   }
 
+  // ============ よろけ（瀕死） ============
+
+  // 仲間・自動拳がHPを削りきった敵はここへ来る。倒れずに漂い、主人公の一撃を待つ。
+  // ⚠️ 攻撃はやめるが接触ダメージは維持し、主人公へ歩き続ける（②被弾の緊張感を下げないため）。
+  enterStagger(e) {
+    const G = BALANCE.stagger;
+    e.stag = true;
+    e.stagT = G.sec;
+    e.hp = 1;
+    e.atkState = 'ready';
+    e.atkT = 1e9;               // 予告付き攻撃は撃たない
+    e.dashT = 0;
+    if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
+    if (!e.stagRing) {
+      e.stagRing = this._stagPool.pop() || this.add.image(e.x, e.y, 'w_ring').setBlendMode(ADD).setDepth(12);
+      e.stagRing.setVisible(true);
+    }
+  }
+
+  // 4.5秒放置すると復帰する。強くなって戻るので「殴らないと損」になる。
+  // 復帰体は二度とよろけない＝仲間が普通に倒せる（詰み防止の安全弁）。報酬はXPのみ。
+  rebootEnemy(e) {
+    const G = BALANCE.stagger;
+    this.clearStagger(e);
+    e.rebooted = true;
+    e.noReward = true;
+    e.hp = Math.max(1, Math.round(e.maxHp * G.rebootHpRatio));
+    e.speed *= G.rebootSpeedMul;
+    e.damage = Math.round(e.damage * G.rebootDamageMul);
+    e.atkT = e.def.attack ? e.def.attack.intervalSec * 0.5 : 0;
+  }
+
+  // リングの破棄。撃破／復帰／プール返却／シーン終了の全経路から呼ぶ。
+  clearStagger(e) {
+    if (e.stagRing) {
+      e.stagRing.setVisible(false);
+      this._stagPool.push(e.stagRing);
+      e.stagRing = null;
+    }
+    e.stag = false;
+    e.stagT = 0;
+  }
+
+  // 炸裂連鎖。よろけを割ると周囲のよろけへ広がる＝単体より群れの中心を叩く方が得。
+  // 幅優先で広げ、visited で二度処理しない。健常敵には burstDamage を通す（削りにはなる）。
+  burstStagger(x0, y0) {
+    const G = BALANCE.stagger;
+    const seen = new Set();
+    let frontier = [{ x: x0, y: y0 }];
+    let chain = 0, total = 0;
+    while (frontier.length > 0 && chain < G.burstMaxChain) {
+      const r = G.burstRadius * Math.pow(G.burstFalloff, chain);
+      const r2 = r * r;
+      const next = [];
+      // 走査中に killEnemy が分裂で enemies へ push しうるので、長さを先に固定する
+      const len = this.enemies.length;
+      for (const pt of frontier) {
+        for (let i = 0; i < len; i++) {
+          const o = this.enemies[i];
+          if (!o || !o.active || o.isBoss || seen.has(o.id)) continue;
+          const dx = o.x - pt.x, dy = o.y - pt.y;
+          if (dx * dx + dy * dy > r2) continue;
+          seen.add(o.id);
+          if (o.stag) {
+            next.push({ x: o.x, y: o.y });
+            this.spawnHitMark(o.x, o.y, G.tint);
+            this.killEnemy(o, G.tint, 'manual');
+            total++;
+          } else {
+            this.dealDamage(o, G.burstDamage, G.tint, 'manual');
+          }
+        }
+      }
+      frontier = next;
+      chain++;
+    }
+    return { total, chain };
+  }
   // R12: 主人公の主武器＝クラッシュアーム（自動近接連撃）。旧スターオーラ（0.5秒ごと4ダメージの
   // 実質的な飾り）を置き換える、突撃兵の主役。
   //
@@ -677,7 +775,7 @@ export class RunScene extends Phaser.Scene {
     let killedThisSwing = false;   // R21: トドメを刺した振りだけ揺れを増す
     let bestAng = this._weaponAim, bestD2 = Infinity;
     for (const e of this.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.stag) continue;   // R21W2: よろけは自動の対象外（手動の獲物）
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
       const rr = R + e.radius;
@@ -724,11 +822,14 @@ export class RunScene extends Phaser.Scene {
       const stop = P.stop[0] + (P.stop[1] - P.stop[0]) * power;
       this.freezeT = Math.max(this.freezeT, stop);
     }
-    if (P.heroShake[0] > 0) {
+    // R21W2: 自動は「弱い牽制」なので揺らさない（振幅は頻度と逆相関＝頻繁な事象は小さく）。
+    // 手動の一撃だけが画面を動かすことで、どちらが主役かが体で分かる。
+    const ash = P.autoShake || [0, 0];
+    if (ash[0] > 0) {
       const mul = killedThisSwing ? BALANCE.hitFeel.killShakeMul : 1;
-      this.shake(P.heroShake[1], P.heroShake[0] * (0.7 + 0.3 * power) * mul);
+      this.shake(ash[1], ash[0] * (0.7 + 0.3 * power) * mul);
     }
-    Sound.sfx('heroPunch', heatNow, P.pitch ? this.hitfx.pitch() : 1);
+    Sound.sfx('heroPunch', heatNow * 0.3, P.pitch ? this.hitfx.pitch() : 1);
   }
 
   // R12: 殴りモーション中だけ拳を前方へ突き出して描く。素早く出て、ゆっくり戻る。
@@ -742,17 +843,18 @@ export class RunScene extends Phaser.Scene {
     const ext = punching ? Math.max(0.45, p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7) : 0.45;
     // 構え中は狙い角へ（＝敵の方へ拳を向けて構える）。殴る瞬間は殴った相手の方向で固定。
     const ang = punching ? this._punchAng : this._weaponAim;
-    // R14: アームスラムの予告中は拳を頭上へ振り上げる（ボスの armPose のミラー）。
-    // 予告→叩きつけが見えるように、この間は通常の構えより高く・前へ出さない。
-    if (this._slamTele > 0) {
-      const S = BALANCE.hero.armSlam;
-      const up = 1 - Math.max(0, this._slamTele / S.telegraphSec);   // 0→1 で振り上がる
+    // R21W2: 踏み込み突進の最中は拳を伸ばし切ったまま前へ出す（＝加速して殴っている絵）。
+    if (this._lungeT > 0) {
+      const S = BALANCE.hero.strike;
+      const k = Math.max(0, this._lungeT / S.lungeSec);
+      const r = 22 + (this.playerStage - 1) * 7 + 16 * k;
       this.playerFistImg
-        .setPosition(this.player.x, this.player.y - 14 - 16 * up)
-        .setRotation(-Math.PI / 2)
+        .setPosition(this.player.x + Math.cos(this._punchAng) * r,
+                     this.player.y + Math.sin(this._punchAng) * r)
+        .setRotation(this._punchAng)
         .setFlipY(false)
         .setTint(0xffd23f)
-        .setAlpha(0.95)
+        .setAlpha(1)
         .setVisible(this.playerImg.visible);
       return;
     }
@@ -802,6 +904,8 @@ export class RunScene extends Phaser.Scene {
       chargeState: 'approach', chargeT: 0, dashX: 0, dashY: 0,
       knockX: 0, knockY: 0, knockT: 0,   // R12: 殴られたときのノックバック（プール再利用時に必ず0へ戻す）
       squashT: 0, squashAmp: 0,          // R21: 被弾のつぶれ（プール再利用時に必ず0へ戻す）
+      // R21W2: よろけ（瀕死）。spawnEnemy は毎回リテラルを作り直すのでここに書けば状態は漏れない。
+      stag: false, stagT: 0, stagRing: null, rebooted: false, noReward: false,
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
@@ -816,6 +920,7 @@ export class RunScene extends Phaser.Scene {
 
   releaseEnemy(e) {
     if (e.isBoss) return; // ボスの表示は boss.js が破棄する（プール混入禁止）
+    this.clearStagger(e);   // R21W2: よろけリングの破棄（プール返却の経路）
     if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }  // 予告中に倒された照準ラインの後始末
     e.spr.setVisible(false).clearTint();
     e.glow.setVisible(false);
@@ -832,7 +937,9 @@ export class RunScene extends Phaser.Scene {
       let dx = px - e.x, dy = py - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       const nx = dx / dist, ny = dy / dist;
-      const slow = e.slowMark === this.elapsed && !e.isBoss ? F.slowFactor : 1;
+      let slow = e.slowMark === this.elapsed && !e.isBoss ? F.slowFactor : 1;
+      // R21W2: よろけは遅くなるが止まらない。歩いて主人公の間合いへ入ってくる＝獲物が届く。
+      if (e.stag) slow *= BALANCE.stagger.speedMul;
       let vx = 0, vy = 0;
 
       if (e.movement === 'chase') {
@@ -856,7 +963,7 @@ export class RunScene extends Phaser.Scene {
         vy = (ny * 0.75 + nx * swirl) * e.speed;
       } else if (e.movement === 'hover') {
         // 砲台ドローン：目標距離を保って浮遊（近すぎ→後退・遠すぎ→接近）＋横ドリフト（決定的）
-        const want = e.def.hoverDist || 150;
+        const want = e.stag ? 0 : (e.def.hoverDist || 150);   // R21W2: よろけた砲台は逃げない
         const radial = dist > want + 10 ? 1 : dist < want - 10 ? -1 : 0;
         const drift = Math.sin(this.elapsed * 1.5 + e.sinePhase);
         vx = nx * e.speed * radial - ny * e.speed * 0.5 * drift;
@@ -905,12 +1012,32 @@ export class RunScene extends Phaser.Scene {
       if (e.flashT > 0) {
         e.flashT -= dt;
         e.spr.setTint(0xffffff);
+      } else if (e.stag) {
+        // R21W2: よろけ＝青白。これ1色だけが「自分の獲物」の記号（覚える語彙を増やさない）。
+        // 残り warnSec で橙・4Hz脈動＝期限が見える（既存の予告10Hz・チャージ16Hzより遅い）。
+        const G = BALANCE.stagger;
+        const warn = e.stagT <= G.warnSec && Math.sin(this.elapsed * Math.PI * 8) > 0;
+        e.spr.setTint(warn ? 0xffa62b : G.tint);
       } else if (e.chargeState !== 'wind') {
         e.spr.clearTint();
       }
 
+      // R21W2: よろけの寿命とリング。放置すると復帰する（強くなって戻る＝殴らないと損）。
+      if (e.stag) {
+        const G = BALANCE.stagger;
+        e.stagT -= dt;
+        if (e.stagRing) {
+          const k = Math.max(0, e.stagT / G.sec);
+          const rr = (e.radius * 2 + 14) * (0.55 + 0.75 * k);   // 時間とともに痩せる＝期限が見える
+          e.stagRing.setPosition(e.x, e.y).setDisplaySize(rr, rr)
+            .setTint(e.stagT <= G.warnSec ? 0xffa62b : G.tint)
+            .setAlpha(G.ringAlpha * (0.45 + 0.55 * k));
+        }
+        if (e.stagT <= 0) this.rebootEnemy(e);
+      }
+
       // Wave R1: 予告付き攻撃（quake/divebomb/selfdestruct/lockbeam/spread）
-      if (e.def.attack) {
+      if (e.def.attack && !e.stag) {
         this.updateEnemyAttack(e, dt);
         if (!e.active) continue;   // selfdestruct で自壊した個体は接触判定に進めない
       }
@@ -1012,7 +1139,7 @@ export class RunScene extends Phaser.Scene {
       if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
       this.spawnParticles(e.x, e.y, e.color, 22);
       this.popFx(e.x, e.y, e.color);
-      this.killEnemy(e, e.color);
+      this.killEnemy(e, e.color, 'self');
     } else if (A.type === 'lockbeam') {
       // 狙撃：ロック方向へ速い弾を1発
       this.spawnFoeBullet(e.x, e.y, e.lockX, e.lockY, A.bulletSpeed, A.bulletRadius, A.damage, e.color, 'dart');
@@ -1081,8 +1208,22 @@ export class RunScene extends Phaser.Scene {
   // 仲間の命中音と揺れ）をここに集約する。src 省略時は従来どおりの最小反応で後方互換。
   // ⚠️ 主人公の揺れ・ヒットストップ・打撃音は updateHeroMelee 側が持つ。1回の振りで最大5体に
   //    当たるので、ここで鳴らすと1発の殴りで5回揺れて5回鳴る（＝渋滞して逆に何も感じない）。
+  // R21W2: src は attacker の種別。
+  //   'manual' = 主人公の手動の一撃（＋必殺）／'hero' = 主人公の自動拳／'ally' = 仲間
+  // ★とどめを刺せるのは manual だけ。それ以外はHPが尽きても「よろけ」にしかできない。
   dealDamage(e, dmg, color, src) {
     if (!e.active) return;
+    // ボス倍率：全経路がここを通るので orbit.js を触らずに漏れなく効く。
+    // 従来は仲間に倍率が無く主人公だけ半減という、方針と真逆の構造だった。
+    if (e.isBoss) {
+      if (src === 'ally') dmg = Math.max(1, Math.round(dmg * BALANCE.orbit.bossMul));
+      else if (src === 'manual' && this.boss && this.boss.staggered) {
+        dmg = Math.round(dmg * BALANCE.hero.strike.bossBreakMul);
+      }
+    }
+    // よろけ中は仲間・自動拳が一切通らない（削りも無効＝再よろけのループを作らない）。
+    // 音も数字も出さずに素通りさせる＝「仲間が引いた」ことが静けさで分かる。
+    if (e.stag && src !== 'manual') return;
     e.hp -= dmg;
     e.flashT = 0.08;
     this.spawnHitMark(e.x, e.y, color);
@@ -1120,7 +1261,11 @@ export class RunScene extends Phaser.Scene {
       }
     }
 
-    if (willKill) this.killEnemy(e, color);
+    // ★とどめの関門。ボスと復帰体だけは例外（復帰体は詰み防止の安全弁）。
+    if (willKill) {
+      if (src === 'manual' || e.isBoss || e.rebooted) this.killEnemy(e, color, src);
+      else { e.hp = 1; this.enterStagger(e); }
+    }
   }
 
   // R21: 現在の打撃感プリセット。ゲーム内でキー1〜4から切り替えて体感で選ぶ。
@@ -1144,24 +1289,31 @@ export class RunScene extends Phaser.Scene {
     });
   }
 
-  killEnemy(e, color) {
+  // R21W2: by は撃破の帰属。手動でよろけを割った撃破だけがXP倍になる。
+  killEnemy(e, color, by) {
     if (!e.active) return;
     if (e.isBoss) { e.active = false; this.boss.onBossKilled(e); return; } // ボス撃破は専用演出へ
+    const wasStag = !!e.stag;
     e.active = false;
+    this.clearStagger(e);
+    // 復帰体（放置して強くなって戻った敵）は報酬なし＝取りこぼしの罰。XPだけは出す。
+    const rewarded = !e.noReward;
     this.kills++;
-    this.special.addKill();
+    if (rewarded) this.special.addKill();
     // シネマ中はcompactが回らないので、その場で見た目を消す（撃破の手応えを遅らせない）
     e.spr.setVisible(false);
     e.glow.setVisible(false);
     const burst = e.isElite ? 20 : (8 + Math.floor(this.rng.random() * 5));
     this.spawnParticles(e.x, e.y, e.color, burst);
     if (e.isElite) this.shake(100, 4);
-    // XPジェム
-    this.spawnGem(e.x, e.y, e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue, e.isElite);
-    // スターコア抽選
-    this.capture.onEnemyKilled(e);
-    // FB#1: 回復ハート抽選（雑魚は低確率・エリートは高確率）。ドロップ判定も run.rng を使う。
-    this.rollHealDrop(e);
+    // XPジェム（R21W2: 手動でよろけを割ると倍。殴れば報酬・放置すれば損）
+    const gemBase = e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue;
+    const gemMul = (by === 'manual' && wasStag) ? BALANCE.stagger.gemMul : 1;
+    this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
+    if (rewarded) {
+      this.capture.onEnemyKilled(e);   // スターコア抽選
+      this.rollHealDrop(e);            // FB#1: 回復ハート抽選（run.rng を使う）
+    }
     this.popFx(e.x, e.y, e.color);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
     const sp = e.def && e.def.split;
@@ -1236,8 +1388,14 @@ export class RunScene extends Phaser.Scene {
   }
 
   updateBullets(dt) {
+    // R21W2: 味方弾のリーシュ。主人公から allyMaxReach を超えたら消える。
+    // 実測で仲間は最大538px（画面外）の敵まで倒しており、敵が主人公に届く前に消えていた。
+    // 飛距離を決めているのは life(1.1秒)×弾速であって archetypes.SHOT.range ではない（range は索敵専用）。
+    const lpx = this.player.x, lpy = this.player.y;
+    const leash2 = BALANCE.orbit.allyMaxReach * BALANCE.orbit.allyMaxReach;
     for (const b of this.bullets) {
       if (!b.active) continue;
+      if ((b.x - lpx) * (b.x - lpx) + (b.y - lpy) * (b.y - lpy) > leash2) { b.active = false; continue; }
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;

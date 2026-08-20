@@ -45,9 +45,9 @@ export function createSpecial(run) {
         const dx = e.x - px, dy = e.y - py;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const mul = dist <= ds.nearDist ? ds.nearMul : dist <= ds.midDist ? ds.midMul : ds.farMul;
-        run.dealDamage(e, Math.round(S.bossDamage * mul), e.color);   // 即死させずダメージのみ（撃破経路は dealDamage が持つ）
+        run.dealDamage(e, Math.round(S.bossDamage * mul), e.color, 'manual');   // R21W2: 手動発動なので帰属は manual
       } else {
-        run.killEnemy(e, e.color);   // 雑魚は距離を問わず即死（掃討の爽快感を維持）
+        run.killEnemy(e, e.color, 'manual');   // R21W2: 手動発動なので帰属は manual（よろけも巻き込んで割れる）
       }
     }
     run.shake(260, 6);
