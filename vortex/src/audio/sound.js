@@ -119,6 +119,13 @@ const SFX = {
   },
   // R14: heroGun（銃発射音）と starShot（旧主人公ショット音）は銃全廃に伴い削除。
   // 腕の技は既存の wireShot/wireFly/metalSlam を使う（新規音は追加していない）。
+  // R21W2: カウンター（敵の予告を殴って止めた）。20回/分鳴るので極短・控えめに。
+  // pop より高く硬い「キィン」で、通常ヒット(hit)と聞き分けられるようにする。
+  counter() {
+    tone({ type: 'square', freq: 1180, freqEnd: 1760, dur: 0.05, gain: 0.13 });
+    tone({ type: 'triangle', freq: 2360, freqEnd: 1560, dur: 0.05, gain: 0.06 });
+    noiseHit({ dur: 0.03, gain: 0.05, hpFreq: 5000, lpFreq: 13000 });
+  },
   // 雑魚撃破の「ポンっ」（Wave C）。多発するので極短＋控えめゲインで耳に痛くしない
   pop() {
     tone({ type: 'sine', freq: 880, freqEnd: 1320, dur: 0.06, gain: 0.12 });

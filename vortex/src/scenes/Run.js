@@ -623,7 +623,10 @@ export class RunScene extends Phaser.Scene {
       let mul = 1;
       if (e.atkState === 'telegraph') {
         mul = S.counterMul;
-        counters++;   // R21W2: 発火頻度を実測してから演出の振幅を決める（未演出）
+        counters++;
+        // 実測20.4回/分。頻繁なので音とスパークだけ＝テキストも画面揺れも出さない。
+        Sound.sfx('counter');
+        if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, 0xff6ec7);
         e.atkState = 'ready';
         e.atkT = (e.def.attack ? e.def.attack.intervalSec : 1);
         if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
