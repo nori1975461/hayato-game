@@ -1167,6 +1167,9 @@ export function createBoss(run) {
     boss.flashT -= dt;
     let tint = null;
     if (boss.flashT > 0) tint = 0xffffff;
+    // R21W2: 予告を割った直後の追撃窓（bossBreakSec）。倍率2.4が効いているのに見た目が
+    // 変わらず「今だけ大きい」が伝わっていなかった。よろけと同じ青白で塗って記号を揃える。
+    else if (bossStagT > 0) tint = BALANCE.stagger.tint;
     else if (isTelegraph(state)) tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
     else if (phase2) tint = 0xff6a6a;
     for (const p of disp.parts) { if (tint == null) p.img.clearTint(); else p.img.setTint(tint); }

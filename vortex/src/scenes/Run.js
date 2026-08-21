@@ -601,7 +601,7 @@ export class RunScene extends Phaser.Scene {
     const heatMul = 1 + this._heat * M.heatDamageMulPerStep;
     const dmgBase = (S.damage + (this.playerStage - 1) * S.damagePerStage)
       * this.stats.heroMult * heatMul;
-    let broke = 0, chain = 0, hitBoss = false;
+    let broke = 0, chain = 0, hitBoss = false, counters = 0;
     for (const e of list) {
       if (!e.active) continue;
       if (e.stag) {
@@ -612,12 +612,18 @@ export class RunScene extends Phaser.Scene {
       }
       if (e.isBoss) {
         hitBoss = true;
-        if (this.boss && this.boss.breakTelegraph && this.boss.breakTelegraph()) chain = Math.max(chain, 1);
+        if (this.boss && this.boss.breakTelegraph && this.boss.breakTelegraph()) {
+          chain = Math.max(chain, 1);
+          // ブレイクはボス戦で数秒に1回しか起きない＝稀。だから大きく出してよい。
+          this._breakTotal = (this._breakTotal || 0) + 1;
+          this.floatText(e.x, e.y - e.radius - 10, 'ブレイク！', '#9fe8ff');
+        }
       }
       // 予告中の敵に当てるとカウンター（＝敵の攻撃を止めた証明）
       let mul = 1;
       if (e.atkState === 'telegraph') {
         mul = S.counterMul;
+        counters++;   // R21W2: 発火頻度を実測してから演出の振幅を決める（未演出）
         e.atkState = 'ready';
         e.atkT = (e.def.attack ? e.def.attack.intervalSec : 1);
         if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
@@ -633,6 +639,7 @@ export class RunScene extends Phaser.Scene {
     }
 
     this._chainCount = chain;
+    if (counters > 0) this._counterTotal = (this._counterTotal || 0) + counters;
     this._strikeT = S.cooldownSec;
     this._strikeRecover = S.recoverSec;
     const before = this._heat;
