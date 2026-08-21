@@ -227,11 +227,15 @@ export const BALANCE = {
 
   // レベルアップは選択せず自動強化（cycle は upgrades[].id を順に適用）
   autoUpgrade: {
-    cycle: ['atk', 'spin', 'hp', 'move', 'atk', 'magnet', 'radius', 'catch'],
+    // R21W2: 先頭の 'atk'（仲間の攻撃）を 'hero'（主人公の攻撃）へ振り替えた。
+    // ゲートで仲間はとどめを刺せないので、仲間の攻撃力はよろけ速度しか上げない一方、
+    // 撃破を一手に担う主人公の火力にはLv10以降の成長手段が1つも無かった。
+    cycle: ['hero', 'spin', 'hp', 'move', 'atk', 'magnet', 'radius', 'catch'],
     bonusEveryLevels: 5,
   },
 
   upgrades: [
+    { id: 'hero',   label: 'こぶし +35%',    desc: 'じぶんの こうげきが つよくなる',   stat: 'heroMult',    add: 0.35 },
     { id: 'atk',    label: 'こうげき +30%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
     { id: 'spin',   label: 'かいてん +35%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.35 },
     { id: 'radius', label: 'きどう +12%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.12 },
@@ -246,7 +250,7 @@ export const BALANCE = {
     { id: 'rainbow_all',  label: 'にじ:オールアップ',
       desc: 'こうげき・かいてん・いどう ぜんぶアップ！',
       effects: [{ stat: 'damageMult', add: 0.15 }, { stat: 'angularMult', add: 0.15 },
-                { stat: 'moveMult', add: 0.10 }] },
+                { stat: 'moveMult', add: 0.10 }, { stat: 'heroMult', add: 0.15 }] },
     { id: 'rainbow_heal', label: 'にじ:きせきのいやし',
       desc: 'HPぜんかいふく ＋ さいだいHP+20',
       effects: [{ stat: 'maxHpAdd', add: 20 }], heal: 'full' },

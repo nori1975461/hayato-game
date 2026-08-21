@@ -86,11 +86,11 @@ function assert(cond, msg) {
   assert(ok, 'rng: pick が配列内の要素を返す');
 }
 
-// --- upgrades 7種の id が一意・全件に desc ---
+// --- upgrades 8種の id が一意・全件に desc ---
 {
   const ids = BALANCE.upgrades.map((u) => u.id);
   const unique = new Set(ids).size === ids.length;
-  assert(ids.length === 7 && unique, 'balance: upgrades 7種の id が一意');
+  assert(ids.length === 8 && unique, 'balance: upgrades 8種の id が一意');
   const allDesc = BALANCE.upgrades.every((u) => typeof u.desc === 'string' && u.desc.length > 0);
   assert(allDesc, 'balance: upgrades 全件に desc が存在');
 }
@@ -440,6 +440,14 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
     `balance: autoUpgrade.cycle の全 id が upgrades に実在${missing.length ? `（不明: ${missing.join(',')}）` : ''}`);
   assert(typeof (BALANCE.autoUpgrade && BALANCE.autoUpgrade.bonusEveryLevels) === 'number',
     'balance: autoUpgrade.bonusEveryLevels が数値');
+
+  // R21W2: 撃破は手動の一撃だけが行える（dealDamage の関門）。だから主人公自身の火力に
+  // 成長曲線が無いと、ボスHPが 1800→28000 と伸びるのに火力が Lv10 で止まって詰む。
+  // 実際にその状態で出荷しかけた（毎回3体目のボスで死亡）。構造の欠落なので固定する。
+  const heroStats = new Set(BALANCE.upgrades.filter((u) => u.stat === 'heroMult').map((u) => u.id));
+  const heroInCycle = Array.isArray(cycle) && cycle.some((id) => heroStats.has(id));
+  assert(heroInCycle,
+    `balance: autoUpgrade.cycle に主人公の火力(heroMult)を伸ばす項目がある`);
 }
 
 // --- levelupFlow（ドラフトUI）が廃止されている ---
