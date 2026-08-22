@@ -93,6 +93,20 @@ export const BALANCE = {
         knockback: 300, knockbackSec: 0.12,   // ★獲物(stag)は対象外。掴み圏から弾き出さないため
         counterMul: 1.8,                      // 予告を割る権利は突きが持つ（現行20.4回/分のチャンネルを維持）
       },
+      // ★段位（実プレイFB「地味だから、よっぽど派手にしないと攻撃している実感がない。しかも成長で
+      //   どんどん派手さが増す仕様でなければ飽きる」）。骨子の「成長を感じる」にも直結する。
+      //   段が上がると威力と見た目が同時に上がる＝派手さがそのまま強さの証明になる。
+      //   段を跨いだ瞬間にテロップとファンファーレを出す＝成長が起きた瞬間が分かる。
+      //   ballMul=飛翔体の大きさ / rings=着弾の輪の数 / streaks=放射する光条 / flash=画面閃光の濃さ
+      throwTiers: [
+        { untilLevel: 3,   name: 'なげる',           hpBonus: 0,  radiusMul: 1.00, dmgMul: 1.0, rings: 1, streaks: 0,  flash: 0,    ballMul: 1.7, trailMul: 1.0, stopMul: 1.00, color: 0x9fe8ff },
+        { untilLevel: 6,   name: 'つよなげ',         hpBonus: 2,  radiusMul: 1.12, dmgMul: 1.2, rings: 2, streaks: 8,  flash: 0.10, ballMul: 2.0, trailMul: 1.4, stopMul: 1.15, color: 0x8affd2 },
+        { untilLevel: 10,  name: 'メガなげ',         hpBonus: 4,  radiusMul: 1.26, dmgMul: 1.5, rings: 3, streaks: 13, flash: 0.17, ballMul: 2.3, trailMul: 1.9, stopMul: 1.30, color: 0xffe066 },
+        { untilLevel: 15,  name: 'ギガなげ',         hpBonus: 7,  radiusMul: 1.42, dmgMul: 1.9, rings: 4, streaks: 19, flash: 0.20, ballMul: 2.7, trailMul: 2.4, stopMul: 1.50, color: 0xff9de0 },
+        { untilLevel: 999, name: 'ボルテックスなげ', hpBonus: 11, radiusMul: 1.62, dmgMul: 2.4, rings: 5, streaks: 27, flash: 0.26, ballMul: 3.1, trailMul: 2.9, stopMul: 1.75, color: 0xff5a5a },
+      ],
+      recoil: 420,       // 投げた反動の速度(px/s)。hurtKnockSec 0.18 の減衰に乗るので実移動は約23px
+      pierceKnock: 240,  // 貫通したが生き残った敵を弾く強さ＝通過が目に見える
       // 開幕の空白対策。実測で最初の獲物が生まれるのは4.48〜4.62秒＝「最初の10秒」の45%が無反応だった。
       // 湧きは可視矩形の外周（最短200〜240px）からなので湧きレートでは消せない＝開幕だけ直接置く。
       openingPrey: 3, openingPreyDist: 95,

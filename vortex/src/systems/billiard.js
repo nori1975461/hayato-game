@@ -42,6 +42,27 @@ export function createBilliard(run) {
   };
 
   const B = () => BALANCE.hero.billiard;
+  // 現在の段位。レベルが上がるほど威力と派手さが同時に上がる。
+  function tier() {
+    const T = B().throwTiers;
+    for (let i = 0; i < T.length; i++) if (run.level <= T[i].untilLevel) return T[i];
+    return T[T.length - 1];
+  }
+  // 段が上がった瞬間を見せる。ここが「成長を感じる」の発火点。
+  function checkTierUp() {
+    const T = B().throwTiers;
+    let idx = T.length - 1;
+    for (let i = 0; i < T.length; i++) if (run.level <= T[i].untilLevel) { idx = i; break; }
+    if (st.tierIdx === undefined) { st.tierIdx = idx; return; }
+    if (idx <= st.tierIdx) return;
+    st.tierIdx = idx;
+    const t = T[idx];
+    if (run.fx && run.fx.announce) run.fx.announce('なげる が ' + t.name + ' に！', '#ffe9a8');
+    Sound.sfx('weaponTier');
+    screenFlash(0.3, t.color);
+    burstStreaks(run.player.x, run.player.y, t.streaks + 8, t.color, 110);
+    shockRing(run.player.x, run.player.y, 120, t.color);
+  }
   const grabReach = () => B().grabReach + (run.playerStage - 1) * B().grabReachPerStage;
   const driftMul = () => (BALANCE.stagger.driftModes[st.driftIdx] || { speedMul: 0.55 }).speedMul;
 
@@ -199,23 +220,26 @@ export function createBilliard(run) {
     // 溜めは速度と貫通HPの両方を買う（速度だけだと最小溜め連打が支配戦略になる）
     // ⚠️ 下限つき。掴んだ敵のHPだけだとチビット(4)を掴んだ時に4体で砕け、
     //    「一番よく掴む相手が一番弱い弾」という逆の関係になる（実プレイFB「弱すぎる」の原因）。
-    const hp = Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio);
+    const T = tier();
+    const hp = Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio) + T.hpBonus;
 
     const disp = st.pool.pop() || {
       spr: run.add.image(0, 0, 'bullet').setDepth(13),
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(7),
     };
     const px = run.player.x, py = run.player.y;
-    disp.spr.setTexture(h.tex).setVisible(true).setScale(h.scale * 1.05)
+    // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
+    disp.spr.setTexture(h.tex).setVisible(true).setScale(h.scale * T.ballMul)
       .setRotation(0).setPosition(px, py);
-    disp.glow.setVisible(true).setTint(BALANCE.stagger.tint).setAlpha(0.85)
-      .setDisplaySize(h.radius * (5 + 3 * ratio), h.radius * 3).setRotation(ang).setPosition(px, py);
+    disp.glow.setVisible(true).setTint(T.color).setAlpha(0.95)
+      .setDisplaySize(h.radius * (7 + 4 * ratio) * T.ballMul * 0.6, h.radius * 4 * T.ballMul * 0.6)
+      .setRotation(ang).setPosition(px, py);
 
     st.shots.push({
       active: true, x: px, y: py,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
-      hp, radius: Math.max(b.hitRadius, h.radius), color: h.color,
-      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0,
+      hp, radius: Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6), color: h.color,
+      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T,
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow,
     });
 
@@ -227,10 +251,15 @@ export function createBilliard(run) {
     // 実プレイFB「もっと派手なエフェクトと効果音で盛り上げて」。投げは1.2〜2.5秒に1回＝稀なので大きく出す。
     Sound.sfx('hammer', 0.5 + 0.5 * ratio, 0.9 + 0.3 * ratio);
     Sound.sfx('heroPunch', ratio, 1 + 0.25 * ratio);
-    run.shake(90 + 90 * ratio, 4 + 5 * ratio);
+    run.shake(90 + 90 * ratio, (4 + 5 * ratio) * T.stopMul);
+    // 反動で下がる＝「重いものを投げた」手応え。操作は奪わない（ノックバックの既存経路を使う）
+    run._knockX = -Math.cos(ang) * b.recoil * (0.6 + 0.4 * ratio);
+    run._knockY = -Math.sin(ang) * b.recoil * (0.6 + 0.4 * ratio);
+    run._knockT = 0.14;
+    burstStreaks(px, py, Math.max(4, Math.round(T.streaks * 0.5)), T.color, 46 + 30 * ratio);
     if (run.fx && run.fx.heroImpact) run.fx.heroImpact(px + Math.cos(ang) * 26, py + Math.sin(ang) * 26, ang, ratio);
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(px + Math.cos(ang) * 20, py + Math.sin(ang) * 20, ang, BALANCE.stagger.tint);
-    shockRing(px, py, 52 + 40 * ratio, ratio >= 1 ? 0xffd23f : BALANCE.stagger.tint);
+    shockRing(px, py, 52 + 40 * ratio, ratio >= 1 ? 0xffd23f : T.color);
     if (ratio >= 1) screenFlash(0.22, 0xffd23f);   // 溜め切りだけの特典
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.04 + 0.05 * ratio);
   }
@@ -240,7 +269,8 @@ export function createBilliard(run) {
     if (e.stag) {
       // 獲物に当てると炸裂連鎖。これがビリヤードの本体（群れの中心を叩くほど得）。
       // 一撃の 76/6 より広く長い（108/9）＝一発が大きいのは投げの特権。
-      const r = run.burstStagger(e.x, e.y, B().burstRadius, B().burstMaxChain);
+      const T = s.tier || tier();
+      const r = run.burstStagger(e.x, e.y, B().burstRadius * T.radiusMul, B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     } else {
@@ -250,14 +280,38 @@ export function createBilliard(run) {
         run.floatText(e.x, e.y - e.radius - 10, 'ブレイク！', '#9fe8ff');
       }
       const alive = e.active;
+      const T = s.tier || tier();
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
-      run.dealDamage(e, B().damage, BALANCE.stagger.tint, 'manual');
+      run.dealDamage(e, Math.round(B().damage * T.dmgMul), T.color, 'manual');
       if (alive && !e.active) s.kills++;
+      // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）
+      else if (e.active) {
+        const d = Math.hypot(s.vx, s.vy) || 1;
+        e.knockX = (s.vx / d) * B().pierceKnock;
+        e.knockY = (s.vy / d) * B().pierceKnock;
+        e.knockT = 0.12;
+      }
     }
-    run.spawnHitMark(s.x, s.y, BALANCE.stagger.tint);
+    run.spawnHitMark(s.x, s.y, (s.tier || tier()).color);
+    if (run.fx && run.fx.hitSpark) run.fx.hitSpark(s.x, s.y, (s.tier || tier()).color);
     // 当てるたびに音程が上がる階段＝連鎖が耳で分かる
     Sound.sfx('metalSlam', 0, Math.min(1.7, 1 + 0.07 * s.kills));
     s.hp -= B().hpCostPerHit;
+  }
+
+  // 放射する光条。段が上がるほど本数が増える＝画面の派手さがそのまま成長の証明になる。
+  function burstStreaks(x, y, count, color, len) {
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + run.rng.range(-0.15, 0.15);
+      const img = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(14)
+        .setTint(color).setOrigin(0, 0.5).setRotation(ang)
+        .setDisplaySize(10, run.rng.range(2.5, 5.5)).setAlpha(0.95);
+      run.tweens.add({
+        targets: img, displayWidth: len * run.rng.range(0.7, 1.25), alpha: 0,
+        duration: run.rng.range(230, 340), ease: 'Cubic.Out',
+        onComplete: () => img.destroy(),
+      });
+    }
   }
 
   // 衝撃の輪。着弾の位置と規模が一目で分かる＝「自分がやった」の帰属を強める。
@@ -276,7 +330,7 @@ export function createBilliard(run) {
     // 飛び終わりに必ず炸裂する。ここが無いと「当たらなかった投げ」が完全な無駄になり、
     // 主武器としての信頼が落ちる＝必殺技に頼る動機になる（実プレイFB）。
     if (B().endBurst) {
-      const r = run.burstStagger(s.x, s.y, B().burstRadius, B().burstMaxChain);
+      const r = run.burstStagger(s.x, s.y, B().burstRadius * (s.tier || tier()).radiusMul, B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     }
@@ -286,20 +340,27 @@ export function createBilliard(run) {
     st.bestChain = Math.max(st.bestChain, s.kills);
     if (s.kills === 0) st.dud++;
     if (s.kills > 0) {
-      const b = B();
+      const b = B(), T = s.tier || tier();
       // 振幅は頻度と逆相関。投げは0.4〜0.8回/秒＝一撃の3〜7分の1なので、倒した数ぶん大きく出す。
-      // 実プレイFB「演出が弱く爽快感なし」への対応：固定値だった揺れと停止を撃破数に連動させた。
-      run.shake(90 + 22 * s.kills, Math.min(b.shakeMax, b.shakeBase + b.shakePerKill * s.kills));
+      // さらに段位（T.stopMul / T.rings / T.streaks / T.flash）で全体を底上げする＝成長が画面で分かる。
+      run.shake(100 + 24 * s.kills,
+        Math.min(b.shakeMax * T.stopMul, (b.shakeBase + b.shakePerKill * s.kills) * T.stopMul));
       if (!run.cinematic) {
         run.freezeT = Math.max(run.freezeT,
-          Math.min(b.freezeMax, b.freezeBase + b.freezePerKill * s.kills));
+          Math.min(b.freezeMax, (b.freezeBase + b.freezePerKill * s.kills) * T.stopMul));
       }
-      shockRing(s.x, s.y, b.burstRadius * 0.9, BALANCE.stagger.tint);
-      if (s.kills >= 3) shockRing(s.x, s.y, b.burstRadius * 1.5, 0xffd23f);
-      run.spawnParticles(s.x, s.y, BALANCE.stagger.tint, Math.min(40, 8 + 5 * s.kills));
-      if (run.fx && run.fx.ripple) run.fx.ripple(s.x, s.y, BALANCE.stagger.tint, 1);
+      // 輪を段位ぶん重ねる。時間差で広がるので「衝撃が伝わった」ように見える。
+      const baseR = b.burstRadius * T.radiusMul;
+      for (let i = 0; i < T.rings; i++) {
+        const dly = i * 55;
+        run.time.delayedCall(dly, () => shockRing(s.x, s.y, baseR * (0.75 + 0.35 * i), i === 0 ? T.color : 0xffd23f));
+      }
+      if (T.streaks > 0) burstStreaks(s.x, s.y, T.streaks, T.color, baseR * 0.9);
+      run.spawnParticles(s.x, s.y, T.color, Math.min(46, 10 + 5 * s.kills));
       Sound.sfx('bigBoom', Math.min(1, s.kills / 5));
-      if (s.kills >= 3) { screenFlash(0.16 + 0.06 * Math.min(4, s.kills - 3), 0x9fe8ff); Sound.sfx('rush', 0.5); }
+      // 毎回の炸裂で全画面を洗うと敵が読めなくなるので上限を抑える（段位アップの一発だけは濃くてよい）
+      if (T.flash > 0) screenFlash(T.flash * Math.min(1.25, 0.6 + 0.16 * s.kills), T.color);
+      if (s.kills >= 3) Sound.sfx('rush', 0.5);
       if (s.kills >= 5) Sound.sfx('gaugeFull');
       run.floatText(s.x, s.y - 12, s.kills + '体！', s.kills >= 3 ? '#ffd23f' : '#9fe8ff');
     }
@@ -319,9 +380,11 @@ export function createBilliard(run) {
       s.glow.setPosition(s.x, s.y);
       // 軌跡。どこを通ったかが残る＝速さと「自分が投げた」が目で追える。
       if ((s.tick = (s.tick || 0) + 1) % B().trailEveryFrames === 0) {
+        const T = s.tier || tier();
+        const sz = s.radius * 2.2 * (0.7 + 0.35 * T.trailMul);
         const t = run.add.image(s.x, s.y, 'glow').setBlendMode(ADD).setDepth(6)
-          .setTint(BALANCE.stagger.tint).setAlpha(0.5).setDisplaySize(s.radius * 2.2, s.radius * 2.2);
-        run.tweens.add({ targets: t, alpha: 0, scale: 0.2, duration: B().trailLifeMs,
+          .setTint(T.color).setAlpha(0.4 + 0.18 * T.trailMul).setDisplaySize(sz, sz);
+        run.tweens.add({ targets: t, alpha: 0, scale: 0.2, duration: B().trailLifeMs * T.trailMul,
           onComplete: () => t.destroy() });
       }
       if (s.life <= 0) { burstEnd(s); continue; }
@@ -405,6 +468,7 @@ export function createBilliard(run) {
     updateShots(dt);
     if (!run.player || run.cinematic || run.paused || run.ended) return;
     if (!st.seeded) seedOpeningPrey();
+    checkTierUp();
     if (st.cd > 0) st.cd -= dt;
 
     const p = run.input.activePointer;
@@ -449,7 +513,7 @@ export function createBilliard(run) {
     const avgCharge = st.throws ? (st.chargeSum / st.throws) : 0;
     const avgKills = st.throws ? (st.throwKills / st.throws) : 0;
     const perMin = run.elapsed > 0 ? (st.throws / run.elapsed * 60) : 0;
-    return '投' + st.throws + '(' + perMin.toFixed(0) + '/分) 平均' + avgKills.toFixed(1) + '体'
+    return '[' + tier().name + '] 投' + st.throws + '(' + perMin.toFixed(0) + '/分) 平均' + avgKills.toFixed(1) + '体'
       + ' 最大' + st.bestChain + ' 空' + st.dud
       + ' 溜' + avgCharge.toFixed(2) + 's 掴' + st.grabs + ' 突' + st.jabs + '→獲' + st.jabStaggers;
   }
