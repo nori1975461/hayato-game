@@ -795,6 +795,17 @@ export function createBoss(run) {
   }
 
   function recoil(ang) { recoilT = 0.2; recoilAng = ang; }
+
+  // 主人公の手動の一撃が当たったときの「効いた」反応（billiard が呼ぶ）。
+  // 実プレイFB「弾がボスに当たったときの感触が無い。素通りして見える」。
+  // 白フラッシュ（flashT）は既にあるが、それだけでは玉が飛び去る絵に負ける。
+  // 巨体をのけぞらせて、白く光る時間も伸ばす＝「押し返された」を体で見せる。
+  function bossHitReact(ang, flashSec) {
+    if (!boss || !boss.active) return false;
+    recoil(ang);
+    boss.flashT = Math.max(boss.flashT, flashSec == null ? 0.14 : flashSec);
+    return true;
+  }
   // 画面フラッシュ（白フラッシュ alpha < 0.5 厳守）
   function whiteFlash(a) {
     const cam = run.cameras.main;
@@ -1324,6 +1335,8 @@ export function createBoss(run) {
     get entity() { return boss; },
     // R21W2: 予告ブレイク（Run.doStrike が呼ぶ）
     breakTelegraph,
+    // R23: 手動の命中に対する見た目の反応（billiard.hitOne が呼ぶ）
+    bossHitReact,
     get telegraphing() { return isTelegraph(state); },
     get staggered() { return bossStagT > 0; },
     // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）

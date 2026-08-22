@@ -368,7 +368,10 @@ export const BALANCE = {
   // 見えない内部カウンタでは「あと少しで回復する」という動機が生まれない（＝FBの狙いを外す）。
   // エリートのジェルは eliteCount 個ぶんとして数える（拾う価値の差がそのままゲージの伸びになる）。
   // ⚠️ 満タン時に捨てないよう、回復ハートと同じくコインへ振り替える。
-  gemHeal: { every: 24, healAmount: 20, eliteCount: 3, fullBonusCoins: 10 },
+  // 実プレイFB「回復ペース（16秒に1回・20回復）が遅い。もう少し早く」→ every 24→14。
+  // 1回あたりの量ではなく間隔の不満なので、healAmount は据え置いて頻度だけ上げる
+  // （量を増やすと「たまに大きく戻る」になり、遅いという体感は消えない）。
+  gemHeal: { every: 14, healAmount: 20, eliteCount: 3, fullBonusCoins: 10 },
 
   healItem: {
     dropRate: 0.045, eliteDropRate: 0.6, healAmount: 25,

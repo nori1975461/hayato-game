@@ -312,6 +312,43 @@ export function createBilliard(run) {
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.04 + 0.05 * ratio);
   }
 
+  // ---- ボスに当たったときの手応え ----
+  // 実プレイFB「ビリヤード弾がボスに当たったときの感触が無い。素通りして見える。
+  //   体力ゲージは減っているので当たっているのは確認できるが、非常に不満」。
+  //
+  // 白フラッシュ（boss.flashT）は元から出ている。足りなかったのは3つ：
+  //   1. **玉がボスを貫通して飛び去っていた**（＝文字どおり素通りの絵）。玉が反応しない限り、
+  //      ボス側をどれだけ光らせても「当たった」には見えない。玉はボスで**砕けて終わる**ようにする
+  //   2. 画面が一切動かない（振動もヒットストップもカメラの寄りも無い）
+  //   3. 巨体が微動だにしない（Run.updateEnemies は isBoss を飛ばすので、雑魚のつぶれ・
+  //      ノックバックはボスには一切適用されない）→ boss.js 側にのけぞりを依頼する
+  //
+  // 振幅は頻度と逆相関。ボスへの手動命中はボス戦でも毎秒1回未満なので、大きく出してよい。
+  function bossImpact(s, e, dealt, T) {
+    // 1. 玉はここで砕ける。ただし**連鎖はさせない**（burstStagger を走らせると、せっかく
+    //    剥がした装甲片を自分の炸裂で消してしまい、弾薬供給が半減する）
+    s.hp = 0;
+    s.noChain = true;
+    s.x = e.x + (s.x - e.x) * 0.35;   // 着弾点をボス寄りへ寄せる＝「めり込んだ」位置で炸裂する
+    s.y = e.y + (s.y - e.y) * 0.35;
+    // 2. ボス本体の反応（描画は boss.js が持っているので依頼する）
+    if (run.boss && run.boss.bossHitReact) run.boss.bossHitReact(Math.atan2(s.vy, s.vx), 0.16);
+    // 3. 手に返る感触。止める→揺らす→寄せる の3点セット
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.09 * T.stopMul);
+    run.shake(170, Math.min(11, 6 * T.stopMul));
+    zoomPunch(T.zoom * 1.8);
+    // 4. 着弾点の炸裂。ボスの装甲を叩いた音（金属）と、めり込んだ輪
+    shockRing(s.x, s.y, 86 * T.radiusMul, T.color);
+    shockRing(s.x, s.y, 52 * T.radiusMul, 0xffffff);
+    burstStreaks(s.x, s.y, Math.max(8, T.streaks), T.color, 78);
+    run.spawnParticles(s.x, s.y, T.color, 18);
+    if (T.flash > 0) screenFlash(T.flash * 0.9, T.color);
+    Sound.sfx('metalSlam', 1, 0.72);
+    Sound.sfx('bigBoom', 0.45);
+    // 5. 与えたダメージを必ず出す（通常のダメージ数字は0.06秒で間引かれるので、ここは自前で出す）
+    run.floatText(e.x, e.y - e.radius - 6, String(dealt), s.shard ? '#ffd23f' : '#9fe8ff');
+  }
+
   // ---- 着弾 ----
   function hitOne(s, e) {
     if (e.stag) {
@@ -334,7 +371,9 @@ export function createBilliard(run) {
         run.floatText(e.x, e.y - e.radius - 22, 'アーマーブレイク！', '#ffd23f');
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
+      const hpBefore = e.hp;
       run.dealDamage(e, dmg, T.color, 'manual');
+      if (e.isBoss) bossImpact(s, e, Math.max(0, hpBefore - e.hp), T);
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）
       else if (e.active) {
@@ -402,7 +441,8 @@ export function createBilliard(run) {
     s.active = false;
     // 飛び終わりに必ず炸裂する。ここが無いと「当たらなかった投げ」が完全な無駄になり、
     // 主武器としての信頼が落ちる＝必殺技に頼る動機になる（実プレイFB）。
-    if (B().endBurst) {
+    // s.noChain ＝ ボスに当たって砕けた玉。ここで連鎖させると自分の装甲片を巻き込んで消す
+    if (B().endBurst && !s.noChain) {
       const r = run.burstStagger(s.x, s.y, B().burstRadius * (s.tier || tier()).radiusMul, B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
@@ -411,7 +451,8 @@ export function createBilliard(run) {
     run.popFx(s.x, s.y, s.color);
     st.throwKills += s.kills;
     st.bestChain = Math.max(st.bestChain, s.kills);
-    if (s.kills === 0) st.dud++;
+    // ボスに当たって砕けた玉は空振りではない（連鎖しないので kills は0のまま）
+    if (s.kills === 0 && !s.noChain) st.dud++;
     if (s.kills > 0) {
       const b = B(), T = s.tier || tier();
       // 振幅は頻度と逆相関。投げは0.4〜0.8回/秒＝一撃の3〜7分の1なので、倒した数ぶん大きく出す。
