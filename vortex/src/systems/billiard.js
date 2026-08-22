@@ -94,6 +94,7 @@ export function createBilliard(run) {
       tex: e.spr.texture.key,
       scale: e.baseScale || 1,
       radius: e.radius || 10,
+      shard: !!e.shard,        // ボスの装甲片＝ボスへ投げ返すと特効
     };
     st.chargeT = 0;
     st.maxRung = false;
@@ -287,7 +288,7 @@ export function createBilliard(run) {
       active: true, x: px, y: py,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       hp, radius: Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6), color: h.color,
-      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T,
+      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard,
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
     });
 
@@ -321,14 +322,18 @@ export function createBilliard(run) {
       s.chain = Math.max(s.chain, r.chain);
     } else {
       // ボスの予告を割る権利を一撃から継承する（継承しないとブレイクの受け皿が消える）
-      if (e.isBoss && run.boss && run.boss.breakTelegraph && run.boss.breakTelegraph()) {
-        run._breakTotal = (run._breakTotal || 0) + 1;
-        run.floatText(e.x, e.y - e.radius - 10, 'ブレイク！', '#9fe8ff');
-      }
+      breakBoss(e);
       const alive = e.active;
       const T = s.tier || tier();
+      let dmg = Math.round(B().damage * T.dmgMul);
+      // ★装甲片をボスへ投げ返すと特効＝「ボスの装甲でボスを殴る」。
+      //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
+      if (e.isBoss && s.shard) {
+        dmg = Math.round(dmg * B().shards.bossMul);
+        run.floatText(e.x, e.y - e.radius - 22, 'アーマーブレイク！', '#ffd23f');
+      }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
-      run.dealDamage(e, Math.round(B().damage * T.dmgMul), T.color, 'manual');
+      run.dealDamage(e, dmg, T.color, 'manual');
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）
       else if (e.active) {
@@ -481,6 +486,53 @@ export function createBilliard(run) {
     st.shots = run.compact(st.shots, releaseShot);
   }
 
+  // ---- ボス戦の弾薬（装甲片） ----
+  // ボスの予告を割ると装甲が剥がれ落ちて弾になる。実体はよろけ状態の敵なので、
+  // 掴む・溜める・投げるの経路は雑魚とまったく同じ（新しい語彙をプレイヤーに増やさない）。
+  function dropShards(bossEnt) {
+    const S = B().shards;
+    if (!S || S.count <= 0 || !bossEnt) return;
+    const def = ENEMIES.find((x) => x.id === S.enemyId) || ENEMIES[0];
+    // 主人公の側へ撒く＝拾いに行く動きがボスへ近づく動きと同じ向きになる（逃げ得にしない）
+    const base = Math.atan2(run.player.y - bossEnt.y, run.player.x - bossEnt.x);
+    const step = Phaser.Math.DegToRad(S.spreadDeg);
+    let made = 0;
+    for (let i = 0; i < S.count; i++) {
+      const a = base + (i - (S.count - 1) / 2) * step;
+      const e = run.spawnEnemy(def, bossEnt.x + Math.cos(a) * S.dist, bossEnt.y + Math.sin(a) * S.dist, false, 1);
+      if (!e) break;                 // enemyCap に当たったら諦める（弾薬のために上限を破らない）
+      e.hp = 1;
+      e.shard = true;                // ★これを掴んだ弾はボスへ特効
+      e.noReward = true;             // 弾薬の供給が経験値の蛇口になると、ボス戦が稼ぎ場になる
+      e.baseScale = (e.baseScale || 1) * S.scaleMul;
+      e.radius = (e.radius || 10) * S.scaleMul;
+      e.spr.setScale(e.baseScale);
+      run.enterStagger(e);
+      if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, BALANCE.stagger.tint);
+      made++;
+    }
+    if (made > 0) {
+      shockRing(bossEnt.x, bossEnt.y, bossEnt.radius + 26, BALANCE.stagger.tint);
+      Sound.sfx('metalSlam', 0.5, 0.8);
+      // 初回だけ言葉で教える。「割ると弾が出る」は見ているだけでは繋がらない（小6向け）
+      if (!st.shardHinted) {
+        st.shardHinted = true;
+        if (run.fx && run.fx.announce) run.fx.announce('そうびが はがれた！ つかんで なげろ！', '#9fe8ff');
+      }
+    }
+  }
+
+  // ボスの予告を突きで割る。一撃モード（Run.doStrike）は持っていた経路が、ビリヤードモードでは
+  // 投げ（hitOne）にしか無く、弾薬の乏しいボス戦でカウンターのチャンネルごと消えていた。
+  function breakBoss(e) {
+    if (!e.isBoss || !run.boss || !run.boss.breakTelegraph) return false;
+    if (!run.boss.breakTelegraph()) return false;
+    run._breakTotal = (run._breakTotal || 0) + 1;
+    run.floatText(e.x, e.y - e.radius - 10, 'ブレイク！', '#9fe8ff');
+    dropShards(e);
+    return true;
+  }
+
   // ---- 突き（倒せない動詞） ----
   // ★獲物(stag)は対象外。掴み圏から弾き出してしまうと、投げる理由が痩せるため。
   function jab() {
@@ -502,6 +554,8 @@ export function createBilliard(run) {
       if (Math.abs(run.angDiff(Math.atan2(dy, dx), ang)) > half) continue;
 
       let mul = 1;
+      // ボスの予告を割る権利も突きが持つ（＝弾薬供給の蛇口。dropShards がここから開く）
+      if (breakBoss(e)) { mul = J.counterMul; counters++; }
       if (e.atkState === 'telegraph') {
         // 予告を割る権利は突きが持つ（一撃の実測20.4回/分のチャンネルを絶やさない）
         mul = J.counterMul;
