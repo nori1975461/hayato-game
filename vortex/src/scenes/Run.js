@@ -12,6 +12,7 @@ import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
 import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
+import { createBilliard } from '../systems/billiard.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
@@ -163,6 +164,7 @@ export class RunScene extends Phaser.Scene {
     this.boss = createBoss(this);
     this.items = createItems(this);
     this.special = createSpecial(this);   // hud が run.special を参照するため createHud より前
+    this.billiard = createBilliard(this); // R22スパイク：掴む→溜める→投げる（キー5で一撃モードと切替）
     this.orbit.rebuild();
 
     // --- HUD ---
@@ -220,6 +222,30 @@ export class RunScene extends Phaser.Scene {
       });
     });
 
+    // R22スパイク：ビリヤード攻撃の比較用。好みは文章で決められないので実プレイ中に切り替えて選ぶ。
+    //   5 … 攻撃モード（ビリヤード ⇄ 一撃）
+    //   6 … よろけの挙動（歩く ⇄ ゆっくり漂う ⇄ その場で漂う）。①奥行き と ②接触圧 が競合する分岐
+    //   7 … 投げの実測値（何回/分・平均何体・空振り何回）。機能テストでは噛み合わせの失敗を見逃すため
+    kb.on('keydown-FIVE', () => {
+      if (this.paused || this.ended) return;
+      const name = this.billiard.toggleMode();
+      if (this.fx) this.fx.announce('攻撃：' + name, '#9fe8ff');
+    });
+    kb.on('keydown-SIX', () => {
+      if (this.paused || this.ended) return;
+      const name = this.billiard.cycleDrift();
+      if (this.fx) this.fx.announce('よろけ：' + name, '#9fe8ff');
+    });
+    kb.on('keydown-SEVEN', () => {
+      if (this.paused || this.ended) return;
+      if (this.fx) this.fx.announce(this.billiard.statsLine(), '#ffe9a8');
+    });
+    //   8 … よろけの時間切れ（消滅 ⇄ 強化復活）。「そもそも投げが必要か」を左右する分岐
+    kb.on('keydown-EIGHT', () => {
+      if (this.paused || this.ended) return;
+      const name = this.billiard.toggleExpire();
+      if (this.fx) this.fx.announce('時間切れ：' + name, '#9fe8ff');
+    });
   }
 
   togglePause() {
@@ -272,8 +298,11 @@ export class RunScene extends Phaser.Scene {
     this.updatePlayer(dt);
     this.updateHeroAim(dt);     // R14: 構えの狙い角だけを決める（銃は全廃）
     this.updateHeroMelee(dt);   // R12: 主武器（クラッシュアーム）。_punchT/_punchAng を決める
-    this.updateHeroStrike(dt);  // R21W2: 手動の一撃（melee の後＝間合い情報を使う）
+    // R22スパイク：一撃モード（billiard.mode 0）のときだけ現行の一撃を回す。
+    // ビリヤードモードでは掴み／突き／投げが billiard.update 側で完結する。
+    if (this.billiard.st.mode === 0) this.updateHeroStrike(dt);
     this.updateHeroFist(dt);    // R12: 殴りモーション中だけ拳を描画（melee の直後に読む）
+    this.billiard.update(dt);   // R22スパイク（_punchT を読む updateHeroFist より後）
     this.orbit.update(dt);
     this.spawner.update(dt);
     this.boss.update(dt);
@@ -328,7 +357,9 @@ export class RunScene extends Phaser.Scene {
     const P = BALANCE.player;
     if (dx || dy) {
       const inv = 1 / Math.hypot(dx, dy);
-      const sp = P.speed * this.stats.moveMult * (this._strikeRecover > 0 ? 0.6 : 1);   // R21W2: 硬直中は鈍る
+      // R21W2: 硬直中は鈍る／R22: 溜め中も鈍る（_moveMul。②被弾の緊張感のアンカー）
+      const sp = P.speed * this.stats.moveMult
+        * (this._strikeRecover > 0 ? 0.6 : 1) * (this._moveMul || 1);
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
       // R21W3: 偏差射撃の予測に使う。ノックバックと踏み込みは自分の意思でない動きなので含めない。
@@ -968,7 +999,8 @@ export class RunScene extends Phaser.Scene {
       const nx = dx / dist, ny = dy / dist;
       let slow = e.slowMark === this.elapsed && !e.isBoss ? F.slowFactor : 1;
       // R21W2: よろけは遅くなるが止まらない。歩いて主人公の間合いへ入ってくる＝獲物が届く。
-      if (e.stag) slow *= BALANCE.stagger.speedMul;
+      // R22スパイク: 歩く／漂う をキー6で切り替えて体感で選ぶ（①奥行き と ②接触圧 が競合するため）。
+      if (e.stag) slow *= this.billiard.driftMul();
       let vx = 0, vy = 0;
 
       if (e.movement === 'chase') {
@@ -1073,7 +1105,14 @@ export class RunScene extends Phaser.Scene {
             .setTint(e.stagT <= G.warnSec ? 0xffa62b : G.tint)
             .setAlpha(G.ringAlpha * (0.45 + 0.55 * k));
         }
-        if (e.stagT <= 0) this.rebootEnemy(e);
+        // R22スパイク：時間切れの扱いをキー8で切り替える。ここは「投げが必要か」を左右する分岐。
+        //   復活（現行）… 強くなって戻る＝放置の罰がある。敵は場から減らない
+        //   消滅（新案）… 静かに消える＝弾を失う機会損失だけ。自動層が無償で敵を除去することになるので、
+        //                 掴みだけで湧きと釣り合ってしまうと投げが「使わなくても死なない技」になる
+        if (e.stagT <= 0) {
+          if (this.billiard.st.expireVanish) { e.noReward = true; this.killEnemy(e, BALANCE.stagger.tint, 'expire'); }
+          else this.rebootEnemy(e);
+        }
       }
 
       // Wave R1: 予告付き攻撃（quake/divebomb/selfdestruct/lockbeam/spread）
@@ -1408,18 +1447,22 @@ export class RunScene extends Phaser.Scene {
     // シネマ中はcompactが回らないので、その場で見た目を消す（撃破の手応えを遅らせない）
     e.spr.setVisible(false);
     e.glow.setVisible(false);
-    const burst = e.isElite ? 20 : (8 + Math.floor(this.rng.random() * 5));
+    // R22スパイク：'expire'＝よろけの時間切れ消滅。無音・無報酬で静かに消す（＝取りこぼしの罰）。
+    // 派手に弾けさせると「自分が倒した」と誤読され、投げのとどめが霞むため。
+    const quiet = by === 'expire';
+    const burst = quiet ? 3 : (e.isElite ? 20 : (8 + Math.floor(this.rng.random() * 5)));
     this.spawnParticles(e.x, e.y, e.color, burst);
-    if (e.isElite) this.shake(100, 4);
+    if (e.isElite && !quiet) this.shake(100, 4);
     // XPジェム（R21W2: 手動でよろけを割ると倍。殴れば報酬・放置すれば損）
+    // 報酬の勾配：消滅=無報酬 ／ 掴み=基本 ／ 手動で割る・投げ撃破=倍。投げた方が得を数字で作る。
     const gemBase = e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue;
     const gemMul = (by === 'manual' && wasStag) ? BALANCE.stagger.gemMul : 1;
-    this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
+    if (!quiet) this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
     if (rewarded) {
       this.capture.onEnemyKilled(e);   // スターコア抽選
       this.rollHealDrop(e);            // FB#1: 回復ハート抽選（run.rng を使う）
     }
-    this.popFx(e.x, e.y, e.color);
+    if (!quiet) this.popFx(e.x, e.y, e.color);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
     const sp = e.def && e.def.split;
     if (sp && !e.noSplit && !e.isElite) {
