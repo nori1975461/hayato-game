@@ -11,6 +11,7 @@ const int = (c) => parseInt(c.slice(1), 16);
 // 全10色が画面へ散り、敵弾・拾い物と色が衝突して避けられなくなるため。
 // 体色は本体グロー（o.glow）と装飾だけに残し、誰の攻撃かは形で読ませる。
 const ALLY_ATK = 0xffe9a8;
+const HEAL_FX_SEC = 0.35;   // R22: 回復の光の帯が残る時間
 
 // ── FB#4: 武器レベルアップの「まとう装飾」を段階的に派手化（HAYATO本体の40段階武器を参考）。
 // maxLevel(=12) を6つの見た目ティアに束ね、帯が上がるごとに装飾が累積で足され
@@ -131,6 +132,8 @@ export function createOrbit(run) {
       o.ringMaxR     = (ovr.maxRadius   ?? A.RINGWAVE.maxRadius)  * (fused ? F.ringwaveRadiusMult : 1);
       o.ringSpeed    =  ovr.expandSpeed ?? A.RINGWAVE.expandSpeed;
       o.ringThick    = (ovr.thickness   ?? A.RINGWAVE.thickness)  * (fused ? F.ringwaveThicknessMult : 1);
+      o.healSec      = (ovr.intervalSec ?? A.HEAL.intervalSec);
+      o.healAmount   = (ovr.amount      ?? A.HEAL.amount) * (fused ? F.healMult : 1);
 
       // 武器レベル成長（必ず最後に適用）。FB#2: 実効レベル el 基準（合成なかまは強く伸びる）。
       const wl = el - 1;
@@ -154,7 +157,12 @@ export function createOrbit(run) {
         o.ringMaxR    += W.ringwave.maxRadiusAdd * wl;
         o.ringSpeed   += W.ringwave.expandSpeedAdd * wl;
         o.ringThick   += W.ringwave.thicknessAdd * wl;
+        o.healAmount  += W.heal.amountAdd * wl;
+        o.healSec      = Math.max(W.heal.intervalMin, o.healSec * Math.pow(W.heal.intervalMult, wl));
       }
+      // 次の回復までの残り。rebuild は編成やレベルが変わるたびに走るので、
+      // ここで毎回リセットすると「レベルが上がるほど回復が遅れる」逆転が起きる。初回だけ入れる。
+      if (o.healT == null) o.healT = o.healSec;
       o.shots = Math.min(W.shot.maxShots, 1 + Math.floor(wl / W.shot.extraShotEvery));
 
       const lvGrow = wl / (W.maxLevel - 1);     // 0..1。レベルが上がるほど僅かに大きく光る
@@ -175,6 +183,7 @@ export function createOrbit(run) {
       } else if (o.aura) {
         o.aura.setVisible(false);
       }
+      if (o.archetype !== 'HEAL' && o.healFx) o.healFx.setVisible(false);
 
       // R4: 現フォームの武器テクスチャを本体に携える（近接は振り／遠距離は携えて浮遊）。
       // update() の updateWeaponVisual が毎フレーム追従・アニメする。虹テクスチャのみ tint 白。
@@ -249,8 +258,52 @@ export function createOrbit(run) {
         case 'FIELD': updateField(o, dt); break;
         case 'BOOMERANG': updateBoomerang(o, dt); break;
         case 'RINGWAVE':  updateRingwave(o, dt); break;
+        case 'HEAL':      updateHeal(o, dt); break;
       }
     }
+  }
+
+  // R22: 回復モビット（マシュモ）。実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。
+  // 唯一、敵に一切触れないアーキタイプ。run.dealDamage を呼ばないので、
+  // 「仲間はとどめを刺せない」というビリヤード攻撃の設計の関門とは無関係に成立する。
+  function updateHeal(o, dt) {
+    // 回復の光の帯（モビット→主人公）。誰が回復してくれているのかを線で見せる。
+    // ⚠️ これが無いと、数字だけ増えて「なぜ回復したのか」が分からない＝入れた意味が伝わらない。
+    if (o.healFx && o.healFxT > 0) {
+      o.healFxT -= dt;
+      const k = Math.max(0, o.healFxT / HEAL_FX_SEC);
+      const p0 = run.player;
+      const ang = Math.atan2(p0.y - o.y, p0.x - o.x);
+      const d = Math.hypot(p0.x - o.x, p0.y - o.y);
+      o.healFx.setPosition(o.x, o.y).setRotation(ang)
+        .setDisplaySize(d, 2 + 4 * k).setAlpha(0.8 * k).setVisible(k > 0);
+    }
+
+    o.healT -= dt;
+    if (o.healT > 0) return;
+    o.healT = o.healSec;
+
+    const p = run.player;
+    if (!p || run.ended) return;
+    if (!o.healFx) {
+      o.healFx = run.add.image(0, 0, 'white').setOrigin(0, 0.5)
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(6).setTint(0x7dff8f);
+    }
+    o.healFxT = HEAL_FX_SEC;
+    run.spawnParticles(o.x, o.y, 0x7dff8f, 6);
+    // 満タンのときは回復しない。光だけ出して「働いてはいる」ことは見せる（無音・無表示だと壊れて見える）
+    if (p.hp >= p.maxHp) return;
+    // 端数は持ち越して、実際に回す量を整数にそろえる。
+    // 「2.8回復したのに +3 と出す」ような表示と実態のズレを作らないため（子どもが読む数字なので嘘をつかない）。
+    o.healCarry = (o.healCarry || 0) + o.healAmount;
+    const give = Math.floor(o.healCarry);
+    if (give <= 0) return;
+    o.healCarry -= give;
+    const before = p.hp;
+    p.hp = Math.min(p.maxHp, p.hp + give);
+    const got = Math.round(p.hp - before);
+    if (got > 0) run.floatText(p.x, p.y - 34, '+' + got + ' HP', '#7dff8f');   // ジェル回復(-28)と高さを分ける
+    Sound.sfx('healTick');
   }
 
   function updateSlash(o, dt) {
@@ -757,6 +810,8 @@ export function createOrbit(run) {
   return {
     rebuild, update, destroy, levelUp, setWeaponLevel,
     get count() { return orbs.length; },
+    // 検証用（R22）：回復モビットが実際に働いているかを外から観測するため。書き換え用ではない。
+    get orbs() { return orbs; },
     get weaponLevel() { return weaponLevel; },
     // R4: HUD 用。全なかま共通 weaponLevel なので先頭 orb の現フォームを代表として返す。
     // orb がまだ無い場合でも band から kind を算出して返す（表示が空にならないように）。

@@ -381,6 +381,71 @@ export const MONSTERS = [
       },
     },
   },
+  {
+    // R22（実プレイFB「体力を少しずつ回復してくれるモビットをいれて」）。
+    // 唯一の非戦闘モビット：敵に一切触れず、主人公の体力だけを少しずつ戻す。
+    // わたあめの綿毛をかぶった、おなかにハートを抱えたまるい子。足はなく、ふわふわ浮いている。
+    // ⚠️ 体色をミント（回復の色 #7dff8f 系）にしているのは飾りではない。
+    //    「この子は回復役」を、説明文ではなく色で分からせるため（画面に文字を増やさない）。
+    id: 'mashumo',
+    name: 'マシュモ',
+    rarity: 'N',
+    archetype: 'HEAL',
+    color: '#8ef0a8',
+    baseDamage: 2,   // HEAL は敵にダメージを与えないので未使用。データ検証のために持たせている
+    forms: [
+      { name: 'ばんそうこうヒール', kind: 'melee',  archetype: 'HEAL', tex: 'w_heart',  sfx: 'healTick' },
+      { name: 'わたあめミスト',     kind: 'ranged', archetype: 'HEAL', tex: 'w_bubble', sfx: 'healTick' },
+    ],
+    sprite: {
+      palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
+      rows: [
+        '................',
+        '.....wwwwww.....',
+        '...wwaaaaaaww...',
+        '..waaaaaaaaaaw..',
+        '.waaaaaaaaaaaaw.',
+        '.aaaaaaaaaaaaaa.',
+        '.aawkaaaaaawkaa.',
+        '.aakkaaaaaakkaa.',
+        '.ppaaaakkaaaapp.',
+        '.aaaaahhhhaaaaa.',
+        '.aaaahhhhhhaaaa.',
+        '.aaaahhhhhhaaaa.',
+        '..aaaahhhhaaaa..',
+        '..aaaaahhaaaaa..',
+        '...aaaaaaaaaa...',
+        '....dddddddd....',
+      ],
+    },
+    // 綿毛が翼になり、頭上に光の輪をいただいた姿。回復量が上がる。
+    evo: {
+      id: 'heartangel',
+      name: 'ハートエンジェル',
+      baseDamage: 3,
+      sprite: {
+        palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
+        rows: [
+          '.....hhhhhh.....',
+          '................',
+          'ww..wwwwwwww..ww',
+          'www.waaaaaaw.www',
+          '.wwwaaaaaaaawww.',
+          '..waaaaaaaaaaw..',
+          '..aawkaaaawkaa..',
+          '..aakkaaaakkaa..',
+          '..ppaaakkaaapp..',
+          '..aaahhhhhhaaa..',
+          '..aahhhhhhhhaa..',
+          '..aahhhhhhhhaa..',
+          '...aahhhhhhaa...',
+          '...aaahhhhaaa...',
+          '....aaaaaaaa....',
+          '.....dddddd.....',
+        ],
+      },
+    },
+  },
 ];
 
 // プレイヤー3段階。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。

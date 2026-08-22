@@ -102,8 +102,8 @@ function assert(cond, msg) {
   assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
 }
 
-// --- MONSTERS が6種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種へ総入れ替え） ---
-assert(MONSTERS.length === 6, 'data: MONSTERS が6種');
+// --- MONSTERS が7種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ追加） ---
+assert(MONSTERS.length === 7, 'data: MONSTERS が7種');
 assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
 
 // --- Wave R1: 新雑魚5種（gareon/chibit/bomba/snipa/turret）が存在 ---
@@ -135,7 +135,7 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
 
 // --- Wave R4: 武器フォームチェンジ。全なかまに forms が2つ・form0=melee/form1=ranged ---
 {
-  const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE'];
+  const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL'];
   const allTwo = MONSTERS.every((m) => Array.isArray(m.forms) && m.forms.length === 2);
   assert(allTwo, 'data: 全なかまに forms が2つ定義されている');
   const meleeFirst = MONSTERS.every((m) => m.forms && m.forms[0] && m.forms[0].kind === 'melee');
@@ -292,7 +292,10 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
   // 弱くしすぎると『手を止めた瞬間に死ぬ』ゲームになる＝安全網の下限を数値で守る。
   // FIELD型（オーラジェリー）は毎ティック1ダメージを継続で与える設計なので、
   // 1発の重さを見るこの判定からは除く（DPSは tickDamageAdd 側で伸びる）。
-  const hitters = Object.values(MONSTERS).filter((m) => m.forms[0].archetype !== 'FIELD');
+  // R22: HEAL型（マシュモ）は敵に一切ダメージを与えない回復専門なので、この判定から除く。
+  //      除かずに baseDamage を見ると「最弱の攻撃役」に化けて、安全網の数値を偽って壊す。
+  const NON_HITTER = ['FIELD', 'HEAL'];
+  const hitters = Object.values(MONSTERS).filter((m) => !NON_HITTER.includes(m.forms[0].archetype));
   const weakestBase = Math.min(...hitters.map((m) => m.baseDamage));
   const grown = weakestBase * (1 + BALANCE.weapon.damageAddPerLevel * (BALANCE.weapon.maxLevel - 1));
   assert(grown * 5 >= hardest,
@@ -310,7 +313,7 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
     'balance: 低HP警告のしきい値が0〜60%の範囲');
 }
 
-// --- MONSTERS 6種＋evo id を合わせて全 id が一意 ---
+// --- MONSTERS 7種＋evo id を合わせて全 id が一意 ---
 {
   const ids = [];
   for (const m of MONSTERS) {
@@ -318,7 +321,7 @@ assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
     if (m.evo && m.evo.id) ids.push(m.evo.id);
   }
   const unique = new Set(ids).size === ids.length;
-  assert(ids.length === 12 && unique, 'data: MONSTERS 6種＋evo id を合わせて全 id が一意（12件）');
+  assert(ids.length === 14 && unique, 'data: MONSTERS 7種＋evo id を合わせて全 id が一意（14件）');
 }
 
 // --- 開始編成 starpuppy / pikabit の id が存在 ---

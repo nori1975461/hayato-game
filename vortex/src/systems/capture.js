@@ -288,6 +288,8 @@ export function createCapture(run) {
   return {
     update, onEnemyKilled, forceDropCore, dropCoreAt,
     get coreCount() { return cores.length; },
+    // 検証用（R22）：どのモビットのコアが落ちたかを外から観測するため。書き換え用ではない。
+    get cores() { return cores; },
     // 検証用（Wave R2）: 現在の解禁スロット数・祭壇の発火済み回数・祭壇存在を観測できるようにする
     currentSlots,
     get altarFiredCount() { return altarFired.filter(Boolean).length; },

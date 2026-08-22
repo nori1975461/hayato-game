@@ -62,6 +62,7 @@ export class BootScene extends Phaser.Scene {
     this.makeHammer('w_hammer', 16);          // ぺろぺろ巨大ハンマー
     this.makeNote('w_note', 14);              // ピアニカのおんぷ（8分音符）
     this.makeDrop('w_drop', 12);              // みずでっぽうの水玉
+    this.makeHeart('w_heart', 14);            // R22 回復モビットのハート（白＝実行時に tint）
 
     // --- 星空タイル（視差背景・決定的パターン） ---
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
@@ -435,6 +436,25 @@ export class BootScene extends Phaser.Scene {
   }
 
   // みずでっぽうの水玉（しずく）。下の円＋上のとがり。
+  // R22: 回復モビット（マシュモ）の武器テクスチャ。上の2つの丸＋下のV字＝ハート。
+  makeHeart(key, size) {
+    const c = size / 2;
+    const r = size * 0.26;                      // 上の2つの丸の半径
+    const cy = size * 0.34;                     // 丸の中心y
+    const lx = c - r * 0.92, rx = c + r * 0.92;
+    const botY = size * 0.94;                   // 下の尖り
+    this.makeMask(key, size, (x, y) => {
+      let dx = x - lx, dy = y - cy;
+      if (dx * dx + dy * dy <= r * r) return true;
+      dx = x - rx;
+      if (dx * dx + dy * dy <= r * r) return true;
+      if (y < cy) return false;
+      const frac = (y - cy) / (botY - cy);
+      const halfW = r * 1.92 * Math.max(0, 1 - frac);
+      return Math.abs(x - c) <= halfW;
+    });
+  }
+
   makeDrop(key, size) {
     const c = size / 2;
     const br = size * 0.34;                     // 下の丸の半径

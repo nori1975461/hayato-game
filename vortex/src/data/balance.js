@@ -285,6 +285,12 @@ export const BALANCE = {
     // Wave B: かわいい武器の新アーキタイプ
     BOOMERANG: { intervalSec: 1.6, speed: 260, maxDist: 52, hitRadius: 14, tickSec: 0.25 },
     RINGWAVE:  { intervalSec: 1.5, maxRadius: 52, expandSpeed: 220, thickness: 16 },
+    // R22 実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。
+    // 唯一の非戦闘アーキタイプ。敵に触れないので dealDamage を一切呼ばない＝
+    // 「仲間はとどめを刺せない」という設計の関門とは無関係に成立する。
+    // 3.5秒に2回復＝0.57HP/秒。ジェル回復（20HP/約16秒＝1.25HP/秒）の半分弱に置いて「少しずつ」を守る。
+    // ⚠️ 公転スロットは有限なので、回復役を入れる＝火力を1枠削るというトレードオフになる。これは意図。
+    HEAL: { intervalSec: 3.5, amount: 2 },
   },
 
   // 合成モンスターの強化倍率（orbit.js が party[i].fused を見て適用）
@@ -296,6 +302,7 @@ export const BALANCE = {
     fieldRadius: 90, fieldTickDamage: 3,
     boomerangDistMult: 1.4, boomerangRadiusMult: 1.6,
     ringwaveRadiusMult: 1.5, ringwaveThicknessMult: 1.8,
+    healMult: 2,
   },
 
   // 進化（プレイヤーLv6から2レベル毎にparty先頭の未進化1体が進化）
@@ -354,6 +361,9 @@ export const BALANCE = {
     field: { radiusAdd: 1.5, tickDamageAdd: 0.7, tickSecMult: 0.955, tickSecMin: 0.18 },
     boomerang: { intervalMult: 0.955, intervalMin: 0.5, maxDistAdd: 1.2, hitRadiusAdd: 0.8, speedAdd: 8 },
     ringwave:  { intervalMult: 0.95,  intervalMin: 0.5, maxRadiusAdd: 1.2, expandSpeedAdd: 8, thicknessAdd: 0.6 },
+    // 最大レベル(wl=11)で 4.2回復/2.80秒＝1.5HP/秒。囲まれた時の被弾(最悪29HP/秒)には遠く及ばないので、
+    // 「立て直しを助ける」範囲に収まる。無敵にはならない。
+    heal:  { amountAdd: 0.2, intervalMult: 0.98, intervalMin: 2.2 },
   },
 
   // 必殺技（敵を倒すとゲージが溜まる。1ステージ10回まで）

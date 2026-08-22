@@ -557,6 +557,12 @@ const SFX = {
     tone({ type: 'triangle', freq: 1140, freqEnd: 4200, dur: 0.34, gain: 0.05, attack: 0.10 });
     noiseHit({ dur: 0.40, gain: 0.07, hpFreq: 1800, lpFreq: 10000 });  // 空気を切り裂く金属のうなり
   },
+  // R22 回復モビット：3.5秒ごとに鳴るので、既存の heal より**ずっと小さく短い**2音にする。
+  // 同じ音量で鳴らすと回復が主役になってしまい、戦闘の音が埋もれる。
+  healTick() {
+    tone({ type: 'sine', freq: 880, dur: 0.07, gain: 0.045, attack: 0.004 });
+    tone({ type: 'sine', freq: 1320, dur: 0.09, gain: 0.035, attack: 0.03 });
+  },
   // R22 投球モーション：腕を振り抜く一瞬の風切り音。0.09秒と短くして「ヒュッ」で切る
   //（wireFly は 0.42 秒あり、投球の振りには長すぎて音が置いていかれる）。
   throwWhoosh(power) {
