@@ -27,6 +27,7 @@ export function createBilliard(run) {
   const st = {
     mode: 1,          // 0＝一撃（現行 updateHeroStrike） / 1＝ビリヤード
     driftIdx: 0,      // BALANCE.stagger.driftModes の添字（キー6で巡回）
+    shardIdx: 0,      // hero.billiard.shards.modes の添字（キー9で巡回）＝ボス戦の装甲片の強さ
     expireVanish: true,   // よろけの時間切れ：true＝消滅（新案） / false＝強化復活（現行）
     held: null,       // 掴んでいる獲物 { maxHp, color, tex, scale, radius }
     chargeT: 0,
@@ -329,7 +330,7 @@ export function createBilliard(run) {
       // ★装甲片をボスへ投げ返すと特効＝「ボスの装甲でボスを殴る」。
       //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
       if (e.isBoss && s.shard) {
-        dmg = Math.round(dmg * B().shards.bossMul);
+        dmg = Math.round(dmg * shardMode().mul);
         run.floatText(e.x, e.y - e.radius - 22, 'アーマーブレイク！', '#ffd23f');
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
@@ -489,16 +490,24 @@ export function createBilliard(run) {
   // ---- ボス戦の弾薬（装甲片） ----
   // ボスの予告を割ると装甲が剥がれ落ちて弾になる。実体はよろけ状態の敵なので、
   // 掴む・溜める・投げるの経路は雑魚とまったく同じ（新しい語彙をプレイヤーに増やさない）。
+  // 現在の装甲片モード（ゲーム内キー9で切り替え）。既定は modes[0]＝標準。
+  function shardMode() {
+    const S = B().shards;
+    const list = (S && S.modes) || [];
+    return list[st.shardIdx] || { name: '標準', count: (S && S.count) || 0, mul: (S && S.bossMul) || 1 };
+  }
+
   function dropShards(bossEnt) {
     const S = B().shards;
-    if (!S || S.count <= 0 || !bossEnt) return;
+    const M = shardMode();
+    if (!S || M.count <= 0 || !bossEnt) return;
     const def = ENEMIES.find((x) => x.id === S.enemyId) || ENEMIES[0];
     // 主人公の側へ撒く＝拾いに行く動きがボスへ近づく動きと同じ向きになる（逃げ得にしない）
     const base = Math.atan2(run.player.y - bossEnt.y, run.player.x - bossEnt.x);
     const step = Phaser.Math.DegToRad(S.spreadDeg);
     let made = 0;
-    for (let i = 0; i < S.count; i++) {
-      const a = base + (i - (S.count - 1) / 2) * step;
+    for (let i = 0; i < M.count; i++) {
+      const a = base + (i - (M.count - 1) / 2) * step;
       const e = run.spawnEnemy(def, bossEnt.x + Math.cos(a) * S.dist, bossEnt.y + Math.sin(a) * S.dist, false, 1);
       if (!e) break;                 // enemyCap に当たったら諦める（弾薬のために上限を破らない）
       e.hp = 1;
@@ -835,6 +844,15 @@ export function createBilliard(run) {
     return st.expireVanish ? '消滅（新案・無報酬）' : '強化復活（現行）';
   }
 
+  // ボス戦の装甲片の強さを巡回する（キー9）。「切」＝R23前の状態なので、その場で前後を比べられる。
+  function cycleShards() {
+    const list = (B().shards && B().shards.modes) || [];
+    if (!list.length) return '（設定なし）';
+    st.shardIdx = (st.shardIdx + 1) % list.length;
+    const m = list[st.shardIdx];
+    return m.name + '（1回のブレイクで' + m.count + '個・ボスへ×' + m.mul + '）';
+  }
+
   function statsLine() {
     const avgCharge = st.throws ? (st.chargeSum / st.throws) : 0;
     const avgKills = st.throws ? (st.throwKills / st.throws) : 0;
@@ -844,5 +862,5 @@ export function createBilliard(run) {
       + ' 溜' + avgCharge.toFixed(2) + 's 掴' + st.grabs + ' 突' + st.jabs + '→獲' + st.jabStaggers;
   }
 
-  return { update, toggleMode, cycleDrift, toggleExpire, statsLine, driftMul, st };
+  return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul, st };
 }

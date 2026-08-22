@@ -254,6 +254,13 @@ export class RunScene extends Phaser.Scene {
       const name = this.billiard.toggleExpire();
       if (this.fx) this.fx.announce('時間切れ：' + name, '#9fe8ff');
     });
+    //   9 … ボス戦の装甲片（切＝R23前の状態 ⇄ 弱 ⇄ 標準 ⇄ 強）。ボス戦の長さと手応えが変わる。
+    //        ボットは「予告のほぼ全部を割る」上限値しか出せないので、強さの正解は実プレイでしか決まらない
+    kb.on('keydown-NINE', () => {
+      if (this.paused || this.ended) return;
+      const name = this.billiard.cycleShards();
+      if (this.fx) this.fx.announce('装甲片：' + name, '#9fe8ff');
+    });
   }
 
   togglePause() {
