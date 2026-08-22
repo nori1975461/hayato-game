@@ -203,7 +203,10 @@ export class RunScene extends Phaser.Scene {
     // 合成シネマのスキップ処理と二重発火するため）。ここでは「使ったか」だけを拾う。
     if (this.input.mouse) this.input.mouse.disableContextMenu();
     this.input.on('pointerdown', () => { this._pointerSeen = true; });
-    this.input.on('pointermove', () => { this._pointerSeen = true; });
+    // R22: 「最後に使った入力が勝つ」ための時刻。⚠️ pointerdown では更新しない。
+    //   攻撃自体が左クリックなので、押しただけで狙いがカーソルへ乗っ取られてしまう
+    //   （実プレイFB「全然狙ったところに標準できない」の主犯）。動かしたときだけ意思とみなす。
+    this.input.on('pointermove', () => { this._pointerSeen = true; this._pointerMoveT = this.elapsed; });
     this._jKey = kb.addKey(KC.J);   // 左クリックの代替（キーボードだけでも完走できる）
 
     kb.on('keydown-P', () => { if (!this.ended) this.togglePause(); });

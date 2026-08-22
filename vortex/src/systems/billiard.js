@@ -131,27 +131,68 @@ export function createBilliard(run) {
   }
 
   // ---- 照準 ----
-  // 実プレイFB「標準（照準）をつけやすくして」への対応。素の狙い角に近い敵へ吸い付かせる。
-  // 完全な自動照準にはしない（それだと「狙って投げた」感が消える）。aimAssistPull で寄せるだけ。
+  // 実プレイFB「標準がゴミすぎる。全然狙ったところに標準できない。上下左右斜めと自由に狙いつけられるように」。
+  //
+  // 主犯は2つあった：
+  //  (1) 攻撃が左クリックなので、一度押すと `_pointerSeen` が立ちっぱなしになり、以後の狙いが
+  //      **常にマウスカーソルの方向**に固定されていた。キーボードで遊ぶ人はカーソルを動かさないので、
+  //      画面の隅に置いたままのカーソルへ永久に投げ続けることになる
+  //  (2) 私が入れたエイムアシストが ±26°・0.75 と強すぎ、群れの中心を狙っても手前の1体へ吸われていた
+  //      （＝「集団を狙って投げる」という、このゲームで一番大事な戦術を自分で壊していた）
+  //
+  // 直した方針＝**最後に使った入力が勝つ**。方向キーを押せば8方向、マウスを動かせば360°自由。
+  // どちらも押していない間は最後の向きを保持するので、狙いが勝手に動くことはもう無い。
   function aimAngle() {
     const b = B();
-    const raw = run.strikeAim();
+    const k = run.moveKeys;
+    let kx = 0, ky = 0;
+    if (k) {
+      if (k.left.isDown || k.a.isDown) kx -= 1;
+      if (k.right.isDown || k.d.isDown) kx += 1;
+      if (k.up.isDown || k.w.isDown) ky -= 1;
+      if (k.down.isDown || k.s.isDown) ky += 1;
+    }
+    st.keyActive = !!(kx || ky);
+    if (st.keyActive) { st.keyAim = Math.atan2(ky, kx); st.keyAimT = run.elapsed; }
+
+    const mT = run._pointerMoveT == null ? -1 : run._pointerMoveT;
+    const kT = st.keyAimT == null ? -1 : st.keyAimT;
+    let raw;
+    if (mT > kT && run.input.activePointer) {
+      // マウスを最後に動かした＝カーソル方向（完全に自由な360°）
+      const w = run.cameras.main.getWorldPoint(run.input.activePointer.x, run.input.activePointer.y);
+      raw = Math.atan2(w.y - run.player.y, w.x - run.player.x);
+    } else if (st.keyAim != null) {
+      raw = st.keyAim;                      // 方向キーの8方向。離しても保持される
+    } else {
+      raw = run._weaponAim || 0;
+    }
+    st.lastAim = raw;
+
+    // アシストは「8方向の刻みを埋める」ためだけの弱いもの。狙いを奪わない。
+    if (b.aimAssistPull <= 0) return raw;
     const px = run.player.x, py = run.player.y;
     const lim = Phaser.Math.DegToRad(b.aimAssistDeg);
-    let best = null, bestScore = 1e9;
+    let best = null, bestScore = -1;
     for (const e of run.enemies) {
-      if (!e.active || e.stag) continue;   // 狙う相手は健常な敵（獲物は既に自分のもの）
+      if (!e.active || e.stag) continue;
       const dx = e.x - px, dy = e.y - py;
       const d = Math.hypot(dx, dy);
-      if (d < 20 || d > 320) continue;
+      if (d < 24 || d > 300) continue;
       const off = Math.abs(run.angDiff(Math.atan2(dy, dx), raw));
       if (off > lim) continue;
-      // 角度のズレを優先しつつ、近い方を選ぶ
-      const score = off * 220 + d * 0.35;
-      if (score < bestScore) { bestScore = score; best = { a: Math.atan2(dy, dx) }; }
+      // ★狙った方向に「何体固まっているか」で選ぶ。手前の1体ではなく群れの側へ寄せる＝戦術を助ける。
+      let cluster = 0;
+      for (const o of run.enemies) {
+        if (!o.active) continue;
+        const ddx = o.x - e.x, ddy = o.y - e.y;
+        if (ddx * ddx + ddy * ddy <= 70 * 70) cluster++;
+      }
+      const score = cluster * 10 - off * 12 - d * 0.02;
+      if (score > bestScore) { bestScore = score; best = Math.atan2(dy, dx); }
     }
-    if (!best) return raw;
-    return raw + run.angDiff(best.a, raw) * b.aimAssistPull;
+    if (best == null) return raw;
+    return raw + run.angDiff(best, raw) * b.aimAssistPull;
   }
 
   // 溜め中に「どこへ飛ぶか」を点線で見せる。これが無いと狙って投げるという行為自体が成立しない。
@@ -445,7 +486,7 @@ export function createBilliard(run) {
   // ★獲物(stag)は対象外。掴み圏から弾き出してしまうと、投げる理由が痩せるため。
   function jab() {
     const b = B(), J = b.jab;
-    const ang = run.strikeAim();
+    const ang = aimAngle();
     run._weaponAim = ang;
     run._punchAng = ang;
     run._punchT = BALANCE.hero.melee.punchSec;
@@ -522,8 +563,12 @@ export function createBilliard(run) {
       st.chargeT = Math.min(B().chargeMaxSec, st.chargeT + dt);
       if (!st.maxRung && st.chargeT >= B().chargeMaxSec) { st.maxRung = true; Sound.sfx('gaugeFull'); }
       // ★②のアンカー。溜め中は移動が鈍る＝「群れの中心で溜め切るか、浅く投げて下がるか」の判断が毎周期出る。
-      run._moveMul = B().moveMulWhileCharge;
       const ang = aimAngle();
+      // 溜め中に方向キーを押している間は足を止め、狙いだけを変える。
+      // ＝「上下左右斜めと自由に狙いをつけられる」。溜め＝足を止めて狙う、という一本のルールになる。
+      const bb = B();
+      run._moveMul = st.keyActive ? (bb.moveMulWhileAiming == null ? 0 : bb.moveMulWhileAiming)
+                                  : bb.moveMulWhileCharge;
       const ratio = Math.min(1, st.chargeT / B().chargeMaxSec);
       run._weaponAim = ang;
       showHeld(ang);
