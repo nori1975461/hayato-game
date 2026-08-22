@@ -557,6 +557,18 @@ const SFX = {
     tone({ type: 'triangle', freq: 1140, freqEnd: 4200, dur: 0.34, gain: 0.05, attack: 0.10 });
     noiseHit({ dur: 0.40, gain: 0.07, hpFreq: 1800, lpFreq: 10000 });  // 空気を切り裂く金属のうなり
   },
+  // R22 投球モーション：腕を振り抜く一瞬の風切り音。0.09秒と短くして「ヒュッ」で切る
+  //（wireFly は 0.42 秒あり、投球の振りには長すぎて音が置いていかれる）。
+  throwWhoosh(power) {
+    const g = 0.06 + 0.06 * (power == null ? 1 : power);
+    noiseHit({ dur: 0.09, gain: g, hpFreq: 900, lpFreq: 9000 });
+    tone({ type: 'triangle', freq: 260, freqEnd: 1500, dur: 0.08, gain: g * 0.55, attack: 0.004 });
+  },
+  // R22 投球モーション：踏み込んで足を突く音。低く短い「ドッ」
+  stepPlant() {
+    tone({ type: 'sine', freq: 150, freqEnd: 62, dur: 0.09, gain: 0.11, attack: 0.002 });
+    noiseHit({ dur: 0.05, gain: 0.05, hpFreq: 150, lpFreq: 1400 });
+  },
   // 最終ボス ナックルウェーブのミサイル飛翔：ジェット/ロケットの噴射轟音＋上昇ホイッスル。
   // 噴射ノイズを厚く敷き、鋭いホイッスルが駆け上がって「複数ミサイルが噴き出して飛んでくる」迫力を出す。
   missileFly() {

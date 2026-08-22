@@ -36,6 +36,8 @@ export function createBilliard(run) {
     shots: [],
     pool: [],
     heldSpr: null, heldGlow: null,
+    // R22 投球モーション。null＝投げていない / オブジェクト＝振っている最中
+    wind: null, ghosts: null, bodyDirty: false, canScale: true, bodyBase: 3,
     // 計測（キー7で表示）。「自然なプレイで何回発動するか」で判定するため。
     grabs: 0, throws: 0, jabs: 0, jabStaggers: 0,
     throwKills: 0, chargeSum: 0, bestChain: 0, dud: 0,
@@ -105,16 +107,15 @@ export function createBilliard(run) {
     if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, BALANCE.stagger.tint);
   }
 
-  function showHeld(ang) {
-    const h = st.held;
+  // 掴んだ獲物は「手」に持たせる。振りかぶれば後ろへ、振れば前へ、手と一緒に動く。
+  // ⚠️ 旧実装は常に狙いの方向の体の前(17〜24px)に置いていた。これだと振りかぶりが絵にならない。
+  function showHeld(h, pose, ratio) {
     if (!st.heldSpr) {
       st.heldSpr = run.add.image(0, 0, 'bullet').setDepth(14);
       st.heldGlow = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(8);
     }
-    const ratio = Math.min(1, st.chargeT / B().chargeMaxSec);
-    const d = 17 + 7 * ratio;
-    const x = run.player.x + Math.cos(ang) * d;
-    const y = run.player.y + Math.sin(ang) * d - 4;
+    const x = run.player.x + Math.cos(pose.ang) * pose.reach;
+    const y = run.player.y + Math.sin(pose.ang) * pose.reach - 4;
     st.heldSpr.setTexture(h.tex).setVisible(true)
       .setScale(h.scale * (1 + 0.18 * ratio))
       .setRotation(run.elapsed * (5 + 16 * ratio))
@@ -255,9 +256,10 @@ export function createBilliard(run) {
   }
 
   // ---- 投げる ----
-  function doThrow(ang) {
-    const b = B(), h = st.held;
-    const ratio = Math.min(1, st.chargeT / b.chargeMaxSec);
+  // ★弾を生む。px/py は **手の座標**（投球モーションの release 時点）であって体の中心ではない。
+  //   実プレイFB「主人公の身体から弾が飛び出しているようにしか見えない」の直接の原因がここだった。
+  function launchShot(ang, ratio, h, px, py) {
+    const b = B();
     const speed = b.speedMin + (b.speedMax - b.speedMin) * ratio;
     // 溜めは速度と貫通HPの両方を買う（速度だけだと最小溜め連打が支配戦略になる）
     // ⚠️ 下限つき。掴んだ敵のHPだけだとチビット(4)を掴んだ時に4体で砕け、
@@ -271,7 +273,6 @@ export function createBilliard(run) {
       ring: run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12),
     };
     if (!disp.ring) disp.ring = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12);
-    const px = run.player.x, py = run.player.y;
     // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
     disp.spr.setTexture(h.tex).setVisible(true).setScale(h.scale * T.ballMul)
       .setRotation(0).setPosition(px, py);
@@ -291,9 +292,7 @@ export function createBilliard(run) {
     });
 
     st.throws++;
-    st.chargeSum += st.chargeT;
-    st.held = null; st.chargeT = 0; st.cd = b.grabCooldownSec;
-    run._moveMul = 1;
+    st.chargeSum += ratio * b.chargeMaxSec;
     hideHeld();
     // 実プレイFB「もっと派手なエフェクトと効果音で盛り上げて」。投げは1.2〜2.5秒に1回＝稀なので大きく出す。
     Sound.sfx('hammer', 0.5 + 0.5 * ratio, 0.9 + 0.3 * ratio);
@@ -304,8 +303,8 @@ export function createBilliard(run) {
     run._knockY = -Math.sin(ang) * b.recoil * (0.6 + 0.4 * ratio);
     run._knockT = 0.14;
     burstStreaks(px, py, Math.max(4, Math.round(T.streaks * 0.5)), T.color, 46 + 30 * ratio);
-    if (run.fx && run.fx.heroImpact) run.fx.heroImpact(px + Math.cos(ang) * 26, py + Math.sin(ang) * 26, ang, ratio);
-    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(px + Math.cos(ang) * 20, py + Math.sin(ang) * 20, ang, BALANCE.stagger.tint);
+    if (run.fx && run.fx.heroImpact) run.fx.heroImpact(px + Math.cos(ang) * 10, py + Math.sin(ang) * 10, ang, ratio);
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(px + Math.cos(ang) * 6, py + Math.sin(ang) * 6, ang, BALANCE.stagger.tint);
     shockRing(px, py, 52 + 40 * ratio, ratio >= 1 ? 0xffd23f : T.color);
     if (ratio >= 1) screenFlash(0.22, 0xffd23f);   // 溜め切りだけの特典
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.04 + 0.05 * ratio);
@@ -538,6 +537,175 @@ export function createBilliard(run) {
     }
   }
 
+  // ============ 投球モーション（R22・実プレイFB） ============
+  // 実プレイFB「ファミスタの投手のように、おもいっきり振りかぶって、足を高く上げて、高速スピードで
+  // 腕を振って投げつける動きを。今は主人公の身体から弾が飛び出しているようにしか見えない」。
+  //
+  // FBは見え方ではなく**実装そのもの**を言い当てていた。旧 doThrow は run.player.x/y ＝体の中心から
+  // 弾を生んでいたので、どれだけエフェクトを足しても「体から湧いた」ようにしか見えようがなかった。
+  //
+  // 直す核は3つ。順に効く：
+  //   (1) 弾は**手から出る**（releaseReach だけ前に出た座標から生む）
+  //   (2) 溜め中は腕とボールを**後ろへ引く**（＝振りかぶり）。前に構えていては振りかぶりに見えない
+  //   (3) 振りは**加速**させ、腕の残像を重ねる（等速で動かすと「速く振った」に見えない）
+  // これを 0.17 秒のモーションに畳んで、途中の releaseAt で弾を離す。
+  function PT() { return B().pitch; }
+
+  // 腕を後ろへ引く回転の向き。画面上で「上を通って後ろへ」回る側を選ぶ。
+  // 逆を選ぶと腕が地面をくぐって回り、投球に見えない。
+  function windSign(ang) { return Math.cos(ang) >= 0 ? -1 : 1; }
+  function facingOf(ang) { return Math.cos(ang) >= 0 ? 1 : -1; }
+  function lerpAng(from, to, k) { return from + run.angDiff(to, from) * k; }
+
+  // 振りかぶりの腕の姿勢（溜め中）
+  function windPose(ang, ratio) {
+    const p = PT();
+    const e = p.windEaseBase + (1 - p.windEaseBase) * ratio;
+    return {
+      ang: ang + windSign(ang) * Phaser.Math.DegToRad(p.windSweepDeg) * e,
+      reach: p.windReach + (p.windReachMax - p.windReach) * ratio,
+      e,
+    };
+  }
+
+  // 腕と拳。updatePlayer / updateHeroFist の**後**に呼ばれるので、ここでの上書きが最終的に画面に出る。
+  function drawHand(a, reach, flip) {
+    const fi = run.playerFistImg;
+    if (!fi) return;
+    fi.setPosition(run.player.x + Math.cos(a) * reach, run.player.y + Math.sin(a) * reach + 1)
+      .setRotation(a).setFlipY(flip).setTint(0xffffff).setAlpha(1)
+      .setVisible(run.playerImg.visible && reach > 4);
+    run.drawArm(a, reach, 0xffffff);
+  }
+
+  // 腕の残像。「高速スピードで腕を振って」を目に見せる担当はこれ。
+  function ghostArms(fromAng, curAng, reach, alphaMul) {
+    const p = PT();
+    if (!st.ghosts) {
+      st.ghosts = [];
+      for (let i = 0; i < 8; i++) {
+        st.ghosts.push(run.add.image(0, 0, 'white').setOrigin(0, 0.5)
+          .setBlendMode(ADD).setDepth(11).setVisible(false));
+      }
+    }
+    const n = Math.min(st.ghosts.length, p.ghosts | 0);
+    const span = Phaser.Math.DegToRad(p.ghostSpanDeg);
+    const gap = Math.abs(run.angDiff(fromAng, curAng));
+    const back = gap > 0.001 ? Math.min(1, span / gap) : 0;
+    const sh = 5;
+    for (let i = 0; i < st.ghosts.length; i++) {
+      const g = st.ghosts[i];
+      if (i >= n || back <= 0 || !run.playerImg.visible) { g.setVisible(false); continue; }
+      const k = (i + 1) / (n + 1);
+      const a = lerpAng(curAng, fromAng, k * back);
+      g.setPosition(run.player.x + Math.cos(a) * sh, run.player.y + Math.sin(a) * sh + 1)
+        .setRotation(a)
+        .setDisplaySize(Math.max(2, reach - sh), 8 * (1 - k * 0.5))
+        .setTint(0x9fe0ff)
+        .setAlpha(0.62 * (1 - k) * (alphaMul == null ? 1 : alphaMul))
+        .setVisible(true);
+    }
+  }
+
+  function hideGhosts() {
+    if (!st.ghosts) return;
+    for (const g of st.ghosts) g.setVisible(false);
+  }
+
+  // 体の姿勢。lift=持ち上げ（足を上げる） / lean=反り・前傾 / lunge=踏み込み / squash=潰れ
+  function setBody(ang, lift, lean, lunge, squash) {
+    const img = run.playerImg;
+    if (!img) return;
+    if (!st.bodyDirty) {
+      st.bodyDirty = true;
+      // レベルアップの拡大tweenが走っている間は縮尺に触らない（奪い合うとスケールが壊れる）
+      st.canScale = !(run.tweens && run.tweens.isTweening && run.tweens.isTweening(img));
+      st.bodyBase = img.scaleX;
+    }
+    const f = facingOf(ang);
+    const x = run.player.x + Math.cos(ang) * lunge;
+    const y = run.player.y + lift;
+    img.setPosition(x, y).setRotation(lean * f);
+    if (st.canScale) img.setScale(st.bodyBase * (1 + squash), st.bodyBase * (1 - squash));
+    if (run.playerGlow) run.playerGlow.setPosition(x, y);
+  }
+
+  function resetBody() {
+    if (!st.bodyDirty) return;
+    st.bodyDirty = false;
+    const img = run.playerImg;
+    if (!img) return;
+    img.setRotation(0);
+    if (st.canScale) img.setScale(st.bodyBase);
+  }
+
+  // 溜めを解いた瞬間。ここではまだ弾は出ない（出るのは releaseAt の時点＝手が前に来てから）。
+  function startThrow(ang) {
+    const b = B(), ratio = Math.min(1, st.chargeT / b.chargeMaxSec);
+    const wp = windPose(ang, ratio);
+    st.wind = { ang, ratio, h: st.held, t: 0, fired: false,
+                windAng: wp.ang, windReach: wp.reach, e: wp.e };
+    st.held = null; st.chargeT = 0; st.maxRung = false;
+    st.cd = b.grabCooldownSec;
+    hideAim();
+    // 振り始めの風切り。「ヒュッ（振り）→ ドンッ（離す）」の2段になって投げた実感が出る
+    Sound.sfx('throwWhoosh', ratio);
+  }
+
+  function endPitch() {
+    st.wind = null;
+    hideGhosts();
+    hideHeld();
+    resetBody();
+    run._moveMul = 1;
+    if (run.playerFistImg) run.playerFistImg.setVisible(false);
+    if (run.playerArmImg) run.playerArmImg.setVisible(false);
+  }
+
+  function updatePitch(dt) {
+    const p = PT(), w = st.wind;
+    w.t += dt;
+    const u = Math.min(1, w.t / p.motionSec);
+    const rel = p.releaseAt;
+    const flip = facingOf(w.ang) < 0;
+    run._moveMul = p.moveMulWhileThrow;
+    run._weaponAim = w.ang;
+
+    if (u < rel) {
+      // 振り。後ろから前へ**加速**しながら抜ける（等速だと速く見えない）
+      const k = Math.pow(u / rel, 1.7);
+      const a = lerpAng(w.windAng, w.ang, k);
+      const reach = w.windReach + (p.releaseReach - w.windReach) * k;
+      ghostArms(w.windAng, a, reach, 1);
+      drawHand(a, reach, flip);
+      showHeld(w.h, { ang: a, reach }, w.ratio);
+      setBody(w.ang, -p.bodyLift * w.e * (1 - k),
+              -p.bodyLean * w.e * (1 - k) + p.bodyLungeLean * k,
+              p.bodyLunge * k, p.squash * k);
+      return;
+    }
+
+    if (!w.fired) {
+      w.fired = true;
+      // ★弾が生まれる場所＝手。ここが今回の修正の核心
+      const hx = run.player.x + Math.cos(w.ang) * p.releaseReach;
+      const hy = run.player.y + Math.sin(w.ang) * p.releaseReach + 1;
+      launchShot(w.ang, w.ratio, w.h, hx, hy);
+      // 踏み込みの土煙（足元）。上げた足が着いたことを地面側からも見せる
+      run.spawnParticles(run.player.x + Math.cos(w.ang) * 6, run.player.y + 11, 0xd7e3f2, p.dust | 0);
+      Sound.sfx('stepPlant');
+    }
+
+    // フォロースルー。振り抜いた勢いで前へ行き過ぎてから戻る
+    const k2 = (u - rel) / (1 - rel);
+    const a = w.ang - windSign(w.ang) * Phaser.Math.DegToRad(p.followDeg) * Math.sin(k2 * Math.PI);
+    const reach = p.releaseReach * (1 - k2 * k2);
+    ghostArms(w.ang, a, reach, 1 - k2);
+    drawHand(a, reach, flip);
+    setBody(w.ang, 0, p.bodyLungeLean * (1 - k2), p.bodyLunge * (1 - k2), p.squash * (1 - k2));
+    if (u >= 1) endPitch();
+  }
+
   function press() {
     const prey = run.nearestEnemy(grabReach(), 0, true, (e) => !e.isBoss);
     if (prey) grab(prey); else jab();
@@ -545,16 +713,23 @@ export function createBilliard(run) {
 
   // ---- 毎フレーム ----
   function update(dt) {
-    if (st.mode !== 1) { run._moveMul = 1; return; }
+    if (st.mode !== 1) { run._moveMul = 1; if (st.wind) endPitch(); return; }
     // ランが終わった瞬間にズーム中だと寄ったまま残るので必ず戻す
     if (run.ended && run.cameras && run.cameras.main && run.cameras.main.zoom !== 1) {
       run.cameras.main.setZoom(1); st.zooming = false;
     }
     updateShots(dt);
-    if (!run.player || run.cinematic || run.paused || run.ended) return;
+    // ランが終わったら、振りかぶりで傾けた体と残像を必ず戻す（残すと死亡画面で斜めのまま固まる）
+    if (!run.player || run.cinematic || run.paused || run.ended) {
+      if (run.ended) { hideGhosts(); resetBody(); }
+      return;
+    }
     if (!st.seeded) seedOpeningPrey();
     checkTierUp();
     if (st.cd > 0) st.cd -= dt;
+
+    // 投げているあいだ（0.17秒）は他の入力を受けない。腕を振り切るまでが1回の投球。
+    if (st.wind) { updatePitch(dt); return; }
 
     const p = run.input.activePointer;
     const want = (p && p.isDown) || (run._jKey && run._jKey.isDown);
@@ -573,12 +748,18 @@ export function createBilliard(run) {
                             : bb.moveMulWhileCharge;
       const ratio = Math.min(1, st.chargeT / B().chargeMaxSec);
       run._weaponAim = ang;
-      showHeld(ang);
+      // ★振りかぶり。腕とボールを後ろへ引き、体を反らせ、足を持ち上げる。
+      //   溜めるほど大きく引くので、ゲージを見なくても「どれだけ溜まったか」が体で分かる。
+      const wp = windPose(ang, ratio);
+      showHeld(st.held, wp, ratio);
+      drawHand(wp.ang, wp.reach, facingOf(ang) < 0);
+      setBody(ang, -PT().bodyLift * wp.e, -PT().bodyLean * wp.e, 0, 0);
       showAim(ang, ratio);
-      if (!want) { hideAim(); doThrow(ang); }
+      if (!want) startThrow(ang);
     } else {
       run._moveMul = 1;
       hideAim();
+      resetBody();
       if (want && st.cd <= 0) press();
     }
   }
@@ -586,7 +767,7 @@ export function createBilliard(run) {
   // ---- ゲーム内切り替え（実プレイで体感して選ぶためのスパイク機能）----
   function toggleMode() {
     st.mode = st.mode === 1 ? 0 : 1;
-    if (st.mode === 0) { st.held = null; st.chargeT = 0; hideHeld(); hideAim(); run._moveMul = 1; }
+    if (st.mode === 0) { st.held = null; st.chargeT = 0; hideHeld(); hideAim(); endPitch(); }
     return st.mode === 1 ? 'ビリヤード（掴む→投げる）' : '一撃（現行）';
   }
 
