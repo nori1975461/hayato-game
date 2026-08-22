@@ -134,6 +134,11 @@ export function createOrbit(run) {
       o.ringThick    = (ovr.thickness   ?? A.RINGWAVE.thickness)  * (fused ? F.ringwaveThicknessMult : 1);
       o.healSec      = (ovr.intervalSec ?? A.HEAL.intervalSec);
       o.healAmount   = (ovr.amount      ?? A.HEAL.amount) * (fused ? F.healMult : 1);
+      // R23 AMMO（ビリッコ）。武器レベルでは一切伸びない＝増えるのは合体したときだけ。
+      o.ammoFirst    = (ovr.firstDelaySec ?? A.AMMO.firstDelaySec);
+      o.ammoRefill   = (ovr.refillSec     ?? A.AMMO.refillSec);
+      o.ammoPerBoss  = (ovr.perBoss       ?? A.AMMO.perBoss);
+      o.ammoPerFinal = (ovr.perFinal      ?? A.AMMO.perFinal);
 
       // 武器レベル成長（必ず最後に適用）。FB#2: 実効レベル el 基準（合成なかまは強く伸びる）。
       const wl = el - 1;
@@ -259,8 +264,38 @@ export function createOrbit(run) {
         case 'BOOMERANG': updateBoomerang(o, dt); break;
         case 'RINGWAVE':  updateRingwave(o, dt); break;
         case 'HEAL':      updateHeal(o, dt); break;
+        case 'AMMO':      updateAmmo(o, dt); break;
       }
     }
+  }
+
+  // R23: 弾薬モビット（ビリッコ）。実プレイFB「特殊弾を生成してくれるモビットもいれて。…
+  //   ボス戦でのみ。1ボスに対して1弾。マオウレクス戦では2弾」。
+  //
+  // ここが決めるのは **いつ渡すか** だけ。渡す演出（スローモーション）と弾そのものは
+  // billiard.js が持つ（手の中の状態を触るのはあちらの責任なので、二重管理にしない）。
+  function updateAmmo(o, dt) {
+    const bs = run.boss;
+    // ボス戦以外では一切働かない。在庫はボスごとに作り直すので持ち越しも起きない。
+    if (!bs || !bs.active) { o.ammoBossId = null; return; }
+    const ent = bs.entity;
+    if (!ent) return;
+    if (o.ammoBossId !== ent.id) {
+      o.ammoBossId = ent.id;
+      const final = !!(ent.def && ent.def.id === 'maou');
+      o.ammoStock = final ? o.ammoPerFinal : o.ammoPerBoss;
+      o.ammoT = o.ammoFirst;
+    }
+    if (o.ammoStock <= 0) return;
+    o.ammoT -= dt;
+    if (o.ammoT > 0) return;
+    // 手がふさがっている間は渡さずに待つ。掴んでいる獲物を雷光弾で上書きすると、
+    // 「投げようとしていた弾が消えた」＝プレイヤーの入力を奪うことになる。
+    const bl = run.billiard;
+    if (!bl || !bl.canReceiveBolt || !bl.canReceiveBolt()) return;
+    o.ammoStock--;
+    o.ammoT = o.ammoRefill;
+    bl.giveBolt(o);
   }
 
   // R22: 回復モビット（マシュモ）。実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。

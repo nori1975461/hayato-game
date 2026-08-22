@@ -443,6 +443,35 @@ const SFX = {
     tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.32, dur: 0.3, gain: 0.09 });
     noiseHit({ start: 0.25, dur: 0.2, gain: 0.05, hpFreq: 6500 });
   },
+  // R23 らいこうだんの手渡し：スローモーションの間ずっと鳴る「充電が満ちる」上昇音。
+  // ⚠️ この音が鳴っている＝時間が遅い、と耳で分かるようにゆっくり上げる（1.1秒）。
+  boltCharge() {
+    tone({ type: 'triangle', freq: 180, freqEnd: 1300, dur: 1.0, gain: 0.16, attack: 0.05 });
+    tone({ type: 'square', freq: 90, freqEnd: 650, dur: 1.0, gain: 0.06, attack: 0.05 });
+    // ちりちりと帯電するノイズを重ねる（無音の1秒は「固まった」に見えるので必ず埋める）
+    for (let i = 0; i < 7; i++) {
+      noiseHit({ start: 0.1 + i * 0.13, dur: 0.05, gain: 0.05, hpFreq: 5000, lpFreq: 15000 });
+    }
+    [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((n, i) => {
+      tone({ type: 'triangle', freq: noteFreq(n), start: 0.55 + i * 0.1, dur: 0.3, gain: 0.14 });
+    });
+  },
+  // R23 らいこうだんの着弾：落雷。パキッと割れる高音のクラック → 腹に来る低いゴロゴロ。
+  thunder() {
+    // 空気が裂ける瞬間（極短・超高域）
+    noiseHit({ dur: 0.05, gain: 0.3, hpFreq: 6000, lpFreq: 16000 });
+    noiseHit({ start: 0.01, dur: 0.12, gain: 0.22, hpFreq: 2200, lpFreq: 14000 });
+    tone({ type: 'square', freq: 2400, freqEnd: 620, dur: 0.09, gain: 0.14, attack: 0.001 });
+    // 落ちてくる芯
+    tone({ type: 'sine', freq: 320, freqEnd: 34, dur: 0.7, gain: 0.36, attack: 0.002 });
+    tone({ type: 'triangle', freq: 140, freqEnd: 30, dur: 0.62, gain: 0.18, attack: 0.002 });
+    // 遠くまで転がる余韻（ゴロゴロ）。ポップさを保つため濁らせず、明るい和音を薄く敷く
+    noiseHit({ start: 0.06, dur: 0.55, gain: 0.16, hpFreq: 90, lpFreq: 2600 });
+    noiseHit({ start: 0.3, dur: 0.45, gain: 0.09, hpFreq: 70, lpFreq: 1400 });
+    [NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6].forEach((n, i) => {
+      tone({ type: 'square', freq: noteFreq(n), start: 0.03 + i * 0.02, dur: 0.4, gain: 0.1 });
+    });
+  },
   // 必殺技ゲージ満タン：短い「チャリン↑」3音（約0.25秒）
   gaugeFull() {
     const seq = [NOTE.G5, NOTE.C6, NOTE.E6];

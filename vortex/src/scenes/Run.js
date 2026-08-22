@@ -66,6 +66,10 @@ export class RunScene extends Phaser.Scene {
     this.ended = false;
     this.cinematic = false;   // 合成/ボス撃破など進行停止する演出中
     this.freezeT = 0;         // ヒットストップ残り秒
+    // R23: スローモーション。freezeT（完全停止）と違い、遅いだけで全部が動き続ける。
+    // 実プレイFB「特殊弾を手渡しされる際はスローモーションでゆっくりと」の受け皿。
+    this.slowT = 0;           // 残り秒（実時間で数える）
+    this.slowMul = 1;         // この倍率でゲーム内のdtを縮める
     // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
     // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
     this._strikeT = 0;          // クールダウンの残り秒
@@ -294,6 +298,7 @@ export class RunScene extends Phaser.Scene {
     }
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
+    this.realDt = dt;         // スローモーションで縮める前の実時間（演出の尺はこちらで数える）
 
     // シネマティック中（合成/ボス撃破）は進行停止。演出tweenはScene側で継続する。
     if (this.cinematic) {
@@ -307,6 +312,14 @@ export class RunScene extends Phaser.Scene {
       if (this.fx) this.fx.update(dt);
       this.hud.update(delta);
       return;
+    }
+
+    // スローモーション。残り時間は**実時間**で減らし、ゲーム側へ渡すdtだけを縮める
+    // （縮めたdtで数えると、遅くしたぶんスローが延びて永久に終わらない）。
+    if (this.slowT > 0) {
+      this.slowT -= dt;
+      dt *= this.slowMul;
+      if (this.slowT <= 0) this.slowMul = 1;
     }
 
     this.elapsed += dt;
@@ -1856,6 +1869,14 @@ export class RunScene extends Phaser.Scene {
     // Phaser の shake intensity はカメラ寸法に対する比率（offset = intensity × width/height）。
     // §6「シェイク 100ms/4px」を満たすため、横 4px = 4 / view.width を渡す。
     this.cameras.main.shake(duration, (px || 4) / BALANCE.view.width);
+  }
+
+  // R23: スローモーション（sec 秒のあいだ、ゲーム内の時間を mul 倍で進める）。
+  // ヒットストップ（freezeT）と使い分ける：止めるのは「打った瞬間」、遅くするのは「見せたい間」。
+  slowMotion(sec, mul) {
+    if (this.cinematic) return;           // 演出中は時間を触らない（二重に遅くすると復帰しない）
+    this.slowT = Math.max(this.slowT, sec);
+    this.slowMul = Math.max(0.05, Math.min(1, mul == null ? 0.2 : mul));
   }
 
   // ============ 背景視差 ============

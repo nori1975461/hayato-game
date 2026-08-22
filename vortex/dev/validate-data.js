@@ -12,7 +12,7 @@ function check(cond, msg) {
 }
 
 const RARITY = ['N', 'R', 'SR'];
-const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL'];
+const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL', 'AMMO'];
 // R4: forms の tex は Boot.js が生成する武器テクスチャ名のいずれかであること
 const WEAPON_TEX = ['w_paw', 'w_toy', 'w_hammer', 'w_cookie', 'w_star2',
                     'w_rainbow', 'w_note', 'w_drop', 'w_ring', 'w_bubble', 'w_heart'];

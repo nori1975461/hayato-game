@@ -20,6 +20,7 @@ export function createCapture(run) {
   const altarFired = BALANCE.altar.appearSecs.map(() => false);
   let msg = null;         // 「あと◯たい ひつよう」表示
   let msgT = 0;
+  let boltCoreGiven = false;   // R23: ビリッコのコアを配ったか（1ランに1回）
 
   // Wave R2: 経過時間で解禁される現在の公転スロット数（spawner.currentCap と同型）。
   // slotSchedule を走査し、maxSlots を絶対上限としてクランプする。
@@ -75,6 +76,23 @@ export function createCapture(run) {
       run.spawnParticles(core.x, core.y, 0xffd23f, 10);
       run.floatText(core.x, core.y, '+' + C.fullPartyCoins + ' コイン', '#ffd23f');
     }
+  }
+
+  // R23: らいこうだんの出処であるビリッコを、1ランに1回だけ必ず配る。
+  // 実プレイFB由来の切り札（ボス戦の雷光弾）が、コア抽選の運で一度も見られないのは
+  // 「入れていない」のと同じなので、抽選には委ねない。
+  // ⚠️ 配る時刻は**3枠目が開く瞬間**にしてある。手持ちの攻撃役を降ろさずに載せられる唯一のタイミング。
+  function ensureBoltMobit() {
+    if (boltCoreGiven) return;
+    const gate = BALANCE.orbit.slotSchedule[0] ? BALANCE.orbit.slotSchedule[0].untilSec : 180;
+    if (run.elapsed < gate) return;
+    boltCoreGiven = true;
+    if (run.party.some((pt) => pt.def && pt.def.id === 'biricco')) return;   // もう持っている
+    const def = MONSTERS.find((m) => m.id === 'biricco');
+    if (!def) return;
+    makeCore(run.player.x + 26, run.player.y - 18, def);
+    Sound.sfx('draftReady');
+    if (run.fx && run.fx.announce) run.fx.announce('ビリッコ の コア！ ボスに きく らしい', '#ffe14d');
   }
 
   function updateCores(dt) {
@@ -191,13 +209,22 @@ export function createCapture(run) {
     if (run.fx && run.fx.clearTarget) run.fx.clearTarget('altar');
   }
 
+  // R23: 非戦闘の役どころ（回復＝マシュモ／弾薬＝ビリッコ）は合成の素材にしない。
+  // 合成は素材2体を消して**上位のランダム1体**にするので、役割を持つ子を混ぜると
+  // 「ボス戦の切り札を配る係が、勝手に別の攻撃役へ化けて消える」ことが起きる。
+  // 実測（seed=42）：ビリッコが300秒あたりの合成で消え、ミサイルガとマオウレクスで
+  // らいこうだんが1発も配られなかった。プレイヤーが選んだ役割は合成で奪わない。
+  const NON_COMBAT = ['HEAL', 'AMMO'];
+
   // パーティ先頭から同レアリティ2体を選び上位へ合成
   function tryFuse() {
     const seen = {};
     let pair = null, resultPool = null;
     for (let i = 0; i < run.party.length; i++) {
-      const rar = run.party[i].def.rarity;
+      const d = run.party[i].def;
+      const rar = d.rarity;
       if (rar === 'SR') continue;           // SR は素材にしない
+      if (NON_COMBAT.includes(d.archetype)) continue;
       if (seen[rar] != null) {
         pair = [seen[rar], i];
         resultPool = rar === 'N' ? NtoR : SR_MONS;
@@ -277,6 +304,7 @@ export function createCapture(run) {
   }
 
   function update(dt) {
+    ensureBoltMobit();
     updateCores(dt);
     updateAltar(dt);
     if (msg && msg.visible) {

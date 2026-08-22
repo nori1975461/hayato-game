@@ -446,6 +446,71 @@ export const MONSTERS = [
       },
     },
   },
+  {
+    // R23（実プレイFB「特殊弾を生成してくれるモビットもいれて。…イナズマが迸る雷光弾。
+    //   ボス戦でのみ。1ボスに対して1弾。マオウレクス戦では2弾」）。
+    // 2体目の非戦闘モビット。敵に触れず、ボス戦のあいだだけ主人公へ「らいこうだん」を手渡す。
+    // ⚠️ 濃紺の雷雲の体に電光の黄を差す配色にしたのは、同じ雷系のサンダービット（ピカビットの進化形）と
+    //    見分けるため。あちらは全身が明るい光、こちらは「雲の中で光る」。
+    id: 'biricco',
+    name: 'ビリッコ',
+    rarity: 'R',
+    archetype: 'AMMO',
+    color: '#8e93e8',
+    baseDamage: 2,   // AMMO は敵にダメージを与えないので未使用。データ検証のために持たせている
+    forms: [
+      { name: 'ちくでんタッチ',   kind: 'melee',  archetype: 'AMMO', tex: 'w_star2', sfx: 'counter' },
+      { name: 'らいこうだん わたし', kind: 'ranged', archetype: 'AMMO', tex: 'w_rainbow', sfx: 'counter' },
+    ],
+    sprite: {
+      palette: { c: '#5b5fa8', d: '#33376e', y: '#ffe14d', w: '#ffffff', k: '#191b3d' },
+      rows: [
+        '................',
+        '......y....y....',
+        '.....yy...yy....',
+        '..ccccccccccc...',
+        '.ccccccccccccc..',
+        'cccccccccccccccc',
+        'ccckcccccccckccc',
+        'cccwcccccccwcccc',
+        'cccccccyyccccccc',
+        'ccccccyycccccccc',
+        'cccccyyyyycccccc',
+        'ccccccccyyccccc.',
+        '.cccccccycccccc.',
+        '..ddddddddddd...',
+        '...d.d...d.d....',
+        '....y.....y.....',
+      ],
+    },
+    // 雷雲が渦を巻き、角から常時放電する姿。渡す発数は進化しても増えない（1発30%×複数は強すぎる）。
+    evo: {
+      id: 'raijinger',
+      name: 'ライジンガー',
+      baseDamage: 3,
+      sprite: {
+        palette: { c: '#5b5fa8', d: '#33376e', y: '#ffe14d', w: '#ffffff', k: '#191b3d' },
+        rows: [
+          '....y.......y...',
+          '...yy.......yy..',
+          '..yycccccccccyy.',
+          '.yccccccccccccy.',
+          'ycccccccccccccy.',
+          'cccccccccccccccc',
+          'ccckcccccccckccc',
+          'cccwcccccccwcccc',
+          'ccyyccyyccyyccyy',
+          'cccccyycccccccyc',
+          'ccccyyyyyccccccc',
+          'cyccccccyyccccyc',
+          'yccccccccyccccc.',
+          '.dddddddddddddd.',
+          '..d.d.d...d.d.d.',
+          '.y...y.....y...y',
+        ],
+      },
+    },
+  },
 ];
 
 // プレイヤー3段階。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。
