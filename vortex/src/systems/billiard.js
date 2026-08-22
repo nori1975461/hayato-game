@@ -44,9 +44,18 @@ export function createBilliard(run) {
     throwKills: 0, chargeSum: 0, bestChain: 0, dud: 0,
     // R23 らいこうだん（ビリッコの手渡し）
     handover: null, boltSpr: null, boltGlow: null, boltsGot: 0, boltHits: 0,
+    // R24 ほのおだん（レア雑魚マグマンを掴んで投げた弾）
+    blastHits: 0, heldRing: null, heldRing2: null, heldCore: null, heldMotes: null,
   };
 
   const B = () => BALANCE.hero.billiard;
+  // R24: 主人公の攻撃力。自動強化のトップ項目とやしろがここを伸ばす。
+  // ⚠️ これを掛けていなかったので、レベルが上がっても投げの威力は段位が変わる瞬間しか動かなかった
+  //    （実プレイFB「なにもレベルアップしたことが感じられない」の実体）。
+  const heroMul = () => (run.stats && run.stats.heroMult) || 1;
+  // 現在の段位の添字（0起点）。checkTierUp が維持する。
+  const tierIdx = () => (st.tierIdx == null ? 0 : st.tierIdx);
+  const SPEC = (kind) => (kind === 'bolt' ? B().bolt : kind === 'blast' ? B().blast : null);
   // 現在の段位。レベルが上がるほど威力と派手さが同時に上がる。
   function tier() {
     const T = B().throwTiers;
@@ -54,20 +63,33 @@ export function createBilliard(run) {
     return T[T.length - 1];
   }
   // 段が上がった瞬間を見せる。ここが「成長を感じる」の発火点。
+  // R24: 実プレイFB「名称は勇ましいが、なにもレベルアップしたことが感じられない」。
+  //   テロップ1行では流れて終わるので、**時間を落として**その瞬間を跨がせる（らいこうだんと同じ手）。
+  //   加えて、新しい投げの音をその場で1回鳴らす＝「音が変わった」を耳で先に教える。
   function checkTierUp() {
     const T = B().throwTiers;
     let idx = T.length - 1;
     for (let i = 0; i < T.length; i++) if (run.level <= T[i].untilLevel) { idx = i; break; }
     if (st.tierIdx === undefined) { st.tierIdx = idx; return; }
     if (idx <= st.tierIdx) return;
+    const prev = T[st.tierIdx];
     st.tierIdx = idx;
     const t = T[idx];
     if (run.fx && run.fx.announce) run.fx.announce('なげる が ' + t.name + ' に！', '#ffe9a8');
+    // 何が強くなったかを数字で出す（言葉だけだと小6には「名前が変わっただけ」に見える）
+    run.floatText(run.player.x, run.player.y - 46,
+      'いりょく ×' + (t.dmgMul / prev.dmgMul).toFixed(2), '#ffd23f');
     Sound.sfx('weaponTier');
+    Sound.sfx(t.sfx || 'throwLight', 1, t.pitch || 1);   // ★新しい投げの音を1回聴かせる
+    run.slowMotion(0.55, 0.30);
     screenFlash(0.3, t.color);
     burstStreaks(run.player.x, run.player.y, t.streaks + 10, t.color, 130);
     zoomPunch(t.zoom * 2.2);
     shockRing(run.player.x, run.player.y, 120, t.color);
+    for (let i = 0; i < 3; i++) {
+      const rr = 60 + 55 * i;
+      run.time.delayedCall(i * 70, () => shockRing(run.player.x, run.player.y, rr, i % 2 ? 0xffffff : t.color));
+    }
   }
   const grabReach = () => B().grabReach + (run.playerStage - 1) * B().grabReachPerStage;
   const driftMul = () => (BALANCE.stagger.driftModes[st.driftIdx] || { speedMul: 0.55 }).speedMul;
@@ -98,6 +120,9 @@ export function createBilliard(run) {
       scale: e.baseScale || 1,
       radius: e.radius || 10,
       shard: !!e.shard,        // ボスの装甲片＝ボスへ投げ返すと特効
+      // R24: レア雑魚（マグマン）を掴んだ弾は**炎の炸裂弾**になる。
+      // 掴んだ敵の絵をそのまま持つので、赤い機体が手の中にあること自体が「特別な弾」の合図になる。
+      spec: (e.def && BALANCE.rareEnemy && e.def.id === BALANCE.rareEnemy.enemyId) ? 'blast' : null,
     };
     st.chargeT = 0;
     st.maxRung = false;
@@ -114,16 +139,22 @@ export function createBilliard(run) {
   // 掴んだ獲物は「手」に持たせる。振りかぶれば後ろへ、振れば前へ、手と一緒に動く。
   // ⚠️ 旧実装は常に狙いの方向の体の前(17〜24px)に置いていた。これだと振りかぶりが絵にならない。
   function showHeld(h, off, ratio) {
+    const A = B().heldAura;
     if (!st.heldSpr) {
       st.heldSpr = run.add.image(0, 0, 'bullet').setDepth(14);
-      st.heldGlow = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(8);
+      // ⚠️ 旧実装は depth 8 ＝主人公より**下**だった。弾は頭の上にあるので体と重なる部分が
+      //    そのまま隠れ、等倍では光っているのが分からなかった（差分計測で発覚）。
+      st.heldGlow = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(A.depth);
+      st.heldCore = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(A.depth);
     }
     // R23: 手の位置は角度＋距離ではなく**オフセット**で受け取る（頭上を通る弧を描くため）
     const x = run.player.x + off.x;
     const y = run.player.y + off.y - 2;
-    // R23: らいこうだんは黄金＋白芯。掴んだ獲物（青白）と一目で区別が付く色にする
-    const tint = h.bolt ? B().bolt.color : BALANCE.stagger.tint;
-    st.heldSpr.setTexture(h.tex).setTint(h.bolt ? B().bolt.coreColor : 0xffffff).setVisible(true)
+    // R23/R24: 特殊弾はそれぞれの色。ふつうの獲物は**段位の色**で包む
+    // （実プレイFB本人の案「捕獲した敵が光に包まれて威力が増す。レベルアップのたびに派手に」）。
+    const SP = SPEC(h.spec);
+    const tint = SP ? SP.color : tier().color;
+    st.heldSpr.setTexture(h.tex).setTint(SP ? SP.coreColor : 0xffffff).setVisible(true)
       .setScale(h.scale * (1 + 0.18 * ratio))
       .setRotation(run.elapsed * (5 + 16 * ratio))
       .setPosition(x, y);
@@ -131,14 +162,80 @@ export function createBilliard(run) {
     const pulse = 0.55 + 0.45 * Math.sin(run.elapsed * (7 + 22 * ratio));
     // ⚠️ 4.2+3.4 だと溜め切りで直径76〜100pxになり、主人公の姿勢を光で塗りつぶしていた。
     //    ポーズが読めなくなるので、溜めが分かる範囲で絞る。
-    const sz = h.radius * (3.2 + 2.4 * ratio);
+    // R24: 光の大きさは「段位」＋「レベル」で育つ。段位の谷間でも lvGlow のぶんは毎レベル伸びるので、
+    //      レベルアップのたびに手の中の弾が少しずつ大きく光る＝伸びが目で分かる。
+    const ti = tierIdx();
+    const grow = SP ? 4.8 : (A.glowBase + A.glowPerTier * ti + A.lvGlow * (run.level || 1));
+    const ar = A.baseRadius + h.radius * A.radiusShare;   // 光の基準は自分の強さ（掴んだ敵の大小ではない）
+    const sz = ar * (grow + 2.4 * ratio);
     st.heldGlow.setVisible(true).setTint(tint)
-      .setAlpha((h.bolt ? 0.6 : 0.3) + 0.5 * ratio * pulse)
-      .setDisplaySize(sz * (h.bolt ? 1.5 : 1), sz * (h.bolt ? 1.5 : 1)).setPosition(x, y);
+      .setAlpha((SP ? 0.6 : A.glowAlpha + A.glowAlphaPerTier * ti) + 0.4 * ratio * pulse)
+      .setDisplaySize(sz, sz).setPosition(x, y);
+    // 白い芯＝「段位が上がる＝熱い」を色相に頼らず伝える。ここが無いと赤や桃の段位で暗くなる。
+    const cs = ar * ((SP ? 2.6 : A.coreBase + A.corePerTier * ti) + 0.7 * ratio);
+    st.heldCore.setVisible(true).setTint(SP ? 0xffffff : 0xffffff)
+      .setAlpha((SP ? 0.55 : A.coreAlpha + A.coreAlphaPerTier * ti) * (0.7 + 0.3 * pulse))
+      .setDisplaySize(cs, cs).setPosition(x, y);
+  }
+
+  // ★段位の光をまとわせる（実プレイFB「光に包まれて威力が増す／レベルアップのたびに派手に」）。
+  // 段位が上がるほど「輪が回りはじめ → 2枚になり → 火花が散る」と要素そのものが増える。
+  // 大きさだけ変えても気づかれないので、**種類を増やす**のが要点。
+  function heldAura(off, ratio, dt, spec) {
+    const A = B().heldAura, ti = tierIdx();
+    const SP = SPEC(spec);
+    const col = SP ? SP.color : tier().color;
+    const x = run.player.x + off.x, y = run.player.y + off.y - 2;
+    if (ti >= A.ringFromTier || SP) {
+      if (!st.heldRing) {
+        st.heldRing = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(A.depth);
+        st.heldRing2 = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(A.depth);
+      }
+      // ⚠️ w_ring は 48px・太さ5px。scale 0.1 台だと直径9px・太さ0.5px＝等倍では線が消える。
+      const base = A.ringBase + A.ringPerTier * ti + A.ringCharge * ratio + (SP ? 0.18 : 0);
+      st.heldRing.setVisible(true).setTint(col)
+        .setAlpha(A.ringAlpha + A.ringAlphaPerTier * ti + 0.25 * ratio)
+        .setScale(base).setRotation(run.elapsed * (2.2 + 0.5 * ti)).setPosition(x, y);
+      st.heldRing2.setVisible(ti >= A.ring2FromTier || !!SP).setTint(0xffffff)
+        .setAlpha(0.25 + 0.35 * ratio).setScale(base * A.ring2Mul)
+        .setRotation(-run.elapsed * (1.6 + 0.4 * ti)).setPosition(x, y);
+    } else if (st.heldRing) {
+      st.heldRing.setVisible(false); st.heldRing2.setVisible(false);
+    }
+    // 最上位帯だけ、光の粒が弾のまわりを回る（「まだ上がある」を見せるための最後の1要素）
+    if (ti >= A.moteFromTier || SP) {
+      if (!st.heldMotes) {
+        st.heldMotes = [];
+        for (let i = 0; i < A.motes; i++) {
+          st.heldMotes.push(run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(A.depth));
+        }
+      }
+      const rr = A.moteRadius * (0.75 + 0.35 * ratio);
+      for (let i = 0; i < st.heldMotes.length; i++) {
+        const a = run.elapsed * 3.4 + (i * Math.PI * 2) / st.heldMotes.length;
+        const s = 7 + 4 * ratio;
+        st.heldMotes[i].setVisible(true).setTint(SP ? col : 0xffffff).setAlpha(0.55 + 0.35 * ratio)
+          .setDisplaySize(s, s).setPosition(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.7);
+      }
+    } else if (st.heldMotes) {
+      for (const m of st.heldMotes) m.setVisible(false);
+    }
+    if (ti < A.sparkFromTier && !SP) return;
+    st.sparkT = (st.sparkT || 0) - dt;
+    if (st.sparkT > 0) return;
+    st.sparkT = A.sparkEverySec / (1 + 0.18 * ti);   // 上の段位ほど散る間隔が詰まる
+    const a = run.rng.range(0, Math.PI * 2);
+    const r = run.rng.range(A.sparkRange * 0.5, A.sparkRange) * (0.6 + 0.6 * ratio);
+    if (spec === 'blast') emberBurst(x, y, 2, 20);
+    else lightning(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, col,
+      { seg: 3, jitter: 5, width: 2, lifeMs: 120 });
   }
 
   function hideHeld() {
     if (st.heldSpr) { st.heldSpr.setVisible(false); st.heldGlow.setVisible(false); }
+    if (st.heldCore) st.heldCore.setVisible(false);
+    if (st.heldRing) { st.heldRing.setVisible(false); st.heldRing2.setVisible(false); }
+    if (st.heldMotes) for (const m of st.heldMotes) m.setVisible(false);
   }
 
   // ---- 照準 ----
@@ -288,6 +385,38 @@ export function createBilliard(run) {
     }
   }
 
+  // ---- 炎（R24）----
+  // 稲妻が「直線のギザギザ」なのに対して、炎は**膨らみながら上へ流れる**。
+  // 同じ helper で両方を描くと見分けが付かなくなるので、意図的に別の動きにしている。
+  function emberBurst(x, y, n, spread) {
+    const L = B().blast;
+    for (let i = 0; i < n; i++) {
+      const a = run.rng.range(0, Math.PI * 2);
+      const d = run.rng.range(spread * 0.35, spread);
+      const sz = run.rng.range(4, 11);
+      const g = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(14)
+        .setTint(i % 3 === 0 ? L.coreColor : L.color).setDisplaySize(sz, sz).setAlpha(0.95);
+      run.tweens.add({
+        targets: g, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d - run.rng.range(6, 26),
+        alpha: 0, displayWidth: sz * 0.3, displayHeight: sz * 0.3,
+        duration: run.rng.range(260, 520), ease: 'Cubic.out', onComplete: () => g.destroy(),
+      });
+    }
+  }
+
+  // 立ち上る火柱。らいこうだんの「天から落ちる柱」と上下が逆＝一目で別物と分かる。
+  function firePillar(x, y) {
+    const L = B().blast;
+    for (let i = 0; i < 3; i++) {
+      const w = 30 - i * 8;
+      const g = run.add.image(x, y + 8, 'glow').setBlendMode(ADD).setDepth(15)
+        .setTint(i === 0 ? L.color : L.coreColor).setOrigin(0.5, 1)
+        .setDisplaySize(w, 10).setAlpha(0.9);
+      run.tweens.add({ targets: g, displayHeight: 130 - i * 28, displayWidth: w * 1.7, alpha: 0,
+        duration: 420 + i * 90, ease: 'Cubic.out', onComplete: () => g.destroy() });
+    }
+  }
+
   // ---- らいこうだん（R23）----
   // 実プレイFB「特殊弾を生成してくれるモビットもいれて。そのモビットから特殊弾を手渡しされる際は
   //   スローモーションでゆっくりと。特殊な弾をわたされたことをプレイヤーが意識できるように。
@@ -358,7 +487,7 @@ export function createBilliard(run) {
     // 受け取り。溜めは済んだ状態で手に収まる＝あとは狙って離すだけ。
     cancelHandover();
     st.held = { maxHp: 1, color: L.color, tex: 'bullet', scale: L.scale, radius: L.radius,
-                shard: false, bolt: true, handed: true };
+                shard: false, spec: 'bolt', handed: true };
     st.chargeT = B().chargeMaxSec;
     st.maxRung = true;
     st.boltsGot++;
@@ -374,21 +503,11 @@ export function createBilliard(run) {
     run.floatText(px, py - 40, 'なげろ！', '#ffe14d');
   }
 
-  // 手に持っているあいだ、絶えず放電する。「持っている＝ヤバい物」を毎フレーム主張させる。
-  function boltAura(off, dt) {
-    const L = BOLT();
-    st.auraT = (st.auraT || 0) - dt;
-    if (st.auraT > 0) return;
-    st.auraT = 0.06;
-    const x = run.player.x + off.x, y = run.player.y + off.y - 2;
-    const a = run.rng.range(0, Math.PI * 2), r = run.rng.range(14, 32);
-    lightning(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, L.color,
-      { seg: 3, jitter: 6, width: 2, lifeMs: 130 });
-  }
-
-  // 着弾点から周囲の敵へ枝分かれする連鎖雷。よろけ（＝弾薬）は巻き込まない。
-  function boltBlast(x, y, skip) {
-    const L = BOLT();
+  // 着弾点から周囲の敵へ広がる二次被害。らいこうだん＝連鎖雷／ほのおだん＝延焼。
+  // どちらもよろけ（＝弾薬）は巻き込まない（自分の弾を自分で消さない）。
+  function specialChain(x, y, skip, kind) {
+    const L = SPEC(kind);
+    if (!L) return 0;
     let n = 0;
     for (const e of run.enemies) {
       if (n >= L.chainCount) break;
@@ -396,8 +515,12 @@ export function createBilliard(run) {
       const dx = e.x - x, dy = e.y - y;
       if (dx * dx + dy * dy > L.chainRange * L.chainRange) continue;
       n++;
-      lightning(x, y, e.x, e.y, n % 2 ? L.color : L.coreColor,
-        { seg: 7, jitter: 14, width: 3, lifeMs: 240 });
+      if (kind === 'bolt') {
+        lightning(x, y, e.x, e.y, n % 2 ? L.color : L.coreColor,
+          { seg: 7, jitter: 14, width: 3, lifeMs: 240 });
+      } else {
+        emberBurst(e.x, e.y, 4, 22);
+      }
       run.dealDamage(e, L.chainDamage, L.color, 'manual');
       run.spawnParticles(e.x, e.y, L.color, 6);
     }
@@ -415,10 +538,10 @@ export function createBilliard(run) {
     // ⚠️ 下限つき。掴んだ敵のHPだけだとチビット(4)を掴んだ時に4体で砕け、
     //    「一番よく掴む相手が一番弱い弾」という逆の関係になる（実プレイFB「弱すぎる」の原因）。
     const T = tier();
-    const isBolt = !!h.bolt;
-    const L = BOLT();
-    const hp = isBolt ? L.pierceHp
-                      : Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio) + T.hpBonus;
+    const kind = h.spec || null;         // 'bolt'（らいこうだん）/ 'blast'（ほのおだん）/ null
+    const L = SPEC(kind);
+    const hp = L ? L.pierceHp
+                 : Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio) + T.hpBonus;
 
     const disp = st.pool.pop() || {
       spr: run.add.image(0, 0, 'bullet').setDepth(13),
@@ -427,36 +550,38 @@ export function createBilliard(run) {
     };
     if (!disp.ring) disp.ring = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12);
     // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
-    // ★らいこうだんは段位を無視して常に最大級の見た目。1ボスに1発しか無いので遠慮しない。
-    const ballScale = isBolt ? h.scale : h.scale * T.ballMul;
-    const shotColor = isBolt ? L.color : T.color;
-    if (isBolt) speed = b.speedMax * L.speedMul;
-    disp.spr.setTexture(h.tex).setTint(isBolt ? L.coreColor : 0xffffff).setVisible(true)
+    // ★特殊弾（らいこうだん／ほのおだん）は段位を無視して常に最大級の見た目。
+    const ballScale = L ? h.scale : h.scale * T.ballMul;
+    const shotColor = L ? L.color : T.color;
+    if (L) speed = b.speedMax * L.speedMul;
+    disp.spr.setTexture(h.tex).setTint(L && kind === 'bolt' ? L.coreColor : 0xffffff).setVisible(true)
       .setScale(ballScale).setRotation(0).setPosition(px, py);
     disp.glow.setVisible(true).setTint(shotColor).setAlpha(0.95)
-      .setDisplaySize(h.radius * (isBolt ? 9 : (7 + 4 * ratio) * T.ballMul * 0.6),
-                      h.radius * (isBolt ? 6 : 4 * T.ballMul * 0.6))
+      .setDisplaySize(h.radius * (L ? 9 : (7 + 4 * ratio) * T.ballMul * 0.6),
+                      h.radius * (L ? 6 : 4 * T.ballMul * 0.6))
       .setRotation(ang).setPosition(px, py);
     // まとわりつく輪。飛んでいる間ずっと回るので「ただの点」に見えなくなる（実プレイFB「まだ地味」）
-    disp.ring.setVisible(true).setTint(shotColor).setAlpha(isBolt ? 1 : 0.75)
-      .setScale(h.radius * (isBolt ? 0.14 : T.ballMul * 0.055)).setPosition(px, py);
+    disp.ring.setVisible(true).setTint(shotColor).setAlpha(L ? 1 : 0.75)
+      .setScale(h.radius * (L ? 0.14 : T.ballMul * 0.055)).setPosition(px, py);
 
     st.shots.push({
       active: true, x: px, y: py,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       hp, color: h.color,
-      radius: isBolt ? h.radius * 1.4
-                     : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
-      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, bolt: isBolt,
+      radius: L ? h.radius * 1.4
+                : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
+      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
+      hero: heroMul(),   // 投げた時点の攻撃力で固定する（飛んでいる間に強化が入っても揺れない）
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
     });
 
     st.throws++;
     st.chargeSum += ratio * b.chargeMaxSec;
     hideHeld();
-    // 実プレイFB「もっと派手なエフェクトと効果音で盛り上げて」。投げは1.2〜2.5秒に1回＝稀なので大きく出す。
-    Sound.sfx('hammer', 0.5 + 0.5 * ratio, 0.9 + 0.3 * ratio);
-    Sound.sfx('heroPunch', ratio, 1 + 0.25 * ratio);
+    // ★投げの音は**段位ごとに別物**にする（実プレイFB「投げたときの効果音…レベルアップが感じられない」）。
+    //   音量を上げるのではなく中身を替える：軽い→低音の芯が入る→サブベース＋和音の余韻。
+    Sound.sfx(T.sfx || 'throwLight', 0.6 + 0.4 * ratio, (T.pitch || 1) * (0.94 + 0.12 * ratio));
+    Sound.sfx('heroPunch', ratio * 0.7, 1 + 0.25 * ratio);
     run.shake(90 + 90 * ratio, (4 + 5 * ratio) * T.stopMul);
     // 反動で下がる＝「重いものを投げた」手応え。操作は奪わない（ノックバックの既存経路を使う）
     run._knockX = -Math.cos(ang) * b.recoil * (0.6 + 0.4 * ratio);
@@ -468,17 +593,22 @@ export function createBilliard(run) {
     shockRing(px, py, 52 + 40 * ratio, ratio >= 1 ? 0xffd23f : T.color);
     if (ratio >= 1) screenFlash(0.22, 0xffd23f);   // 溜め切りだけの特典
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.04 + 0.05 * ratio);
-    if (isBolt) {
-      // 投げ出しの瞬間から雷。手元で放電しながら飛び出す
-      Sound.sfx('thunder');
+    if (L) {
+      // 特殊弾は投げ出しの瞬間から本気で出す（1回が稀なので遠慮しない）
       screenFlash(0.4, L.color);
       run.shake(220, 10);
       shockRing(px, py, 90, L.color);
       burstStreaks(px, py, 18, L.color, 90);
-      for (let i = 0; i < 3; i++) {
-        const a = ang + run.rng.range(-0.9, 0.9);
-        lightning(px, py, px + Math.cos(a) * 60, py + Math.sin(a) * 60, L.color,
-          { seg: 5, jitter: 12, width: 3, lifeMs: 200 });
+      if (kind === 'bolt') {
+        Sound.sfx('thunder');
+        for (let i = 0; i < 3; i++) {
+          const a = ang + run.rng.range(-0.9, 0.9);
+          lightning(px, py, px + Math.cos(a) * 60, py + Math.sin(a) * 60, L.color,
+            { seg: 5, jitter: 12, width: 3, lifeMs: 200 });
+        }
+      } else {
+        Sound.sfx('fireBlast', 0.7);
+        emberBurst(px, py, 14, 44);
       }
     }
   }
@@ -520,12 +650,13 @@ export function createBilliard(run) {
     run.floatText(e.x, e.y - e.radius - 6, String(dealt), s.shard ? '#ffd23f' : '#9fe8ff');
   }
 
-  // ---- らいこうだんの着弾（ボス）----
-  // 実プレイFB「威力も破壊的にして」。ボスの最大HPの30%を1発で持っていく。
+  // ---- 特殊弾の着弾（ボス）----
+  // らいこうだん：最大HPの30%・**縦の一撃**（天から落ちる柱）
+  // ほのおだん  ：最大HPの12%・**面を焼く**（立ち上る火柱＋延焼）
   // ボスのHPは1800〜28000と幅があるので固定値ではなく**比率**で置く＝
-  // どのボスでも必ず「ゲージが3割吹き飛ぶ」絵になる（1発しか無いので、外れの当たりを作らない）。
-  function boltImpact(s, e, dealt) {
-    const L = BOLT();
+  // どのボスでも必ず「ゲージが決まった割合だけ吹き飛ぶ」絵になる（外れの当たりを作らない）。
+  function specialImpact(s, e, dealt) {
+    const kind = s.spec, L = SPEC(kind);
     s.hp = 0;
     s.noChain = true;   // 装甲片を自分の炸裂で消さない（bossImpact と同じ理由）
     s.x = e.x + (s.x - e.x) * 0.3;
@@ -533,15 +664,24 @@ export function createBilliard(run) {
     if (run.boss && run.boss.bossHitReact) run.boss.bossHitReact(Math.atan2(s.vy, s.vx), 0.32);
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, L.freezeSec);
     // 止めたあとに少し引き伸ばす＝「効いた」余韻。freezeT が明けてから slowT が減り始める。
-    run.slowMotion(0.5, 0.32);
+    run.slowMotion(kind === 'bolt' ? 0.5 : 0.32, kind === 'bolt' ? 0.32 : 0.45);
     run.shake(L.shakeMs, L.shakeAmp);
     zoomPunch(L.zoom * 3);
     screenFlash(L.flash, L.color);
-    // 天から落ちる本柱。画面の上端の外から引くので「落雷」に読める
-    for (let i = 0; i < 3; i++) {
-      lightning(e.x + run.rng.range(-34, 34), e.y - 260, e.x, e.y,
-        i === 0 ? L.coreColor : L.color,
-        { seg: 12, jitter: 22, width: i === 0 ? 6 : 3, lifeMs: 330 });
+    if (kind === 'bolt') {
+      // 天から落ちる本柱。画面の上端の外から引くので「落雷」に読める
+      for (let i = 0; i < 3; i++) {
+        lightning(e.x + run.rng.range(-34, 34), e.y - 260, e.x, e.y,
+          i === 0 ? L.coreColor : L.color,
+          { seg: 12, jitter: 22, width: i === 0 ? 6 : 3, lifeMs: 330 });
+      }
+      Sound.sfx('thunder');
+      Sound.sfx('bigBoom', 0.85);
+    } else {
+      firePillar(e.x, e.y);
+      emberBurst(s.x, s.y, 26, 78);
+      Sound.sfx('fireBlast');
+      Sound.sfx('bigBoom', 0.6);
     }
     for (let i = 0; i < L.rings; i++) {
       const rr = 70 + 46 * i;
@@ -549,49 +689,49 @@ export function createBilliard(run) {
     }
     burstStreaks(s.x, s.y, L.streaks, L.color, 120);
     run.spawnParticles(s.x, s.y, L.color, 40);
-    Sound.sfx('thunder');
-    Sound.sfx('bigBoom', 0.85);
-    run.floatText(e.x, e.y - e.radius - 6, String(dealt), '#ffe14d');
-    run.floatText(e.x, e.y - e.radius - 26, 'らいこうだん!!', '#ffffff');
-    boltBlast(s.x, s.y, e);
-    st.boltHits++;
+    run.floatText(e.x, e.y - e.radius - 6, String(dealt), kind === 'bolt' ? '#ffe14d' : '#ff8a3d');
+    run.floatText(e.x, e.y - e.radius - 26, kind === 'bolt' ? 'らいこうだん!!' : 'ほのおだん!!', '#ffffff');
+    specialChain(s.x, s.y, e, kind);
+    if (kind === 'bolt') st.boltHits++; else st.blastHits++;
   }
 
-  // らいこうだんは砕けない。触れた敵は全部消し飛ばしながらボスまで届く。
-  function boltHit(s, e) {
-    const L = BOLT();
+  // 特殊弾は砕けない。触れた敵を全部消し飛ばしながら飛び続ける。
+  function specialHit(s, e) {
+    const kind = s.spec, L = SPEC(kind);
     if (e.stag) {
-      const r = run.burstStagger(e.x, e.y, B().burstRadius * 1.6, B().burstMaxChain);
+      const r = run.burstStagger(e.x, e.y, B().burstRadius * (L.radiusMul || 1.6), B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
+      if (kind === 'blast') emberBurst(e.x, e.y, 8, 40);
     } else if (e.isBoss) {
       breakBoss(e);
-      // ★「必ず最大HPの30%」を守る。dealDamage はブレイク中の手動命中に ×2.4 を乗せるので、
+      // ★「必ず最大HPの◯%」を守る。dealDamage はブレイク中の手動命中に ×2.4 を乗せるので、
       //   その分をここで割って打ち消す（乗ると1発で7割超＝マオウレクス戦が2発で終わってしまう）。
-      //   タイミングの当たり外れを作らないのは意図：1ボスに1発しか無い弾に運を絡ませない。
+      //   タイミングの当たり外れを作らないのは意図：稀な弾に運を絡ませない。
       let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
       if (run.boss && run.boss.staggered) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
       const hpBefore = e.hp;
       run.dealDamage(e, dmg, L.color, 'manual');
-      boltImpact(s, e, Math.max(0, hpBefore - e.hp));
+      specialImpact(s, e, Math.max(0, hpBefore - e.hp));
       return;
     } else {
       const alive = e.active;
       run.dealDamage(e, L.trashDamage, L.color, 'manual');
       if (alive && !e.active) s.kills++;
     }
-    lightning(s.x, s.y, e.x, e.y, L.color, { seg: 4, jitter: 8, width: 3, lifeMs: 160 });
+    if (kind === 'bolt') lightning(s.x, s.y, e.x, e.y, L.color, { seg: 4, jitter: 8, width: 3, lifeMs: 160 });
+    else emberBurst(e.x, e.y, 3, 20);
     run.spawnHitMark(s.x, s.y, L.color);
     Sound.sfx('metalSlam', 0.4, 1.5);
     run.shake(50, 3);
-    s.hp -= B().hpCostPerHit;   // 貫通HPが999あるので雑魚では絶対に砕けない
+    s.hp -= B().hpCostPerHit;   // 貫通HPが大きいので雑魚では砕けない
   }
 
   // ---- 着弾 ----
   function hitOne(s, e) {
-    if (s.bolt) { boltHit(s, e); return; }
+    if (s.spec) { specialHit(s, e); return; }
     if (e.stag) {
       // 獲物に当てると炸裂連鎖。これがビリヤードの本体（群れの中心を叩くほど得）。
       // 一撃の 76/6 より広く長い（108/9）＝一発が大きいのは投げの特権。
@@ -604,7 +744,9 @@ export function createBilliard(run) {
       breakBoss(e);
       const alive = e.active;
       const T = s.tier || tier();
-      let dmg = Math.round(B().damage * T.dmgMul);
+      // ★威力＝基礎 × 段位 × 攻撃力（レベルアップとやしろで伸びる）。
+      //   R24 まで heroMult が掛かっておらず、段位が変わる瞬間しか強くならなかった。
+      let dmg = Math.round(B().damage * T.dmgMul * (s.hero || 1));
       // ★装甲片をボスへ投げ返すと特効＝「ボスの装甲でボスを殴る」。
       //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
       if (e.isBoss && s.shard) {
@@ -688,27 +830,33 @@ export function createBilliard(run) {
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     }
-    // ★らいこうだんは外れても必ず落雷で終わる。1ボスに1発しか無い弾が
+    // ★特殊弾は外れても必ず大技で終わる。稀にしか手に入らない弾が
     //   「何も起きずに消えた」になると、次から怖くて使えなくなる（＝切り札が死ぬ）。
-    if (s.bolt && !s.noChain) {
-      const L = BOLT();
+    if (s.spec && !s.noChain) {
+      const L = SPEC(s.spec);
       screenFlash(L.flash * 0.7, L.color);
-      Sound.sfx('thunder');
       run.shake(300, 12);
       zoomPunch(L.zoom * 2);
-      for (let i = 0; i < 2; i++) {
-        lightning(s.x + run.rng.range(-30, 30), s.y - 240, s.x, s.y, i ? L.color : L.coreColor,
-          { seg: 11, jitter: 20, width: i ? 3 : 5, lifeMs: 300 });
+      if (s.spec === 'bolt') {
+        Sound.sfx('thunder');
+        for (let i = 0; i < 2; i++) {
+          lightning(s.x + run.rng.range(-30, 30), s.y - 240, s.x, s.y, i ? L.color : L.coreColor,
+            { seg: 11, jitter: 20, width: i ? 3 : 5, lifeMs: 300 });
+        }
+      } else {
+        Sound.sfx('fireBlast');
+        firePillar(s.x, s.y);
+        emberBurst(s.x, s.y, 22, 70);
       }
       shockRing(s.x, s.y, 110, L.color);
-      s.kills += boltBlast(s.x, s.y, null);
+      s.kills += specialChain(s.x, s.y, null, s.spec);
     }
     run.spawnParticles(s.x, s.y, s.color, 12);
     run.popFx(s.x, s.y, s.color);
     st.throwKills += s.kills;
     st.bestChain = Math.max(st.bestChain, s.kills);
     // ボスに当たって砕けた玉は空振りではない（連鎖しないので kills は0のまま）
-    if (s.kills === 0 && !s.noChain && !s.bolt) st.dud++;
+    if (s.kills === 0 && !s.noChain && !s.spec) st.dud++;
     if (s.kills > 0) {
       const b = B(), T = s.tier || tier();
       // 振幅は頻度と逆相関。投げは0.4〜0.8回/秒＝一撃の3〜7分の1なので、倒した数ぶん大きく出す。
@@ -762,18 +910,25 @@ export function createBilliard(run) {
       // 輪は弾と逆回りにする＝二重の回転で目が離せなくなる
       s.ring.setPosition(s.x + ox, s.y + oy).setRotation(s.ring.rotation - s.spin * 0.7 * dt);
       // 軌跡。どこを通ったかが残る＝速さと「自分が投げた」が目で追える。
-      // らいこうだんは飛んでいる間ずっと放電する（軌跡そのものが稲妻になる）
-      if (s.bolt) {
+      // 特殊弾は飛んでいる間ずっと自分を主張する（軌跡そのものが技になる）
+      if (s.spec) {
+        const L = SPEC(s.spec);
         s.arcT = (s.arcT || 0) - dt;
         if (s.arcT <= 0) {
-          s.arcT = 0.035;
-          const L = BOLT();
-          const back = Math.atan2(s.vy, s.vx) + Math.PI;
-          lightning(s.x, s.y, s.x + Math.cos(back) * 40, s.y + Math.sin(back) * 40, L.color,
-            { seg: 5, jitter: 11, width: 3, lifeMs: 150 });
-          const a = run.rng.range(0, Math.PI * 2);
-          lightning(s.x, s.y, s.x + Math.cos(a) * 26, s.y + Math.sin(a) * 26, L.coreColor,
-            { seg: 3, jitter: 8, width: 2, lifeMs: 120 });
+          if (s.spec === 'bolt') {
+            s.arcT = 0.035;
+            const back = Math.atan2(s.vy, s.vx) + Math.PI;
+            lightning(s.x, s.y, s.x + Math.cos(back) * 40, s.y + Math.sin(back) * 40, L.color,
+              { seg: 5, jitter: 11, width: 3, lifeMs: 150 });
+            const a = run.rng.range(0, Math.PI * 2);
+            lightning(s.x, s.y, s.x + Math.cos(a) * 26, s.y + Math.sin(a) * 26, L.coreColor,
+              { seg: 3, jitter: 8, width: 2, lifeMs: 120 });
+          } else {
+            // 炎は後ろへ流れて上へ立ちのぼる＝「燃えながら飛んでいる」
+            s.arcT = L.emberEverySec;
+            const back = Math.atan2(s.vy, s.vx) + Math.PI;
+            emberBurst(s.x + Math.cos(back) * 10, s.y + Math.sin(back) * 10, 3, 22);
+          }
         }
       }
       if ((s.tick = (s.tick || 0) + 1) % B().trailEveryFrames === 0) {
@@ -1143,7 +1298,7 @@ export function createBilliard(run) {
         drawHandAt(h0, a0);
         setBody(a0, -PT().bodyLean, -PT().drawBack, -PT().drawStretch);
         showAim(a0, 1);
-        boltAura(h0, dt);
+        heldAura(h0, 1, dt, st.held.spec);
         return;
       }
       st.chargeT = Math.min(B().chargeMaxSec, st.chargeT + dt);
@@ -1169,7 +1324,7 @@ export function createBilliard(run) {
       drawHandAt(hp0, ang);
       setBody(ang, -PT().bodyLean * e, -PT().drawBack * e, -PT().drawStretch * e);
       showAim(ang, ratio);
-      if (st.held.bolt) boltAura(hp0, dt);
+      heldAura(hp0, ratio, dt, st.held.spec);
       if (!want) startThrow(ang);
     } else {
       run._moveMul = 1;
@@ -1212,7 +1367,8 @@ export function createBilliard(run) {
     return '[' + tier().name + '] 投' + st.throws + '(' + perMin.toFixed(0) + '/分) 平均' + avgKills.toFixed(1) + '体'
       + ' 最大' + st.bestChain + ' 空' + st.dud
       + ' 溜' + avgCharge.toFixed(2) + 's 掴' + st.grabs + ' 突' + st.jabs + '→獲' + st.jabStaggers
-      + ' 雷' + st.boltsGot + '→命中' + st.boltHits;
+      + ' 雷' + st.boltsGot + '→命中' + st.boltHits + ' 炎命中' + st.blastHits
+      + ' 攻×' + heroMul().toFixed(2);
   }
 
   return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul,

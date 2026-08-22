@@ -14,6 +14,10 @@ export function createSpawner(run) {
   const rushFired = R.counts.map(() => false);
   const byId = {};
   for (const e of ENEMIES) byId[e.id] = e;
+  // R24: レア役（rare:true）は重み抽選にもエリート抽選にも入れない＝湧かせるのは専用タイマーだけ
+  const COMMON = ENEMIES.filter((e) => !e.rare);
+  const RARE = BALANCE.rareEnemy;
+  let rareT = RARE ? RARE.firstSec : 1e9;
 
   const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -80,7 +84,7 @@ export function createSpawner(run) {
   }
 
   function spawnElite() {
-    const def = run.rng.pick(ENEMIES);
+    const def = run.rng.pick(COMMON);
     const p = spawnPos();
     const e = run.spawnEnemy(def, p.x, p.y, true, currentHpMult());
     if (e) Sound.sfx('elite');
@@ -96,6 +100,48 @@ export function createSpawner(run) {
     }
   }
 
+  // ---- R24 レア雑魚（マグマン）----
+  // 実プレイFB「これはボス戦およびボス戦以外にもでてくる。出現は不定期」。
+  // 間隔を毎回引き直すので、次にいつ来るかは予測できない＝「不定期」を数字で作る。
+  // ⚠️ ボス戦中も止めない。ボス戦は装甲片しか弾が無いので、ここに強い弾が1個混ざる価値が大きい。
+  function aliveRare() {
+    let n = 0;
+    for (const e of run.enemies) if (e.active && e.def && e.def.id === RARE.enemyId) n++;
+    return n;
+  }
+
+  function spawnRare() {
+    const def = byId[RARE.enemyId];
+    if (!def) return null;
+    const cap = run.enemyCap || BALANCE.enemyCap;
+    if (run.enemies.length >= cap) return null;
+    // 画面の内側の縁に置く＝湧いた瞬間に見える（見つけられない珍品は無いのと同じ）
+    const a = run.rng.range(0, Math.PI * 2);
+    const x = run.player.x + Math.cos(a) * RARE.dist;
+    const y = run.player.y + Math.sin(a) * RARE.dist;
+    const e = run.spawnEnemy(def, x, y, false, Math.min(RARE.hpMultCap, currentHpMult()));
+    if (!e) return null;
+    Sound.sfx('elite');
+    Sound.sfx('heatMax', 0.5);
+    if (run.fx && run.fx.announce) run.fx.announce('マグマン しゅつげん！ つかんで なげろ！', '#ff8a3d');
+    if (run.fx && run.fx.setTarget) {
+      run.fx.setTarget('rare', x, y, { color: RARE.tint, label: RARE.label });
+    }
+    run.spawnParticles(x, y, RARE.tint, 16);
+    return e;
+  }
+
+  // 生きているレアへ矢印を追従させる。1体も居なくなったら矢印を消す。
+  function updateRareMarker() {
+    if (!run.fx || !run.fx.moveTarget) return;
+    let t = null;
+    for (const e of run.enemies) {
+      if (e.active && e.def && e.def.id === RARE.enemyId) { t = e; break; }
+    }
+    if (t) run.fx.moveTarget('rare', t.x, t.y);
+    else if (run.fx.clearTarget) run.fx.clearTarget('rare');
+  }
+
   // R22: ビリヤードモード中の難易度補正。掴みは1入力1体・突きは倒せないので、一撃モード
   // （1入力で最大4体直撃＋連鎖6）に比べ場を掃除する速さが桁で落ちる。実プレイFB「敵が多すぎる」。
   function modeMul(key) {
@@ -105,6 +151,15 @@ export function createSpawner(run) {
 
   function update(dt) {
     run.enemyCap = Math.max(8, Math.round(currentCap() * modeMul('capMul')));
+    // レア雑魚（不定期・ボス戦中も止めない）
+    if (RARE && byId[RARE.enemyId]) {
+      rareT -= dt;
+      if (rareT <= 0) {
+        rareT = run.rng.range(RARE.everyMin, RARE.everyMax);   // 次の間隔を毎回引き直す
+        if (aliveRare() < RARE.maxAlive) spawnRare();
+      }
+      updateRareMarker();
+    }
     // エリート（2:00 / 4:00）
     for (let i = 0; i < BALANCE.elite.times.length; i++) {
       if (!eliteFired[i] && run.elapsed >= BALANCE.elite.times[i]) {

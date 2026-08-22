@@ -104,7 +104,7 @@ function assert(cond, msg) {
 
 // --- MONSTERS が8種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ／R23: 弾薬役ビリッコ追加） ---
 assert(MONSTERS.length === 8, 'data: MONSTERS が8種');
-assert(ENEMIES.length === 5, 'data: ENEMIES が5種');
+assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマンを追加）');
 
 // --- Wave R1: 新雑魚5種（gareon/chibit/bomba/snipa/turret）が存在 ---
 {
@@ -427,7 +427,7 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
 // --- special: 1ステージ10回制限（実プレイFB#1で3→5→FB#3で8→R9で10へ・回帰防止） ---
 {
   const S = BALANCE.special;
-  assert(!!S && S.maxUses === 10, 'balance: special.maxUses が 10（1ステージ10回まで）');
+  assert(!!S && S.maxUses === 15, 'balance: special.maxUses が 15（1ステージ15回まで・R24の実プレイFB）');
   const nums = ['killsPerCharge', 'radius', 'damage', 'bossDamage', 'cinematicSec', 'startCharge'];
   const ok = !!S && nums.every((k) => typeof S[k] === 'number' && Number.isFinite(S[k]));
   assert(ok, 'balance: special の各数値キーが存在し数値');

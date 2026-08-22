@@ -173,6 +173,9 @@ export function createItems(run) {
     closeShrine();
 
     run.stats.damageMult += S.attackAdd;
+    // R24: 主人公側（投げ・突き）にも同じだけ乗せる。damageMult は「なかまの攻撃」専用なので、
+    // これが無いと「攻撃力アップ」の御利益が看板の動詞にまったく効かない。
+    run.stats.heroMult += S.attackAdd;
     run.stats.moveMult += S.speedAdd;
     // 防御は「被ダメージを何割減らすか」で持つ。加算にすると重ねがけでいずれ0になるので上限を置く。
     run.stats.defenseCut = Math.min(S.defenseCap, (run.stats.defenseCut || 0) + S.defenseAdd);

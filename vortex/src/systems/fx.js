@@ -129,6 +129,14 @@ export function createFx(run) {
     targets[id] = { wx: x, wy: y, color, arrow, text, phase: 0 };
   }
 
+  // R24: 動く相手（レア雑魚）を追いかける矢印。setTarget を毎フレーム呼ぶと
+  // 矢印を破棄→再生成することになるので、座標だけ差し替える。
+  function moveTarget(id, x, y) {
+    const t = targets[id];
+    if (!t) return;
+    t.wx = x; t.wy = y;
+  }
+
   function clearTarget(id) {
     const t = targets[id];
     if (!t) return;
@@ -747,7 +755,7 @@ export function createFx(run) {
   }
 
   return {
-    update, powerupFlash, announce, setTarget, clearTarget,
+    update, powerupFlash, announce, setTarget, moveTarget, clearTarget,
     fusionCinematic, evolveBurst, bossWarning, bossVictory, rushWarning,
     weaponLevelUp, specialBlast, specialReady, playerHurt,
     muzzleFlash, hitSpark, heroImpact, setLowHp,

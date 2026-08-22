@@ -161,6 +161,29 @@ export const BALANCE = {
         //    （等倍スクショで確認）。金色 0.45 に落として、稲妻と落雷の柱が読めるようにする。
         flash: 0.45, rings: 4, streaks: 26,
       },
+      // ---- 炎の炸裂弾（R24・レア雑魚マグマンを掴んで投げたとき）----
+      // 実プレイFB「弾にすると火力が高いレアな雑魚キャラを一体つくって。見た目もひとめでそれと
+      //   わかる外観で。ボディの色は赤。その弾のエフェクトも雷光弾同様にド派手に。炎をまとった炸裂弾。
+      //   これはボス戦およびボス戦以外にもでてくる。出現は不定期」。
+      //
+      // らいこうだん（1ボスに1発の切り札）との住み分け：
+      //   らいこうだん … ボス専用・単体へ最大HPの30%・**縦の一撃**
+      //   ほのおだん   … いつでも出る・**面を焼く**（炸裂半径が通常の2.6倍＋周囲へ延焼）
+      // ＝「ボスを削る弾」と「群れを消し飛ばす弾」で役割が重ならない。
+      blast: {
+        color: 0xff5a1f, coreColor: 0xffd24a,
+        scale: 2.3, radius: 13,
+        speedMul: 0.92,      // 重い。ゆっくり飛ぶぶん軌跡の炎が長く見える
+        pierceHp: 60,        // 雑魚では砕けない（貫通し切る）
+        // ボスへは最大HPの12%。らいこうだん(30%)の半分以下＝切り札の座は譲らない。
+        bossHpRatio: 0.12,
+        trashDamage: 999,
+        radiusMul: 2.6,      // 着弾の炸裂半径（burstRadius に対する倍率）＝これがこの弾の主役
+        chainCount: 12, chainRange: 175, chainDamage: 999,   // 延焼（周囲へ火が回る）
+        freezeSec: 0.18, shakeMs: 340, shakeAmp: 14, zoom: 0.05,
+        flash: 0.34, rings: 3, streaks: 24,
+        emberEverySec: 0.05,  // 飛行中に散る火の粉の間隔
+      },
       // 突き（倒せない動詞）
       jab: {
         reach: 78, arcDeg: 110, maxTargets: 3,
@@ -174,15 +197,55 @@ export const BALANCE = {
       //   ⚠️ 5段→7段に増やし、しきい値も前倒しした（3/6/10/15 → 2/4/6/9/12/16）。
       //      実測でLv9到達が75秒なので、旧設定では最高段が140秒以降＝420秒のうち3分の2が変化なしだった。
       //   ballMul=飛翔体の大きさ / rings=着弾の輪 / streaks=放射する光条 / flash=画面閃光 / zoom=カメラの寄り
+      // ★段位（レベルで上がる投げの位）。
+      // R24 実プレイFB「メガ投げ？ボルテクス投げ？と名称は勇ましいが、なにもレベルアップした
+      //   ことが感じられない。投げたときの効果音。弾のエフェクト、効果音。弾の破壊力」。
+      //
+      // 原因は2つあった：
+      //  (1) 威力が**段位が変わる瞬間にしか伸びていなかった**。自動強化のトップ項目 heroMult
+      //      （+35%）は Run の拳と一撃にしか掛かっておらず、ビリヤードの投げには一切効いていない。
+      //      ＝レベルが2つ上がっても投げは1ミリも強くならない区間が普通にあった
+      //  (2) 手に持っている弾が段位で一切変わらない（色も大きさも常に同じ青白）
+      //
+      // 直し方：威力は heroMult（レベルアップのたびに伸びる）× dmgMul（段位）の積にする。
+      //   そのぶん dmgMul の幅を 1.0〜3.0 → 1.0〜1.36 へ**圧縮**して、合計の伸びは今と同程度に保つ。
+      //   ＝「段位で跳ねる」から「レベルのたびに伸びて、段位で見た目と音が変わる」へ移す。
+      // sfx … 投げた瞬間の音。3段階で明確に別物になる（実プレイFB「投げたときの効果音」）。
       throwTiers: [
-        { untilLevel: 2,   name: 'なげる',           hpBonus: 0,  radiusMul: 1.00, dmgMul: 1.0, rings: 1, streaks: 4,  flash: 0.06, ballMul: 1.9, trailMul: 1.0, stopMul: 1.00, zoom: 0.010, color: 0x9fe8ff },
-        { untilLevel: 4,   name: 'つよなげ',         hpBonus: 2,  radiusMul: 1.10, dmgMul: 1.2, rings: 2, streaks: 9,  flash: 0.09, ballMul: 2.2, trailMul: 1.3, stopMul: 1.10, zoom: 0.014, color: 0x8affd2 },
-        { untilLevel: 6,   name: 'メガなげ',         hpBonus: 4,  radiusMul: 1.20, dmgMul: 1.45, rings: 3, streaks: 14, flash: 0.12, ballMul: 2.5, trailMul: 1.7, stopMul: 1.20, zoom: 0.018, color: 0x7ee8ff },
-        { untilLevel: 9,   name: 'ギガなげ',         hpBonus: 7,  radiusMul: 1.32, dmgMul: 1.75, rings: 4, streaks: 19, flash: 0.15, ballMul: 2.8, trailMul: 2.1, stopMul: 1.32, zoom: 0.023, color: 0xffe066 },
-        { untilLevel: 12,  name: 'テラなげ',         hpBonus: 10, radiusMul: 1.44, dmgMul: 2.1,  rings: 5, streaks: 25, flash: 0.18, ballMul: 3.1, trailMul: 2.5, stopMul: 1.45, zoom: 0.028, color: 0xffa93d },
-        { untilLevel: 16,  name: 'ハイパーなげ',     hpBonus: 14, radiusMul: 1.56, dmgMul: 2.5,  rings: 6, streaks: 31, flash: 0.22, ballMul: 3.4, trailMul: 2.9, stopMul: 1.58, zoom: 0.034, color: 0xff9de0 },
-        { untilLevel: 999, name: 'ボルテックスなげ', hpBonus: 19, radiusMul: 1.70, dmgMul: 3.0,  rings: 7, streaks: 38, flash: 0.26, ballMul: 3.8, trailMul: 3.4, stopMul: 1.75, zoom: 0.042, color: 0xff5a5a },
+        { untilLevel: 2,   name: 'なげる',           hpBonus: 0,  radiusMul: 1.00, dmgMul: 1.00, rings: 1, streaks: 4,  flash: 0.06, ballMul: 1.9, trailMul: 1.0, stopMul: 1.00, zoom: 0.010, color: 0x9fe8ff, sfx: 'throwLight', pitch: 1.18 },
+        { untilLevel: 4,   name: 'つよなげ',         hpBonus: 2,  radiusMul: 1.10, dmgMul: 1.06, rings: 2, streaks: 9,  flash: 0.09, ballMul: 2.2, trailMul: 1.3, stopMul: 1.10, zoom: 0.014, color: 0x8affd2, sfx: 'throwLight', pitch: 1.00 },
+        { untilLevel: 6,   name: 'メガなげ',         hpBonus: 4,  radiusMul: 1.20, dmgMul: 1.12, rings: 3, streaks: 14, flash: 0.12, ballMul: 2.5, trailMul: 1.7, stopMul: 1.20, zoom: 0.018, color: 0x7ee8ff, sfx: 'throwHeavy', pitch: 1.14 },
+        { untilLevel: 9,   name: 'ギガなげ',         hpBonus: 7,  radiusMul: 1.32, dmgMul: 1.18, rings: 4, streaks: 19, flash: 0.15, ballMul: 2.8, trailMul: 2.1, stopMul: 1.32, zoom: 0.023, color: 0xffe066, sfx: 'throwHeavy', pitch: 1.00 },
+        { untilLevel: 12,  name: 'テラなげ',         hpBonus: 10, radiusMul: 1.44, dmgMul: 1.24, rings: 5, streaks: 25, flash: 0.18, ballMul: 3.1, trailMul: 2.5, stopMul: 1.45, zoom: 0.028, color: 0xffa93d, sfx: 'throwHeavy', pitch: 0.88 },
+        { untilLevel: 16,  name: 'ハイパーなげ',     hpBonus: 14, radiusMul: 1.56, dmgMul: 1.30, rings: 6, streaks: 31, flash: 0.22, ballMul: 3.4, trailMul: 2.9, stopMul: 1.58, zoom: 0.034, color: 0xff9de0, sfx: 'throwUltra', pitch: 1.06 },
+        { untilLevel: 999, name: 'ボルテックスなげ', hpBonus: 19, radiusMul: 1.70, dmgMul: 1.36, rings: 7, streaks: 38, flash: 0.26, ballMul: 3.8, trailMul: 3.4, stopMul: 1.75, zoom: 0.042, color: 0xff5a5a, sfx: 'throwUltra', pitch: 0.90 },
       ],
+      // ★手に持っている弾を段位の光で包む（実プレイFB本人の案：
+      //   「捕獲した敵が光に包まれて威力が増す。レベルアップするたびにエフェクトが大きく派手に、色も派手に」）。
+      // レベル1つごとにも僅かに育つ（lvGlow）＝段位の谷間でも「伸びている」が目に見える。
+      // ⚠️ 初版はここの数字が全部小さすぎて**画面上ほぼ何も足していなかった**（実測で確認）。
+      //    輪は w_ring（48px・太さ5px）なので scale 0.1 では直径9px・太さ0.5px＝等倍では消える。
+      //    光は depth 8 ＝主人公より下だったので体で隠れていた。
+      //    差分計測（光を消した1枚との引き算）で、光が足す明るさが段位順に増えることまで見る。
+      heldAura: {
+        depth: 13,                          // 主人公(10前後)より上・弾(14)より下。ADD合成なのでドット絵は潰さない
+        // ⚠️ 光の大きさを掴んだ敵の半径だけで決めると、小さい敵を掴んだ段位4が段位3より暗くなる
+        //    （実測で addLum が 99583→42723 と逆転した）。光が伝えるのは**自分の強さ**なので、
+        //    大半を固定値にして、掴んだ敵の大きさはわずかに効かせるだけにする。
+        baseRadius: 7, radiusShare: 0.35,
+        glowBase: 3.2, glowPerTier: 0.55,   // 段位ごとに光の直径が大きくなる
+        lvGlow: 0.020,                      // レベル1つごとの上乗せ（段位の谷間を埋める）
+        glowAlpha: 0.34, glowAlphaPerTier: 0.07,     // 段位が上がるほど濃くなる
+        // 白い芯。**色相に関係なく明るさが必ず上がる**ようにするための保険。
+        // 赤や桃は緑成分が乏しく、ADD合成では金色より暗く見える（実測で上位段位のほうが暗かった）。
+        coreBase: 1.5, corePerTier: 0.22, coreAlpha: 0.18, coreAlphaPerTier: 0.09,
+        ringFromTier: 2,                    // この段位以上で弾のまわりに輪が回りはじめる
+        ringBase: 0.55, ringPerTier: 0.075, ringCharge: 0.12,    // 直径26→48px（等倍で読める太さになる）
+        ringAlpha: 0.50, ringAlphaPerTier: 0.05,
+        ring2FromTier: 4, ring2Mul: 1.42,   // 2枚目（白・逆回転）
+        moteFromTier: 5, motes: 3, moteRadius: 22,               // 最上位帯だけ光の粒が回る
+        sparkFromTier: 3, sparkEverySec: 0.09, sparkRange: 26,   // さらに上の段位で火花が散る
+      },
       // ★投球モーション（実プレイFB「ファミスタの投手のように、おもいっきり振りかぶって、足を高く上げて、
       //   高速スピードで腕を振って投げつける動きを。今は主人公の身体から弾が飛び出しているようにしか見えない」）。
       //   FBは見え方の話ではなく実装そのものを言い当てていた：弾は run.player.x/y ＝**体の中心**から出ていた。
@@ -464,7 +527,9 @@ export const BALANCE = {
     // R9: 最終ボス マオウレクス最強化の対価として必殺を2点強化。
     //   ① 最大 8→10 回（回数増・威力/ゲージ速度は据え置き）
     //   ② ボスへのダメージのみ「近いほど強い」3段階（雑魚は距離無関係に即死のまま）
-    killsPerCharge: 18, maxUses: 10, radius: 320, damage: 9999, bossDamage: 360,
+    // R24: 実プレイFB「必殺技の回数を最大15回にして」→ 10→15。ゲージ速度(killsPerCharge)は据え置き
+    //      ＝溜まる速さは変えず「持てる上限」だけ増やす（連打できるようにはしない）。
+    killsPerCharge: 18, maxUses: 15, radius: 320, damage: 9999, bossDamage: 360,
     cinematicSec: 0.7, startCharge: 0.7,
     // ボス限定の距離倍率：接近戦を報いる。プレイヤー↔ボス距離で near×2.0 / mid×1.0 / far×0.6。
     // 実効ダメージ = round(bossDamage × mul)（near720 / mid360 / far216）。雑魚には一切適用しない。
@@ -481,8 +546,10 @@ export const BALANCE = {
   },
 
   upgrades: [
-    { id: 'hero',   label: 'こぶし +35%',    desc: 'じぶんの こうげきが つよくなる',   stat: 'heroMult',    add: 0.35 },
-    { id: 'atk',    label: 'こうげき +30%',  desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
+    // R24: heroMult は投げ（看板の動詞）にも効くようになったので、ラベルを「なげる」と言い切る。
+    //      「こぶし」のままだと、一番よく出る強化が何を強くしたのか画面から分からない。
+    { id: 'hero',   label: 'なげる +35%',    desc: 'なげる ちからが つよくなる',       stat: 'heroMult',    add: 0.35 },
+    { id: 'atk',    label: 'なかま +30%',    desc: 'なかまの こうげきが つよくなる',   stat: 'damageMult',  add: 0.30 },
     { id: 'spin',   label: 'かいてん +35%',  desc: 'なかまが まわる はやさ アップ',    stat: 'angularMult', add: 0.35 },
     { id: 'radius', label: 'きどう +12%',    desc: 'なかまの まわる わが ひろがる',    stat: 'radiusMult',  add: 0.12 },
     { id: 'move',   label: 'いどう +16%',    desc: 'じぶんの あしが はやくなる',       stat: 'moveMult',    add: 0.16 },
@@ -526,7 +593,9 @@ export const BALANCE = {
   //   ボスの弾の赤と紛らわしく、洞窟のライラック #ffb0e8・さいだんの桃 #ff9ee0 とも離す必要があるため。
   shrine: {
     times: [95, 200, 290], lifeSec: 24, minDist: 250, maxDist: 320, touchRadius: 26,
-    attackAdd: 0.20,    // 攻撃力（stats.damageMult へ加算）
+    // 攻撃力は damageMult（なかま）と heroMult（主人公＝投げ・突き）の**両方**へ加算する。
+    // R24: heroMult を足さないと、看板の動詞である投げに「攻撃力アップ」が一切効かなかった。
+    attackAdd: 0.20,
     defenseAdd: 0.20,   // 防御力（被ダメージを 20% 減。重ねがけの上限は 60%）
     defenseCap: 0.60,
     speedAdd: 0.20,     // スピード（stats.moveMult へ加算）
@@ -699,6 +768,20 @@ export const BALANCE = {
   },
 
   // Wave R1: 序盤は手数(chibit)＋壁(gareon)、中盤で狙撃(snipa)/特攻(bomba)、後半で砲台(turret)も加わり役割が増える
+  // ★レア雑魚の出現（R24・実プレイFB「これはボス戦およびボス戦以外にもでてくる。出現は不定期」）。
+  // 通常の spawnPhases（重み抽選）には**入れない**。入れると常時湧く＝レアでなくなるため、
+  // 独立したタイマーで、間隔を毎回ランダムに引き直して湧かせる。
+  // ⚠️ ボス戦中も止めない。ボス戦は装甲片しか弾が無いので、ここに強い弾が1個混ざる価値が大きい。
+  rareEnemy: {
+    enemyId: 'magman',
+    firstSec: 38,                 // 最初の1体
+    everyMin: 24, everyMax: 44,   // 以後の間隔は毎回この範囲で引き直す＝「不定期」
+    maxAlive: 2,                  // 場に同時に居られる数（増えると珍しさが消える）
+    dist: 210,                    // 主人公からこの距離に湧く（画面内で見つけられる距離）
+    hpMultCap: 1.5,               // 波のHP倍率の上限。硬すぎて掴めなくなるのを防ぐ
+    tint: 0xff5a1f, label: 'マグマン',
+  },
+
   spawnPhases: [
     { untilSec: 60,   weights: { chibit: 0.58, gareon: 0.27, snipa: 0.15 } },   // R21W2: 開幕から射手を入れる（開始54秒の被弾ゼロ帯を解消）
     { untilSec: 120,  weights: { chibit: 0.42, gareon: 0.23, snipa: 0.20, bomba: 0.15 } },

@@ -443,6 +443,47 @@ const SFX = {
     tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.32, dur: 0.3, gain: 0.09 });
     noiseHit({ start: 0.25, dur: 0.2, gain: 0.05, hpFreq: 6500 });
   },
+  // ---- R24 投げの効果音（段位で3段階）----
+  // 実プレイFB「メガ投げ？ボルテクス投げ？と名称は勇ましいが、なにもレベルアップしたことが
+  //   感じられない。投げたときの効果音」。段位が上がったのに音が同じなら、耳では何も変わっていない。
+  // ⚠️ 音量ではなく**中身**を変える。低音の層が増え、芯が下がり、余韻が伸びる＝「重くなった」。
+  throwLight() {
+    // 軽い「ヒュッ・パンッ」。序盤の弾は軽いことがはっきり分かるように高く短く。
+    tone({ type: 'triangle', freq: 880, freqEnd: 420, dur: 0.09, gain: 0.16, attack: 0.002 });
+    tone({ type: 'square', freq: 300, freqEnd: 190, dur: 0.07, gain: 0.09 });
+    noiseHit({ dur: 0.05, gain: 0.10, hpFreq: 2500, lpFreq: 12000 });
+  },
+  throwHeavy() {
+    // 「ドンッ」。低音の芯が入り、ノイズの尾が伸びる。
+    tone({ type: 'sine', freq: 260, freqEnd: 62, dur: 0.30, gain: 0.30, attack: 0.002 });
+    tone({ type: 'square', freq: 520, freqEnd: 210, dur: 0.12, gain: 0.13 });
+    tone({ type: 'triangle', freq: 120, freqEnd: 44, dur: 0.26, gain: 0.14 });
+    noiseHit({ dur: 0.16, gain: 0.16, hpFreq: 500, lpFreq: 10000 });
+    noiseHit({ start: 0.02, dur: 0.08, gain: 0.08, hpFreq: 3500 });
+  },
+  throwUltra() {
+    // 「ゴォンッ…」。サブベース＋金属の芯＋明るい和音の余韻。ここまで来ると音だけで段位が分かる。
+    tone({ type: 'sine', freq: 300, freqEnd: 34, dur: 0.55, gain: 0.34, attack: 0.002 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 30, dur: 0.48, gain: 0.18, attack: 0.002 });
+    tone({ type: 'square', freq: 700, freqEnd: 230, dur: 0.16, gain: 0.15 });
+    noiseHit({ dur: 0.30, gain: 0.20, hpFreq: 260, lpFreq: 9000 });
+    noiseHit({ start: 0.02, dur: 0.10, gain: 0.10, hpFreq: 4500, lpFreq: 14000 });
+    [NOTE.C5, NOTE.G5, NOTE.C6].forEach((n, i) => {
+      tone({ type: 'triangle', freq: noteFreq(n), start: 0.05 + i * 0.03, dur: 0.34, gain: 0.11 });
+    });
+  },
+  // R24 ほのおだんの炸裂：らいこうだんの「パキッ」に対して、こちらは「ボワッ→ゴォォ」。
+  // 高域の割れる音を出さず、低〜中域のうねりで「面が燃え広がる」を作る。
+  fireBlast() {
+    noiseHit({ dur: 0.12, gain: 0.24, hpFreq: 200, lpFreq: 5200 });     // 点火のボワッ
+    tone({ type: 'sawtooth', freq: 180, freqEnd: 40, dur: 0.45, gain: 0.22, attack: 0.004 });
+    tone({ type: 'sine', freq: 240, freqEnd: 36, dur: 0.6, gain: 0.30, attack: 0.004 });
+    noiseHit({ start: 0.05, dur: 0.5, gain: 0.18, hpFreq: 120, lpFreq: 3200 });   // 燃え広がるゴォォ
+    noiseHit({ start: 0.28, dur: 0.4, gain: 0.10, hpFreq: 90, lpFreq: 1800 });
+    [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5].forEach((n, i) => {
+      tone({ type: 'triangle', freq: noteFreq(n), start: 0.03 + i * 0.025, dur: 0.4, gain: 0.10 });
+    });
+  },
   // R23 らいこうだんの手渡し：スローモーションの間ずっと鳴る「充電が満ちる」上昇音。
   // ⚠️ この音が鳴っている＝時間が遅い、と耳で分かるようにゆっくり上げる（1.1秒）。
   boltCharge() {

@@ -21,7 +21,13 @@ const ROLE = {
   bomba: '#ff6a1f',    // 特攻＝警告橙
   snipa: '#e84dff',    // 狙撃＝紫紅
   turret: '#5ff0d0',   // 砲台＝ミント
+  magman: '#ff2f00',   // R24 レア＝溶岩の赤橙（ガレオンの血赤 #ff2438 とは色相で12°離す）
 };
+
+// R24 レア雑魚の配色（実プレイFB「見た目もひとめでそれとわかる外観で。ボディの色は赤」）。
+// ⚠️ **この機体だけ本体がガンメタルではない**。艦隊の統一感をわざと1機だけ破ることが、
+//    そのまま「こいつは違う」という記号になる（説明文を1文字も足さずに伝わる）。
+const MAGMA = { k: '#2a0a05', m: '#d42a12', d: '#8a1405', o: '#ff8a1f', y: '#ffcf3a', s: '#ffe9c9' };
 
 export const ENEMIES = [
   {
@@ -159,6 +165,46 @@ export const ENEMIES = [
         '....gg......',
         '..sggggs....',
         '............',
+      ],
+    },
+  },
+  {
+    // R24 レア役：溶岩を詰めた球状の爆弾機。頭から炎が噴き出している。
+    //   実プレイFB「弾にすると火力が高いレアな雑魚キャラを一体つくって」。
+    //   **掴んで投げると「炎の炸裂弾」になる**（billiard.js の blast）。倒しても普通の雑魚と同じ。
+    //   ＝価値は撃破ではなく**弾にすること**にある。だから遅く（速度34）して必ず追いつけるようにし、
+    //     接触ダメージは高く（18）して「触らずに削ってよろけさせろ」を体で分からせる。
+    //   出現は spawnPhases の重み抽選に入れず、balance.rareEnemy の独立タイマーが不定期に湧かせる。
+    id: 'magman',
+    name: 'マグマン',
+    rare: true,          // ★エリート抽選(spawnElite)と重み抽選から外す印
+    movement: 'chase',
+    color: ROLE.magman,
+    // ⚠️ HPは意図的に**雑魚内で最硬にしない**（ガレオン14より下）。この機体の価値は倒すことでは
+    //    なく弾にすることなので、よろけさせるまでが遠いと誰も使わない。
+    //    ついでに dev/test-core.js の安全網（「終盤の最硬雑魚を1発で倒せるか」）の基準も動かさずに済む。
+    hp: 12,
+    speed: 34,
+    damage: 18,
+    radius: 10,
+    // 踏みしめて熱波を出す。ガレオンと同型(quake)だが、こちらは範囲も威力も控えめ＝
+    // 「近づいて削る」ことを罰しない（近づかせないと弾にできないので、追い返す技にしてはいけない）。
+    attack: { type: 'quake', intervalSec: 4.2, telegraphSec: 0.9, range: 120, aoe: 78, damage: 14 },
+    sprite: {
+      palette: { ...MAGMA, r: ROLE.magman },
+      rows: [
+        '.....yy.....',
+        '....yooy....',
+        '..y.yooy.y..',
+        '...yoooy....',
+        '...kooook...',
+        '.kmmmmmmmmk.',
+        'kmmsdrrdsmmk',
+        'kmmmdrrdmmmk',
+        'kmmmmddmmmmk',
+        '.kmmmmmmmmk.',
+        '..kddmmddk..',
+        '...kkddkk...',
       ],
     },
   },
