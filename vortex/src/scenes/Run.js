@@ -84,7 +84,7 @@ export class RunScene extends Phaser.Scene {
 
     // --- プレイヤー ---
     const P = BALANCE.player;
-    this.player = { x: 0, y: 0, hp: P.hp, maxHp: P.hp, radius: P.radius, invuln: 0, flashT: 0 };
+    this.player = { x: 0, y: 0, vx: 0, vy: 0, hp: P.hp, maxHp: P.hp, radius: P.radius, invuln: 0, flashT: 0 };
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4f8cff).setScale(2.2).setAlpha(0.55);   // R16: コバルトのオーラ（ブレイブギア配色）
     // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
@@ -219,6 +219,7 @@ export class RunScene extends Phaser.Scene {
         if (this.fx) this.fx.announce('打撃感 ' + (i + 1) + '：' + p.name, '#ffe9a8');
       });
     });
+
   }
 
   togglePause() {
@@ -330,6 +331,10 @@ export class RunScene extends Phaser.Scene {
       const sp = P.speed * this.stats.moveMult * (this._strikeRecover > 0 ? 0.6 : 1);   // R21W2: 硬直中は鈍る
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
+      // R21W3: 偏差射撃の予測に使う。ノックバックと踏み込みは自分の意思でない動きなので含めない。
+      this.player.vx = dx * inv * sp; this.player.vy = dy * inv * sp;
+    } else {
+      this.player.vx = 0; this.player.vy = 0;
     }
     // R12: 被弾ノックバック。減衰しながら加害者と反対方向へ押し出される＝「効いた」重み。
     // 操作を奪う長さにはしない（hurtKnockSec は0.2秒未満）。
@@ -462,13 +467,15 @@ export class RunScene extends Phaser.Scene {
 
   // 索敵：range 以内で最も近い敵（active のみ）。腕の技と構えが共用する。
   // R21W2: stagOnly=true でよろけている敵だけを探す（手動の狙いはまず獲物へ向く）
-  nearestEnemy(range, minDist = 0, stagOnly = false) {
+  // R21W3: pred で追加の絞り込み（予告中の敵だけ、など）。stagOnly と両立する。
+  nearestEnemy(range, minDist = 0, stagOnly = false, pred = null) {
     const px = this.player.x, py = this.player.y;
     let best = null, bestD2 = range * range;
     const min2 = minDist * minDist;
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (stagOnly && !e.stag) continue;
+      if (pred && !pred(e)) continue;
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
       if (d2 < min2 || d2 >= bestD2) continue;
@@ -498,7 +505,16 @@ export class RunScene extends Phaser.Scene {
       const w = this.cameras.main.getWorldPoint(this.input.activePointer.x, this.input.activePointer.y);
       return Math.atan2(w.y - py, w.x - px);
     }
-    const t = this.nearestEnemy(BALANCE.hero.aimRange, 0, true) || this.nearestEnemy(BALANCE.hero.aimRange);
+    // R21W3: 予告中の敵を最優先。爆発（quake/selfdestruct）の正解は「予告中に殴って割る」だが、
+    //   キーボードだけで遊ぶとこの自動照準が唯一の向きの決め方になる。よろけ優先のままだと
+    //   獲物が別方向に居るときに照準がそちらへ向き、96°の扇から外れて正解を実行できない
+    //   ＝避けようのない被弾になる。マウスを使っている人はこの経路を通らない（上で return 済み）。
+    //   ⚠️ 届く相手に限る。aimRange 260 はスナイパの予告距離230・タレット210より広いので、
+    //   無条件に優先すると目の前の爆発を放置して届かない狙撃手へ照準が吸われる（逆に危険）。
+    const reach = this.strikeRange() + BALANCE.hero.strike.lungeMax;
+    const t = this.nearestEnemy(reach, 0, false, (e) => e.atkState === 'telegraph')
+      || this.nearestEnemy(BALANCE.hero.aimRange, 0, true)
+      || this.nearestEnemy(BALANCE.hero.aimRange);
     return t ? Math.atan2(t.y - py, t.x - px) : this._weaponAim;
   }
 
@@ -628,7 +644,10 @@ export class RunScene extends Phaser.Scene {
         Sound.sfx('counter');
         if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, 0xff6ec7);
         e.atkState = 'ready';
-        e.atkT = (e.def.attack ? e.def.attack.intervalSec : 1);
+        // R21W3: intervalSec 0（ボンバ＝1回限りの自爆）だと翌フレームに再予告してしまう。
+        //   通常ボンバはカウンターの一撃(34×1.8=61)で死ぬので露見しないが、エリートボンバ(hp72)は
+        //   死なずに即再予告する＝「殴れば止まる」という学習が壊れる。最低1秒は黙らせる。
+        e.atkT = Math.max(1, (e.def.attack ? e.def.attack.intervalSec : 1));
         if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
       }
       if (e.isBoss) mul *= S.bossMul;
@@ -991,6 +1010,17 @@ export class RunScene extends Phaser.Scene {
         vy = e.lockY * e.speed * dm;
       }
 
+      // R21W3: 自分中心の爆発（aoe を持つ攻撃）を予告している間は足を止める。移動処理は atkState を
+      //   見ないので、ボンバは突進(speed×dashMult＝260px/s)に乗ったまま爆心ごと動いていた。同じ予告
+      //   なのに「静止が正解の回」と「逃げても捕まる回」が突進の位相で決まる＝小5には学習できない。
+      //   ノックバックは下で別に効かせる（押し返せるのは主人公の行動の結果なので運ではない）。
+      // ただし自爆（特攻役）だけは止めない。止めると詰めの37pxを失って命中率が14%→2.9%へ落ち、
+      //   ただの地雷になる。ロック方向へ「素の速度で」進ませる＝突進倍率を無視するので、
+      //   どの位相で予告が始まっても詰める距離は speed×telegraphSec で必ず同じになる。
+      if (e.atkState === 'telegraph' && e.def.attack && e.def.attack.aoe) {
+        if (e.def.attack.type === 'selfdestruct') { vx = e.lockX * e.speed; vy = e.lockY * e.speed; }
+        else { vx = 0; vy = 0; }
+      }
       e.x += vx * slow * dt;
       e.y += vy * slow * dt;
       // R12: 殴られたノックバック。減衰しながら押し出される＝拳で押し返せる手応え。
@@ -1097,7 +1127,9 @@ export class RunScene extends Phaser.Scene {
           e.atkState = 'telegraph';
           e.atkT = A.telegraphSec;
           e.lockX = dx / dist; e.lockY = dy / dist;
+          e.aimLocked = false;
           if (A.type === 'lockbeam') this.showAimLine(e, A.range);
+          else if (A.aoe) this.showBlastRing(e, A.aoe);   // R21W3: 爆風は大きいので範囲を先に見せる
         } else {
           e.atkT = 0.2;   // 射程外。少し待って再判定（毎フレーム判定を避ける）
         }
@@ -1106,7 +1138,22 @@ export class RunScene extends Phaser.Scene {
       // 予告表現：本体を点滅（既存の被弾フラッシュと同系）
       if (Math.floor(this.elapsed * 10) % 2 === 0) e.spr.setTint(0xffffff);
       else e.spr.clearTint();
-      if (e.aimLine) e.aimLine.setPosition(e.x, e.y);   // 照準ラインは自分に追従（向きはロック固定）
+      // R21W3: 照準ラインは自分に追従。lateLockSec を切るまでは向きも主人公へ追い続け、
+      //   本ロックの瞬間に濃くして「今きまった」を見せる（残り時間が避ける猶予になる）。
+      if (e.aimLine) {
+        e.aimLine.setPosition(e.x, e.y);
+        if (A.type === 'lockbeam') {
+          if (e.atkT > (A.lateLockSec || 0)) {
+            const d2 = Math.hypot(dx, dy) || 1;
+            e.lockX = dx / d2; e.lockY = dy / d2;
+            e.aimLine.setRotation(Math.atan2(e.lockY, e.lockX));
+          } else if (!e.aimLocked) {
+            e.aimLocked = true;
+            this.lockAimWithLead(e, A);
+            e.aimLine.setAlpha(0.7).setRotation(Math.atan2(e.lockY, e.lockX));
+          }
+        }
+      }
       e.atkT -= dt;
       if (e.atkT <= 0) {
         this.fireEnemyAttack(e);
@@ -1125,6 +1172,37 @@ export class RunScene extends Phaser.Scene {
       .setDepth(8).setTint(0xff3b3b).setAlpha(0.35)
       .setDisplaySize(len, 2).setRotation(Math.atan2(e.lockY, e.lockX)).setPosition(e.x, e.y);
     e.aimLine = line;
+  }
+
+  // R21W3: 本ロック。弾が届くまでの時間ぶん主人公の進行方向へ先を読む。
+  //   予測を全部当てると理不尽なので、ロック後に動ける距離（速度×lateLockSec）は必ず残る
+  //   ＝「まっすぐ走り続けた者だけが当たる」。曲がれば外れる。
+  lockAimWithLead(e, A) {
+    const dist = Math.hypot(this.player.x - e.x, this.player.y - e.y) || 1;
+    const t = (dist / A.bulletSpeed) * (A.leadMul == null ? 1 : A.leadMul);
+    const tx = this.player.x + (this.player.vx || 0) * t;
+    const ty = this.player.y + (this.player.vy || 0) * t;
+    const ax = tx - e.x, ay = ty - e.y;
+    const an = Math.hypot(ax, ay) || 1;
+    e.lockX = ax / an; e.lockY = ay / an;
+  }
+
+  // R21W3: quake / selfdestruct の予告リング。爆心は敵の足元なので aimLine と同じ追従・後始末に乗せる
+  //   （e.aimLine は lockbeam 専用フィールドで、破棄経路が4箇所すでにある。新しい漏れ道を作らない）。
+  showBlastRing(e, aoe) {
+    // 危険な半径はダメージ条件そのもの（dist <= aoe + player.radius）。見せる物は実装と同じ式で作る。
+    //   w_ring は makeRing('w_ring', 48, 5) ＝ scale 1 で外周半径 24px、glow は makeGlow('glow', 32) ＝ 16px。
+    // 輪だけだと「帯が危ないのか円の中が危ないのか」が伝わらないので、内側も薄く塗る。
+    //   ⚠️ 加算合成なので「輪の帯どうし」が交差すると足し算になる。輪 0.24 なら2枚重なっても 0.48、
+    //   塗り(glow は中心の実効αが約0.62)は 0.08 で実効 0.05。ガレオンは周期の18.6%を予告に使うので
+    //   射程内に5体いれば2枚同時は時間の約24%起きる＝交差は例外ではなく常態として見積もる。
+    // 2枚を Container 1個にまとめる。e.aimLine の破棄経路が既に4箇所あるので、新しい漏れ道を作らない。
+    const R = aoe + this.player.radius;
+    const fill = this.add.image(0, 0, 'glow').setBlendMode(ADD).setTint(0xff3b3b)
+      .setAlpha(0.08).setScale(R / 16);
+    const ring = this.add.image(0, 0, 'w_ring').setBlendMode(ADD).setTint(0xff3b3b)
+      .setAlpha(0.24).setScale(R / 24);
+    e.aimLine = this.add.container(e.x, e.y, [fill, ring]).setDepth(8);
   }
 
   fireEnemyAttack(e) {
@@ -1149,6 +1227,9 @@ export class RunScene extends Phaser.Scene {
       if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
       this.spawnParticles(e.x, e.y, e.color, 22);
       this.popFx(e.x, e.y, e.color);
+      // R21W3: 自爆は「主人公が倒した」ではない。必殺ゲージ・スターコア・回復ハートは渡さない
+      //   （渡すと、近づかず放置するだけで報酬が入る＝殴った者が報われる原則の裏口になる）。XPだけ出る。
+      e.noReward = true;
       this.killEnemy(e, e.color, 'self');
     } else if (A.type === 'lockbeam') {
       // 狙撃：ロック方向へ速い弾を1発
@@ -1156,7 +1237,9 @@ export class RunScene extends Phaser.Scene {
       Sound.sfx('shoot');
     } else if (A.type === 'spread') {
       // 扇状：プレイヤー方向を中心に count 発
-      const base = Math.atan2(dy, dx);
+      // R21W3: 弾が届くまでの時間ぶん主人公の進行方向へ先を読む（leadMul で読みの甘さを調整）。
+      const lt = (dist / A.bulletSpeed) * (A.leadMul || 0);
+      const base = Math.atan2(dy + (this.player.vy || 0) * lt, dx + (this.player.vx || 0) * lt);
       const step = A.spreadDeg * Math.PI / 180;
       const mid = (A.count - 1) / 2;
       for (let i = 0; i < A.count; i++) {
@@ -1190,7 +1273,7 @@ export class RunScene extends Phaser.Scene {
       .setRotation(ang).setDisplaySize(S.glowW * k, S.glowH * k).setPosition(x, y);
     this.foeBullets.push({
       active: true, x, y, vx: dirX * speed, vy: dirY * speed,
-      radius, dmg, life: 3, spr: disp.spr, glow: disp.glow,
+      radius, dmg, life: 3, grazed: false, spr: disp.spr, glow: disp.glow,
     });
   }
 
@@ -1202,6 +1285,7 @@ export class RunScene extends Phaser.Scene {
 
   updateFoeBullets(dt) {
     const px = this.player.x, py = this.player.y;
+    this._grazeCd = Math.max(0, (this._grazeCd || 0) - dt);   // R21W3: 音の渋滞よけ
     for (const b of this.foeBullets) {
       if (!b.active) continue;
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
@@ -1210,7 +1294,18 @@ export class RunScene extends Phaser.Scene {
       if (b.life <= 0) { b.active = false; continue; }
       const rr = this.player.radius + b.radius;
       const dx = b.x - px, dy = b.y - py;
-      if (dx * dx + dy * dy <= rr * rr) { this.hitPlayer(b.dmg, b.x, b.y); b.active = false; }
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= rr * rr) { this.hitPlayer(b.dmg, b.x, b.y); b.active = false; continue; }
+      // R21W3: グレイズ。判定+9px をすれ違った弾に1発1回だけ「ヒュッ」。避けた自覚が無いと
+      //   緊張が快感に変わらない。多発するので音だけ（揺れ・数字・スパークは出さない）。
+      //   ⚠️ 当たる弾も命中の直前に判定帯を通るので、「遠ざかり始めた」＝最接近を過ぎた弾に限る。
+      //   そうしないと被弾のたびに「ヒュッ→ドン」と鳴って、当たった重みが薄まる。
+      if (!b.grazed && this._grazeCd <= 0) {
+        const g = rr + 9;
+        if (d2 <= g * g && (b.vx * dx + b.vy * dy) > 0) {
+          b.grazed = true; this._grazeCd = 0.12; Sound.sfx('graze');
+        }
+      }
     }
   }
 

@@ -126,6 +126,12 @@ const SFX = {
     tone({ type: 'triangle', freq: 2360, freqEnd: 1560, dur: 0.05, gain: 0.06 });
     noiseHit({ dur: 0.03, gain: 0.05, hpFreq: 5000, lpFreq: 13000 });
   },
+  // R21W3: グレイズ（敵弾を判定+9pxですれすれに避けた）。「避けた」を伝える音がゲーム内に
+  //   1つも無く、緊張が快感に変換されていなかった。空気を切る「ヒュッ」だけ。多発するので
+  //   音程を持たせず（ヒット音と混ざらない）、gain も pop の半分以下に抑える。
+  graze() {
+    noiseHit({ dur: 0.09, gain: 0.05, hpFreq: 2600, lpFreq: 9000 });
+  },
   // 雑魚撃破の「ポンっ」（Wave C）。多発するので極短＋控えめゲインで耳に痛くしない
   pop() {
     tone({ type: 'sine', freq: 880, freqEnd: 1320, dur: 0.06, gain: 0.12 });

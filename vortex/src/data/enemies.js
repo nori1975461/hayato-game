@@ -34,7 +34,14 @@ export const ENEMIES = [
     speed: 26,   // R21W2
     damage: 16,
     radius: 9,
-    attack: { type: 'quake', intervalSec: 3.5, telegraphSec: 0.65, range: 96, aoe: 56, damage: 18 },   // R21W2
+    // R21W3: range 96 は主人公の攻撃圏(78〜138px)の内側で、253秒の計測で発火3回。しかも aoe 56+7 <
+    //   range なので、その3回も届いていない（雑魚起因の被弾は実測0）。判定をキル圏の外(148)へ出し、
+    //   爆風 120 は主人公の攻撃圏(78〜138px)を覆う大きさ。判定距離148pxまで届かせると画面の1/4を
+    //   赤く塗ることになるので届かせない。「予告中のガレオンを殴りに行く＝爆風の中にいる」が成立すれば
+    //   〈割るか、退くか〉の選択は毎回起きる。予告中は足が止まる（Run.js の updateEnemies）ので爆心は固定。
+    //   ⚠️ ダメージは 18 のまま据え置く。接触ダメージ16より弱くすると「予告して撃つ大技より
+    //   ただ触る方が痛い」逆転が起き、赤いリング＝一番危ない という学習が壊れる。
+    attack: { type: 'quake', intervalSec: 3.5, telegraphSec: 0.8, range: 148, aoe: 120, damage: 18 },   // R21W3
     sprite: {
       palette: machinePalette(ROLE.gareon),
       rows: [
@@ -93,7 +100,15 @@ export const ENEMIES = [
     speed: 46,
     damage: 8,
     radius: 7,
-    attack: { type: 'selfdestruct', intervalSec: 0, telegraphSec: 0.6, range: 52, aoe: 50, damage: 28 },   // R21W2
+    // R21W3: range 52 はキル圏の最深部＝253秒で発火0回。自爆役なのに一度も爆発しない状態だった。
+    //   判定を 144 へ出し、爆風も 118 に広げる。予告0.8秒で素の主人公が動けるのは speed 120×0.8＝96px
+    //   なので、爆心(=敵の足元)の内側から歩いて出るのは不可能。内側に居るときの正解は「殴って割る」で、
+    //   赤いリングの外に居るときの正解は「そのまま離れる」。
+    //   ⚠️ 自爆だけは予告中も止まらず、ロック方向へ素の速度(46px/s)で詰める＝0.8秒で必ず37px。
+    //   突進倍率を無視するので、どの位相で予告が始まっても詰める距離は毎回同じになる。
+    //   なお range 144 は charge の溜め移行 140 より外なので、下の movement:'charge' の
+    //   溜め→突進は実プレイでは発生しない（予告の詰めがその役目を引き継いでいる）。
+    attack: { type: 'selfdestruct', intervalSec: 0, telegraphSec: 0.8, range: 144, aoe: 118, damage: 28 },   // R21W3
     sprite: {
       palette: machinePalette(ROLE.bomba),
       rows: [
@@ -124,7 +139,11 @@ export const ENEMIES = [
     damage: 10,
     radius: 6,
     // FB#4: 狙撃弾を +20%（240→288）で速く＝避けにくく。弾数は1発なので据え置き
-    attack: { type: 'lockbeam', intervalSec: 3.8, telegraphSec: 0.7, range: 230, bulletSpeed: 330, bulletRadius: 3, damage: 12 },   // R21W2
+    // R21W3: 方向を予告の「開始時」に固定していたため、発射までの0.7秒で主人公が84〜111px動き、
+    //   当たり判定の半幅10pxの8〜11倍ずれていた（442発中13発＝2.9%しか当たらない主因）。
+    //   lateLockSec = 残りこの秒数になった時点で本ロック＋偏差射撃。残り0.2秒でも24〜32px動けるので
+    //   「予告の最後に向きを変える」判断で避けられる＝弾数もダメージも増やさず1発を重くする。
+    attack: { type: 'lockbeam', intervalSec: 3.8, telegraphSec: 0.7, lateLockSec: 0.2, range: 230, bulletSpeed: 330, bulletRadius: 3, damage: 12, leadMul: 1 },   // R21W3
     sprite: {
       palette: machinePalette(ROLE.snipa),
       rows: [
@@ -157,7 +176,11 @@ export const ENEMIES = [
     hoverDist: 160,   // R21W2: 仲間の到達上限 allyMaxReach 132 の確実に外側へ
     // FB#4: 扇状弾を +20%（150→180）で速く。count は3（唯一の複数弾攻撃だが、-10%だと2.7で3へ丸まり、
     //       2発は約-33%で「約1割減」を超え唯一の弾幕を過度に弱めるため3のまま維持）
-    attack: { type: 'spread', intervalSec: 3.2, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 11 },   // R21W2
+    // R21W3: 発射時に狙い直してはいるが、弾速180で210px先まで約1.2秒かかる間に主人公は144〜190px
+    //   動く（当たり判定の半幅11pxの13〜17倍）＝構造的に当たらない。弾全体の68%がこの扇弾なので
+    //   ここが雑魚帯の被弾の本丸。leadMul は読みの甘さ（1.0で完全予測）。0.8 にして
+    //   「まっすぐ走り続けた者だけが当たる・曲がれば外れる」余地を残す。弾数もダメージも増やさない。
+    attack: { type: 'spread', intervalSec: 3.2, telegraphSec: 0.4, range: 210, count: 3, spreadDeg: 24, bulletSpeed: 180, bulletRadius: 4, damage: 11, leadMul: 0.8 },   // R21W3
     sprite: {
       palette: machinePalette(ROLE.turret),
       rows: [
