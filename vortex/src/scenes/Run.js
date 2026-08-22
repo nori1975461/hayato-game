@@ -60,6 +60,7 @@ export class RunScene extends Phaser.Scene {
     this.level = 1;
     this.xp = 0;
     this.xpNeed = BALANCE.xp.firstLevelNeed + BALANCE.xp.needStep * (2 - 2); // Lv2まで=5
+    this.gemHealCount = 0;    // ジェル回復ゲージの溜まり（BALANCE.gemHeal.every で1回復）
     this.paused = false;
     this.drafting = false;    // v3: ドラフト廃止。検証スクリプト互換のため常に false で保持
     this.ended = false;
@@ -1678,6 +1679,7 @@ export class RunScene extends Phaser.Scene {
       if (d2 <= grabR * grabR) {
         this.levelup.addXp(g.value);
         Sound.sfx('pickup');
+        this.gainGemHeal(g.value >= BALANCE.xp.eliteGemValue ? BALANCE.gemHeal.eliteCount : 1);
         g.active = false;
         continue;
       }
@@ -1752,6 +1754,27 @@ export class RunScene extends Phaser.Scene {
         h.x += (dx / d) * HI.pull * dt;
         h.y += (dy / d) * HI.pull * dt;
       }
+    }
+  }
+
+  // ジェルを拾うたびに呼ぶ。GH.every 個ぶん溜まったら回復する（余りは持ち越す＝拾い続ける動機が切れない）。
+  gainGemHeal(n) {
+    const GH = BALANCE.gemHeal;
+    if (!GH || !(GH.every > 0)) return;
+    this.gemHealCount += n;
+    while (this.gemHealCount >= GH.every) {
+      this.gemHealCount -= GH.every;
+      const p = this.player;
+      if (p.hp < p.maxHp) {
+        const before = p.hp;
+        p.hp = Math.min(p.maxHp, p.hp + GH.healAmount);
+        this.floatText(p.x, p.y - 28, '+' + Math.round(p.hp - before) + ' HP', '#7dff8f');
+      } else {
+        this.coins += GH.fullBonusCoins;   // 満タンでも無駄にしない（回復ハートと同じ扱いに揃える）
+        this.floatText(p.x, p.y - 28, '+' + GH.fullBonusCoins + ' コイン', '#ffd23f');
+      }
+      this.spawnParticles(p.x, p.y, 0x7dff8f, 14);
+      Sound.sfx('heal');
     }
   }
 

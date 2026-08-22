@@ -130,6 +130,19 @@ export function createHud(run) {
     bar.fillRect(8, 8, hpW * hpRatio, 10);
     bar.lineStyle(1, 0xffffff, 0.4);
     bar.strokeRect(8, 8, hpW, 10);
+    // ジェル回復ゲージ（HPバーの真下）。溜まりきると回復する。
+    // ★見せるのが目的。内部カウンタのままだと「あと少しで回復する」という拾う動機が生まれない。
+    const GH = BALANCE.gemHeal;
+    if (GH && GH.every > 0) {
+      const ghRatio = Math.max(0, Math.min(1, (run.gemHealCount || 0) / GH.every));
+      bar.fillStyle(0x0d2416, 0.9);
+      bar.fillRect(8, 20, hpW, 3);
+      // 8割を超えたら点滅させて「もうすぐ回復する＝いま拾いに行け」と主張する（elapsed基準で決定的）
+      const near = ghRatio >= 0.8 && Math.floor(run.elapsed * 8) % 2 === 0;
+      bar.fillStyle(near ? 0xffffff : 0x7dff8f, 1);
+      bar.fillRect(8, 20, hpW * ghRatio, 3);
+    }
+
     // XPバー
     const xpW = 120;
     const xpRatio = Math.max(0, Math.min(1, run.xp / run.xpNeed));
