@@ -60,7 +60,8 @@ export function createBilliard(run) {
     if (run.fx && run.fx.announce) run.fx.announce('なげる が ' + t.name + ' に！', '#ffe9a8');
     Sound.sfx('weaponTier');
     screenFlash(0.3, t.color);
-    burstStreaks(run.player.x, run.player.y, t.streaks + 8, t.color, 110);
+    burstStreaks(run.player.x, run.player.y, t.streaks + 10, t.color, 130);
+    zoomPunch(t.zoom * 2.2);
     shockRing(run.player.x, run.player.y, 120, t.color);
   }
   const grabReach = () => B().grabReach + (run.playerStage - 1) * B().grabReachPerStage;
@@ -226,7 +227,9 @@ export function createBilliard(run) {
     const disp = st.pool.pop() || {
       spr: run.add.image(0, 0, 'bullet').setDepth(13),
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(7),
+      ring: run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12),
     };
+    if (!disp.ring) disp.ring = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12);
     const px = run.player.x, py = run.player.y;
     // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
     disp.spr.setTexture(h.tex).setVisible(true).setScale(h.scale * T.ballMul)
@@ -234,13 +237,16 @@ export function createBilliard(run) {
     disp.glow.setVisible(true).setTint(T.color).setAlpha(0.95)
       .setDisplaySize(h.radius * (7 + 4 * ratio) * T.ballMul * 0.6, h.radius * 4 * T.ballMul * 0.6)
       .setRotation(ang).setPosition(px, py);
+    // まとわりつく輪。飛んでいる間ずっと回るので「ただの点」に見えなくなる（実プレイFB「まだ地味」）
+    disp.ring.setVisible(true).setTint(T.color).setAlpha(0.75)
+      .setScale(h.radius * T.ballMul * 0.055).setPosition(px, py);
 
     st.shots.push({
       active: true, x: px, y: py,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       hp, radius: Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6), color: h.color,
       life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T,
-      spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow,
+      spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
     });
 
     st.throws++;
@@ -292,11 +298,32 @@ export function createBilliard(run) {
         e.knockT = 0.12;
       }
     }
-    run.spawnHitMark(s.x, s.y, (s.tier || tier()).color);
-    if (run.fx && run.fx.hitSpark) run.fx.hitSpark(s.x, s.y, (s.tier || tier()).color);
+    const b = B(), Tc = (s.tier || tier()).color;
+    run.spawnHitMark(s.x, s.y, Tc);
+    if (run.fx && run.fx.hitSpark) run.fx.hitSpark(s.x, s.y, Tc);
     // 当てるたびに音程が上がる階段＝連鎖が耳で分かる
     Sound.sfx('metalSlam', 0, Math.min(1.7, 1 + 0.07 * s.kills));
-    s.hp -= B().hpCostPerHit;
+    // ★なぎ倒す触感（実プレイFB）。1体ごとに「一瞬止まる・小さく揺れる・減速する・弾がぶれる」。
+    //   連鎖するとこれが積み重なり、群れに食い込んでいく抵抗として体に伝わる。
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT, b.pierceStopSec);
+    run.shake(60, b.pierceShake);
+    s.vx *= b.pierceDrag; s.vy *= b.pierceDrag;   // 貫くほど重くなる＝手応え
+    s.wob = b.pierceWobble; s.wobT = 0;
+    s.hp -= b.hpCostPerHit;
+  }
+
+  // 着弾でカメラが一瞬寄る。揺れ(shake)より「押された」感じが強く出る。
+  // ⚠️ このゲームは他でカメラzoomを使っていないので基準は必ず1。終了時に必ず1へ戻す。
+  function zoomPunch(amount) {
+    const cam = run.cameras && run.cameras.main;
+    if (!cam || st.zooming || amount <= 0) return;
+    st.zooming = true;
+    const o = { z: 1 };
+    run.tweens.add({
+      targets: o, z: 1 + amount, duration: 75, yoyo: true, ease: 'Quad.Out',
+      onUpdate: () => { if (cam.setZoom) cam.setZoom(o.z); },
+      onComplete: () => { if (cam.setZoom) cam.setZoom(1); st.zooming = false; },
+    });
   }
 
   // 放射する光条。段が上がるほど本数が増える＝画面の派手さがそのまま成長の証明になる。
@@ -356,6 +383,7 @@ export function createBilliard(run) {
         run.time.delayedCall(dly, () => shockRing(s.x, s.y, baseR * (0.75 + 0.35 * i), i === 0 ? T.color : 0xffd23f));
       }
       if (T.streaks > 0) burstStreaks(s.x, s.y, T.streaks, T.color, baseR * 0.9);
+      zoomPunch(T.zoom * Math.min(2.2, 0.7 + 0.22 * s.kills));
       run.spawnParticles(s.x, s.y, T.color, Math.min(46, 10 + 5 * s.kills));
       Sound.sfx('bigBoom', Math.min(1, s.kills / 5));
       // 毎回の炸裂で全画面を洗うと敵が読めなくなるので上限を抑える（段位アップの一発だけは濃くてよい）
@@ -369,15 +397,27 @@ export function createBilliard(run) {
   function releaseShot(s) {
     s.spr.setVisible(false);
     s.glow.setVisible(false);
-    st.pool.push({ spr: s.spr, glow: s.glow });
+    s.ring.setVisible(false);
+    st.pool.push({ spr: s.spr, glow: s.glow, ring: s.ring });
   }
 
   function updateShots(dt) {
     for (const s of st.shots) {
       if (!s.active) continue;
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
-      s.spr.setPosition(s.x, s.y).setRotation(s.spr.rotation + s.spin * dt);
-      s.glow.setPosition(s.x, s.y);
+      // ゆらぎ：当てた直後だけ弾の「絵」が進行方向と直角に振れる。当たり判定(s.x,s.y)はぶらさない。
+      let ox = 0, oy = 0;
+      if (s.wob > 0) {
+        s.wobT += dt;
+        s.wob = Math.max(0, s.wob - dt * 110);
+        const sp = Math.hypot(s.vx, s.vy) || 1;
+        const amp = Math.sin(s.wobT * 46) * s.wob * 0.1;
+        ox = (-s.vy / sp) * amp; oy = (s.vx / sp) * amp;
+      }
+      s.spr.setPosition(s.x + ox, s.y + oy).setRotation(s.spr.rotation + s.spin * dt);
+      s.glow.setPosition(s.x + ox, s.y + oy);
+      // 輪は弾と逆回りにする＝二重の回転で目が離せなくなる
+      s.ring.setPosition(s.x + ox, s.y + oy).setRotation(s.ring.rotation - s.spin * 0.7 * dt);
       // 軌跡。どこを通ったかが残る＝速さと「自分が投げた」が目で追える。
       if ((s.tick = (s.tick || 0) + 1) % B().trailEveryFrames === 0) {
         const T = s.tier || tier();
@@ -465,6 +505,10 @@ export function createBilliard(run) {
   // ---- 毎フレーム ----
   function update(dt) {
     if (st.mode !== 1) { run._moveMul = 1; return; }
+    // ランが終わった瞬間にズーム中だと寄ったまま残るので必ず戻す
+    if (run.ended && run.cameras && run.cameras.main && run.cameras.main.zoom !== 1) {
+      run.cameras.main.setZoom(1); st.zooming = false;
+    }
     updateShots(dt);
     if (!run.player || run.cinematic || run.paused || run.ended) return;
     if (!st.seeded) seedOpeningPrey();

@@ -58,7 +58,10 @@ export const BALANCE = {
       //   速度と貫通HPの両方を買う。ここは合議で「設計全体の成否が懸かる」と指摘された箇所。
       chargeMaxSec: 0.85,                     // 溜め切りまで
       moveMulWhileCharge: 0.5,                // ★②のアンカー。溜め中は移動が鈍る＝群れの中で溜める判断が生まれる
-      speedMin: 300, speedMax: 660,           // 溜め0で300px/s・溜め切りで660px/s
+      // 実プレイFB「弾のスピードを少し遅めに。いまは早すぎて飛ばした感触があまりない」。
+      // 速い弾は「消えた」に見え、遅い弾は「重い物が飛んでいる」に見える。ビリヤードの玉は重い。
+      // 射程が縮まないよう lifeSec を 2.2→2.8 に伸ばして相殺する（200×2.8＝560px＝画面横幅弱）。
+      speedMin: 200, speedMax: 430,           // 溜め0で200px/s・溜め切りで430px/s
       chargeHpBonus: 4,                       // 溜め切りで貫通HP +4（チビットHP4なら4→8体分）
       // 飛翔体。HPは「掴んだ敵の maxHp ＋ 溜めボーナス」。1体当てるごとに hpCostPerHit 減る。
       // ⚠️ hpCostPerHit は合議が「この定数1個で設計全体の成否が決まる」と特定した最重要の仮定数。
@@ -69,7 +72,14 @@ export const BALANCE = {
       // 一番よく掴む相手が一番弱い弾になる構造だった。下限を置いて「投げは必ず群れを薙ぐ」を保証する。
       // 看板の動詞が必殺技に主役を奪われるのは、この設計の目的そのものの失敗にあたる。
       minHp: 8,
-      hitRadius: 20, lifeSec: 2.2, damage: 90,   // 実プレイFB「標準をつけやすく」→ 当たり判定を広げた
+      hitRadius: 20, lifeSec: 2.8, damage: 90,   // 実プレイFB「標準をつけやすく」→ 当たり判定を広げた
+      // ★なぎ倒す触感（実プレイFB「敵をなぎ倒す触感（ゆらぎ？震え？）をいれるのは」）。
+      //   1体貫くごとに「ほんの一瞬止まる・小さく揺れる・少し減速する・弾がぶれる」を全部入れる。
+      //   連鎖するとこれが積み重なって、群れに食い込んでいく抵抗として体に伝わる。
+      pierceStopSec: 0.022,   // 1体ごとの極小ヒットストップ（積むとガガガッという刻みになる）
+      pierceShake: 2.4,       // 1体ごとの極小の揺れ
+      pierceDrag: 0.955,      // 1体貫くごとに弾が減速する＝手応え（＝抵抗）
+      pierceWobble: 26,       // 弾の見た目が横に振れる量（当たり判定はぶらさない）
       // 照準。溜めている間、どこへ飛ぶかを線で見せる。これが無いと「狙って投げる」が成立しない。
       aimDots: 8, aimDotStep: 22, aimAssistDeg: 26, aimAssistPull: 0.75,
       //   aimAssistDeg … この角度以内に敵がいれば吸い付く / aimAssistPull … 吸い付く強さ(0..1)
@@ -98,12 +108,20 @@ export const BALANCE = {
       //   段が上がると威力と見た目が同時に上がる＝派手さがそのまま強さの証明になる。
       //   段を跨いだ瞬間にテロップとファンファーレを出す＝成長が起きた瞬間が分かる。
       //   ballMul=飛翔体の大きさ / rings=着弾の輪の数 / streaks=放射する光条 / flash=画面閃光の濃さ
+      // ★段位（実プレイFB「地味だから、よっぽど派手にしないと攻撃している実感がない。しかも成長で
+      //   どんどん派手さが増す仕様でなければ飽きる」→ さらに「まだ地味」「段位の刻みが遅い」）。
+      //   骨子の「成長を感じる」に直結する。段が上がると威力と見た目が同時に上がる＝派手さが強さの証明。
+      //   ⚠️ 5段→7段に増やし、しきい値も前倒しした（3/6/10/15 → 2/4/6/9/12/16）。
+      //      実測でLv9到達が75秒なので、旧設定では最高段が140秒以降＝420秒のうち3分の2が変化なしだった。
+      //   ballMul=飛翔体の大きさ / rings=着弾の輪 / streaks=放射する光条 / flash=画面閃光 / zoom=カメラの寄り
       throwTiers: [
-        { untilLevel: 3,   name: 'なげる',           hpBonus: 0,  radiusMul: 1.00, dmgMul: 1.0, rings: 1, streaks: 0,  flash: 0,    ballMul: 1.7, trailMul: 1.0, stopMul: 1.00, color: 0x9fe8ff },
-        { untilLevel: 6,   name: 'つよなげ',         hpBonus: 2,  radiusMul: 1.12, dmgMul: 1.2, rings: 2, streaks: 8,  flash: 0.10, ballMul: 2.0, trailMul: 1.4, stopMul: 1.15, color: 0x8affd2 },
-        { untilLevel: 10,  name: 'メガなげ',         hpBonus: 4,  radiusMul: 1.26, dmgMul: 1.5, rings: 3, streaks: 13, flash: 0.17, ballMul: 2.3, trailMul: 1.9, stopMul: 1.30, color: 0xffe066 },
-        { untilLevel: 15,  name: 'ギガなげ',         hpBonus: 7,  radiusMul: 1.42, dmgMul: 1.9, rings: 4, streaks: 19, flash: 0.20, ballMul: 2.7, trailMul: 2.4, stopMul: 1.50, color: 0xff9de0 },
-        { untilLevel: 999, name: 'ボルテックスなげ', hpBonus: 11, radiusMul: 1.62, dmgMul: 2.4, rings: 5, streaks: 27, flash: 0.26, ballMul: 3.1, trailMul: 2.9, stopMul: 1.75, color: 0xff5a5a },
+        { untilLevel: 2,   name: 'なげる',           hpBonus: 0,  radiusMul: 1.00, dmgMul: 1.0, rings: 1, streaks: 4,  flash: 0.06, ballMul: 1.9, trailMul: 1.0, stopMul: 1.00, zoom: 0.010, color: 0x9fe8ff },
+        { untilLevel: 4,   name: 'つよなげ',         hpBonus: 2,  radiusMul: 1.10, dmgMul: 1.2, rings: 2, streaks: 9,  flash: 0.09, ballMul: 2.2, trailMul: 1.3, stopMul: 1.10, zoom: 0.014, color: 0x8affd2 },
+        { untilLevel: 6,   name: 'メガなげ',         hpBonus: 4,  radiusMul: 1.20, dmgMul: 1.45, rings: 3, streaks: 14, flash: 0.12, ballMul: 2.5, trailMul: 1.7, stopMul: 1.20, zoom: 0.018, color: 0x7ee8ff },
+        { untilLevel: 9,   name: 'ギガなげ',         hpBonus: 7,  radiusMul: 1.32, dmgMul: 1.75, rings: 4, streaks: 19, flash: 0.15, ballMul: 2.8, trailMul: 2.1, stopMul: 1.32, zoom: 0.023, color: 0xffe066 },
+        { untilLevel: 12,  name: 'テラなげ',         hpBonus: 10, radiusMul: 1.44, dmgMul: 2.1,  rings: 5, streaks: 25, flash: 0.18, ballMul: 3.1, trailMul: 2.5, stopMul: 1.45, zoom: 0.028, color: 0xffa93d },
+        { untilLevel: 16,  name: 'ハイパーなげ',     hpBonus: 14, radiusMul: 1.56, dmgMul: 2.5,  rings: 6, streaks: 31, flash: 0.22, ballMul: 3.4, trailMul: 2.9, stopMul: 1.58, zoom: 0.034, color: 0xff9de0 },
+        { untilLevel: 999, name: 'ボルテックスなげ', hpBonus: 19, radiusMul: 1.70, dmgMul: 3.0,  rings: 7, streaks: 38, flash: 0.26, ballMul: 3.8, trailMul: 3.4, stopMul: 1.75, zoom: 0.042, color: 0xff5a5a },
       ],
       recoil: 420,       // 投げた反動の速度(px/s)。hurtKnockSec 0.18 の減衰に乗るので実移動は約23px
       pierceKnock: 240,  // 貫通したが生き残った敵を弾く強さ＝通過が目に見える
