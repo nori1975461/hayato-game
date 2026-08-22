@@ -564,11 +564,13 @@ export function createBilliard(run) {
       if (!st.maxRung && st.chargeT >= B().chargeMaxSec) { st.maxRung = true; Sound.sfx('gaugeFull'); }
       // ★②のアンカー。溜め中は移動が鈍る＝「群れの中心で溜め切るか、浅く投げて下がるか」の判断が毎周期出る。
       const ang = aimAngle();
-      // 溜め中に方向キーを押している間は足を止め、狙いだけを変える。
-      // ＝「上下左右斜めと自由に狙いをつけられる」。溜め＝足を止めて狙う、という一本のルールになる。
+      // 溜め中に方向キーを押している間は足を止め、狙いだけを変える＝「上下左右斜めと自由に狙える」。
+      // ただし止まるのは溜め開始から aimStopSec 秒まで（実プレイFB「足がとまる時間は0.5秒にしてくれ」）。
+      // それ以降は溜めっぱなしでも動けるので、群れの中で永久に足を縛られることがない。
       const bb = B();
-      run._moveMul = st.keyActive ? (bb.moveMulWhileAiming == null ? 0 : bb.moveMulWhileAiming)
-                                  : bb.moveMulWhileCharge;
+      const aiming = st.keyActive && st.chargeT < (bb.aimStopSec == null ? bb.chargeMaxSec : bb.aimStopSec);
+      run._moveMul = aiming ? (bb.moveMulWhileAiming == null ? 0 : bb.moveMulWhileAiming)
+                            : bb.moveMulWhileCharge;
       const ratio = Math.min(1, st.chargeT / B().chargeMaxSec);
       run._weaponAim = ang;
       showHeld(ang);
