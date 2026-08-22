@@ -82,6 +82,7 @@ export class RunScene extends Phaser.Scene {
     this.stats = {
       damageMult: 1, angularMult: 1, radiusMult: 1,
       moveMult: 1, captureAdd: 0, magnetAdd: 0, heroMult: 1,
+      defenseCut: 0,   // R23 やしろ：被ダメージの軽減率（0〜shrine.defenseCap）
     };
 
     // --- プレイヤー ---
@@ -470,6 +471,9 @@ export class RunScene extends Phaser.Scene {
   // 引数なしの旧呼び出しもそのまま動く（方向演出とノックバックが省かれるだけ）。
   hitPlayer(dmg, srcX, srcY) {
     if (this.player.invuln > 0 || this._strikeIfr > 0) return;   // R21W2: 踏み込み中は無敵
+    // R23 やしろ：防御力。被ダメージを割合で減らす（上限は shrine.defenseCap なので0にはならない）
+    const cut = Math.min(BALANCE.shrine.defenseCap, this.stats.defenseCut || 0);
+    if (cut > 0) dmg = Math.max(1, Math.round(dmg * (1 - cut)));
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
     this.player.flashT = 0.12;

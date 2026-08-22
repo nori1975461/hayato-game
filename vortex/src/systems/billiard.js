@@ -111,20 +111,23 @@ export function createBilliard(run) {
 
   // 掴んだ獲物は「手」に持たせる。振りかぶれば後ろへ、振れば前へ、手と一緒に動く。
   // ⚠️ 旧実装は常に狙いの方向の体の前(17〜24px)に置いていた。これだと振りかぶりが絵にならない。
-  function showHeld(h, pose, ratio) {
+  function showHeld(h, off, ratio) {
     if (!st.heldSpr) {
       st.heldSpr = run.add.image(0, 0, 'bullet').setDepth(14);
       st.heldGlow = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(8);
     }
-    const x = run.player.x + Math.cos(pose.ang) * pose.reach;
-    const y = run.player.y + Math.sin(pose.ang) * pose.reach - 4;
+    // R23: 手の位置は角度＋距離ではなく**オフセット**で受け取る（頭上を通る弧を描くため）
+    const x = run.player.x + off.x;
+    const y = run.player.y + off.y - 2;
     st.heldSpr.setTexture(h.tex).setVisible(true)
       .setScale(h.scale * (1 + 0.18 * ratio))
       .setRotation(run.elapsed * (5 + 16 * ratio))
       .setPosition(x, y);
     // 溜まるほど速く脈打つ＝「いつ離すか」が目で分かる
     const pulse = 0.55 + 0.45 * Math.sin(run.elapsed * (7 + 22 * ratio));
-    const sz = h.radius * (4.2 + 3.4 * ratio);
+    // ⚠️ 4.2+3.4 だと溜め切りで直径76〜100pxになり、主人公の姿勢を光で塗りつぶしていた。
+    //    ポーズが読めなくなるので、溜めが分かる範囲で絞る。
+    const sz = h.radius * (3.2 + 2.4 * ratio);
     st.heldGlow.setVisible(true).setTint(BALANCE.stagger.tint)
       .setAlpha(0.3 + 0.5 * ratio * pulse).setDisplaySize(sz, sz).setPosition(x, y);
   }
@@ -657,33 +660,42 @@ export function createBilliard(run) {
 
   // 腕を後ろへ引く回転の向き。画面上で「上を通って後ろへ」回る側を選ぶ。
   // 逆を選ぶと腕が地面をくぐって回り、投球に見えない。
-  function windSign(ang) { return Math.cos(ang) >= 0 ? -1 : 1; }
   function facingOf(ang) { return Math.cos(ang) >= 0 ? 1 : -1; }
-  function lerpAng(from, to, k) { return from + run.angDiff(to, from) * k; }
 
-  // 振りかぶりの腕の姿勢（溜め中）
-  function windPose(ang, ratio) {
+  // ---- 手の軌道（R23 再設計）----
+  // 振りかぶり点（頭の上・やや後ろ）と 振り抜き点（前方・やや下）を2次ベジエの弧で結ぶ。
+  // ⚠️ 角度ではなく**位置**を補間するのが要点。トップダウンでは水平の腕の回転は画面上で
+  //    「回っている」以上の意味を持たないが、縦の動き（頭上→前下）は画面のYにそのまま出るので、
+  //    36pxの体でも「振りかぶって叩きつけた」がはっきり読める。
+  function handAt(ang, k, ratio) {
     const p = PT();
-    const e = p.windEaseBase + (1 - p.windEaseBase) * ratio;
-    return {
-      ang: ang + windSign(ang) * Phaser.Math.DegToRad(p.windSweepDeg) * e,
-      reach: p.windReach + (p.windReachMax - p.windReach) * ratio,
-      e,
-    };
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const wx = -ca * p.windBack, wy = -(p.windUp + p.windUpMax * ratio);      // 頭上・やや後ろ
+    const rx = ca * p.releaseReach, ry = sa * p.releaseReach + p.releaseDown; // 前方・やや下
+    const cx = (wx + rx) * 0.5 + ca * p.arcBulge;
+    const cy = Math.min(wy, ry) - p.arcLift;
+    const t = k < 0 ? 0 : k > 1 ? 1 : k, mt = 1 - t;
+    return { x: mt * mt * wx + 2 * mt * t * cx + t * t * rx,
+             y: mt * mt * wy + 2 * mt * t * cy + t * t * ry };
   }
 
   // 腕と拳。updatePlayer / updateHeroFist の**後**に呼ばれるので、ここでの上書きが最終的に画面に出る。
-  function drawHand(a, reach, flip) {
+  // 手の位置を自由に置けるよう、肩からその点までを1本の腕として描く。
+  function drawHandAt(off, ang) {
+    const a = Math.atan2(off.y, off.x);
+    const r = Math.hypot(off.x, off.y);
     const fi = run.playerFistImg;
-    if (!fi) return;
-    fi.setPosition(run.player.x + Math.cos(a) * reach, run.player.y + Math.sin(a) * reach + 1)
-      .setRotation(a).setFlipY(flip).setTint(0xffffff).setAlpha(1)
-      .setVisible(run.playerImg.visible && reach > 4);
-    run.drawArm(a, reach, 0xffffff);
+    if (fi) {
+      fi.setPosition(run.player.x + off.x, run.player.y + off.y + 1)
+        .setRotation(a).setFlipY(facingOf(ang) < 0).setTint(0xffffff).setAlpha(1)
+        .setVisible(run.playerImg.visible && r > 4);
+    }
+    run.drawArm(a, r, 0xffffff);
   }
 
-  // 腕の残像。「高速スピードで腕を振って」を目に見せる担当はこれ。
-  function ghostArms(fromAng, curAng, reach, alphaMul) {
+  // 振り下ろしの残像。旧実装は腕を扇状に5枚重ねていたが、体が36pxしかないので扇はノイズになる。
+  // 弧の上の「少し前の手の位置」へ腕を3本置く＝実際に通った道がそのまま線になる。
+  function ghostArc(ang, k, ratio, alphaMul) {
     const p = PT();
     if (!st.ghosts) {
       st.ghosts = [];
@@ -693,20 +705,18 @@ export function createBilliard(run) {
       }
     }
     const n = Math.min(st.ghosts.length, p.ghosts | 0);
-    const span = Phaser.Math.DegToRad(p.ghostSpanDeg);
-    const gap = Math.abs(run.angDiff(fromAng, curAng));
-    const back = gap > 0.001 ? Math.min(1, span / gap) : 0;
     const sh = 5;
     for (let i = 0; i < st.ghosts.length; i++) {
       const g = st.ghosts[i];
-      if (i >= n || back <= 0 || !run.playerImg.visible) { g.setVisible(false); continue; }
-      const k = (i + 1) / (n + 1);
-      const a = lerpAng(curAng, fromAng, k * back);
+      const kk = k - (i + 1) * 0.17;
+      if (i >= n || kk <= 0 || !run.playerImg.visible) { g.setVisible(false); continue; }
+      const h = handAt(ang, kk, ratio);
+      const a = Math.atan2(h.y, h.x), r = Math.hypot(h.x, h.y);
       g.setPosition(run.player.x + Math.cos(a) * sh, run.player.y + Math.sin(a) * sh + 1)
         .setRotation(a)
-        .setDisplaySize(Math.max(2, reach - sh), 8 * (1 - k * 0.5))
+        .setDisplaySize(Math.max(2, r - sh), 7 * (1 - i * 0.2))
         .setTint(0x9fe0ff)
-        .setAlpha(0.62 * (1 - k) * (alphaMul == null ? 1 : alphaMul))
+        .setAlpha(0.55 * (1 - i / (n + 1)) * (alphaMul == null ? 1 : alphaMul))
         .setVisible(true);
     }
   }
@@ -716,8 +726,10 @@ export function createBilliard(run) {
     for (const g of st.ghosts) g.setVisible(false);
   }
 
-  // 体の姿勢。lift=持ち上げ（足を上げる） / lean=反り・前傾 / lunge=踏み込み / squash=潰れ
-  function setBody(ang, lift, lean, lunge, squash) {
+  // 体の姿勢。lean=反り・前傾(rad) / lunge=前後の踏み込み(負＝引く) / squash=潰れ(負＝縦に伸びる)
+  // ⚠️ 旧実装にあった lift（足を高く上げる）は**廃止**した。トップダウンでは体が上へ動くと
+  //    「跳ねた・浮いた」にしか見えず、投球には読めない（実プレイFBで廃止を許可された）。
+  function setBody(ang, lean, lunge, squash) {
     const img = run.playerImg;
     if (!img) return;
     if (!st.bodyDirty) {
@@ -728,7 +740,7 @@ export function createBilliard(run) {
     }
     const f = facingOf(ang);
     const x = run.player.x + Math.cos(ang) * lunge;
-    const y = run.player.y + lift;
+    const y = run.player.y + Math.sin(ang) * lunge * 0.6;   // 3/4視点なので前後の踏み込みはYへ控えめに乗せる
     img.setPosition(x, y).setRotation(lean * f);
     if (st.canScale) img.setScale(st.bodyBase * (1 + squash), st.bodyBase * (1 - squash));
     if (run.playerGlow) run.playerGlow.setPosition(x, y);
@@ -746,9 +758,8 @@ export function createBilliard(run) {
   // 溜めを解いた瞬間。ここではまだ弾は出ない（出るのは releaseAt の時点＝手が前に来てから）。
   function startThrow(ang) {
     const b = B(), ratio = Math.min(1, st.chargeT / b.chargeMaxSec);
-    const wp = windPose(ang, ratio);
-    st.wind = { ang, ratio, h: st.held, t: 0, fired: false,
-                windAng: wp.ang, windReach: wp.reach, e: wp.e };
+    // e＝振りかぶりの深さ。軽い溜めでも半分は引く（引かないと「振りかぶった」に見えない）
+    st.wind = { ang, ratio, h: st.held, t: 0, fired: false, e: 0.5 + 0.5 * ratio };
     st.held = null; st.chargeT = 0; st.maxRung = false;
     st.cd = b.grabCooldownSec;
     hideAim();
@@ -771,42 +782,46 @@ export function createBilliard(run) {
     w.t += dt;
     const u = Math.min(1, w.t / p.motionSec);
     const rel = p.releaseAt;
-    const flip = facingOf(w.ang) < 0;
     run._moveMul = p.moveMulWhileThrow;
     run._weaponAim = w.ang;
 
     if (u < rel) {
-      // 振り。後ろから前へ**加速**しながら抜ける（等速だと速く見えない）
+      // 振り下ろし。頭上から前下へ**加速**しながら抜ける（等速だと速く見えない）
       const k = Math.pow(u / rel, 1.7);
-      const a = lerpAng(w.windAng, w.ang, k);
-      const reach = w.windReach + (p.releaseReach - w.windReach) * k;
-      ghostArms(w.windAng, a, reach, 1);
-      drawHand(a, reach, flip);
-      showHeld(w.h, { ang: a, reach }, w.ratio);
-      setBody(w.ang, -p.bodyLift * w.e * (1 - k),
-              -p.bodyLean * w.e * (1 - k) + p.bodyLungeLean * k,
-              p.bodyLunge * k, p.squash * k);
+      const h = handAt(w.ang, k, w.ratio);
+      ghostArc(w.ang, k, w.ratio, 1);
+      drawHandAt(h, w.ang);
+      showHeld(w.h, h, w.ratio);
+      // 体：後ろへ引いた姿勢から前へ出る。同時に「縦長（引き絞り）→ 横潰れ（踏み込み）」へ反転する。
+      // 等倍で読めるのはこのシルエットの変化だけなので、ここに全部を賭ける。
+      setBody(w.ang,
+        -p.bodyLean * w.e * (1 - k) + p.bodyLungeLean * k,
+        -p.drawBack * w.e * (1 - k) + p.bodyLunge * k,
+        -p.drawStretch * w.e * (1 - k) + p.squash * k);
       return;
     }
 
     if (!w.fired) {
       w.fired = true;
-      // ★弾が生まれる場所＝手。ここが今回の修正の核心
-      const hx = run.player.x + Math.cos(w.ang) * p.releaseReach;
-      const hy = run.player.y + Math.sin(w.ang) * p.releaseReach + 1;
-      launchShot(w.ang, w.ratio, w.h, hx, hy);
-      // 踏み込みの土煙（足元）。上げた足が着いたことを地面側からも見せる
+      // ★弾が生まれる場所＝手。体の中心ではない
+      const h = handAt(w.ang, 1, w.ratio);
+      launchShot(w.ang, w.ratio, w.h, run.player.x + h.x, run.player.y + h.y + 1);
+      // 踏み込みの土煙（足元）
       run.spawnParticles(run.player.x + Math.cos(w.ang) * 6, run.player.y + 11, 0xd7e3f2, p.dust | 0);
       Sound.sfx('stepPlant');
+      // ★離した瞬間に画面が止まる。1コマ止まることでポーズが「決まる」＝投げつけた感触の中心。
+      //   freezeT は Run.update 全体を止めるので、この間ポーズも弾も静止する（＝スナップ）。
+      if (!run.cinematic) run.freezeT = Math.max(run.freezeT, p.releaseFreeze);
     }
 
     // フォロースルー。振り抜いた勢いで前へ行き過ぎてから戻る
     const k2 = (u - rel) / (1 - rel);
-    const a = w.ang - windSign(w.ang) * Phaser.Math.DegToRad(p.followDeg) * Math.sin(k2 * Math.PI);
-    const reach = p.releaseReach * (1 - k2 * k2);
-    ghostArms(w.ang, a, reach, 1 - k2);
-    drawHand(a, reach, flip);
-    setBody(w.ang, 0, p.bodyLungeLean * (1 - k2), p.bodyLunge * (1 - k2), p.squash * (1 - k2));
+    const h = handAt(w.ang, 1, w.ratio);
+    const over = 1 + (p.followUp / Math.max(1, p.releaseReach)) * Math.sin(k2 * Math.PI);
+    const hh = { x: h.x * over, y: h.y * over };
+    ghostArc(w.ang, 1, w.ratio, 1 - k2);
+    drawHandAt(hh, w.ang);
+    setBody(w.ang, p.bodyLungeLean * (1 - k2), p.bodyLunge * (1 - k2), p.squash * (1 - k2));
     if (u >= 1) endPitch();
   }
 
@@ -854,10 +869,13 @@ export function createBilliard(run) {
       run._weaponAim = ang;
       // ★振りかぶり。腕とボールを後ろへ引き、体を反らせ、足を持ち上げる。
       //   溜めるほど大きく引くので、ゲージを見なくても「どれだけ溜まったか」が体で分かる。
-      const wp = windPose(ang, ratio);
-      showHeld(st.held, wp, ratio);
-      drawHand(wp.ang, wp.reach, facingOf(ang) < 0);
-      setBody(ang, -PT().bodyLift * wp.e, -PT().bodyLean * wp.e, 0, 0);
+      // 振りかぶり：手とボールを頭の上へ。体は後ろへ引きながら縦に伸びる（引き絞り）。
+      // 溜めるほど深く引くので、ゲージを見なくても「どれだけ溜まったか」がシルエットで分かる。
+      const e = 0.5 + 0.5 * ratio;
+      const hp0 = handAt(ang, 0, ratio);
+      showHeld(st.held, hp0, ratio);
+      drawHandAt(hp0, ang);
+      setBody(ang, -PT().bodyLean * e, -PT().drawBack * e, -PT().drawStretch * e);
       showAim(ang, ratio);
       if (!want) startThrow(ang);
     } else {

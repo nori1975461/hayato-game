@@ -1,4 +1,4 @@
-// systems/items.js — どうくつ（洞窟）と たからばこ（宝箱）（PROTOTYPE_SPEC §10.6-D）。
+// systems/items.js — どうくつ（洞窟）＋たからばこ（宝箱）と、やしろ（R23）。
 // 60s/180s に洞窟が1個ずつ出現。lifeSec で消滅（残5sで点滅）。触れると宝箱が開き重み抽選で報酬。
 // 洞窟/宝箱の見た目は既存テクスチャ（glow/core/white）から合成する（Boot.js は専用テクスチャを持たない）。
 import { BALANCE } from '../data/balance.js';
@@ -9,8 +9,11 @@ const ADD = Phaser.BlendModes.ADD;
 
 export function createItems(run) {
   const C = BALANCE.cave;
+  const S = BALANCE.shrine;
   const spawnFired = C.times.map(() => false);
-  let cave = null;   // { x, y, life, glow, spr, label }
+  const shrineFired = S.times.map(() => false);
+  let cave = null;     // { x, y, life, glow, spr, label }
+  let shrine = null;   // { x, y, life, parts[], label }
 
   function spawnCave() {
     const ang = run.rng.range(0, Math.PI * 2);
@@ -98,6 +101,7 @@ export function createItems(run) {
   }
 
   function update(dt) {
+    updateShrine(dt);
     for (let i = 0; i < C.times.length; i++) {
       if (!spawnFired[i] && run.elapsed >= C.times[i]) {
         spawnFired[i] = true;
@@ -125,12 +129,99 @@ export function createItems(run) {
     }
   }
 
+  // ============ やしろ（R23・3つ目の場所）============
+  // どうくつ＝1個のランダム報酬／さいだん＝モビット合体／やしろ＝**3つの能力が同時に上がる**。
+  // 鳥居の形（柱2本＋横木2本）で作る。トップダウンの小さな画面でも、この輪郭は一目で「やしろ」と読める。
+  function spawnShrine() {
+    const ang = run.rng.range(0, Math.PI * 2);
+    const d = run.rng.range(S.minDist, S.maxDist);
+    const x = run.player.x + Math.cos(ang) * d;
+    const y = run.player.y + Math.sin(ang) * d;
+
+    const bar = (dx, dy, w, h, tint, depth) => run.add.image(x + dx, y + dy, 'white')
+      .setDepth(depth).setTint(tint).setDisplaySize(w, h);
+    const parts = [
+      run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(6).setTint(S.tint).setScale(3.2),
+      bar(0, -18, 44, 5, S.tint, 12),    // 笠木（いちばん上の横木）
+      bar(0, -10, 34, 4, S.tint, 12),    // 貫（2本目の横木）
+      bar(-13, 0, 5, 30, S.tint, 12),    // 左の柱
+      bar(13, 0, 5, 30, S.tint, 12),     // 右の柱
+      run.add.image(x, y - 4, 'core').setBlendMode(ADD).setDepth(13)
+        .setTint(S.label).setScale(1.1).setAlpha(0.9),
+    ];
+    const label = run.add.text(x, y - 34, 'やしろ', {
+      fontFamily: 'monospace', fontSize: '11px', color: '#e8d9ff',
+      stroke: '#241040', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(13);
+
+    shrine = { x, y, life: S.lifeSec, parts, label };
+    Sound.sfx('altarFanfare');
+    if (run.fx && run.fx.announce) run.fx.announce('やしろが あらわれた！', '#e8d9ff');
+    if (run.fx && run.fx.setTarget) run.fx.setTarget('shrine', x, y, { color: S.tint, label: 'やしろ' });
+  }
+
+  function closeShrine() {
+    if (!shrine) return;
+    for (const p of shrine.parts) p.destroy();
+    shrine.label.destroy();
+    if (run.fx && run.fx.clearTarget) run.fx.clearTarget('shrine');
+    shrine = null;
+  }
+
+  function prayShrine() {
+    const x = shrine.x, y = shrine.y;
+    closeShrine();
+
+    run.stats.damageMult += S.attackAdd;
+    run.stats.moveMult += S.speedAdd;
+    // 防御は「被ダメージを何割減らすか」で持つ。加算にすると重ねがけでいずれ0になるので上限を置く。
+    run.stats.defenseCut = Math.min(S.defenseCap, (run.stats.defenseCut || 0) + S.defenseAdd);
+
+    Sound.sfx('powerup');
+    run.shake(150, 4);
+    run.spawnParticles(x, y, S.tint, 30);
+    // 主人公から光の柱が立つ＝「授かった」を体で見せる
+    const pillar = run.add.image(run.player.x, run.player.y - 26, 'white').setBlendMode(ADD)
+      .setDepth(1300).setTint(S.label).setDisplaySize(14, 4).setAlpha(0.95);
+    run.tweens.add({ targets: pillar, displayHeight: 120, alpha: 0, duration: 520,
+      ease: 'Cubic.Out', onComplete: () => pillar.destroy() });
+    run.floatText(run.player.x, run.player.y - 40, 'こうげき・ぼうぎょ・スピード ＋20%！', '#e8d9ff');
+    if (run.fx && run.fx.announce) run.fx.announce('やしろの ごりやく！ すべてが つよくなった！', '#e8d9ff');
+    if (run.fx && run.fx.powerupFlash) run.fx.powerupFlash(null);
+  }
+
+  function updateShrine(dt) {
+    for (let i = 0; i < S.times.length; i++) {
+      if (!shrineFired[i] && run.elapsed >= S.times[i]) {
+        shrineFired[i] = true;
+        if (!shrine) spawnShrine();     // 同時には1個だけ
+      }
+    }
+    if (!shrine) return;
+
+    shrine.life -= dt;
+    shrine.parts[0].setScale(3.0 + Math.sin(run.elapsed * 3) * 0.4);
+    shrine.parts[5].setAlpha(0.6 + 0.35 * Math.sin(run.elapsed * 5));
+
+    if (shrine.life <= 5) {             // 残り5秒で点滅（どうくつと同じ作法）
+      const on = Math.floor(shrine.life * 6) % 2 === 0;
+      for (const p of shrine.parts) p.setVisible(on);
+      shrine.label.setVisible(on);
+    }
+
+    const dx = run.player.x - shrine.x, dy = run.player.y - shrine.y;
+    if (dx * dx + dy * dy <= S.touchRadius * S.touchRadius) prayShrine();
+    else if (shrine.life <= 0) closeShrine();
+  }
+
   function destroy() {
     closeCave();
+    closeShrine();
   }
 
   return {
     update, destroy,
     get caveCount() { return cave ? 1 : 0; },
+    get shrineCount() { return shrine ? 1 : 0; },
   };
 }
