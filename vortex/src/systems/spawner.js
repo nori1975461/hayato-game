@@ -96,8 +96,15 @@ export function createSpawner(run) {
     }
   }
 
+  // R22: ビリヤードモード中の難易度補正。掴みは1入力1体・突きは倒せないので、一撃モード
+  // （1入力で最大4体直撃＋連鎖6）に比べ場を掃除する速さが桁で落ちる。実プレイFB「敵が多すぎる」。
+  function modeMul(key) {
+    const b = BALANCE.hero.billiard;
+    return (run.billiard && run.billiard.st.mode === 1) ? (b[key] == null ? 1 : b[key]) : 1;
+  }
+
   function update(dt) {
-    run.enemyCap = currentCap();
+    run.enemyCap = Math.max(8, Math.round(currentCap() * modeMul('capMul')));
     // エリート（2:00 / 4:00）
     for (let i = 0; i < BALANCE.elite.times.length; i++) {
       if (!eliteFired[i] && run.elapsed >= BALANCE.elite.times[i]) {
@@ -108,7 +115,7 @@ export function createSpawner(run) {
     // 通常スポーン。ボス戦中は固定間隔・少数に絞ってボスへ集中させる（§10.4）。
     const bossActive = !!(run.boss && run.boss.active);
     const interval = bossActive ? BALANCE.boss.trashInterval : currentInterval();
-    const count = bossActive ? BALANCE.boss.trashCount : currentCount();
+    const count = (bossActive ? BALANCE.boss.trashCount : currentCount()) * modeMul('spawnMul');
 
     // ラッシュ（山場）。ボス戦中は起こさない＝ボスへの集中を壊さないため（§10.4）
     if (!bossActive) {
@@ -121,7 +128,7 @@ export function createSpawner(run) {
         }
         if (!rushFired[i] && run.elapsed >= at) {
           rushFired[i] = true;
-          spawnBurst(R.counts[i]);
+          spawnBurst(Math.max(4, Math.round(R.counts[i] * modeMul('spawnMul'))));
         }
       }
     }

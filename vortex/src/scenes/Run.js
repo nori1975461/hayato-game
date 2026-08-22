@@ -100,6 +100,10 @@ export class RunScene extends Phaser.Scene {
     // 光り物（衝撃リング・光の筋）は fx.heroImpact 側が担当し、役割を分けている。
     this.playerFistImg = this.add.image(0, 0, 'hero_fist1')
       .setScale(2.6).setDepth(12).setVisible(false);
+    // R22: 体と拳をつなぐ腕。これが無いと拳が宙に浮いて「ロケットパンチ」に見える（実プレイFB）。
+    // 拳スプライト自体にも腕は描かれているが、突き出すと体との間に隙間ができて切り離される。
+    this.playerArmImg = this.add.image(0, 0, 'white')
+      .setOrigin(0, 0.5).setDepth(11).setVisible(false);
     // 拳の間合いを示す熱のリング。ヒートで色と明るさが上がる。
     // 星形（旧 w_star2）だと「どこまで届くか」が読めず、間合いを詰める判断ができなかったので輪にした。
     this.playerAura = this.add.image(0, 0, 'w_ring').setBlendMode(ADD)
@@ -765,13 +769,16 @@ export class RunScene extends Phaser.Scene {
 
   // 炸裂連鎖。よろけを割ると周囲のよろけへ広がる＝単体より群れの中心を叩く方が得。
   // 幅優先で広げ、visited で二度処理しない。健常敵には burstDamage を通す（削りにはなる）。
-  burstStagger(x0, y0) {
+  // R22: 投げの着弾だけは radius/maxChain を大きくできる（＝一発が大きいのは投げの特権）。
+  burstStagger(x0, y0, radiusOver, chainOver) {
     const G = BALANCE.stagger;
+    const baseR = radiusOver || G.burstRadius;
+    const maxChain = chainOver || G.burstMaxChain;
     const seen = new Set();
     let frontier = [{ x: x0, y: y0 }];
     let chain = 0, total = 0;
-    while (frontier.length > 0 && chain < G.burstMaxChain) {
-      const r = G.burstRadius * Math.pow(G.burstFalloff, chain);
+    while (frontier.length > 0 && chain < maxChain) {
+      const r = baseR * Math.pow(G.burstFalloff, chain);
       const r2 = r * r;
       const next = [];
       // 走査中に killEnemy が分裂で enemies へ push しうるので、長さを先に固定する
@@ -916,6 +923,15 @@ export class RunScene extends Phaser.Scene {
         .setTint(0xffd23f)
         .setAlpha(1)
         .setVisible(this.playerImg.visible);
+      this.drawArm(this._punchAng, r, 0xffd23f);
+      return;
+    }
+    // R22: ビリヤードモードでは常時構えをやめる。主武器は「掴んで投げる」であって拳ではないので、
+    // 拳を出しっぱなしにする理由（R12cの「主武器が拳だと伝わらない」）がもう無い。
+    // 何も持たずに立ち、殴る瞬間だけ腕ごと突き出す＝きちんと殴っている絵にする。
+    if (this.billiard && this.billiard.st.mode === 1 && !punching) {
+      this.playerFistImg.setVisible(false);
+      this.playerArmImg.setVisible(false);
       return;
     }
     // R12b/c: 構え(ext0.45)でも拳が体の輪郭より外に出る下限を守る（埋もれると見えない）。
@@ -936,6 +952,22 @@ export class RunScene extends Phaser.Scene {
       .setTint(tint)
       .setAlpha(punching ? 0.9 + 0.1 * ext : 0.9)
       .setVisible(this.playerImg.visible);
+    this.drawArm(ang, reach, tint);
+  }
+
+  // 肩から拳までを1本の帯で埋める。拳スプライトの手前(depth11)に置くので、
+  // 拳の絵はそのまま見えたまま「体から生えている」ことだけが保証される。
+  drawArm(ang, reach, tint) {
+    const sh = 5 + (this.playerStage - 1) * 1.5;           // 肩の位置（体の中心から前へ）
+    const w = Math.max(0, reach - sh);
+    const th = 7 + (this.playerStage - 1) * 2;             // 腕の太さ
+    this.playerArmImg
+      .setPosition(this.player.x + Math.cos(ang) * sh, this.player.y + Math.sin(ang) * sh + 1)
+      .setRotation(ang)
+      .setDisplaySize(w, th)
+      .setTint(tint === 0xffffff ? 0xc9d4e0 : tint)        // 素はガンメタル。熱いときは拳と同じ色へ
+      .setAlpha(0.95)
+      .setVisible(this.playerImg.visible && w > 1);
   }
 
   // ============ 敵 ============
