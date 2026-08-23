@@ -562,6 +562,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // ★予告より先によろけが切れると、断末魔が一度も出ないまま消える
   assert(G[D.fromGrade].stagSec > D.telegraphSec,
     `balance: よろけ猶予(${G[D.fromGrade].stagSec}s)が断末魔の予告(${D.telegraphSec}s)より長い`);
+  assert(D.guardSec >= D.telegraphSec,
+    'balance: 断末魔の掴み禁止は予告時間以上（穴が0.1秒あるだけで発火が84%→51%へ落ちた）');
+  assert(D.aoeMul > 0 && D.aoeMul <= 1 && D.damageMul > 0 && D.damageMul <= 1,
+    'balance: 断末魔の爆風とダメージは元の攻撃以下（避けられない一撃にしない）');
+  // 危険半径 ÷ 主人公の速度 < 予告時間 ＝ 密着からでも歩いて出られること
+  {
+    const worstAoe = Math.max(...ENEMIES.filter((e) => e.attack && e.attack.aoe).map((e) => e.attack.aoe));
+    const dangerR = worstAoe * D.aoeMul + BALANCE.player.radius;
+    assert(dangerR / BALANCE.player.speed < D.telegraphSec,
+      'balance: 断末魔は密着からでも避けられること（危険半径÷速度 < 予告時間）');
+  }
   assert(D.fuse && D.fuse.sec > BALANCE.hero.billiard.chargeMaxSec
     && D.fuse.sec < BALANCE.hero.billiard.chargeMaxSec * 2,
     'balance: ボンバの導火線は溜め切り(0.85s)より長く、その2倍より短いこと（長すぎると実測どおり発火0回になる）');

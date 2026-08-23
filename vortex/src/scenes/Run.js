@@ -828,8 +828,10 @@ export class RunScene extends Phaser.Scene {
     const tint = isFuse ? 0 : D.tint;
     // 見せる輪と当たり判定は必ず同じ式で作る（縮めるならこちらも縮める）
     const aoe = A.aoe ? Math.round(A.aoe * (D.aoeMul || 1)) : 0;
-    if (A.type === 'lockbeam') this.showAimLine(e, A.range, tint);
-    else if (aoe) this.showBlastRing(e, aoe, tint);
+    // 爆風があるなら輪、無いなら（タレットの散弾など）撃ってくる向きの線を出す。
+    // 通常の予告は散弾に何も出さないが、断末魔は「必ず1回見せる」のが目的なので必ず何かを出す。
+    if (aoe) this.showBlastRing(e, aoe, tint);
+    else this.showAimLine(e, A.range || 200, tint);
     Sound.sfx(isFuse ? 'tick' : 'warning', isFuse ? 0.45 : 0.85, isFuse ? 1.4 : 1.15);
     if (!isFuse) {
       Sound.sfx('metalSlam', 0.5, 0.6);
@@ -1171,7 +1173,7 @@ export class RunScene extends Phaser.Scene {
     const scale = isElite ? 4 : 2;
     disp.spr.setTexture('enemy_' + def.id).setScale(scale).clearTint()
       .setVisible(true).setDepth(9).setPosition(x, y);
-    disp.glow.setTint(int(def.color)).setScale(isElite ? 3 : 1.6)
+    disp.glow.setTint(int(def.color)).setScale(isElite ? 3 : 1.6).setAlpha(1)
       .setVisible(true).setDepth(4).setPosition(x, y);
 
     const e = {
@@ -1418,7 +1420,9 @@ export class RunScene extends Phaser.Scene {
       if (Math.floor(this.elapsed * 10) % 2 === 0) e.spr.setTint(e.throe ? BALANCE.deathThroe.tint : 0xffffff);
       else e.spr.clearTint();
       // 断末魔の輪は脈打たせる。静止した輪は背景に溶けて「今の予告」として読まれない。
-      if (e.throe && e.aimLine && e.aimLine.setScale) {
+      // ⚠️ 脈動は Container（爆風の輪）だけ。照準ラインは setDisplaySize で伸ばしているので
+      //    setScale を掛けると長さが1pxに潰れて消える。
+      if (e.throe && e.aimLine && e.aimLine.type === 'Container') {
         e.aimLine.setScale(1 + 0.13 * Math.sin(this.elapsed * 26));
       }
       if (e.guardT > 0) e.guardT = Math.max(0, e.guardT - dt);
