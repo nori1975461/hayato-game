@@ -578,7 +578,7 @@ export const BALANCE = {
     // 全体の難度が上がるだけになる（実測：断末魔と合わせて被弾が素の+64%になった）。
     hpMul: 2.5, damageMul: 1.15, atkIntervalMul: 0.85, radiusMul: 1.25, speedMul: 0.9,
     gradeUp: 1, tint: 0xffd23f,
-    birthInvulnSec: 0.8,     // 生まれてから この間は無敵（＝認識する時間を必ず作る）
+    birthInvulnSec: 1.0,     // 生まれてから この間は無敵（＝認識する時間を必ず作る）
     birthFreeze: 0.10,       // 生まれた瞬間に画面が止まる
     birthShake: 8,
     pushRadius: 96, pushPower: 320,   // 周りの仲間を吹き飛ばす＝混戦から王冠が浮き上がる
