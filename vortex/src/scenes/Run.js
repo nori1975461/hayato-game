@@ -186,6 +186,7 @@ export class RunScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       for (const r of this._stagPool) r.destroy();   // R21W2: よろけリングのプール
       this._stagPool.length = 0;
+      if (this._crownPool) { for (const c of this._crownPool) c.destroy(); this._crownPool.length = 0; }
       for (const e of this.enemies) if (e.stagRing) { e.stagRing.destroy(); e.stagRing = null; }
       if (this.boss) this.boss.destroy();
       if (this.items) this.items.destroy();
@@ -756,19 +757,72 @@ export class RunScene extends Phaser.Scene {
 
   // 仲間・自動拳がHPを削りきった敵はここへ来る。倒れずに漂い、主人公の一撃を待つ。
   // ⚠️ 攻撃はやめるが接触ダメージは維持し、主人公へ歩き続ける（②被弾の緊張感を下げないため）。
+  // ★R25 弾の「格」。掴んだ相手で弾が別物になる（報酬の軸を貫通HPから威力・範囲へ移した）。
+  //   エリートは最上位、王冠は1段上げ。それ以外は def.hp のしきい値で決まる。
+  //   ⚠️ 個体の maxHp（波の倍率が乗った値）ではなく def.hp を見る。倍率は全種に等しく掛かるので、
+  //      def.hp で決めれば「タレットは重い弾」という語彙が終盤でも変わらない。
+  gradeIdx(e) {
+    const G = BALANCE.hero.billiard.grades;
+    if (!e) return 0;
+    let idx = 0;
+    if (e.isElite) idx = G.length - 1;
+    else {
+      const hp = (e.def && e.def.hp) || 0;
+      for (let i = 0; i < G.length; i++) if (hp >= G[i].minHp) idx = i;
+    }
+    if (e.crown) idx += BALANCE.crown.gradeUp;
+    return Math.max(0, Math.min(G.length - 1, idx));
+  }
+  grade(e) { return BALANCE.hero.billiard.grades[this.gradeIdx(e)]; }
+
   enterStagger(e) {
     const G = BALANCE.stagger;
+    const gr = this.grade(e);
     e.stag = true;
-    e.stagT = G.sec;
+    // ★格が上がるほど掴む猶予が短い（4.5→2.4秒）＝上を獲るなら覚悟して寄れ。
+    e.stagMax = gr.stagSec || G.sec;
+    e.stagT = e.stagMax;
     e.hp = 1;
     e.atkState = 'ready';
     e.atkT = 1e9;               // 予告付き攻撃は撃たない
     e.dashT = 0;
+    e.throe = false;
     if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
+    this.startDeathThroe(e, gr);
     if (!e.stagRing) {
       e.stagRing = this._stagPool.pop() || this.add.image(e.x, e.y, 'w_ring').setBlendMode(ADD).setDepth(12);
       e.stagRing.setVisible(true);
     }
+  }
+
+  // ★R25 断末魔。よろけた瞬間に、その敵の攻撃を予告つきで1回だけ放つ。
+  //   これが無いと「よろけさせた＝安全」で、上位の敵を安易に倒しに行っても痛くない。
+  //   ⚠️ 既存の telegraph→fire 経路に乗せるだけ（新しい攻撃も新しい絵も作らない）。
+  //      避ければ無傷。緊張感は被弾量ではなく「避けた回数」で作る。
+  startDeathThroe(e, gr) {
+    const D = BALANCE.deathThroe;
+    if (!e.def || !e.def.attack) return;
+    const isFuse = D.fuse && e.def.id === D.fuse.enemyId;
+    if (!isFuse && !(gr && gr.throe)) return;
+    if (!isFuse) {
+      if (this.elapsed - (this._throeT || -99) < D.cooldownSec) return;   // 予告だらけにしない
+      // ⚠️ 同時に複数出ると「1回1回を避ける」体験にならない。赤い輪は常に画面に1つだけ。
+      let active = 0;
+      for (const o of this.enemies) if (o.active && o.throe) active++;
+      if (active >= (D.maxActive || 1)) return;
+      this._throeT = this.elapsed;
+    }
+    e.throe = true;
+    e.atkState = 'telegraph';
+    e.atkT = isFuse ? D.fuse.sec : D.telegraphSec;
+    const dx = this.player.x - e.x, dy = this.player.y - e.y;
+    const d = Math.hypot(dx, dy) || 1;
+    e.lockX = dx / d; e.lockY = dy / d;
+    e.aimLocked = false;
+    const A = e.def.attack;
+    if (A.type === 'lockbeam') this.showAimLine(e, A.range);
+    else if (A.aoe) this.showBlastRing(e, A.aoe);
+    Sound.sfx(isFuse ? 'tick' : 'warning', 0.45, isFuse ? 1.4 : 1.3);
   }
 
   // 4.5秒放置すると復帰する。強くなって戻るので「殴らないと損」になる。
@@ -793,6 +847,74 @@ export class RunScene extends Phaser.Scene {
     }
     e.stag = false;
     e.stagT = 0;
+  }
+
+  // ★R25 王冠。近くで仲間が3体倒れた敵が怒って格上げされる。
+  //   ⚠️ 当初は「一定時間生き延びたら」で設計したが、実測で雑魚の生存時間は中央値3.7秒・
+  //      30秒以上は420秒で0体。自分のキル圏の内側に時間条件を置くと永久に満たされない。
+  //      トリガーをキルそのものに移すと、密集へ投げ込むほど強い獲物が生まれる循環になる。
+  maybeCrown(x, y) {
+    const C = BALANCE.crown;
+    if (!this._killLog) this._killLog = [];
+    this._killLog.push({ x, y, t: this.elapsed });
+    while (this._killLog.length && this.elapsed - this._killLog[0].t > 2.5) this._killLog.shift();
+    if (this.elapsed - (this._crownT || -99) < C.cooldownSec) return;
+    const r2 = C.radius * C.radius;
+    let near = 0;
+    for (const k of this._killLog) {
+      const dx = k.x - x, dy = k.y - y;
+      if (dx * dx + dy * dy <= r2) near++;
+    }
+    if (near < C.killsNeeded) return;
+    let alive = 0;
+    for (const e of this.enemies) if (e.active && e.crown) alive++;
+    if (alive >= C.maxAlive) return;
+    // 王冠を被せる相手：巻き添えの半径内で、まだ健常な普通の雑魚。
+    // ⚠️ 「一番近い個体」にすると大半がチビットに王冠が乗り、上の格に届かない
+    //    （実測：ずっしりの弾が1.0回/分しか出なかった）。**一番強い個体**を選ぶ。
+    //    王冠は格を1段上げるので、元が「おもい」の相手に乗って初めて「ずっしり」になる。
+    let best = null, bh = -1, bd = 1e9;
+    for (const e of this.enemies) {
+      if (!e.active || e.isBoss || e.isElite || e.crown || e.stag || e.rebooted) continue;
+      const dx = e.x - x, dy = e.y - y;
+      const d = dx * dx + dy * dy;
+      if (d > r2) continue;
+      const hp = (e.def && e.def.hp) || 0;
+      if (hp > bh || (hp === bh && d < bd)) { bh = hp; bd = d; best = e; }
+    }
+    if (!best) return;
+    this._crownT = this.elapsed;
+    this._killLog.length = 0;      // 同じ山で連続発生させない
+    this.crownEnemy(best);
+  }
+
+  crownEnemy(e) {
+    const C = BALANCE.crown;
+    e.crown = true;
+    e.hp = Math.round(e.hp * C.hpMul);
+    e.maxHp = Math.round(e.maxHp * C.hpMul);
+    e.damage = Math.round(e.damage * C.damageMul);
+    e.speed *= C.speedMul;
+    e.radius *= C.radiusMul;
+    e.baseScale = (e.baseScale || 2) * C.radiusMul;
+    e.atkIntervalMul = C.atkIntervalMul;
+    e.spr.setScale(e.baseScale);
+    e.glow.setTint(C.tint).setScale(2.6);
+    if (!this._crownPool) this._crownPool = [];
+    e.crownSpr = this._crownPool.pop()
+      || this.add.image(0, 0, 'w_star2').setBlendMode(ADD).setDepth(12);
+    e.crownSpr.setVisible(true).setTint(C.tint).setAlpha(0.95).setScale(1.5).setPosition(e.x, e.y);
+    Sound.sfx('elite', 0.55, 1.3);
+    Sound.sfx('heatMax', 0.4);
+    this.floatText(e.x, e.y - e.radius - 18, 'おうかん！', '#ffd23f');
+    if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, C.tint);
+  }
+
+  clearCrown(e) {
+    if (!e.crownSpr) return;
+    e.crownSpr.setVisible(false);
+    if (this._crownPool) this._crownPool.push(e.crownSpr);
+    e.crownSpr = null;
   }
 
   // 炸裂連鎖。よろけを割ると周囲のよろけへ広がる＝単体より群れの中心を叩く方が得。
@@ -1025,7 +1147,9 @@ export class RunScene extends Phaser.Scene {
       knockX: 0, knockY: 0, knockT: 0,   // R12: 殴られたときのノックバック（プール再利用時に必ず0へ戻す）
       squashT: 0, squashAmp: 0,          // R21: 被弾のつぶれ（プール再利用時に必ず0へ戻す）
       // R21W2: よろけ（瀕死）。spawnEnemy は毎回リテラルを作り直すのでここに書けば状態は漏れない。
-      stag: false, stagT: 0, stagRing: null, rebooted: false, noReward: false,
+      stag: false, stagT: 0, stagMax: 0, stagRing: null, rebooted: false, noReward: false,
+      // R25: 王冠と断末魔。ここに書けばプール再利用でも前の個体の状態が漏れない。
+      crown: false, crownSpr: null, throe: false, atkIntervalMul: 1,
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
@@ -1041,6 +1165,7 @@ export class RunScene extends Phaser.Scene {
   releaseEnemy(e) {
     if (e.isBoss) return; // ボスの表示は boss.js が破棄する（プール混入禁止）
     this.clearStagger(e);   // R21W2: よろけリングの破棄（プール返却の経路）
+    this.clearCrown(e);     // R25: 王冠マークの破棄（同上）
     if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }  // 予告中に倒された照準ラインの後始末
     e.spr.setVisible(false).clearTint();
     e.glow.setVisible(false);
@@ -1139,6 +1264,11 @@ export class RunScene extends Phaser.Scene {
       e.spr.setRotation(bob * X.tiltAmp);
       e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6);
       e.glow.setPosition(e.x, e.y);
+      if (e.crownSpr) {
+        e.crownSpr.setPosition(e.x, e.y - e.radius - 9)
+          .setRotation(this.elapsed * 2.2)
+          .setScale(1.4 + 0.25 * Math.sin(this.elapsed * 6));
+      }
 
       // フラッシュ・点滅
       if (e.flashT > 0) {
@@ -1159,7 +1289,7 @@ export class RunScene extends Phaser.Scene {
         const G = BALANCE.stagger;
         e.stagT -= dt;
         if (e.stagRing) {
-          const k = Math.max(0, e.stagT / G.sec);
+          const k = Math.max(0, e.stagT / (e.stagMax || G.sec));
           const rr = (e.radius * 2 + 14) * (0.55 + 0.75 * k);   // 時間とともに痩せる＝期限が見える
           e.stagRing.setPosition(e.x, e.y).setDisplaySize(rr, rr)
             .setTint(e.stagT <= G.warnSec ? 0xffa62b : G.tint)
@@ -1176,7 +1306,8 @@ export class RunScene extends Phaser.Scene {
       }
 
       // Wave R1: 予告付き攻撃（quake/divebomb/selfdestruct/lockbeam/spread）
-      if (e.def.attack && !e.stag) {
+      // R25: よろけ中は攻撃しない。ただし断末魔(e.throe)だけは進める＝「よろけ＝安全」を崩す。
+      if (e.def.attack && (!e.stag || e.throe)) {
         this.updateEnemyAttack(e, dt);
         if (!e.active) continue;   // selfdestruct で自壊した個体は接触判定に進めない
       }
@@ -1259,7 +1390,9 @@ export class RunScene extends Phaser.Scene {
         if (e.aimLine) { e.aimLine.destroy(); e.aimLine = null; }
         if (e.active) {
           e.atkState = 'ready';
-          e.atkT = A.intervalSec > 0 ? A.intervalSec : 0.2;
+          // R25: 断末魔は1回だけ。撃ち終わったら二度と撃たない（よろけ中の永久砲台にしない）。
+          if (e.throe) { e.throe = false; e.atkT = 1e9; }
+          else e.atkT = (A.intervalSec > 0 ? A.intervalSec : 0.2) * (e.atkIntervalMul || 1);
         }
       }
     }
@@ -1516,13 +1649,17 @@ export class RunScene extends Phaser.Scene {
     // XPジェム（R21W2: 手動でよろけを割ると倍。殴れば報酬・放置すれば損）
     // 報酬の勾配：消滅=無報酬 ／ 掴み=基本 ／ 手動で割る・投げ撃破=倍。投げた方が得を数字で作る。
     const gemBase = e.isElite ? BALANCE.xp.eliteGemValue : BALANCE.xp.gemValue;
-    const gemMul = (by === 'manual' && wasStag) ? BALANCE.stagger.gemMul : 1;
+    // R25: 王冠持ちは見返りも大きい（リスクに見合う報酬）。格のジェル倍率を掛ける。
+    const gemMul = ((by === 'manual' && wasStag) ? BALANCE.stagger.gemMul : 1)
+      * ((by === 'manual' || by === 'grab') ? (this.grade(e).gemMul || 1) : 1);
     if (!quiet) this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
     if (rewarded) {
       this.capture.onEnemyKilled(e);   // スターコア抽選
       this.rollHealDrop(e);            // FB#1: 回復ハート抽選（run.rng を使う）
     }
     if (!quiet) this.popFx(e.x, e.y, e.color);
+    // R25: 王冠。近くで仲間が倒れた敵が怒って格上げされる（密集を掃除するほど強い獲物が生まれる）。
+    if (!quiet) this.maybeCrown(e.x, e.y);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
     const sp = e.def && e.def.split;
     if (sp && !e.noSplit && !e.isElite) {

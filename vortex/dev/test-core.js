@@ -524,6 +524,53 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(allKnown, 'balance: spawnPhases の敵idが全て ENEMIES に存在');
 }
 
+// --- R25 弾の格：単調増加で、ボスへは必ず控えめ ---
+{
+  const G = BALANCE.hero.billiard.grades;
+  assert(Array.isArray(G) && G.length === 4, `balance: grades が4段（実測 ${G && G.length}）`);
+  let asc = true, bossOk = true, hpAsc = true;
+  for (let i = 1; i < G.length; i++) {
+    if (!(G[i].dmgMul > G[i - 1].dmgMul)) asc = false;
+    if (!(G[i].radiusMul >= G[i - 1].radiusMul)) asc = false;
+    if (!(G[i].stagSec <= G[i - 1].stagSec)) asc = false;   // 上ほど猶予が短い
+    // 上2段は minHp では到達できない（王冠とエリートだけが上がれる）ので >= で見る
+    if (!(G[i].minHp >= G[i - 1].minHp)) hpAsc = false;
+  }
+  // ★ボス戦の主役は装甲片(×2.5)。格の倍率がそれを超えると原則が壊れる。
+  for (const g of G) if (!(g.bossMul <= g.dmgMul && g.bossMul <= BALANCE.hero.billiard.shards.modes[0].mul)) bossOk = false;
+  assert(asc, 'balance: grades の威力・炸裂範囲が単調増加で、よろけ猶予は単調減少');
+  assert(hpAsc, 'balance: grades の minHp が単調非減少（しきい値の判定が壊れない）');
+  // ★上2段が def.hp で届くようになると「ずっしり」が敵の42%に戻る（実測で一度そうなった）
+  const maxTrashHp = Math.max(...ENEMIES.map((e) => e.hp));
+  assert(G[2].minHp > maxTrashHp,
+    `balance: ずっしり以上は種類では届かない（最硬の雑魚 ${maxTrashHp} < ${G[2].minHp}）`);
+  // ★「面で消す」が無い格は威力を上げても撃破数が変わらない（雑魚は元々1発で死ぬため）。
+  //    実測で かるい1.86 ≒ おもい1.61 と差が出なかったので、かるい以外には面を持たせる。
+  let burstAsc = G[0].burstAll === 0;
+  for (let i = 2; i < G.length; i++) if (!(G[i].burstAll > G[i - 1].burstAll)) burstAsc = false;
+  assert(burstAsc, 'balance: かるいには面が無く、おもい以上は上ほど面が広い');
+  assert(bossOk, 'balance: grades のボス倍率が装甲片(×2.5)を超えない');
+}
+
+// --- R25 断末魔と王冠：発生条件が現実的な範囲か ---
+{
+  const D = BALANCE.deathThroe, C = BALANCE.crown;
+  const G = BALANCE.hero.billiard.grades;
+  assert(D && D.fromGrade >= 0 && D.fromGrade < G.length, 'balance: deathThroe.fromGrade が格の範囲内');
+  assert(G[D.fromGrade].throe === true, 'balance: fromGrade の格に throe が立っている');
+  assert(D.telegraphSec >= 0.3, `balance: 断末魔の予告が0.3秒以上（実測 ${D.telegraphSec}）`);
+  // ★予告より先によろけが切れると、断末魔が一度も出ないまま消える
+  assert(G[D.fromGrade].stagSec > D.telegraphSec,
+    `balance: よろけ猶予(${G[D.fromGrade].stagSec}s)が断末魔の予告(${D.telegraphSec}s)より長い`);
+  assert(D.fuse && D.fuse.sec > BALANCE.hero.billiard.chargeMaxSec,
+    'balance: ボンバの導火線が溜め切り(0.85s)より長い＝掴んでも投げる時間がある');
+  // ⚠️ 王冠は「時間で育つ」にすると成立しない（雑魚の生存時間は中央値3.7秒・30秒超は0体）。
+  //    キル数がトリガーであることを固定する。
+  assert(C && C.killsNeeded >= 1 && C.radius > 0, 'balance: 王冠はキル数と半径がトリガー');
+  assert(!('aliveSec' in C) && !('ageSec' in C), 'balance: 王冠に生存時間のしきい値が復活していない');
+  assert(C.gradeUp >= 1, 'balance: 王冠は格を1段以上上げる');
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);

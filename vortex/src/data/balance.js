@@ -227,6 +227,40 @@ export const BALANCE = {
       //    輪は w_ring（48px・太さ5px）なので scale 0.1 では直径9px・太さ0.5px＝等倍では消える。
       //    光は depth 8 ＝主人公より下だったので体で隠れていた。
       //    差分計測（光を消した1枚との引き算）で、光が足す明るさが段位順に増えることまで見る。
+      // ★R25 弾の「おもさ（格）」— 実プレイFB「上位の雑魚をリスクを承知で獲る動機を深めたい」。
+      //
+      // 実測（seed=42・420秒）で分かったのは、**報酬が飽和していた**こと：
+      //   ・掴んだ敵の強さは貫通HPにしか効いていない（威力は 90×段位×攻撃力 で相手に関係なく一定）
+      //   ・その貫通HPは 69% が使われずに捨てられていた（場の敵が7〜17体しかいないため）
+      //   ・貫通HP186の弾（エリート）でも撃破は4体＝チビット2発ぶん
+      //   ・一方リスクは既に差がある（スナイパを掴む前3秒の被弾27.9 vs チビット8.4）
+      // ＝ 飽和する「貫通HP」から、飽和しない「威力・炸裂範囲・効果」へ報酬を移す。
+      //
+      // 格は掴んだ敵の def.hp で決まる。波のHP倍率は全種に等しく掛かるので比率は動かない
+      // ＝いつ遊んでも「タレットは重い弾」という語彙が変わらない。
+      // ⚠️ ボスへは半額側の倍率(bossMul)を使う。「ボス戦の主役は装甲片(×2.5)」を壊さないため。
+      grades: [
+        // ⚠️ 初版は minHp を 8/12 に置いたせいで「ずっしり」が17.1回/分＝終盤の敵の42%になり、
+        //    まったく特別でなくなった（実測）。上2段は**HPでは到達できない**ようにして、
+        //    王冠（5.8体/分）とエリート（0.6体/分）だけが上がれる階段にする。
+        //    ＝ かるい/おもい は種類で、ずっしり/ばくだん級は「状態」で決まる。
+        { key: 'light', label: 'かるい',     minHp: 0,   dmgMul: 1.00, bossMul: 1.00, radiusMul: 1.00,
+          ballMul: 1.00, holdMoveMul: 1.00, stagSec: 4.5, throe: false, burstAll: 0, gemMul: 1, charge: 0,
+          color: 0x9fe8ff, shake: 0, freeze: 0 },
+        { key: 'mid',   label: 'おもい',     minHp: 10,  dmgMul: 1.50, bossMul: 1.25, radiusMul: 1.20,
+          ballMul: 1.15, holdMoveMul: 1.00, stagSec: 4.0, throe: true,  burstAll: 68, burstMax: 5, gemMul: 2, charge: 0,
+          color: 0x8affd2, shake: 3, freeze: 0 },
+        // ★burstAll ＝ 着弾点のこの半径にいる**健常な敵も**まとめて倒す。
+        //   実測で分かった核心：雑魚は元々1発で死ぬので威力を上げても意味がなく、
+        //   貫通は場の敵数で頭打ちになる（貫通HPの72%が未使用）。効くのは面で消すことだけ。
+        { key: 'heavy', label: 'ずっしり',   minHp: 1e9, dmgMul: 2.20, bossMul: 1.60, radiusMul: 1.70,
+          ballMul: 1.35, holdMoveMul: 0.88, stagSec: 3.2, throe: true,  burstAll: 130, burstMax: 14, gemMul: 3, charge: 1,
+          color: 0xffa93d, shake: 7, freeze: 0 },
+        { key: 'boom',  label: 'ばくだん級', minHp: 1e9, dmgMul: 3.50, bossMul: 2.25, radiusMul: 2.40,
+          ballMul: 1.65, holdMoveMul: 0.78, stagSec: 2.4, throe: true,  burstAll: 165, burstMax: 18, gemMul: 5, charge: 3,
+          color: 0xff5a5a, shake: 14, freeze: 0.12 },
+      ],
+
       heldAura: {
         depth: 13,                          // 主人公(10前後)より上・弾(14)より下。ADD合成なのでドット絵は潰さない
         // ⚠️ 光の大きさを掴んだ敵の半径だけで決めると、小さい敵を掴んだ段位4が段位3より暗くなる
@@ -482,6 +516,37 @@ export const BALANCE = {
   // 雑魚の“ぷるぷる”。生成時に消費済みのsinePhaseを流用するので乱数を追加消費しない
   enemyFx: { bobHz: 7, bobAmp: 0.09, tiltAmp: 0.10 },
   elite: { times: [110, 200, 290], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
+
+  // ★R25 断末魔 — 「上位の雑魚を安易に倒しに行ったら痛い目を見る」（実プレイFB）。
+  // いまは enterStagger が atkT=1e9 にしていて、**よろけた敵は絶対に攻撃しない**＝
+  // 「よろけさせた＝安全」だった。ここが「安易に行っても痛くない」の正体。
+  // ずっしり以上は、よろけた瞬間に予告つきで自分の攻撃を1回だけ放つ（既存の telegraph→fire をそのまま使う）。
+  // ⚠️ 避ければ無傷にする。緊張感は被弾量ではなく「避けた回数」で作る。
+  deathThroe: {
+    fromGrade: 1,          // おもい以上（タレット・マグマン・ガレオン・王冠・エリート）
+    telegraphSec: 0.5,     // 通常の予告(0.9)より短い＝反応を要求するが、見えない速さにはしない
+    // ⚠️ 初版は cooldown 1.4秒で 28.1回/分＝2秒に1回。画面が赤い予告だらけになり、
+    //    「1回1回を避ける」という体験にならなかった（緊張感は回数ではなく1回の重み）。
+    cooldownSec: 5.0,      // 目標6〜10回/分
+    maxActive: 1,          // 同時に断末魔を出せるのは1体まで＝赤い輪は常に画面に1つ
+    // ボンバだけは別格。よろけると導火線が点き、掴んでも燃え続ける＝時限爆弾として使える。
+    fuse: { enemyId: 'bomba', sec: 3.0, heldDamage: 28, heldRadius: 96 },
+  },
+
+  // ★R25 王冠 — 「リスクを自分で作れる層」。
+  // ⚠️ 当初案は「一定時間生き延びた雑魚が格上げ」だったが、実測で**成立しないと判明**した：
+  //    雑魚の生存時間は中央値3.7秒・上位5%で16.5秒・30秒以上生き延びた個体は420秒で0体。
+  //    自分のキル圏の内側に置いた時間条件は永久に満たされない（必殺技が84秒で1回だった件と同じ罠）。
+  // ＝ トリガーを「時間」から「**キルそのもの**」へ移す。近くで仲間が倒れた敵が怒って王冠を被る。
+  //    密集に投げ込むほど強い獲物が生まれる＝攻撃が次の報酬を作る循環になる。
+  crown: {
+    killsNeeded: 3, radius: 120,   // この半径内で3体倒れると、生き残りの1体が王冠を被る
+    cooldownSec: 7,                // 目標4〜6体/分。連発すると珍しさが消える
+    maxAlive: 2,
+    hpMul: 2.5, damageMul: 1.4, atkIntervalMul: 0.7, radiusMul: 1.25, speedMul: 0.9,
+    gradeUp: 1,                    // 弾にしたときの格が1段上がる（ずっしり→ばくだん級）
+    tint: 0xffd23f,
+  },
   // Wave R2: 合成祭壇は3回出現（150/250/340s）。開始2人スタートに合わせ最低人数を2へ
   altar: { appearSecs: [150, 250, 340], minParty: 2 },
   xp: { gemValue: 1, eliteGemValue: 10, firstLevelNeed: 5, needStep: 5, magnetRadius: 40 },

@@ -46,6 +46,8 @@ export function createBilliard(run) {
     handover: null, boltSpr: null, boltGlow: null, boltsGot: 0, boltHits: 0,
     // R24 ほのおだん（レア雑魚マグマンを掴んで投げた弾）
     blastHits: 0, heldRing: null, heldRing2: null, heldCore: null, heldMotes: null,
+    // R25 格ごとの掴み回数・王冠・手の中の爆発。「自然なプレイで何回起きるか」を実プレイでも見る。
+    gradeGrabs: [0, 0, 0, 0], crownGrabs: 0, handBooms: 0, fuseBeep: 0,
   };
 
   const B = () => BALANCE.hero.billiard;
@@ -56,6 +58,8 @@ export function createBilliard(run) {
   // 現在の段位の添字（0起点）。checkTierUp が維持する。
   const tierIdx = () => (st.tierIdx == null ? 0 : st.tierIdx);
   const SPEC = (kind) => (kind === 'bolt' ? B().bolt : kind === 'blast' ? B().blast : null);
+  // 弾の格（0=かるい 〜 3=ばくだん級）。held / 飛んでいる弾のどちらからも引ける。
+  const GR = (g) => B().grades[Math.max(0, Math.min(B().grades.length - 1, g || 0))];
   // 現在の段位。レベルが上がるほど威力と派手さが同時に上がる。
   function tier() {
     const T = B().throwTiers;
@@ -123,16 +127,33 @@ export function createBilliard(run) {
       // R24: レア雑魚（マグマン）を掴んだ弾は**炎の炸裂弾**になる。
       // 掴んだ敵の絵をそのまま持つので、赤い機体が手の中にあること自体が「特別な弾」の合図になる。
       spec: (e.def && BALANCE.rareEnemy && e.def.id === BALANCE.rareEnemy.enemyId) ? 'blast' : null,
+      // ★R25 弾の「おもさ（格）」。掴んだ相手で威力・炸裂範囲・運ぶ重さが変わる。
+      //   実測で「掴んだ敵の強さは貫通HPにしか効かず、その69%が捨てられていた」と分かったので、
+      //   報酬を飽和しない軸（威力・範囲・効果）へ移した本体がここ。
+      grade: run.gradeIdx(e),
+      crown: !!e.crown,
+      // ボンバは掴んでも導火線が燃え続ける＝時限爆弾。持ちすぎると手の中で爆発する。
+      fuse: (e.throe && BALANCE.deathThroe.fuse && e.def
+             && e.def.id === BALANCE.deathThroe.fuse.enemyId) ? Math.max(0.35, e.atkT) : 0,
     };
     st.chargeT = 0;
     st.maxRung = false;
     st.grabs++;
+    st.gradeGrabs[st.held.grade] = (st.gradeGrabs[st.held.grade] || 0) + 1;
+    if (st.held.crown) st.crownGrabs++;
+    st.fuseBeep = 0;
     // 掴んだ敵は場から消える。報酬は「基本」＝手動で割った時の2倍は付かない。
     // 消滅=無報酬／掴み=基本／投げ撃破=満額+連鎖 という勾配で「投げた方が得」を作る。
     run.killEnemy(e, BALANCE.stagger.tint, 'grab');
     // 山は着弾に集中させる。掴みは乾いた装填音の小拍だけ（振幅ゼロ＝画面は揺らさない）。
     Sound.sfx('knuckle', 0.6, 1.2);      // ガシッと掴んだ手応え
     Sound.sfx('specialCharge');
+    // ★格を言葉で出す。「重い弾を掴んだ」は絵だけでは伝わらない（弾は敵の絵のままなので）。
+    const G0 = GR(st.held.grade);
+    if (st.held.grade >= 2) {
+      run.floatText(run.player.x, run.player.y - 40, G0.label + '！', '#ffd23f');
+      Sound.sfx('metalSlam', 0.45, st.held.grade >= 3 ? 0.7 : 0.9);
+    }
     if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, BALANCE.stagger.tint);
   }
 
@@ -229,6 +250,23 @@ export function createBilliard(run) {
     if (spec === 'blast') emberBurst(x, y, 2, 20);
     else lightning(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, col,
       { seg: 3, jitter: 5, width: 2, lifeMs: 120 });
+  }
+
+  // 手の中で爆発する。弾を失い、自分も巻き込まれる（避ける手段は「早く投げる」だけ）。
+  function blowUpInHand() {
+    const F = BALANCE.deathThroe.fuse;
+    const px = run.player.x, py = run.player.y;
+    st.held = null; st.chargeT = 0; st.maxRung = false;
+    st.handBooms++;
+    hideHeld();
+    if (run.fx && run.fx.explosion) run.fx.explosion(px, py, F.heldRadius, 0xff8a1f);
+    emberBurst(px, py, 18, 360);
+    shockRing(px, py, F.heldRadius, 0xff8a1f);
+    screenFlash(0.22, 0xff8a1f);
+    run.shake(300, 12);
+    Sound.sfx('bigBoom', 0.9);
+    run.hitPlayer(F.heldDamage, px, py - 20);
+    run.floatText(px, py - 46, 'てのなかで ばくはつ！', '#ff8a3d');
   }
 
   function hideHeld() {
@@ -528,6 +566,33 @@ export function createBilliard(run) {
     return n;
   }
 
+  // ★R25 格の炸裂。着弾点の半径 rr にいる**健常な敵も**まとめて倒す。
+  //   実測が指した核心：雑魚は威力を上げなくても1発で死ぬし、貫通は場の敵数で頭打ち（未使用72%）。
+  //   ＝ 重い弾の価値は「1体を強く叩く」ではなく「面をまとめて消す」でしか作れない。
+  function gradeBurst(x, y, skip, G, T) {
+    const rr = G.burstAll;
+    if (!rr) return 0;
+    let n = 0;
+    const dmg = Math.round(B().damage * T.dmgMul * heroMul() * G.dmgMul);
+    // ⚠️ 上限は2つの意味がある：(1) 振幅を頭打ちにする (2) dealDamage が分裂で敵を増やしても
+    //    走査が発散しない（run.enemies を回している最中に push され得る）。
+    const cap = G.burstMax || 12;
+    for (const e of run.enemies) {
+      if (n >= cap) break;
+      if (!e.active || e === skip || e.isBoss) continue;
+      const dx = e.x - x, dy = e.y - y;
+      if (dx * dx + dy * dy > rr * rr) continue;
+      n++;
+      run.dealDamage(e, dmg, G.color, 'manual');
+      run.spawnParticles(e.x, e.y, G.color, 5);
+    }
+    shockRing(x, y, rr, G.color);
+    shockRing(x, y, rr * 0.62, 0xffffff);
+    burstStreaks(x, y, 10 + 6 * n, G.color, rr);
+    Sound.sfx('bigBoom', G.burstAll >= 150 ? 0.75 : 0.5, G.burstAll >= 150 ? 0.85 : 1.05);
+    return n;
+  }
+
   // ---- 投げる ----
   // ★弾を生む。px/py は **手の座標**（投球モーションの release 時点）であって体の中心ではない。
   //   実プレイFB「主人公の身体から弾が飛び出しているようにしか見えない」の直接の原因がここだった。
@@ -551,7 +616,7 @@ export function createBilliard(run) {
     if (!disp.ring) disp.ring = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12);
     // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
     // ★特殊弾（らいこうだん／ほのおだん）は段位を無視して常に最大級の見た目。
-    const ballScale = L ? h.scale : h.scale * T.ballMul;
+    const ballScale = L ? h.scale : h.scale * T.ballMul * GR(h.grade).ballMul;
     const shotColor = L ? L.color : T.color;
     if (L) speed = b.speedMax * L.speedMul;
     disp.spr.setTexture(h.tex).setTint(L && kind === 'bolt' ? L.coreColor : 0xffffff).setVisible(true)
@@ -571,6 +636,7 @@ export function createBilliard(run) {
       radius: L ? h.radius * 1.4
                 : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
       life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
+      grade: h.grade || 0, crown: !!h.crown,
       hero: heroMul(),   // 投げた時点の攻撃力で固定する（飛んでいる間に強化が入っても揺れない）
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
     });
@@ -736,7 +802,8 @@ export function createBilliard(run) {
       // 獲物に当てると炸裂連鎖。これがビリヤードの本体（群れの中心を叩くほど得）。
       // 一撃の 76/6 より広く長い（108/9）＝一発が大きいのは投げの特権。
       const T = s.tier || tier();
-      const r = run.burstStagger(e.x, e.y, B().burstRadius * T.radiusMul, B().burstMaxChain);
+      const G = GR(s.grade);
+      const r = run.burstStagger(e.x, e.y, B().burstRadius * T.radiusMul * G.radiusMul, B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     } else {
@@ -746,7 +813,9 @@ export function createBilliard(run) {
       const T = s.tier || tier();
       // ★威力＝基礎 × 段位 × 攻撃力（レベルアップとやしろで伸びる）。
       //   R24 まで heroMult が掛かっておらず、段位が変わる瞬間しか強くならなかった。
-      let dmg = Math.round(B().damage * T.dmgMul * (s.hero || 1));
+      // ★格の倍率。ボスへは bossMul（半額側）を使う＝「ボス戦の主役は装甲片(×2.5)」を壊さない。
+      const G = GR(s.grade);
+      let dmg = Math.round(B().damage * T.dmgMul * (s.hero || 1) * (e.isBoss ? G.bossMul : G.dmgMul));
       // ★装甲片をボスへ投げ返すと特効＝「ボスの装甲でボスを殴る」。
       //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
       if (e.isBoss && s.shard) {
@@ -765,6 +834,16 @@ export function createBilliard(run) {
         e.knockY = (s.vy / d) * B().pierceKnock;
         e.knockT = 0.12;
       }
+    }
+    // ★R25 格の手応え。重い弾ほど画面が揺れ、最上位は一瞬止まる（1発目の命中で1回だけ）。
+    if (!s.__feel) {
+      s.__feel = 1;
+      const G1 = GR(s.grade);
+      if (G1.shake > 0) run.shake(120 + 40 * s.grade, G1.shake);
+      if (G1.burstAll) s.kills += gradeBurst(s.x, s.y, e, G1, s.tier || tier());
+      if (G1.freeze > 0) run.freezeT = Math.max(run.freezeT || 0, G1.freeze);
+      // ハイリスクの見返りは「次の安全」に変換する＝必殺ゲージ
+      if (run.special) for (let c = 0; c < (G1.charge || 0); c++) run.special.addKill();
     }
     const b = B(), Tc = (s.tier || tier()).color;
     run.spawnHitMark(s.x, s.y, Tc);
@@ -826,7 +905,8 @@ export function createBilliard(run) {
     // 主武器としての信頼が落ちる＝必殺技に頼る動機になる（実プレイFB）。
     // s.noChain ＝ ボスに当たって砕けた玉。ここで連鎖させると自分の装甲片を巻き込んで消す
     if (B().endBurst && !s.noChain) {
-      const r = run.burstStagger(s.x, s.y, B().burstRadius * (s.tier || tier()).radiusMul, B().burstMaxChain);
+      const r = run.burstStagger(s.x, s.y, B().burstRadius * (s.tier || tier()).radiusMul
+        * GR(s.grade).radiusMul, B().burstMaxChain);
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     }
@@ -1303,6 +1383,18 @@ export function createBilliard(run) {
       }
       st.chargeT = Math.min(B().chargeMaxSec, st.chargeT + dt);
       if (!st.maxRung && st.chargeT >= B().chargeMaxSec) { st.maxRung = true; Sound.sfx('gaugeFull'); }
+      // ★R25 ボンバの導火線。掴んでも燃え続け、0になると手の中で爆発する。
+      //   ＝「よろけさせて安全に運ぶ」が通じない相手を1種だけ置く（ハイリスクの象徴）。
+      if (st.held && st.held.fuse > 0) {
+        st.held.fuse -= dt;
+        // 残りが減るほど速く鳴る＝耳で残り時間が分かる（数字は出さない）
+        st.fuseBeep = (st.fuseBeep || 0) - dt;
+        if (st.fuseBeep <= 0) {
+          st.fuseBeep = Math.max(0.08, st.held.fuse * 0.22);
+          Sound.sfx('tick', 0.5, 1.1 + 0.9 * (1 - Math.min(1, st.held.fuse / 3)));
+        }
+        if (st.held.fuse <= 0) { blowUpInHand(); return; }
+      }
       // ★②のアンカー。溜め中は移動が鈍る＝「群れの中心で溜め切るか、浅く投げて下がるか」の判断が毎周期出る。
       const ang = aimAngle();
       // 溜め中に方向キーを押している間は足を止め、狙いだけを変える＝「上下左右斜めと自由に狙える」。
@@ -1310,8 +1402,11 @@ export function createBilliard(run) {
       // それ以降は溜めっぱなしでも動けるので、群れの中で永久に足を縛られることがない。
       const bb = B();
       const aiming = st.keyActive && st.chargeT < (bb.aimStopSec == null ? bb.chargeMaxSec : bb.aimStopSec);
-      run._moveMul = aiming ? (bb.moveMulWhileAiming == null ? 0 : bb.moveMulWhileAiming)
-                            : bb.moveMulWhileCharge;
+      // ★R25 重い弾は足を鈍らせる。溜め中の減速（既存の②アンカー）と同じ語彙で、
+      //   「強い弾を運んでいる間は逃げにくい」というリスクを作る。
+      const gm = st.held ? GR(st.held.grade).holdMoveMul : 1;
+      run._moveMul = (aiming ? (bb.moveMulWhileAiming == null ? 0 : bb.moveMulWhileAiming)
+                             : bb.moveMulWhileCharge) * gm;
       const ratio = Math.min(1, st.chargeT / B().chargeMaxSec);
       run._weaponAim = ang;
       // ★振りかぶり。腕とボールを後ろへ引き、体を反らせ、足を持ち上げる。
@@ -1368,7 +1463,8 @@ export function createBilliard(run) {
       + ' 最大' + st.bestChain + ' 空' + st.dud
       + ' 溜' + avgCharge.toFixed(2) + 's 掴' + st.grabs + ' 突' + st.jabs + '→獲' + st.jabStaggers
       + ' 雷' + st.boltsGot + '→命中' + st.boltHits + ' 炎命中' + st.blastHits
-      + ' 攻×' + heroMul().toFixed(2);
+      + ' 攻×' + heroMul().toFixed(2)
+      + ' 格' + st.gradeGrabs.join('/') + ' 冠' + st.crownGrabs + ' 手爆' + st.handBooms;
   }
 
   return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul,
