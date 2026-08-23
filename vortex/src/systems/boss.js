@@ -313,7 +313,9 @@ export function createBoss(run) {
     run.spawnParticles(x, y, int(def.color), 30);
     run.shake(cfg.final ? 360 : 300, cfg.final ? 6 : 5);
     if (cfg.final) Sound.sfx('bigBoom');            // 登場の"ドゥーン"（重量感／既存SFX）
-    if (run.withAudio) Sound.startBgm('boss');      // BGM切替＝登場の合図（warn の静寂→ボス戦BGM）
+    // BGM切替＝登場の合図（warn の静寂→ボス戦BGM）。最終ボスだけは専用の荘厳曲へ切り替える
+    // ＝「ここからは今までのボスと違う」を、姿を見る前に耳で分からせる。
+    if (run.withAudio) Sound.startBgm(cfg.final ? 'maou' : 'boss');
   }
 
   // ============ AI ============
