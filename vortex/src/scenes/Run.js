@@ -13,6 +13,7 @@ import { createItems } from '../systems/items.js';
 import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
 import { createBilliard } from '../systems/billiard.js';
+import { createPractice } from '../systems/practice.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
@@ -47,6 +48,11 @@ export class RunScene extends Phaser.Scene {
 
   create(data) {
     this.withAudio = !!(data && data.withAudio);
+    // ★れんしゅうじょう（本編とは別モード）。湧き・ボス・敵の通常攻撃を止めて、
+    //   確かめたい仕組みだけを起こす。実装は本編のものをそのまま使う。
+    // ⚠️ 入口は scene のデータ1本にする。window.VORTEX を直接見ると、URLに ?practice=1 を
+    //    付けたときタイトルへ戻っても抜けられなくなる（実際に踏んだ）。
+    this.practiceMode = !!(data && data.practice);
     const V = window.VORTEX || {};
     this.seed = V.seed || 20260720;
     this.rng = createRng(this.seed);
@@ -194,9 +200,17 @@ export class RunScene extends Phaser.Scene {
       if (this.items) this.items.destroy();
       if (this.fx && this.fx.destroy) this.fx.destroy();
       if (this.special) this.special.destroy();
+      // ★practice は crushFinale を差し替えている。戻さないと再入のたびに二重に包まれる。
+      if (this.practice) { this.practice.destroy(); this.practice = null; }
     });
 
     this.installInput();
+
+    if (this.practiceMode) {
+      // なかまの攻撃を止める（撃破が自分の投げだけになるので、音を聴き比べられる）
+      this.stats.damageMult = 0;
+      this.practice = createPractice(this);
+    }
   }
 
   // ============ 入力 ============
@@ -221,7 +235,7 @@ export class RunScene extends Phaser.Scene {
     kb.on('keydown-P', () => { if (!this.ended) this.togglePause(); });
     kb.on('keydown-M', () => this.toggleMute());
     kb.on('keydown-R', () => { if (this.paused) this.restartRun(); });
-    kb.on('keydown-T', () => { if (!this.paused) this.spawner.spawnBurst(300); });
+    kb.on('keydown-T', () => { if (!this.paused && !this.practiceMode) this.spawner.spawnBurst(300); });
     kb.on('keydown-G', () => { if (!this.paused) this.capture.forceDropCore(); });
     kb.on('keydown-SPACE', () => { if (!this.paused && !this.ended) this.special.fire(); });
 
@@ -231,6 +245,7 @@ export class RunScene extends Phaser.Scene {
     feelKeys.forEach((k, i) => {
       kb.on('keydown-' + k, () => {
         if (this.paused || this.ended) return;
+        if (this.practiceMode) return;   // れんしゅうじょうでは 1〜3 はコース切替に使う
         if (i >= BALANCE.hitFeel.presets.length) return;
         this._hitFeelIdx = i;
         const p = this.hitFeel();
@@ -292,7 +307,7 @@ export class RunScene extends Phaser.Scene {
 
   restartRun() {
     if (this.withAudio) Sound.stopBgm();
-    this.scene.restart({ withAudio: this.withAudio });
+    this.scene.restart({ withAudio: this.withAudio, practice: this.practiceMode });
   }
 
   // v3でドラフトUIは廃止（★は自動強化）。外部参照の保険として no-op で残す。
@@ -346,9 +361,13 @@ export class RunScene extends Phaser.Scene {
     this.updateHeroFist(dt);    // R12: 殴りモーション中だけ拳を描画（melee の直後に読む）
     this.billiard.update(dt);   // R22スパイク（_punchT を読む updateHeroFist より後）
     this.orbit.update(dt);
-    this.spawner.update(dt);
-    this.boss.update(dt);
-    this.capture.update(dt);
+    if (this.practice) {
+      this.practice.update(dt);      // 湧き・ボス・モビット捕獲は回さない
+    } else {
+      this.spawner.update(dt);
+      this.boss.update(dt);
+      this.capture.update(dt);
+    }
     this.items.update(dt);
     this.special.update(dt);
     if (this.levelup.update) this.levelup.update(dt);
@@ -525,6 +544,9 @@ export class RunScene extends Phaser.Scene {
     this.shake(180 + Math.round(140 * ratio), 5 + Math.round(4 * ratio));
     if (this.fx && this.fx.playerHurt) this.fx.playerHurt(dirX, dirY, ratio);
     if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05 + 0.07 * ratio);
+    // ★れんしゅうじょうでは死なない。避けられたかどうかを確かめるのが目的なので、
+    //   手応え（音・揺れ・赤フラッシュ・押し返し）は残したままHPだけ底で止める。
+    if (this.practice) { this.player.hp = Math.max(1, this.player.hp); this.practice.onHit(); }
   }
 
   // R12: 拳の間合い（melee）を返す。銃・拳・オーラ表示で同じ値を使う。
@@ -814,6 +836,7 @@ export class RunScene extends Phaser.Scene {
   //      避ければ無傷。緊張感は被弾量ではなく「避けた回数」で作る。
   startDeathThroe(e, gr) {
     const D = BALANCE.deathThroe;
+    if (this.practice && !this.practice.wantThroe()) return;   // ①のコースでは断末魔を混ぜない
     if (!e.def || !e.def.attack) return;
     const isFuse = D.fuse && e.def.id === D.fuse.enemyId;
     if (!isFuse && !(gr && gr.throe)) return;
@@ -883,6 +906,7 @@ export class RunScene extends Phaser.Scene {
   //      30秒以上は420秒で0体。自分のキル圏の内側に時間条件を置くと永久に満たされない。
   //      トリガーをキルそのものに移すと、密集へ投げ込むほど強い獲物が生まれる循環になる。
   maybeCrown(x, y) {
+    if (this.practice) return;
     const C = BALANCE.crown;
     if (!this._killLog) this._killLog = [];
     this._killLog.push({ x, y, t: this.elapsed });
@@ -1407,6 +1431,8 @@ export class RunScene extends Phaser.Scene {
   // ============ 敵の攻撃（Wave R1） ============
   // ready→（射程内で）telegraph→発動→ready のループ。予告は本体点滅で必ず見せる。
   updateEnemyAttack(e, dt) {
+    // れんしゅうじょう：ふつうの攻撃は止める。断末魔（e.throe）だけは通す。
+    if (this.practice && !e.throe) return;
     const A = e.def.attack;
     const dx = this.player.x - e.x, dy = this.player.y - e.y;
     const dist = Math.hypot(dx, dy) || 1;

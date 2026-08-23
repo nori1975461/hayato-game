@@ -42,7 +42,11 @@ export class TitleScene extends Phaser.Scene {
       this.orbit.push({ g, orb, base: (i / 5) * Math.PI * 2, cx: W / 2, cy: 236 });
     }
 
-    const prompt = this.add.text(W / 2, 312, 'SPACE か クリックで スタート', {
+    this.add.text(W / 2, 336, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#7fffcf',
+    }).setOrigin(0.5);
+
+    const prompt = this.add.text(W / 2, 306, 'SPACE か クリックで スタート', {
       fontFamily: 'monospace', fontSize: '15px', color: '#ffffff',
     }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.25, duration: 650,
@@ -62,6 +66,13 @@ export class TitleScene extends Phaser.Scene {
       this.startRun(true);
     };
     this.input.keyboard.once('keydown-SPACE', begin);
+    // れんしゅうじょう：本編とは別モード。湧きもボスも止めて、確かめたい仕組みだけを起こす。
+    this.input.keyboard.once('keydown-T', () => {
+      if (this._started) return;
+      this._started = true;
+      Sound.init();
+      this.scene.start('Run', { withAudio: true, practice: true });
+    });
     this.time.delayedCall(450, () => { this.input.once('pointerdown', begin); });   // R21W2: 残クリック対策
   }
 
@@ -81,6 +92,8 @@ export class TitleScene extends Phaser.Scene {
   }
 
   startRun(withAudio) {
-    this.scene.start('Run', { withAudio: !!withAudio });
+    // ?practice=1 を付けて開いたときは、ふつうの開始でもれんしゅうじょうへ入る（検証用の近道）
+    const V = window.VORTEX || {};
+    this.scene.start('Run', { withAudio: !!withAudio, practice: !!V.practice });
   }
 }

@@ -15,7 +15,8 @@ const params = new URLSearchParams(location.search);
 const seedParam = parseInt(params.get('seed'), 10);
 const seed = Number.isFinite(seedParam) && seedParam > 0 ? seedParam : 20260720;
 const autotest = params.get('autotest') === '1';
-window.VORTEX = { seed, autotest };
+const practice = params.get('practice') === '1';   // れんしゅうじょうへ直行（検証用）
+window.VORTEX = { seed, autotest, practice };
 
 const Phaser = window.Phaser;
 
