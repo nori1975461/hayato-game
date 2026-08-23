@@ -48,6 +48,8 @@ export function createBilliard(run) {
     blastHits: 0, heldRing: null, heldRing2: null, heldCore: null, heldMotes: null,
     // R25 格ごとの掴み回数・王冠・手の中の爆発。「自然なプレイで何回起きるか」を実プレイでも見る。
     gradeGrabs: [0, 0, 0, 0], crownGrabs: 0, handBooms: 0, fuseBeep: 0,
+    // R29W2 つかめない獲物に手を出して弾かれた回数と、そのしびれの残り時間
+    blocked: 0, blockT: -99, stunT: 0, bombHits: 0,
   };
 
   const B = () => BALANCE.hero.billiard;
@@ -57,7 +59,8 @@ export function createBilliard(run) {
   const heroMul = () => (run.stats && run.stats.heroMult) || 1;
   // 現在の段位の添字（0起点）。checkTierUp が維持する。
   const tierIdx = () => (st.tierIdx == null ? 0 : st.tierIdx);
-  const SPEC = (kind) => (kind === 'bolt' ? B().bolt : kind === 'blast' ? B().blast : null);
+  // 'bolt'（らいこうだん）/ 'blast'（ほのおだん）/ 'bomb'（ばくだん）。設定名＝kind名で引く
+  const SPEC = (kind) => (kind ? B()[kind] || null : null);
   // 弾の格（0=かるい 〜 3=ばくだん級）。held / 飛んでいる弾のどちらからも引ける。
   const GR = (g) => B().grades[Math.max(0, Math.min(B().grades.length - 1, g || 0))];
   // 現在の段位。レベルが上がるほど威力と派手さが同時に上がる。
@@ -126,7 +129,12 @@ export function createBilliard(run) {
       shard: !!e.shard,        // ボスの装甲片＝ボスへ投げ返すと特効
       // R24: レア雑魚（マグマン）を掴んだ弾は**炎の炸裂弾**になる。
       // 掴んだ敵の絵をそのまま持つので、赤い機体が手の中にあること自体が「特別な弾」の合図になる。
-      spec: (e.def && BALANCE.rareEnemy && e.def.id === BALANCE.rareEnemy.enemyId) ? 'blast' : null,
+      // R29W2: 導火線が燃えているボンバを掴んだ弾は**ばくだん**になる。時間内に投げ切れば
+      //   敵に当たった瞬間に爆発する（＝間に合わせたことへの報酬。従来は普通の弾だった）。
+      spec: (e.def && BALANCE.rareEnemy && e.def.id === BALANCE.rareEnemy.enemyId) ? 'blast'
+          : (e.throe && BALANCE.deathThroe.fuse && e.def
+             && e.def.id === BALANCE.deathThroe.fuse.enemyId) ? (BALANCE.deathThroe.fuse.throwSpec || null)
+          : null,
       // ★R25 弾の「おもさ（格）」。掴んだ相手で威力・炸裂範囲・運ぶ重さが変わる。
       //   実測で「掴んだ敵の強さは貫通HPにしか効かず、その69%が捨てられていた」と分かったので、
       //   報酬を飽和しない軸（威力・範囲・効果）へ移した本体がここ。
@@ -258,7 +266,7 @@ export function createBilliard(run) {
     st.sparkT = A.sparkEverySec / (1 + 0.18 * ti);   // 上の段位ほど散る間隔が詰まる
     const a = run.rng.range(0, Math.PI * 2);
     const r = run.rng.range(A.sparkRange * 0.5, A.sparkRange) * (0.6 + 0.6 * ratio);
-    if (spec === 'blast') emberBurst(x, y, 2, 20);
+    if (spec === 'blast' || spec === 'bomb') emberBurst(x, y, 2, 20);   // 炎／導火線の火花
     else lightning(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, col,
       { seg: 3, jitter: 5, width: 2, lifeMs: 120 });
   }
@@ -630,7 +638,10 @@ export function createBilliard(run) {
     if (!disp.ring) disp.ring = run.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(12);
     // 段が上がるほど弾そのものが大きく派手になる（実プレイFB「地味で攻撃している実感がない」）
     // ★特殊弾（らいこうだん／ほのおだん）は段位を無視して常に最大級の見た目。
-    const ballScale = L ? h.scale : h.scale * T.ballMul * GR(h.grade).ballMul;
+    // ばくだんはボンバ本体（半径7）が弾になるので、そのままだと普通の弾より小さくなる。
+    // 「当たると爆発する」弾が一番細いのは噛み合わないので、絵と判定を一回り太らせる。
+    const ballScale = kind === 'bomb' ? h.scale * 1.25
+                    : L ? h.scale : h.scale * T.ballMul * GR(h.grade).ballMul;
     const shotColor = L ? L.color : T.color;
     if (L) speed = b.speedMax * L.speedMul;
     disp.spr.setTexture(h.tex).setTint(L && kind === 'bolt' ? L.coreColor : 0xffffff).setVisible(true)
@@ -647,7 +658,8 @@ export function createBilliard(run) {
       active: true, x: px, y: py,
       vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
       hp, color: h.color,
-      radius: L ? h.radius * 1.4
+      radius: kind === 'bomb' ? Math.max(b.hitRadius, h.radius) * 1.5
+            : L ? h.radius * 1.4
                 : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
       life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
       grade: h.grade || 0, crown: !!h.crown,
@@ -673,7 +685,15 @@ export function createBilliard(run) {
     shockRing(px, py, 52 + 40 * ratio, ratio >= 1 ? 0xffd23f : T.color);
     if (ratio >= 1) screenFlash(0.22, 0xffd23f);   // 溜め切りだけの特典
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT, 0.04 + 0.05 * ratio);
-    if (L) {
+    if (kind === 'bomb') {
+      // ★ばくだんはボンバを掴むたびに起きる＝頻度が高い。投げ出しでは画面を光らせない
+      //   （振幅は頻度と逆相関。ここで毎回フラッシュすると擦り切れて「特別」が消える）。
+      shockRing(px, py, 64, L.color);
+      burstStreaks(px, py, 10, L.coreColor, 60);
+      emberBurst(px, py, 8, 34);
+      Sound.sfx('tick', 0.9, 1.9);
+      run.floatText(px, py - 26, 'まにあった！', '#ffd23f');
+    } else if (L) {
       // 特殊弾は投げ出しの瞬間から本気で出す（1回が稀なので遠慮しない）
       screenFlash(0.4, L.color);
       run.shake(220, 10);
@@ -828,9 +848,56 @@ export function createBilliard(run) {
     if (kind === 'bolt') st.boltHits++; else st.blastHits++;
   }
 
+  // ★R29W2 ばくだん。触れた最初の1体で爆発して終わる（らいこうだん／ほのおだんは貫通し続ける）。
+  //   ここが「爆弾らしさ」の中心：飛び続けないから、**どこで当てるか**を選ぶ弾になる。
+  function bombHit(s, e) {
+    const L = SPEC('bomb');
+    const x = s.x, y = s.y;
+    s.noChain = 1;          // burstEnd で二重に爆発させない（爆発はこの1回だけ）
+    st.bombHits = (st.bombHits || 0) + 1;
+    if (e.isBoss) {
+      breakBoss(e);
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
+      if (run.boss && run.boss.staggered) {
+        dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
+      }
+      const hpBefore = e.hp;
+      run.dealDamage(e, dmg, L.color, 'manual', { x, y });   // 命中座標＝マオウレクスの弱点コア判定
+      specialImpact(s, e, Math.max(0, hpBefore - e.hp));
+      s.hp = 0;
+      return;
+    }
+    // よろけている獲物は連鎖炸裂、健常な敵は面でまとめて倒す（＝「ダメージ大」の実体）
+    const r = run.burstStagger(x, y, B().burstRadius * (L.radiusMul || 2.2), B().burstMaxChain);
+    s.kills += r.total;
+    s.chain = Math.max(s.chain, r.chain);
+    s.kills += gradeBurst(x, y, null,
+      { burstAll: L.blastRadius, burstMax: L.blastMax, dmgMul: L.blastDmgMul, color: L.color },
+      s.tier || tier());
+    for (let i = 0; i < (L.rings || 3); i++) {
+      const rr = 60 + 42 * i;
+      run.time.delayedCall(i * 55, () => shockRing(x, y, rr, i % 2 ? 0xffffff : L.color));
+    }
+    burstStreaks(x, y, L.streaks, L.color, 120);
+    emberBurst(x, y, 14, 56);
+    for (let i = 0; i < (L.hitPillars || 3); i++) {
+      firePillar(x + run.rng.range(-34, 34), y + run.rng.range(-20, 20));
+    }
+    run.spawnParticles(x, y, L.color, 30);
+    screenFlash(L.flash, L.color);
+    run.shake(L.shakeMs, L.shakeAmp);
+    zoomPunch(L.zoom);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, L.freezeSec);
+    Sound.sfx('bigBoom', 0.85, 0.9);
+    Sound.sfx('fireBlast', 0.5);
+    run.floatText(x, y - 30, 'ばくだん！！', '#ffd23f');
+    s.hp = 0;               // 爆弾は貫通しない。ここで飛行を終える
+  }
+
   // 特殊弾は砕けない。触れた敵を全部消し飛ばしながら飛び続ける。
   function specialHit(s, e) {
     const kind = s.spec, L = SPEC(kind);
+    if (kind === 'bomb') { bombHit(s, e); return; }
     if (e.stag) {
       const r = run.burstStagger(e.x, e.y, B().burstRadius * (L.radiusMul || 1.6), B().burstMaxChain);
       s.kills += r.total;
@@ -1007,6 +1074,11 @@ export function createBilliard(run) {
           lightning(s.x + run.rng.range(-30, 30), s.y - 240, s.x, s.y, i ? L.color : L.coreColor,
             { seg: 11, jitter: 20, width: i ? 3 : 5, lifeMs: 300 });
         }
+      } else if (s.spec === 'bomb') {
+        // 外れて落ちた爆弾もちゃんと爆発する（「投げ損」を作らない）
+        Sound.sfx('bigBoom', 0.7, 1.0);
+        firePillar(s.x, s.y);
+        emberBurst(s.x, s.y, 16, 60);
       } else {
         Sound.sfx('fireBlast');
         firePillar(s.x, s.y);
@@ -1112,7 +1184,7 @@ export function createBilliard(run) {
         s.sfxT = (s.sfxT || 0) - dt;
         if (s.sfxT <= 0) {
           s.sfxT = L.flySfxSec || 0.12;
-          Sound.sfx(s.spec === 'bolt' ? 'boltFly' : 'blastFly',
+          Sound.sfx(L.flySfx || (s.spec === 'bolt' ? 'boltFly' : 'blastFly'),
             run.rng.range(0.45, 1), run.rng.range(0.88, 1.14));
         }
         // 画面全体の明滅。雷（炎）が近くを通っている明るさの変化
@@ -1486,9 +1558,59 @@ export function createBilliard(run) {
   function press() {
     // ★R26 断末魔の予告中は掴めない。実測で「よろけ→掴み 中央値0.23秒」だったため、
     //   ここを開けたままだと予告23回中19回が掴みで消えて発火9%になっていた。
+    // ★R29W2 掴める獲物が居なくても、手が届く範囲に**紫の獲物**が居るなら弾き返す。
+    //   旧実装は候補から外すだけで突きに落ちていた＝「掴めなかった」瞬間が体験として存在しなかった。
     const prey = run.nearestEnemy(grabReach(), 0, true,
       (e) => !e.isBoss && !(e.throe && e.guardT > 0));
-    if (prey) grab(prey); else jab();
+    if (prey) { grab(prey); return; }
+    const guarded = run.nearestEnemy(grabReach(), 0, true,
+      (e) => !e.isBoss && e.throe && e.guardT > 0);
+    if (guarded && blockedGrab(guarded)) return;
+    jab();
+  }
+
+  // ★R29W2 つかめなかった演出＋罰（実プレイFB「主人公が後ろに弾かれる／ビリっとしびれる等」）。
+  //   ダメージは与えない。難易度を上げずに「今のは失敗だった」だけを確実に伝える。
+  //   連打で毎回止まると理不尽になるので、短い間隔で2回目以降は従来どおり突きへ落とす。
+  function blockedGrab(e) {
+    const K = BALANCE.deathThroe.block;
+    if (!K) return false;
+    if (run.elapsed - (st.blockT == null ? -99 : st.blockT) < (K.cooldownSec || 0.5)) return false;
+    st.blockT = run.elapsed;
+    st.blocked = (st.blocked || 0) + 1;
+    // 主人公 ← 敵 の向きへ弾く（＝間合いの外へ押し出される。掴み直すには近づき直すしかない）
+    const a = Math.atan2(run.player.y - e.y, run.player.x - e.x);
+    run._knockX = Math.cos(a) * (K.knockback || 300);
+    run._knockY = Math.sin(a) * (K.knockback || 300);
+    run._knockT = K.knockSec || 0.18;
+    st.stunT = K.stunSec || 0.3;
+    const col = K.tint || 0xc44bff;
+    // ビリッ：主人公から放射状に紫の電気。敵からも1本つないで「触ったから痺れた」を見せる
+    lightning(e.x, e.y, run.player.x, run.player.y, col, { seg: 6, jitter: 12, width: 4, lifeMs: 260 });
+    for (let i = 0; i < 5; i++) {
+      const t = a + run.rng.range(-2.6, 2.6);
+      lightning(run.player.x, run.player.y,
+        run.player.x + Math.cos(t) * run.rng.range(26, 48),
+        run.player.y + Math.sin(t) * run.rng.range(26, 48),
+        i % 2 ? 0xffffff : col, { seg: 4, jitter: 9, width: 2, lifeMs: 240 });
+    }
+    run.time.delayedCall(140, () => {
+      if (!run.player || run.ended) return;
+      for (let i = 0; i < 3; i++) {
+        const t = run.rng.range(0, Math.PI * 2);
+        lightning(run.player.x, run.player.y,
+          run.player.x + Math.cos(t) * 34, run.player.y + Math.sin(t) * 34,
+          col, { seg: 3, jitter: 8, width: 2, lifeMs: 200 });
+      }
+    });
+    shockRing(e.x, e.y, e.radius * 2 + 34, col);
+    run.spawnParticles(run.player.x, run.player.y, col, 10);
+    run.floatText(run.player.x, run.player.y - 34, 'ビリッ！ つかめない！', '#e0a0ff');
+    Sound.sfx('numb');
+    Sound.sfx('counter', 0.4, 0.7);
+    run.shake(180, 7);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.06);
+    return true;
   }
 
   // ---- 毎フレーム ----
@@ -1501,7 +1623,12 @@ export function createBilliard(run) {
     updateShots(dt);
     // ランが終わったら、振りかぶりで傾けた体と残像を必ず戻す（残すと死亡画面で斜めのまま固まる）
     if (!run.player || run.cinematic || run.paused || run.ended) {
-      if (run.ended) { hideGhosts(); resetBody(); cancelHandover(); }
+      if (run.ended) {
+        hideGhosts(); resetBody(); cancelHandover();
+        // しびれの点滅色を残したまま止まると、死亡画面で主人公が紫のまま固まる
+        st.stunT = 0;
+        if (run.playerImg) run.playerImg.clearTint();
+      }
       return;
     }
     if (!st.seeded) seedOpeningPrey();
@@ -1586,6 +1713,19 @@ export function createBilliard(run) {
       showAim(ang, ratio);
       heldAura(hp0, ratio, dt, st.held.spec);
       if (!want) startThrow(ang);
+    } else if (st.stunT > 0) {
+      // R29W2 しびれ。動けない・掴めない＝つかみ損ねた0.3秒ぶんの罰（ダメージは無い）
+      st.stunT = Math.max(0, st.stunT - dt);
+      run._moveMul = 0;
+      hideAim();
+      resetBody();
+      // ⚠️ 主人公の当たり判定(run.player)はただのオブジェクト。絵は run.playerImg。
+      //    updatePlayer は billiard.update より前に走るので、ここで塗った色はこのフレーム有効。
+      if (run.playerImg) {
+        run.playerImg.setTint(Math.floor(run.elapsed * 30) % 2 === 0
+          ? (BALANCE.deathThroe.block.tint || 0xc44bff) : 0xffffff);
+        if (st.stunT <= 0) run.playerImg.clearTint();
+      }
     } else {
       run._moveMul = 1;
       hideAim();

@@ -18,9 +18,9 @@ const COURSES = [
   { key: 'crush', title: '① いっきに たおす おと',
     hint: '0キー で おとを きりかえ　→ かたまりへ なげこむ' },
   { key: 'throe', title: '② むらさきの わ が でたら つかめない',
-    hint: 'わ が きえるまで まつ。よけてから つかむ' },
+    hint: 'むらさきの あいだに つかむと ビリッと はじかれる。よけてから つかむ' },
   { key: 'fuse',  title: '③ ボンバは ためられない',
-    hint: 'つかんだら すぐ はなす。ためると てのなかで ばくはつ' },
+    hint: 'つかんだら すぐ なげろ。まにあえば ばくだんの たまに なる' },
 ];
 
 export function createPractice(run) {
@@ -33,6 +33,9 @@ export function createPractice(run) {
     lastCrush: 0, crushMax: 0,
     fired: 0, dodged: 0, hurt: 0, grabbed: 0,
     lastBooms: 0, wasHeld: false, handBooms: 0, safeThrows: 0,
+    // ⚠️ 累計カウンタは「今の値 - コース開始時の値」で出す。差分を取らずに素の値を出すと
+    //    コースを切り替えても数字が戻らない（③で同じ罠を踏んだので最初からこの形にする）。
+    blocked0: 0, bombHits0: 0,
     hitAt: -99,
     prev: { throe: false, active: false },
   };
@@ -80,6 +83,8 @@ export function createPractice(run) {
     st.lastCrush = 0; st.crushMax = 0;
     st.fired = 0; st.dodged = 0; st.hurt = 0; st.grabbed = 0;
     st.handBooms = 0; st.safeThrows = 0;
+    st.blocked0 = run.billiard.st.blocked || 0;
+    st.bombHits0 = run.billiard.st.bombHits || 0;
     setup();
   }
 
@@ -127,7 +132,10 @@ export function createPractice(run) {
       // 断末魔つきの1体だけ。maxActive=1 の枠を確実に空けてから起こす
       for (const o of run.enemies) if (o.active) { o.throe = false; o.guardT = 0; }
       run._throeT = -99;
-      const e = place(byId('gareon'), px + 120, py);
+      // ★R29W2 旧実装は px+120。掴める距離は78pxなので、0.85秒の窓のうち0.28秒は
+      //   歩いているだけで過ぎていた（＝「つかめない」を試す時間が短かった）。
+      //   練習場は条件を体験させる場所なので、最初から手が届く位置に置く。
+      const e = place(byId('gareon'), px + 70, py);
       if (e) run.enterStagger(e);
       st.tgt = e;
     } else {
@@ -235,10 +243,12 @@ export function createPractice(run) {
         + '体　さいこう：' + (st.crushMax || '-') + '体');
     } else if (C.key === 'throe') {
       lineStat.setText('とんできた：' + st.fired + '　よけた：' + st.dodged
-        + '　くらった：' + st.hurt + '　つかんだ：' + st.grabbed);
+        + '　くらった：' + st.hurt + '　つかんだ：' + st.grabbed
+        + '　はじかれた：' + (run.billiard.st.blocked - st.blocked0));
     } else {
       lineStat.setText('てのなかで ばくはつ：' + st.handBooms
-        + '　なげきれた：' + Math.max(0, st.safeThrows));
+        + '　ばくだんで なげた：' + Math.max(0, st.safeThrows)
+        + '　ばくはつ させた：' + (run.billiard.st.bombHits - st.bombHits0));
     }
   }
 

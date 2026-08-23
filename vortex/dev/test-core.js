@@ -574,6 +574,14 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       // 打撃として読めるのは概ね 30〜90ms。これを外すと「連打」ではなく別の音になる
       assert(p.gapMs >= 30 && p.gapMs <= 90, 'balance: 連打の間隔は30〜90ms（' + p.name + '）');
     }
+    // ★R29W2 実プレイFB「4種類でほぼ差がなかった」＝**鳴らす音が4つとも同じ関数**だった。
+    //   間(gapMs)の8〜12msは耳では判別できないので、ONのプリセットは音そのものを別にする。
+    const on = C.presets.filter((p) => p.on);
+    assert(on.every((p) => p.sfx && p.endSfx), 'balance: ONのプリセットは鳴らす音を明示すること');
+    assert(new Set(on.map((p) => p.sfx)).size === on.length,
+      'balance: ONのプリセットは1発の音が全部ちがうこと（間だけ変えても耳では分からない）');
+    assert(new Set(on.map((p) => p.endSfx)).size === on.length,
+      'balance: ONのプリセットは締めの音が全部ちがうこと');
     // 締めとスローの段は「頻度と逆相関」。スローは締めより必ず上の段に置く
     assert(C.slowFrom > C.finaleFrom && C.finaleFrom >= C.minGroup,
       'balance: スロー（最大の振幅）は締めより上の段に置く');
@@ -595,6 +603,29 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(D.fuse && D.fuse.sec > BALANCE.hero.billiard.chargeMaxSec
     && D.fuse.sec < BALANCE.hero.billiard.chargeMaxSec * 2,
     'balance: ボンバの導火線は溜め切り(0.85s)より長く、その2倍より短いこと（長すぎると実測どおり発火0回になる）');
+  // ★R29W2 つかめなかったときの罰。ダメージで払わせない（難易度を上げずに失敗だけ伝える）。
+  {
+    const K = D.block;
+    assert(K && K.knockback > 0 && K.stunSec > 0,
+      'balance: つかめない獲物に手を出したら弾かれてしびれる（失敗が体験として存在すること）');
+    assert(!('damage' in K) && !('damageMul' in K),
+      'balance: つかみ失敗の罰にダメージを含めない（難易度を上げずに罰だけ与える）');
+    assert(K.stunSec <= 0.5 && K.cooldownSec > 0,
+      'balance: しびれは0.5秒以内・連打で毎回止まらないこと（罰が理不尽にならない上限）');
+  }
+  // ★R29W2 導火線が残るうちに投げ切ると「ばくだんの たま」になる。
+  {
+    const spec = D.fuse.throwSpec;
+    const cfg = spec && BALANCE.hero.billiard[spec];
+    assert(!!cfg, 'balance: fuse.throwSpec が hero.billiard に実在する特殊弾を指している');
+    assert(cfg.pierceHp <= 1,
+      'balance: ばくだんは貫通しない（最初に触れた1体で爆発して終わる＝爆弾の動き）');
+    assert(cfg.blastRadius > 0 && cfg.blastMax > 0,
+      'balance: ばくだんは健常な敵も面で巻き込む（「ダメージ大」の実体）');
+    // 頻度が高い側の弾なので、切り札（らいこうだん）よりボスへの効きは必ず下に置く
+    assert(cfg.bossHpRatio < BALANCE.hero.billiard.bolt.bossHpRatio,
+      'balance: ばくだんのボス特効は らいこうだん より小さい（切り札の座を奪わない）');
+  }
   // ⚠️ 王冠は「時間で育つ」にすると成立しない（雑魚の生存時間は中央値3.7秒・30秒超は0体）。
   //    キル数がトリガーであることを固定する。
   assert(C && C.killsNeeded >= 1 && C.radius > 0, 'balance: 王冠はキル数と半径がトリガー');

@@ -1376,10 +1376,16 @@ export class RunScene extends Phaser.Scene {
         e.stagT -= dt;
         if (e.stagRing) {
           const k = Math.max(0, e.stagT / (e.stagMax || G.sec));
-          const rr = (e.radius * 2 + 14) * (0.55 + 0.75 * k);   // 時間とともに痩せる＝期限が見える
+          // ★R29W2 実プレイFB「紫の『つかめない』だが、普通につかめたのだが」。原因の半分がここ。
+          //   断末魔の予告中も**この輪だけは青白のまま**だった＝「自分の獲物・掴める」の記号が
+          //   点きっぱなしで、本体の紫点滅と真っ向から矛盾していた。掴める合図を必ず消す。
+          const guarded = e.throe && e.guardT > 0;
+          const pulse = guarded ? 1 + 0.16 * Math.sin(this.elapsed * 24) : 1;
+          const rr = (e.radius * 2 + 14) * (0.55 + 0.75 * k) * pulse;   // 時間とともに痩せる＝期限が見える
           e.stagRing.setPosition(e.x, e.y).setDisplaySize(rr, rr)
-            .setTint(e.stagT <= G.warnSec ? 0xffa62b : G.tint)
-            .setAlpha(G.ringAlpha * (0.45 + 0.55 * k));
+            .setTint(guarded ? BALANCE.deathThroe.tint
+                             : (e.stagT <= G.warnSec ? 0xffa62b : G.tint))
+            .setAlpha(guarded ? 0.85 : G.ringAlpha * (0.45 + 0.55 * k));
         }
         // R22スパイク：時間切れの扱いをキー8で切り替える。ここは「投げが必要か」を左右する分岐。
         //   復活（現行）… 強くなって戻る＝放置の罰がある。敵は場から減らない
@@ -1914,7 +1920,7 @@ export class RunScene extends Phaser.Scene {
     const C = BALANCE.crush;
     this.releaseGhost(it.ghost);      // 自分の番が来たシルエットだけが消える＝1体ずつ減っていく
     this.popNow(it.x, it.y, it.color);
-    Sound.sfx('crush', i);
+    Sound.sfx(P.sfx || 'crush', i);   // R29W2: プリセットごとに**別の音**（間だけ変えても耳では分からない）
     if (P.ring && i >= (P.ringFrom || 3) && this.billiard && this.billiard.shockRing) {
       this.billiard.shockRing(it.x, it.y, 34 + 6 * i, it.color ?? 0xffffff);
     }
@@ -1926,7 +1932,7 @@ export class RunScene extends Phaser.Scene {
   crushFinale(n, x, y) {
     const C = BALANCE.crush;
     if (n < C.finaleFrom) return;
-    Sound.sfx('crushEnd', n);
+    Sound.sfx(this.crushPreset().endSfx || 'crushEnd', n);
     this.shake(180, Math.min(C.finaleShake, 2 + n));
     if (!this.cinematic) {
       this.freezeT = Math.max(this.freezeT || 0, C.finaleFreeze * Math.min(1, n / 8));

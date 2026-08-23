@@ -200,6 +200,29 @@ export const BALANCE = {
         hitPillars: 5,       // 着弾で立つ火柱の本数（1→5）
         hitJets: 8,          // 放射状に噴き出す火炎の本数
       },
+      // ★R29W2 ばくだん（実プレイFB「時間内にうまく投げられれば爆弾式の弾になるのはどうか。
+      //   敵に当たると爆発して敵にダメージ大というのは？」）。ボンバを導火線が残るうちに投げ切った弾。
+      // ⚠️ らいこうだん(150〜300秒に1回)・ほのおだん(レア雑魚)と違い、これは**ボンバを掴むたび**に
+      //    起きる＝頻度が桁違いに高い。振幅は頻度と逆相関なので、画面全体の演出は意図的に抑える
+      //    （投げ出しの白フラッシュ無し・着弾の閃光は1/3）。主役は「面で消える」ことに置く。
+      bomb: {
+        color: 0xff4020, coreColor: 0xffe066,
+        scale: 2.0, radius: 12,
+        speedMul: 1.0,       // 速い＝「間に合った」ことがそのまま弾の速さになる
+        pierceHp: 1,         // 貫通しない。最初に触れた1体で爆発して終わる＝爆弾の動き
+        bossHpRatio: 0.10,   // ボスへは最大HPの10%（らいこうだん30%・ほのおだん12%の下）
+        trashDamage: 999,
+        radiusMul: 2.2,      // 獲物の炸裂連鎖の半径（burstRadius 76 → 167px）
+        // 健常な敵を面でまとめて倒す本体。gradeBurst と同じ経路なので上限で暴走しない。
+        blastRadius: 140, blastMax: 12, blastDmgMul: 3.0,
+        chainCount: 8, chainRange: 150, chainDamage: 999,   // 外したまま消えたときの保険
+        freezeSec: 0.12, shakeMs: 300, shakeAmp: 13, zoom: 0.04,
+        flash: 0.20, rings: 3, streaks: 20,
+        emberEverySec: 0.05,
+        flySfx: 'tick', flySfxSec: 0.14,   // 飛んでいる間も導火線が鳴り続ける
+        flyFlashSec: 0.40, flyFlash: 0.05,
+        hitPillars: 3, hitJets: 10,
+      },
       // 突き（倒せない動詞）
       jab: {
         reach: 78, arcDeg: 110, maxTargets: 3,
@@ -572,7 +595,24 @@ export const BALANCE = {
     // ボンバにも短い掴み禁止を掛ける＝導火線が0.35秒ぶん先に燃える。掴んだ時点の残りが
     // 溜め切り0.85秒を下回るので「ボンバだけは溜められない。掴んだら即投げろ」になる。
     // （実測：1.4秒＋掴み禁止なしでは手の中の爆発が**0回**だった）
-    fuse: { enemyId: 'bomba', sec: 1.0, guardSec: 0.35, heldDamage: 28, heldRadius: 96 },
+    fuse: { enemyId: 'bomba', sec: 1.0, guardSec: 0.35, heldDamage: 28, heldRadius: 96,
+      // ★R29W2 実プレイFB「時間内にうまく投げられれば爆弾式の弾になるのはどうか」。
+      //   導火線が残っているうちに投げ切れたら、そのまま**爆弾の弾**として飛ぶ。
+      //   ＝ 手の中で爆発する（失敗）／ただの弾になる（無味）の二択だったところに、
+      //      「間に合わせた」ことへの報酬が入る。急いで投げる理由が罰から報酬に変わる。
+      throwSpec: 'bomb' },
+    // ★R29W2 実プレイFB「紫の『つかめない』だが、普通につかめたのだが」。調べた結果は §docs 参照。
+    //   窓（0.85秒）は実装どおり効いていたが、掴もうとして弾かれたときに**何も起きなかった**：
+    //   press() が対象を候補から外すだけなので、突きに落ちて「射程外だった」と区別が付かない。
+    //   ＝ プレイヤーから見ると「掴めない瞬間」は存在しないのと同じだった。
+    // 直し方：弾かれる＋しびれる。ダメージは0にして難易度は上げず、奪うのは操作0.3秒と間合いだけ。
+    block: {
+      knockback: 300,     // 弾かれる初速 px/秒（投げの反動 recoil と同じ経路）
+      knockSec: 0.18,
+      stunSec: 0.30,      // しびれて動けない・掴めない（主人公は148px/s＝44px ぶんの損）
+      cooldownSec: 0.5,   // 連打で毎回痺れないための最短間隔（超えたぶんは従来どおり突きになる）
+      tint: 0xc44bff,
+    },
   },
 
   // ★R25 王冠 — 「リスクを自分で作れる層」。
@@ -599,12 +639,16 @@ export const BALANCE = {
     //   その1回にだけスローモーションを置く（テトリスの4段消しの余韻に当たる位置）。
     //   頻度が低いからこそ、この振幅を出しても擦り切れない。
     slowFrom: 8, slowSec: 0.30, slowMul: 0.38,
-    // 好みは文章で決められないので、実プレイ中に 0 キーで切り替えて選ぶ
+    // 好みは文章で決められないので、実プレイ中に 0 キーで切り替えて選ぶ。
+    // ★R29W2 実プレイFB「4種類でほぼ差がなかった」。調べたら**鳴っている音は4つとも同一**だった
+    //   （違うのは gapMs 52/44/64＝1発あたり8〜12ms と、衝撃の輪という**絵**だけ）。
+    //   耳では8msは判別できない。＝選ぶ軸を「間」から**音色**へ移す。
+    //   たいこ＝打楽器 / ばくは＝炸裂ノイズ（和音なし） / きらきら＝金属の音階（低音なし）。
     presets: [
-      { name: '標準',     on: true,  gapMs: 52, ring: true,  ringFrom: 3 },
-      { name: '全開',     on: true,  gapMs: 44, ring: true,  ringFrom: 2 },
-      { name: 'ひかえめ', on: true,  gapMs: 64, ring: false, ringFrom: 99 },
-      { name: '切（前の音）', on: false, gapMs: 52, ring: false, ringFrom: 99 },
+      { name: 'たいこ',   on: true,  gapMs: 52, sfx: 'crush',     endSfx: 'crushEnd',     ring: true,  ringFrom: 3 },
+      { name: 'ばくは',   on: true,  gapMs: 46, sfx: 'crushBoom', endSfx: 'crushBoomEnd', ring: true,  ringFrom: 2 },
+      { name: 'きらきら', on: true,  gapMs: 62, sfx: 'crushBell', endSfx: 'crushBellEnd', ring: true,  ringFrom: 4 },
+      { name: '切（前の音）', on: false, gapMs: 52, sfx: 'crush', endSfx: 'crushEnd',     ring: false, ringFrom: 99 },
     ],
   },
 

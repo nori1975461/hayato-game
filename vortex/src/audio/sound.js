@@ -495,6 +495,82 @@ const SFX = {
     }
   },
 
+  // ★R29W2 実プレイFB「複数敵を破壊する音は、4種類でほぼ差がなかった」。調べたら**その通り**だった：
+  //   プリセットが変えていたのは打撃の間隔（52/44/64ms＝1発あたり8〜12ms）と衝撃の輪の有無だけで、
+  //   鳴らしている音は4つとも `crush`／`crushEnd` の**完全に同一のコード**だった。
+  //   ＝ 音量も音程も音色も1バイトも違わない。「ほぼ差がなかった」ではなく「差が無かった」。
+  // 直し方：選ぶ軸を「間」から**音色**へ移す。間の8msは耳では判別できないが、音色は一瞬で分かる。
+  //   たいこ（打楽器）／ばくは（炸裂ノイズ）／きらきら（金属の音階）＝3つとも語彙が別。
+
+  // ばくは：主役をノイズにする。胴は「たいこ」より低く（150→38Hz）長く、尾が残る。
+  //   数を伝える粒は**下がる**（たいこは上がる）＝段が増えるほど深く掘っている感じになる。
+  crushBoom(i) {
+    const step = Math.max(0, Math.min(11, i | 0));
+    const k = 1 + 0.05 * step;
+    tone({ type: 'sine', freq: 150 * Math.pow(1.02, step), freqEnd: 38, dur: 0.20,
+           gain: 0.26 * k, attack: 0.001 });
+    tone({ type: 'square', freq: 70, freqEnd: 34, dur: 0.16, gain: 0.12 * k, attack: 0.001 });
+    // 炸裂ノイズ（たいこは0.045秒で切っているのでここが最大の違いになる）
+    noiseHit({ dur: 0.22 * k, gain: 0.24 * k, hpFreq: 60, lpFreq: 5200 });
+    noiseHit({ start: 0.01, dur: 0.09, gain: 0.13 * k, hpFreq: 1800, lpFreq: 12000 });
+    tone({ type: 'sawtooth', freq: noteFreq(NOTE.G4 - step), freqEnd: noteFreq(NOTE.G3 - step),
+           dur: 0.09, gain: 0.065 });
+  },
+
+  crushBoomEnd(n) {
+    const c = Math.max(1, Math.min(14, n | 0));
+    const big = Math.max(0, Math.min(1, (c - 2) / 8));
+    tone({ type: 'sine', freq: 120, freqEnd: 28, dur: 0.90 + 0.50 * big, gain: 0.30 + 0.10 * big, attack: 0.003 });
+    tone({ type: 'square', freq: 60, freqEnd: 24, dur: 0.50 + 0.30 * big, gain: 0.12 + 0.06 * big, attack: 0.003 });
+    noiseHit({ dur: 0.80 + 0.50 * big, gain: 0.25 + 0.10 * big, hpFreq: 40, lpFreq: 2600 });
+    noiseHit({ start: 0.02, dur: 0.18, gain: 0.15, hpFreq: 1200, lpFreq: 14000 });
+    // 遅れて崩れ落ちる残骸。和音を一切使わないので「たいこ」の締めと取り違えようがない
+    noiseHit({ start: 0.30, dur: 0.22, gain: 0.10 + 0.05 * big, hpFreq: 300, lpFreq: 5000 });
+    noiseHit({ start: 0.52, dur: 0.18, gain: 0.07 + 0.04 * big, hpFreq: 200, lpFreq: 4000 });
+    if (c >= 8) tone({ type: 'sawtooth', freq: 90, freqEnd: 20, dur: 1.10, gain: 0.09, attack: 0.004 });
+  },
+
+  // きらきら：低音を捨てて金属の音階だけで数える。五音音階なので段差が大きく、
+  //   「何段目か」が半音階（たいこ）よりはっきり分かる。
+  crushBell(i) {
+    const step = Math.max(0, Math.min(11, i | 0));
+    const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+    const f = noteFreq(NOTE.C5 + PENTA[step]);
+    tone({ type: 'triangle', freq: f, dur: 0.22, gain: 0.19, attack: 0.001 });
+    tone({ type: 'sine', freq: f * 2, dur: 0.16, gain: 0.10, attack: 0.001 });
+    // 非整数倍音＝ベルらしさ（整数倍だけだとオルガンに聞こえる）
+    tone({ type: 'sine', freq: f * 3.01, dur: 0.10, gain: 0.05, attack: 0.001 });
+    noiseHit({ dur: 0.03, gain: 0.055, hpFreq: 6000 });   // 撥が当たる音。低域は入れない
+  },
+
+  crushBellEnd(n) {
+    const c = Math.max(1, Math.min(14, n | 0));
+    const big = Math.max(0, Math.min(1, (c - 2) / 8));
+    const arp = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6, NOTE.C6 + 12, NOTE.E6 + 12];
+    const take = Math.min(arp.length, 3 + Math.round(big * 5));
+    for (let i = 0; i < take; i++) {
+      tone({ type: 'triangle', freq: noteFreq(arp[i]), start: i * 0.028, dur: 0.50, gain: 0.105, attack: 0.001 });
+      tone({ type: 'sine', freq: noteFreq(arp[i]) * 2, start: i * 0.028, dur: 0.35, gain: 0.05 });
+    }
+    // 余韻の鐘。ここだけ胴があるので「締まった」と分かる
+    tone({ type: 'sine', freq: noteFreq(NOTE.C4), dur: 0.90 + 0.40 * big, gain: 0.13 + 0.06 * big, attack: 0.004 });
+    noiseHit({ start: 0.02, dur: 0.50, gain: 0.05 + 0.03 * big, hpFreq: 7000 });
+    if (c >= 8) tone({ type: 'sine', freq: noteFreq(NOTE.C6) * 2, start: 0.34, dur: 0.60, gain: 0.085 });
+  },
+
+  // ★R29W2 つかめなかったときの「ビリッ」。紫の予告中に掴もうとすると弾かれる。
+  //   ダメージは無し＝難易度は上げない。奪うのは0.3秒の操作と間合いだけ。
+  numb() {
+    // ざらついた電気：矩形波を速く上下させる（きれいな正弦だと「音」になってしまう）
+    tone({ type: 'square', freq: 320, freqEnd: 140, dur: 0.16, gain: 0.16, attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 90, freqEnd: 62, dur: 0.26, gain: 0.11, attack: 0.001 });
+    tone({ type: 'square', freq: 1500, freqEnd: 900, dur: 0.07, gain: 0.07 });
+    noiseHit({ dur: 0.10, gain: 0.14, hpFreq: 900, lpFreq: 9000 });
+    noiseHit({ start: 0.08, dur: 0.14, gain: 0.09, hpFreq: 400, lpFreq: 5000 });
+    // 弾かれて下がる「ぼよん」＝手応えが返ってきた合図
+    tone({ type: 'triangle', freq: 220, freqEnd: 110, dur: 0.20, gain: 0.10, attack: 0.004 });
+  },
+
   // ---- R24 投げの効果音（段位で3段階）----
   // 実プレイFB「メガ投げ？ボルテクス投げ？と名称は勇ましいが、なにもレベルアップしたことが
   //   感じられない。投げたときの効果音」。段位が上がったのに音が同じなら、耳では何も変わっていない。
@@ -1351,5 +1427,12 @@ export const Sound = {
       masterGain.gain.linearRampToValueAtTime(muted ? 0 : MASTER_VOL, now + 0.05);
     }
     return muted;
+  },
+
+  // 検証用。「音を変えた」を主張するには**鳴った波形**を測るしかないので、
+  // 出力の分岐点を1つだけ外へ出す（boss.js の debugBullets と同じ位置づけ）。
+  // ⚠️ ここから先へは何も繋がない。ゲーム側の音の経路は一切変えない。
+  debugTap() {
+    return ctx ? { ctx, master: masterGain, sfx: sfxGain } : null;
   },
 };
