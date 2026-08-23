@@ -767,14 +767,18 @@ export const BALANCE = {
         hp: 1800, radius: 52, spriteScale: 8, glowScale: 6.8,
         glowOuter: '#8a8f98', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 12,
-        attacks: ['machinegun', 'dash'],
+        attacks: ['machinegun', 'rollbomb', 'dash'],
         machinegun: { telegraphSec: 0.5, burstSec: 0.9, shotInterval: 0.08, bulletSpeed: 264,
                       bulletRadius: 3, damage: 6, spreadDeg: 14, lifeSec: 1.6 },
+        // ★署名攻撃（R29）：ローリングボム。転がる爆弾を扇状にばらまき、止まった場所で予告円→爆発。
+        //   コロガンナー＝球体なので「転がす」。撃つ弾（即着弾）と違い、置かれた爆弾から**逃げる**遊びになる。
+        rollbomb: { telegraphSec: 0.7, count: 3, spreadDeg: 36, speed: 220, decel: 2.2,
+                    fuseSec: 0.85, warnSec: 0.55, blastRadius: 64, damage: 26 },
         dash: { telegraphSec: 1.0, speed: 300, durationSec: 0.7, damage: 20 },
         ring: { telegraphSec: 0.5, count: 5, count2: 7, bulletSpeed: 120,
                 bulletRadius: 4, damage: 12, lifeSec: 3.0 },
         summon: { count: 4, enemyId: 'chibit', ringRadius: 50 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2] },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.4, 2.2] },
         phase2: false, phase2HpRatio: 0.5, phase2IdleMult: 0.85, phase2DashSpeedMult: 1.1,
         rageText: '', bulletTint: '#38e1ff',
         rewardCoins: 100, deathCinematicSec: 1.0,
@@ -786,14 +790,22 @@ export const BALANCE = {
         hp: 3600, radius: 56, spriteScale: 8, glowScale: 7.2,
         glowOuter: '#2a6bff', glowInner: '#7fd0ff',
         chaseSpeed: 70, bodyDamage: 15,
-        attacks: ['cutter', 'dash'],
+        attacks: ['cutter', 'flypass', 'dash'],
         cutter: { telegraphSec: 0.6, count: 2, speed: 180, spreadDeg: 40, bladeRadius: 9,
                   damage: 20, spinSpeed: 12, lifeSec: 2.4, returns: true },
+        // ★署名攻撃（R29）：フライパス。戦闘機なので「一度離れて、猛スピードで頭上を突っ切る」。
+        //   dash（真っすぐ突っ込んで止まる）と違い、後退→加速→通過しながら弾をばら撒いて走り抜ける。
+        //   backSec の後退が予告そのもの＝離れていく機体を見たら横へ逃げる、が正解になる。
+        // 尺は「戻ってくるまでの間」で決めている：後退165px＋通過392px＝主人公の227px先で止まり、
+        // chaseSpeed 70 で約3.2秒で戻る。これ以上伸ばすとボスが遠くて何もできない空白時間になる。
+        flypass: { backSec: 0.55, backSpeed: 300, speed: 560, durationSec: 0.7,
+                   dropInterval: 0.07, bulletSpeed: 104, bulletRadius: 4, damage: 15,
+                   lifeSec: 2.6, sideDeg: 62, bodyDamage: 32 },
         dash: { telegraphSec: 0.9, speed: 340, durationSec: 0.75, damage: 28 },
         ring: { telegraphSec: 0.5, count: 7, count2: 9, bulletSpeed: 132,
                 bulletRadius: 4, damage: 14, lifeSec: 3.2 },
         summon: { count: 5, enemyId: 'chibit', ringRadius: 55 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.0, 2.0] },
+        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.0, 2.2, 2.0] },
         phase2: false, phase2HpRatio: 0.5, phase2IdleMult: 0.8, phase2DashSpeedMult: 1.12,
         // R19d: 弾色は #7fd0ff（仲間スターパピー #7fd8ff と ΔE 5.8＝ほぼ同色）だった。毒々しい蛍光グリーンへ。
         rageText: '', bulletTint: '#1dff12',
@@ -806,16 +818,21 @@ export const BALANCE = {
         hp: 6500, radius: 64, spriteScale: 9, glowScale: 9,
         glowOuter: '#e8720c', glowInner: '#ffd23f',
         chaseSpeed: 66, bodyDamage: 18,
-        attacks: ['vulcan', 'armslam'],
+        attacks: ['vulcan', 'spiral', 'armslam'],
         vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 14, bulletSpeed: 138,
                   bulletRadius: 4, damage: 15, lifeSec: 3.2 },
+        // ★署名攻撃（R29）：うずまきバルカン。名前どおり本体が回りながら3方向へ撃ち続け、
+        //   弾が螺旋を描く。vulcan（主人公を狙う扇）と違い**主人公を狙わない**ので、
+        //   立ち止まらず渦の隙間を縫って走り続けることが正解になる。
+        spiral: { telegraphSec: 0.7, durationSec: 2.1, shotInterval: 0.055, arms: 3, stepDeg: 15,
+                  bulletSpeed: 128, bulletRadius: 4, damage: 14, lifeSec: 3.4 },
         armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 46, meleeDamage: 34 },
         dash: { telegraphSec: 0.9, speed: 360, durationSec: 0.8, damage: 34 },
         ring: { telegraphSec: 0.5, count: 7, count2: 11, bulletSpeed: 132,
                 bulletRadius: 4, damage: 15, lifeSec: 3.5 },
         summon: { count: 6, enemyId: 'chibit', ringRadius: 60 },
-        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.5] },
+        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.6, 2.5] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
         // R19d: 弾色は #ffd23f（主人公の金と完全同一・ΔE 0.0）だった。「味方の攻撃＝金」に統一した以上、
         //   ボスの弾が味方の攻撃に見えてしまうので灼熱の橙赤へ。乱射バルカンには金より似合う。
@@ -829,16 +846,21 @@ export const BALANCE = {
         hp: 11000, radius: 72, spriteScale: 9, glowScale: 10,
         glowOuter: '#38e1ff', glowInner: '#a8f0ff',
         chaseSpeed: 60, bodyDamage: 22,
-        attacks: ['wavecannon', 'armslam', 'summon'],
+        attacks: ['wavecannon', 'tsunami', 'armslam', 'summon'],
         wavecannon: { chargeSec: 1.2, beamWidth: 44, beamLength: 260, damage: 34,
                       sweepDeg: 18, activeSec: 0.5 },
+        // ★署名攻撃（R29）：つなみウェーブ。全方位に広がる弾の"壁"を3枚。ただし各波に切れ目が
+        //   1箇所だけあり、そこを通れば無傷で抜けられる。切れ目は波ごとに回るので、
+        //   「弾を避ける」ではなく「抜け道を探して走る」＝ウェイブロードだけの遊びになる。
+        tsunami: { telegraphSec: 0.9, waves: 3, waveInterval: 0.55, count: 22, gapDeg: 54,
+                   gapSpinDeg: 47, bulletSpeed: 108, bulletRadius: 5, damage: 20, lifeSec: 4.2 },
         armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 144,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 46, meleeDamage: 34 },
         dash: { telegraphSec: 0.85, speed: 370, durationSec: 0.8, damage: 40 },
         ring: { telegraphSec: 0.5, count: 9, count2: 13, bulletSpeed: 142,
                 bulletRadius: 4, damage: 16, lifeSec: 3.6 },
         summon: { count: 6, enemyId: 'chibit', ringRadius: 65, telegraphSec: 0.6 },
-        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.0, 2.5] },
+        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.6, 2.0, 2.5] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
         rageText: 'ウェイブロード かくせい！', bulletTint: '#a8f0ff',
         rewardCoins: 300, deathCinematicSec: 1.6,
@@ -850,16 +872,23 @@ export const BALANCE = {
         hp: 18000, radius: 76, spriteScale: 8, glowScale: 10,
         glowOuter: '#e8720c', glowInner: '#ff4d4d',
         chaseSpeed: 60, bodyDamage: 26,
-        attacks: ['missile', 'vulcan', 'summon'],
-        missile: { telegraphSec: 0.6, count: 4, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
-                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        attacks: ['missile', 'barrage', 'vulcan', 'summon'],
+        // ミサイルの速度は R29 で全体的に引き上げた（実プレイFB「ミサイルの速度が遅すぎる」）。
+        missile: { telegraphSec: 0.6, count: 4, launchSpeed: 300, homingRate: 2.4, maxTurnDeg: 82,
+                   speed: 300, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        // ★署名攻撃（R29）：ぜんだんはっしゃ（フルバレッジ）。背中のミサイルラックから全弾を
+        //   真上へ打ち上げ、主人公の周りへ着弾予告マーカーが次々に降り、時間差で爆発する絨毯爆撃。
+        //   実プレイFB「ビジュアルでミサイルを搭載しているのだから、それを活かした攻撃を」への回答。
+        //   狙いは**足元を塗り潰される怖さ**なので、着弾点は主人公の"進む先"へ寄せる（leadSec）。
+        barrage: { telegraphSec: 1.0, count: 12, launchInterval: 0.075, spread: 132, leadSec: 0.55,
+                   warnSec: 0.9, blastRadius: 62, damage: 30 },
         vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 14, bulletSpeed: 138,
                   bulletRadius: 4, damage: 15, lifeSec: 3.2 },
         dash: { telegraphSec: 0.85, speed: 380, durationSec: 0.85, damage: 46 },
         ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 144,
                 bulletRadius: 4, damage: 17, lifeSec: 3.6 },
         summon: { count: 7, enemyId: 'chibit', ringRadius: 68, telegraphSec: 0.6 },
-        idleSec: { afterSpawn: 2.8, betweenAttacks: [2.2, 2.2, 2.2] },
+        idleSec: { afterSpawn: 2.8, betweenAttacks: [2.2, 2.8, 2.2, 2.2] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.68, phase2DashSpeedMult: 1.18,
         rageText: 'ミサイルガ ぶちギレ！', bulletTint: '#ff4d4d',
         rewardCoins: 380, deathCinematicSec: 1.7,
@@ -876,16 +905,30 @@ export const BALANCE = {
       //    radius/glow/spawnDist も追随縮小（通常ボスの radius 64〜76 帯へ）。
       {
         tier: 'final', bossId: 'maou', final: true,
-        warnSec: 358, spawnSec: 360, spawnDist: 320,
-        hp: 28000, radius: 68, spriteScale: 8, glowScale: 9.5,
+        warnSec: 358, spawnSec: 360, spawnDist: 350,
+        // R29: 実プレイFB「1.2倍巨大化したうえで、弱点部分を作成」。
+        //   spriteScale 8→9.6・radius 68→82・glow/spawnDist も同率で追随（見た目と判定を一致させる）。
+        //   HP は 28000→20000 へ下げた。弱点コア以外が通らなくなるぶん、総HPを据え置くと
+        //   撃破までの時間だけが伸びて「硬いだけ」になるため（狙う難しさに、長さを足さない）。
+        hp: 20000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
         glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
         attacks: ['laser', 'knuckle', 'wirearm', 'missile', 'nova'],
+        // ★弱点コア（R29・マオウレクス専用）。胸の装甲が開いて露出した炉心。
+        //   ここに**弾が当たったときだけ**ダメージが通る。本体は「カキン！」と弾く。
+        //   offY は本体半径に対する比（胸の高さ）。sway で左右にゆっくり泳ぐので、狙いを合わせる遊びが要る。
+        //   mul は命中時の倍率＝「狙って当てた」ことへの報酬（当てにくさに見合う手応えを付ける）。
+        weak: {
+          radius: 27, offY: -0.30, swayX: 30, swaySec: 3.4, phase2SwaySec: 2.1,
+          mul: 2.4, tint: '#ff2b2b', coreTint: '#fff2a8', label: 'コアヒット！',
+        },
         laser: { chargeSec: 1.0, beamWidth: 46, beamLength: 420, damage: 42,
                  sweepFromDeg: -42, sweepToDeg: 42, activeSec: 0.7 },
         // 特別攻撃②：多連ホーミングミサイル斉射（count 4→7・扇状に一斉発射で"斉射"感）
-        missile: { telegraphSec: 0.6, count: 7, launchSpeed: 216, homingRate: 2.4, maxTurnDeg: 70,
-                   speed: 180, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.5 },
+        // R29: 実プレイFB「ミサイルの速度が遅すぎる。もっと早く」。180→340（+89%）・旋回も 70→88°/秒。
+        //   旋回半径は 340 /(88°/秒) ≒ 221px と大きいままなので、「怖いが横へ切れば抜けられる」を保つ。
+        missile: { telegraphSec: 0.55, count: 7, launchSpeed: 340, homingRate: 2.4, maxTurnDeg: 88,
+                   speed: 340, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.2 },
         // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
         nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
                 bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },
@@ -897,8 +940,13 @@ export const BALANCE = {
         // 最強武器②ワイヤーアーム（maou 専用）：両拳をワイヤーで主人公方向へ射出し、最大長 maxLen まで伸ばして
         // 殴り、手繰り戻す（飛ばしっぱなしにしない）。extendSpeed で伸長、turnDeg/秒 のマイルド追尾（横移動で振り切れる）。
         // damage は現状最強クラス(dash 52)超えの大ダメージだが、プレイヤー maxHp 100 未満＝満タンから一撃死しない値。
-        wirearm: { teleSec: 1.1, shotSec: 0.5, backSec: 0.35, maxLen: 210,
-                   extendSpeed: 640, fistRadius: 16, damage: 64, turnDeg: 55 },
+        // R29: 実プレイFB「ロケットパンチも射出音と攻撃音を激しく、速度を速くし、攻撃範囲も広げて。
+        //   主人公は遠距離攻撃なのだから、マオウレクスの攻撃は遠距離の相手に脅威とならないと
+        //   クリア意欲を刺激しない」。射程 210→330（+57%・投げの間合いに届く）／伸長 640→1080（+69%）／
+        //   拳の半径 16→28（+75%）。追尾は 55→64°/秒に留める（横へ切れば振り切れる余地は残す）。
+        //   ダメージ 64 は据え置き（プレイヤーHP140 の46%＝満タンから一撃死しない上限）。
+        wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.3, maxLen: 330,
+                   extendSpeed: 1080, fistRadius: 28, damage: 64, turnDeg: 64 },
         vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },

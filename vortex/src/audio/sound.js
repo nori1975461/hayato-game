@@ -763,6 +763,29 @@ const SFX = {
     tone({ type: 'sine', freq: 150, freqEnd: 62, dur: 0.09, gain: 0.11, attack: 0.002 });
     noiseHit({ dur: 0.05, gain: 0.05, hpFreq: 150, lpFreq: 1400 });
   },
+  // R29 ミサイル発射音（実プレイFB「発射音も作って」）。飛翔音(missileFly)は"迫ってくる"音なので、
+  // 発射の瞬間＝**点火の破裂**が要る。「シュボッ！ヒュゴォ」の順で、点火→加速の2段に分けて鳴らす。
+  // 斉射で7発同時に鳴っても潰れないよう、飛翔音より短く（0.26秒）ピークを立てる。
+  missileLaunch(power, pitch) {
+    const p = pitch == null ? 1 : pitch;
+    const g = 0.9 * (power == null ? 1 : power);
+    noiseHit({ dur: 0.045, gain: 0.17 * g, hpFreq: 300, lpFreq: 7000 });          // 点火の破裂
+    noiseHit({ start: 0.02, dur: 0.24, gain: 0.10 * g, hpFreq: 600, lpFreq: 5200 }); // 噴射の吹き出し
+    tone({ type: 'square', freq: 1500 * p, freqEnd: 320 * p, dur: 0.08, gain: 0.11 * g });   // 撃鉄の弾ける音
+    tone({ type: 'sawtooth', freq: 150 * p, freqEnd: 600 * p, dur: 0.26, gain: 0.11 * g, attack: 0.004 }); // 加速のうなり
+    tone({ type: 'triangle', freq: 900 * p, freqEnd: 2600 * p, dur: 0.22, gain: 0.06 * g, attack: 0.012 }); // 抜けるホイッスル
+  },
+  // R29 ロケットパンチの命中/衝撃音（実プレイFB「攻撃音を激しく」）。metalSlam の流用をやめ、
+  // 「ゴキィン！」＝金属が拉げる低音＋高域の破断音＋長い胴鳴りで、殴られた質量を出す。
+  rocketHit() {
+    tone({ type: 'sine', freq: 300, freqEnd: 24, dur: 0.46, gain: 0.36, attack: 0.001 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 20, dur: 0.42, gain: 0.18, attack: 0.001 });
+    tone({ type: 'square', freq: 1250, freqEnd: 120, dur: 0.16, gain: 0.13 });
+    tone({ type: 'sawtooth', freq: 640, freqEnd: 90, dur: 0.20, gain: 0.09 });
+    noiseHit({ dur: 0.05, gain: 0.19, hpFreq: 120, lpFreq: 6500 });   // 拉げた瞬間の鋭いアタック
+    noiseHit({ dur: 0.34, gain: 0.15, hpFreq: 240, lpFreq: 3800 });   // 長く残る胴鳴り
+    noiseHit({ dur: 0.11, gain: 0.11, hpFreq: 3200, lpFreq: 14000 }); // 破断した金属片の高域
+  },
   // 最終ボス ナックルウェーブのミサイル飛翔：ジェット/ロケットの噴射轟音＋上昇ホイッスル。
   // 噴射ノイズを厚く敷き、鋭いホイッスルが駆け上がって「複数ミサイルが噴き出して飛んでくる」迫力を出す。
   missileFly() {

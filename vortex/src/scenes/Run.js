@@ -1656,8 +1656,18 @@ export class RunScene extends Phaser.Scene {
   // R21W2: src は attacker の種別。
   //   'manual' = 主人公の手動の一撃（＋必殺）／'hero' = 主人公の自動拳／'ally' = 仲間
   // ★とどめを刺せるのは manual だけ。それ以外はHPが尽きても「よろけ」にしかできない。
-  dealDamage(e, dmg, color, src) {
+  // R29: at = { x, y, r } … 命中座標（r>0 は爆風の半径）。最終ボスの弱点コア判定にだけ使う。
+  //   省略＝座標を持たない近接攻撃（素手の一撃・自動拳・オーラ）。弱点持ちボスには通らない。
+  dealDamage(e, dmg, color, src, at) {
     if (!e.active) return;
+    // ★弱点コア（マオウレクス）。本体に当たった攻撃はダメージにならず弾かれる。
+    //   ここに置くのは dealDamage が全経路の合流点だから（個別の攻撃側に散らすと必ず漏れる）。
+    if (e.isBoss && this.boss && this.boss.hasWeak) {
+      const w = this.boss.weakGate(src, at);
+      if (!w.pass) { this.boss.deflect(at && at.x, at && at.y); return; }
+      if (w.mul !== 1) dmg = Math.max(1, Math.round(dmg * w.mul));
+      if (w.core) this.boss.coreHitFx(at.x, at.y);
+    }
     // ボス倍率：全経路がここを通るので orbit.js を触らずに漏れなく効く。
     // 従来は仲間に倍率が無く主人公だけ半減という、方針と真逆の構造だった。
     if (e.isBoss) {
@@ -1996,7 +2006,8 @@ export class RunScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= rr * rr) {
           // R21: 着弾スパークは dealDamage('ally') 側へ集約した（FB#5でここに直書きしていた
           // ぶんを移した。仲間の全攻撃で同じ反応にするため・スロットルも共通）。
-          this.dealDamage(e, b.damage, b.color, 'ally');
+          // R29: 命中座標を渡す＝最終ボスの弱点コアに当たったかを判定できる
+          this.dealDamage(e, b.damage, b.color, 'ally', { x: b.x, y: b.y });
           if (b.pierce > 0) {
             b.pierce -= 1;
             b.hit.add(e.id);          // まだ飛ぶ（次の敵を貫く）
@@ -2023,7 +2034,7 @@ export class RunScene extends Phaser.Scene {
       const cx = x + dirX * t, cy = y + dirY * t;
       const dx = e.x - cx, dy = e.y - cy;
       const rr = half + e.radius;
-      if (dx * dx + dy * dy <= rr * rr) this.dealDamage(e, damage, color, 'ally');
+      if (dx * dx + dy * dy <= rr * rr) this.dealDamage(e, damage, color, 'ally', { x: cx, y: cy });
     }
     // 見た目（durationSec でフェード消滅）
     // Wave B: にじビーム。w_rainbow は彩色済みなので tint は白（＝色を潰さない）

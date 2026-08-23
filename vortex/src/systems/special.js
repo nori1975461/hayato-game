@@ -45,7 +45,9 @@ export function createSpecial(run) {
         const dx = e.x - px, dy = e.y - py;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const mul = dist <= ds.nearDist ? ds.nearMul : dist <= ds.midDist ? ds.midMul : ds.farMul;
-        run.dealDamage(e, Math.round(S.bossDamage * mul), e.color, 'manual');   // R21W2: 手動発動なので帰属は manual
+        // R21W2: 手動発動なので帰属は manual。
+        // R29: 必殺は爆風なので「弱点コアが爆心から S.radius 以内か」で通す（狙って当てた訳ではないので倍率は付かない）。
+        run.dealDamage(e, Math.round(S.bossDamage * mul), e.color, 'manual', { x: px, y: py, r: S.radius });
       } else {
         run.killEnemy(e, e.color, 'manual');   // R21W2: 手動発動なので帰属は manual（よろけも巻き込んで割れる）
       }

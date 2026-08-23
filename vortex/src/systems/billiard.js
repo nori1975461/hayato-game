@@ -846,7 +846,7 @@ export function createBilliard(run) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
       const hpBefore = e.hp;
-      run.dealDamage(e, dmg, L.color, 'manual');
+      run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y });   // R29: 命中座標＝弱点コア判定
       specialImpact(s, e, Math.max(0, hpBefore - e.hp));
       return;
     } else {
@@ -908,7 +908,7 @@ export function createBilliard(run) {
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
       const hpBefore = e.hp;
-      run.dealDamage(e, dmg, T.color, 'manual');
+      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y });   // R29: 命中座標＝弱点コア判定
       if (e.isBoss) bossImpact(s, e, Math.max(0, hpBefore - e.hp), T);
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）
@@ -1156,6 +1156,28 @@ export function createBilliard(run) {
       if (s.life <= 0) { burstEnd(s); continue; }
       for (const e of run.enemies) {
         if (!e.active || s.hit.has(e.id)) continue;
+        // ★R29 弱点コア持ちボス（マオウレクス）は、当たり判定そのものが本体ではなくコア。
+        //   本体の輪郭(radius 82)で当たり判定を取ると、コア(中心から約25px)には物理的に一生届かない。
+        //   そこで本体は「触れると弾かれるだけの装甲」にし、ダメージ判定はコア円だけで取る。
+        const weak = (e.isBoss && run.boss && run.boss.hasWeak) ? run.boss.weakPoint() : null;
+        if (weak) {
+          const wrr = s.radius + weak.r;
+          const wdx = weak.x - s.x, wdy = weak.y - s.y;
+          if (wdx * wdx + wdy * wdy <= wrr * wrr) {
+            s.hit.add(e.id);
+            hitOne(s, e);
+            if (s.hp <= 0) { burstEnd(s); break; }
+          } else {
+            const brr = s.radius + e.radius;
+            const bdx = e.x - s.x, bdy = e.y - s.y;
+            // 装甲に触れた1回だけ「カキン！」を出す（弾は止めない＝奥のコアへ通り抜けられる）
+            if (bdx * bdx + bdy * bdy <= brr * brr && !s.__deflected) {
+              s.__deflected = 1;
+              run.boss.deflect(s.x, s.y);
+            }
+          }
+          continue;
+        }
         const rr = s.radius + e.radius;
         const dx = e.x - s.x, dy = e.y - s.y;
         if (dx * dx + dy * dy > rr * rr) continue;

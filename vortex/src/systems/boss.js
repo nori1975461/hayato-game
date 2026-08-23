@@ -34,8 +34,8 @@ const PART_ORIGIN = {
 // dur 全体を state='maouIntro' として保持し、fadeSec でゆっくり姿を現す。lineXAt/telopAt は
 // 登場開始からの経過秒(it = dur - stateT)でセリフ/テロップを1回ずつ出す閾値。
 const MAOU_INTRO = {
-  dur: 3.6, fadeSec: 1.8,
-  line1At: 1.0, line2At: 2.0, telopAt: 2.9,
+  dur: 4.4, fadeSec: 1.8,
+  line1At: 1.0, line2At: 2.0, telopAt: 2.9, hintAt: 3.7,   // hint＝弱点コアの遊び方を先に教える
   dimAlpha: 0.42,     // 登場中の暗幕の不透明度（子ども安全：< 0.5 厳守）
 };
 // 登場イベントの暗幕/前面化に使う depth。暗幕は雑魚(spr=9/glow=4)・敵弾(11)・プレイヤー(10)より前・
@@ -81,6 +81,10 @@ export function createBoss(run) {
   const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
   let introDim = null;          // 登場イベント中の暗幕（雑魚を沈めボス/セリフを引き立てる・intro 終了で破棄）
   const bullets = [];           // ボス弾（プレイヤーへ当たる）
+  const strikes = [];           // R29 着弾予告→時間差爆発（ローリングボム／ぜんだんはっしゃ）
+  let strikeSfxT = -9;          // 爆発音/揺れの間引き用（同時多発でも渋滞させない）
+  let weakEls = null;           // R29 弱点コアの表示（cfg.weak を持つボスのみ）
+  let deflectT = -9, deflectTextT = -9, coreTextT = -9;   // 弾かれ/コアヒットの演出の間引き
   const pool = [];
   let beam = null;              // 波動砲/レーザーの薙ぎビーム（同時1本）
   let beamImg = null;
@@ -98,6 +102,7 @@ export function createBoss(run) {
     makeBeamTex('boss_beam', 8, 16);
     makeFist('boss_maou_fist');       // 最終ボス ワイヤーアームのゴツい鉄拳
     makeTomahawk('boss_tomahawk');    // 最終ボス ナックルウェーブのトマホーク型ミサイル
+    makeBomb('boss_bomb', 14);        // コロガンナー ローリングボムの球体爆弾
   }
   // 最終ボスの最強武器「ワイヤーアーム」の拳＝ゴツい装甲鉄拳（右向き＝knuckle が +X 側）。
   // MAOU_PAL 系のガンメタル＋シルバー縁＋赤/シアンのアクセント＋リベット。少し大きめに作る。
@@ -231,6 +236,19 @@ export function createBoss(run) {
     g.generateTexture(key, s, s);
     g.destroy();
   }
+  // R29 ローリングボム：ずんぐりした球体爆弾（外殻＋上部の導火線口＋ハイライト）。白で作り実行時 tint。
+  function makeBomb(key, s) {
+    if (run.textures.exists(key)) return;
+    const g = newG();
+    const c = s / 2;
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(c, c + s * 0.06, c - 0.5);          // 本体（やや下寄り＝地面に転がる質感）
+    g.fillRect(c - s * 0.12, 0, s * 0.24, s * 0.22);  // 導火線の口金
+    g.fillStyle(0xffffff, 0.55);
+    g.fillCircle(c - s * 0.2, c - s * 0.1, s * 0.13); // ハイライト
+    g.generateTexture(key, s, s);
+    g.destroy();
+  }
   // ビーム帯（幅方向=縦にソフトなグラデ）。origin(0,0.5)・setDisplaySize(len,width) で使う。
   function makeBeamTex(key, w, h) {
     if (run.textures.exists(key)) return;
@@ -346,6 +364,12 @@ export function createBoss(run) {
                          introText('ワイヤーアームはっしゃ', '#46e6ff', 156, 18, 1); break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
       case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
+      // ★R29 署名攻撃（通常ボス5体に1種類ずつ）。どれも「飛んでくる弾を避ける」以外の遊びを1つ足す。
+      case 'rollbomb':   state = 'rollTele';   stateT = cfg.rollbomb.telegraphSec; break;
+      case 'flypass':    state = 'flyBack';    stateT = cfg.flypass.backSec; Sound.sfx('warning'); break;
+      case 'spiral':     state = 'spiralTele'; stateT = cfg.spiral.telegraphSec; Sound.sfx('specialCharge'); break;
+      case 'tsunami':    state = 'tsuTele';    stateT = cfg.tsunami.telegraphSec; Sound.sfx('specialCharge'); break;
+      case 'barrage':    state = 'barTele';    stateT = cfg.barrage.telegraphSec; Sound.sfx('warning'); break;
       default:           afterAttack(); break;
     }
   }
@@ -401,6 +425,13 @@ export function createBoss(run) {
           introText('【マオウレクスが現れた】', '#ffffff', 186, 22, 5);
           run.shake(220, 4);
           Sound.sfx('bigBoom');   // 「現れた」の一撃感（既存SFX）
+        }
+        // ★弱点コアの遊び方は、最初に必ず言葉で教える。
+        //   「当たっているのに減らない」は、理由が分からないと理不尽にしか感じられないため。
+        if (introStage < 4 && cfg.weak && it >= MAOU_INTRO.hintAt) {
+          introStage = 4;
+          introText('よわてん：むねの コアを ねらえ！', cfg.weak.coreTint, 216, 17, 3);
+          Sound.sfx('warning');
         }
         if (stateT <= 0) endIntro();
         break;
@@ -544,6 +575,93 @@ export function createBoss(run) {
         if (stateT <= 0) { doSummon(); afterAttack(); }
         break;
 
+      // ---- R29 コロガンナー：ローリングボム（転がる爆弾を撒く→止まった場所で予告→爆発）----
+      case 'rollTele':
+        if (stateT <= 0) { fireRollBombs(); afterAttack(); }
+        break;
+
+      // ---- R29 ジェットバイパー：フライパス（後退して助走→高速で突っ切りつつ弾を落とす）----
+      case 'flyBack': {
+        const fp = cfg.flypass;
+        moveBoss(-nx * fp.backSpeed, -ny * fp.backSpeed, dt);   // 主人公から離れる＝これが予告
+        if (stateT <= 0) {
+          lockX = nx; lockY = ny;                                // 助走の終点で進路を固定
+          state = 'flypass'; stateT = fp.durationSec; shotAcc = 0; shotIdx = 0;
+          Sound.sfx('rush'); run.shake(120, 3);
+        }
+        break;
+      }
+      case 'flypass': {
+        const fp = cfg.flypass;
+        moveBoss(lockX * fp.speed, lockY * fp.speed, dt);
+        shotAcc += dt;
+        while (shotAcc >= fp.dropInterval) {
+          shotAcc -= fp.dropInterval;
+          dropFlypassBullets(fp);
+        }
+        if (stateT <= 0) afterAttack();
+        break;
+      }
+
+      // ---- R29 ウズバルカン：うずまきバルカン（本体が回りながら螺旋弾）----
+      case 'spiralTele':
+        if (stateT <= 0) {
+          state = 'spiralFire'; stateT = cfg.spiral.durationSec; shotAcc = 0; shotIdx = 0;
+          run.shake(90, 3);
+        }
+        break;
+      case 'spiralFire': {
+        const sp = cfg.spiral;
+        shotAcc += dt;
+        while (shotAcc >= sp.shotInterval) {
+          shotAcc -= sp.shotInterval;
+          fireSpiralShot(sp, shotIdx);
+          shotIdx++;
+        }
+        if (stateT <= 0) afterAttack();
+        break;
+      }
+
+      // ---- R29 ウェイブロード：つなみウェーブ（切れ目が1箇所ある弾の壁を3枚）----
+      case 'tsuTele':
+        if (stateT <= 0) {
+          state = 'tsuFire'; stateT = cfg.tsunami.waves * cfg.tsunami.waveInterval + 0.1;
+          shotAcc = cfg.tsunami.waveInterval; shotIdx = 0;   // 1枚目は即発射
+        }
+        break;
+      case 'tsuFire': {
+        const tw = cfg.tsunami;
+        shotAcc += dt;
+        while (shotAcc >= tw.waveInterval && shotIdx < tw.waves) {
+          shotAcc -= tw.waveInterval;
+          fireTsunamiWave(tw, shotIdx);
+          shotIdx++;
+        }
+        if (shotIdx >= tw.waves && stateT <= 0) afterAttack();
+        break;
+      }
+
+      // ---- R29 ミサイルガ：ぜんだんはっしゃ（全弾を打ち上げ→着弾予告→時間差爆発）----
+      case 'barTele':
+        if (stateT <= 0) {
+          const bg = cfg.barrage;
+          state = 'barFire'; stateT = bg.count * bg.launchInterval + 0.1;
+          shotAcc = bg.launchInterval; shotIdx = 0;
+          run.floatText(boss.x, boss.y - boss.radius - 12, 'ぜんだん はっしゃ！', '#ff8a3d');
+        }
+        break;
+      case 'barFire': {
+        const bg = cfg.barrage;
+        shotAcc += dt;
+        while (shotAcc >= bg.launchInterval && shotIdx < bg.count) {
+          shotAcc -= bg.launchInterval;
+          fireBarrageOne(bg, shotIdx);
+          shotIdx++;
+        }
+        if (shotIdx >= bg.count && stateT <= 0) afterAttack();
+        break;
+      }
+
       default:
         break;
     }
@@ -598,11 +716,18 @@ export function createBoss(run) {
         { radius: mk.radius, damage: mk.damage, life: mk.lifeSec, kind: 'missile',
           maxTurn: mk.maxTurnDeg * D2R, speed: mk.speed, blast: mk.blastDamage });
     }
-    Sound.sfx('beam');
+    // R29: 発射音（実プレイFB「発射音も作って」）。斉射なので3発ぶんだけ音程をずらして重ね、
+    //   「シュボボッ！」と束で撃ち出された厚みを作る（7発ぶん鳴らすと潰れて1発に聞こえる）。
+    Sound.sfx('missileLaunch');
+    Sound.sfx('missileLaunch', 0.7, 1.12);
+    Sound.sfx('missileLaunch', 0.55, 0.9);
+    Sound.sfx('missileFly', 0.8);
+    run.shake(140, 4);
     recoil(aim);                                        // 発射の反動でボス本体がのけぞる
     const mt = tip();
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(mt.x, mt.y, aim, int(cfg.bulletTint));
     run.spawnParticles(mt.x, mt.y, int(cfg.bulletTint), 10);
+    run.spawnParticles(mt.x, mt.y, 0xffb020, 8);
   }
 
   // 波動砲：前方へ太い短命ビームを sweepDeg 分だけ薙ぐ
@@ -633,6 +758,141 @@ export function createBoss(run) {
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, base, int(cfg.bulletTint));
     Sound.sfx('shoot'); run.shake(60, 3);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 12);
+  }
+
+  // ============ R29 署名攻撃（通常ボス5体・1体につき1種類） ============
+  // ローリングボム（コロガンナー）：転がる爆弾を扇状に撒く。止まると予告円が出て、少し遅れて爆発。
+  // 「飛んでくる弾を避ける」ではなく「置かれた爆弾から離れる」＝立ち位置を動かす遊びになる。
+  function fireRollBombs() {
+    const rb = cfg.rollbomb, mid = (rb.count - 1) / 2;
+    for (let i = 0; i < rb.count; i++) {
+      const a = aim + (i - mid) * (rb.spreadDeg * D2R);
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * rb.speed, Math.sin(a) * rb.speed,
+        { radius: 7, damage: 0, life: rb.fuseSec, kind: 'bomb', decel: rb.decel, noHit: true });
+    }
+    Sound.sfx('metalSlam', 0.4, 1.6);
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
+    recoil(aim);
+  }
+
+  // フライパス（ジェットバイパー）：通過中に進行方向の左右へ弾をばら撒く。真後ろへは撒かない
+  // ＝「通り過ぎたら安全」が成立し、横へ逃げる正解が読める。
+  function dropFlypassBullets(fp) {
+    const base = Math.atan2(lockY, lockX);
+    for (const s of [1, -1]) {
+      const a = base + s * (Math.PI / 2);   // 進行方向の真横（前後には撒かない）
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * fp.bulletSpeed, Math.sin(a) * fp.bulletSpeed,
+        { radius: fp.bulletRadius, damage: fp.damage, life: fp.lifeSec });
+    }
+    if (shotIdx % 3 === 0) Sound.sfx('shoot');
+    run.spawnParticles(boss.x - lockX * 14, boss.y - lockY * 14, int(cfg.bulletTint), 3);
+    shotIdx++;
+  }
+
+  // うずまきバルカン（ウズバルカン）：主人公を狙わず、arms 本の腕を stepDeg ずつ回しながら撃ち続ける。
+  // 弾が渦を描くので、立ち止まると必ず当たる／走り続ければ隙間を抜けられる、という別の遊びになる。
+  function fireSpiralShot(sp, i) {
+    const base = i * sp.stepDeg * D2R;
+    for (let k = 0; k < sp.arms; k++) {
+      const a = base + (Math.PI * 2 * k) / sp.arms;
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * sp.bulletSpeed, Math.sin(a) * sp.bulletSpeed,
+        { radius: sp.bulletRadius, damage: sp.damage, life: sp.lifeSec });
+    }
+    if (i % 4 === 0) { Sound.sfx('shoot'); run.shake(40, 2); }
+  }
+
+  // つなみウェーブ（ウェイブロード）：全方位の壁を1枚。ただし gapDeg 分だけ穴を空ける。
+  // 穴の位置は波ごとに gapSpinDeg 回るので、次の穴を探して走り抜ける遊びになる。
+  function fireTsunamiWave(tw, w) {
+    const gapCenter = aim + Math.PI + w * tw.gapSpinDeg * D2R;   // 1枚目の穴は主人公の背後側
+    const half = tw.gapDeg * 0.5 * D2R;
+    for (let i = 0; i < tw.count; i++) {
+      const a = (Math.PI * 2 * i) / tw.count;
+      if (Math.abs(Phaser.Math.Angle.Wrap(a - gapCenter)) < half) continue;   // ここが抜け道
+      spawnBullet2(boss.x, boss.y, Math.cos(a) * tw.bulletSpeed, Math.sin(a) * tw.bulletSpeed,
+        { radius: tw.bulletRadius, damage: tw.damage, life: tw.lifeSec });
+    }
+    // 抜け道の方向にだけ光の筋を出す＝穴の位置を目で探せるようにする（理不尽にしない）
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
+    Sound.sfx('ringwave');
+    run.shake(90, 3);
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
+  }
+
+  // ぜんだんはっしゃ（ミサイルガ）：背中のラックからミサイルを1発ずつ真上へ打ち上げ、
+  // 主人公の"進む先"へ着弾予告マーカーを落とす。warnSec 後に順番に爆発＝足元が塗り潰されていく。
+  function fireBarrageOne(bg, i) {
+    // 打ち上げの見た目（当たり判定なし）。ラック位置からミサイルが飛び出して画面上へ消える。
+    const sx = boss.x + (i % 2 === 0 ? -1 : 1) * boss.radius * 0.42;
+    const sy = boss.y - boss.radius * 0.2;
+    launchVisual(sx, sy);
+    // 着弾点：主人公の現在地＋進行方向の予測（leadSec 秒先）＋ばらつき。1発目は必ず足元へ落とす。
+    const lead = i === 0 ? 0 : bg.leadSec;
+    const tx = run.player.x + (run.player.vx || 0) * lead + (i === 0 ? 0 : run.rng.range(-bg.spread, bg.spread));
+    const ty = run.player.y + (run.player.vy || 0) * lead + (i === 0 ? 0 : run.rng.range(-bg.spread, bg.spread));
+    spawnStrike(tx, ty, bg.warnSec, bg.blastRadius, bg.damage);
+    Sound.sfx('missileLaunch', 0.7, 1 + (i % 3) * 0.05);
+    if (i % 3 === 0) run.shake(50, 2);
+    recoil(aim);
+  }
+
+  // 打ち上げの見た目だけの1発（判定なし）。上へ加速しながら小さくなって消える。
+  function launchVisual(x, y) {
+    const img = run.add.image(x, y, 'boss_missile').setDepth(11).setTint(int(cfg.bulletTint))
+      .setDisplaySize(14, 26).setRotation(Math.PI);       // 頭を上へ
+    run.tweens.add({
+      targets: img, y: y - 190, scaleX: 0.4, scaleY: 0.4, alpha: 0,
+      duration: 480, ease: 'Cubic.in', onComplete: () => img.destroy(),
+    });
+    run.spawnParticles(x, y, 0xffb020, 4);
+  }
+
+  // ============ 着弾予告→爆発（ローリングボム／ぜんだんはっしゃ が共用） ============
+  // 予告円が縮んで着弾点へ収束し、0になった瞬間に爆発する。ボス弾と違い**位置が先に見える**ので、
+  // 「避ける」ではなく「そこに居ないようにする」遊びになる。生成物は必ず clearStrikes で破棄する。
+  function spawnStrike(x, y, delay, radius, damage) {
+    const color = int(cfg.bulletTint);
+    const g = run.add.graphics().setDepth(5);
+    const halo = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(5).setTint(color)
+      .setScale(radius / 40).setAlpha(0.18);
+    strikes.push({ x, y, t: delay, max: delay, radius, damage, color, g, halo });
+  }
+  function updateStrikes(dt) {
+    for (let i = strikes.length - 1; i >= 0; i--) {
+      const s = strikes[i];
+      s.t -= dt;
+      const p = clamp01(1 - s.t / s.max);
+      if (s.t <= 0) { explodeStrike(s); destroyStrike(s); strikes.splice(i, 1); continue; }
+      const blink = (Math.floor(run.elapsed * 16) % 2 === 0) ? 1 : 0.45;
+      s.g.clear();
+      s.g.lineStyle(3, s.color, 0.85 * blink);
+      s.g.strokeCircle(s.x, s.y, s.radius);                    // 爆発範囲（動かない）
+      s.g.lineStyle(2, 0xffffff, 0.8 * blink);
+      s.g.strokeCircle(s.x, s.y, s.radius * (1 - p * 0.82));   // 収束する内側の輪＝残り時間
+      s.halo.setAlpha(0.14 + 0.22 * p);
+    }
+  }
+  function explodeStrike(s) {
+    const dx = run.player.x - s.x, dy = run.player.y - s.y;
+    const rr = s.radius + run.player.radius;
+    if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(s.damage, s.x, s.y);
+    run.spawnParticles(s.x, s.y, s.color, 16);
+    run.spawnParticles(s.x, s.y, 0xffe24a, 10);
+    if (run.fx && run.fx.hitSpark) run.fx.hitSpark(s.x, s.y, 0xffffff);
+    // 爆発は同時多発するので、音と揺れだけ間引く（渋滞させると1発も感じられなくなる）
+    if (run.elapsed - strikeSfxT >= 0.11) {
+      strikeSfxT = run.elapsed;
+      Sound.sfx('bigBoom', 0.5);
+      run.shake(120, 4);
+    }
+  }
+  function destroyStrike(s) {
+    if (s.g) s.g.destroy();
+    if (s.halo) s.halo.destroy();
+  }
+  function clearStrikes() {
+    for (const s of strikes) destroyStrike(s);
+    strikes.length = 0;
   }
 
   // アームスラム：叩きつけの瞬間に衝撃波リング＋至近メレー
@@ -692,7 +952,11 @@ export function createBoss(run) {
       arm.len = 0; arm.hit = false; arm.ang = a0;
       arm.sx = sh.x; arm.sy = sh.y; arm.fx = sh.x; arm.fy = sh.y;
     }
-    Sound.sfx('wireShot'); Sound.sfx('wireFly'); run.shake(120, 4);
+    // R29: 射出音を激しく（実プレイFB）。金属スイープ(wireShot)だけだと「ギーン」で終わるので、
+    //   ロケットの点火(missileLaunch)を重ねて「ドシュッ！ギュイィン」の2段にし、揺れも倍にする。
+    Sound.sfx('wireShot'); Sound.sfx('missileLaunch', 1, 0.75); Sound.sfx('wireFly');
+    run.shake(220, 7); whiteFlash(0.3);
+    for (const arm of wire.arms) run.spawnParticles(arm.sx, arm.sy, 0xffb020, 8);
     drawWire();
   }
   function updateWire(dt) {
@@ -715,7 +979,10 @@ export function createBoss(run) {
         const rr = wk.fistRadius + run.player.radius;
         if (dx * dx + dy * dy <= rr * rr) {
           arm.hit = true; run.hitPlayer(wk.damage, arm.fx, arm.fy);
-          Sound.sfx('hit'); run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 10);
+          // R29: 命中の瞬間を「殴られた」音にする（hit の軽い音では 64 ダメージの重さに合わない）
+          Sound.sfx('rocketHit'); run.shake(300, 8);
+          run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 16);
+          run.spawnParticles(arm.fx, arm.fy, 0xffffff, 10);
         }
       }
     }
@@ -728,7 +995,8 @@ export function createBoss(run) {
     state = 'wireBack'; stateT = cfg.wirearm.backSec;
     for (const arm of wire.arms) arm.backFrom = arm.len;
     // 命中/最大到達の一撃感：大きな衝撃音＋強めシェイク＋whiteFlash(<0.5)＋一瞬のヒットストップ
-    Sound.sfx('metalSlam'); run.shake(260, 7); whiteFlash(0.4);
+    // R29: metalSlam → rocketHit（拉げる低音＋破断の高域）に差し替えて攻撃音を激しくする
+    Sound.sfx('rocketHit'); run.shake(300, 8); whiteFlash(0.44);
     if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.07);
     for (const arm of wire.arms) run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 12);
   }
@@ -797,6 +1065,106 @@ export function createBoss(run) {
   }
 
   function recoil(ang) { recoilT = 0.2; recoilAng = ang; }
+
+  // ============ R29 弱点コア（cfg.weak を持つボス＝マオウレクスのみ） ============
+  // 実プレイFB「弱点部分を作成し、そこに弾を当てないとダメージを与えられないようにして」。
+  // 設計：本体はどこを殴っても通らない（「カキン！」と弾く）。**位置を持つ攻撃がコア円に触れたときだけ**
+  // ダメージが通り、狙って当てた報酬として weak.mul 倍になる。
+  //   - 投げた弾／特殊弾／仲間の弾 … 当たった座標で判定する（＝狙えば通る・流し撃ちでは通らない）
+  //   - 素手の一撃／自動拳／オーラ  … 座標を持たない近接なので常に弾かれる（＝接近しても解決しない）
+  //   - 必殺技                      … 爆風なので「コアが爆心から radius 以内か」で判定する（倍率は付かない）
+  // コアは胸の高さで左右にゆっくり泳ぐ。phase2 では周期が縮んで狙いにくくなる。
+  function weakPoint() {
+    if (!boss || !boss.active || !cfg || !cfg.weak) return null;
+    const w = cfg.weak;
+    const sec = phase2 ? w.phase2SwaySec : w.swaySec;
+    const sx = Math.sin((run.elapsed * Math.PI * 2) / sec) * w.swayX;
+    return { x: boss.x + sx, y: boss.y + boss.radius * w.offY, r: w.radius };
+  }
+  // at = { x, y, r } … r>0 は爆風（範囲攻撃）。at 省略＝座標を持たない近接。
+  function weakGate(src, at) {
+    if (!cfg || !cfg.weak) return { pass: true, mul: 1 };
+    const w = weakPoint();
+    if (!w) return { pass: true, mul: 1 };
+    if (!at || at.x == null) return { pass: false, mul: 0 };
+    const dx = at.x - w.x, dy = at.y - w.y;
+    const rr = w.r + (at.r || 0);
+    if (dx * dx + dy * dy <= rr * rr) return { pass: true, mul: at.r ? 1 : cfg.weak.mul, core: !at.r };
+    return { pass: false, mul: 0 };
+  }
+  // 弾かれた（＝コアを外した）ときの反応。多発するので音と文字は間引く。
+  function deflect(x, y) {
+    if (!boss || !cfg || !cfg.weak) return;
+    const px = x == null ? boss.x : x, py = y == null ? boss.y : y;
+    // 仲間の弾も自動拳も全部ここへ来るので、演出はまとめて間引く（渋滞させると何も伝わらない）
+    if (run.elapsed - deflectT < 0.14) return;
+    deflectT = run.elapsed;
+    if (run.fx && run.fx.hitSpark) run.fx.hitSpark(px, py, 0xdfe6ee);
+    Sound.sfx('counter', 0.4, 1.7);
+    run.spawnParticles(px, py, 0xdfe6ee, 5);
+    if (run.elapsed - deflectTextT >= 1.1) {
+      deflectTextT = run.elapsed;
+      run.floatText(px, py - 12, 'カキン！', '#dfe6ee');
+    }
+  }
+  // コアに当てたときの反応（狙って当てた手応え＝ここは派手に）。
+  function coreHitFx(x, y) {
+    if (!cfg || !cfg.weak) return;
+    const w = weakPoint();
+    const cx = x == null ? (w ? w.x : boss.x) : x, cy = y == null ? (w ? w.y : boss.y) : y;
+    Sound.sfx('crush', 3);
+    Sound.sfx('metalSlam', 0.6, 1.25);
+    run.shake(180, 6);
+    run.spawnParticles(cx, cy, int(cfg.weak.tint), 18);
+    run.spawnParticles(cx, cy, 0xffffff, 10);
+    if (run.elapsed - coreTextT >= 0.5) {
+      coreTextT = run.elapsed;
+      run.floatText(cx, cy - 22, cfg.weak.label, '#fff2a8');
+    }
+  }
+  // コアの見た目（毎フレーム再描画）。露出した炉心＝赤いハロー＋白熱した芯＋脈打つ照準リング。
+  function drawWeak() {
+    const w = weakPoint();
+    if (!w) { if (weakEls) hideWeak(); return; }
+    if (!weakEls) {
+      weakEls = {
+        halo: run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(12).setTint(int(cfg.weak.tint)),
+        g: run.add.graphics().setDepth(13),
+      };
+    }
+    const pulse = 0.5 + 0.5 * Math.sin(run.elapsed * 7);
+    weakEls.halo.setVisible(true).setPosition(w.x, w.y)
+      .setDisplaySize(w.r * 4.4, w.r * 4.4).setAlpha(0.34 + 0.2 * pulse);
+    const g = weakEls.g;
+    g.clear();
+    g.fillStyle(int(cfg.weak.tint), 0.95);
+    g.fillCircle(w.x, w.y, w.r * 0.72);
+    g.fillStyle(int(cfg.weak.coreTint), 0.95);
+    g.fillCircle(w.x, w.y, w.r * (0.30 + 0.10 * pulse));   // 白熱した芯が脈打つ
+    // 照準リング（外へ広がって消える2重の輪）＝「ここを狙え」の記号
+    g.lineStyle(2.4, 0xffffff, 0.85);
+    g.strokeCircle(w.x, w.y, w.r);
+    g.lineStyle(1.6, int(cfg.weak.coreTint), 0.55 + 0.35 * pulse);
+    g.strokeCircle(w.x, w.y, w.r * (1.15 + 0.35 * pulse));
+    for (let i = 0; i < 4; i++) {           // 十字の照準マーク
+      const a = (Math.PI / 2) * i + Math.PI / 4;
+      const r0 = w.r * 1.1, r1 = w.r * 1.45;
+      g.lineStyle(2, 0xffffff, 0.7);
+      g.lineBetween(w.x + Math.cos(a) * r0, w.y + Math.sin(a) * r0,
+        w.x + Math.cos(a) * r1, w.y + Math.sin(a) * r1);
+    }
+  }
+  function hideWeak() {
+    if (!weakEls) return;
+    if (weakEls.halo) weakEls.halo.setVisible(false);
+    if (weakEls.g) weakEls.g.clear();
+  }
+  function destroyWeak() {
+    if (!weakEls) return;
+    if (weakEls.halo) weakEls.halo.destroy();
+    if (weakEls.g) weakEls.g.destroy();
+    weakEls = null;
+  }
 
   // 主人公の手動の一撃が当たったときの「効いた」反応（billiard が呼ぶ）。
   // 実プレイFB「弾がボスに当たったときの感触が無い。素通りして見える」。
@@ -938,14 +1306,15 @@ export function createBoss(run) {
     // R20 Gate2: 汎用弾(orb)は丸い点からプラズマ・ボルト（boss_bolt・鏃形）へ。dart/shellと同じ
     //   「+Xが進行方向」の向きで焼いてあるので、進行方向へ向けて発射する（tomahawkと同じ考え方・オフセットなし）。
     const isTom = kind === 'tomahawk';
-    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom;
+    const isBomb = kind === 'bomb';
+    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
-      : isTom ? 'boss_tomahawk' : 'boss_bolt';
+      : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
     // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
-    const dispW = isTom ? r * 3.0 : isOrb ? r * 4.0 : r * 3.0;
-    const dispH = isTom ? r * 7.2 : isOrb ? r * 2.5 : r * 3.0;
+    const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isOrb ? r * 4.0 : r * 3.0;
+    const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isOrb ? r * 2.5 : r * 3.0;
     const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
       : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルトは+Xが先端＝オフセットなし
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
@@ -965,6 +1334,7 @@ export function createBoss(run) {
       spin: opts.spin || 0, returns: !!opts.returns,
       maxTurn: opts.maxTurn || 0, spd: Math.hypot(vx, vy) || 1, cruise: opts.speed || 0,
       blast: opts.blast || 0, age: 0, trailT: 0,
+      decel: opts.decel || 0, noHit: !!opts.noHit,   // R29: 転がって止まる爆弾（触れても爆ぜない＝時間で爆発）
       life: opts.life != null ? opts.life : 3,
       dmg: opts.damage != null ? opts.damage : 10,
       spr: d.spr, glow: d.glow,
@@ -1000,6 +1370,13 @@ export function createBoss(run) {
           run.spawnParticles(b.x - b.vx * 0.02, b.y - b.vy * 0.02, 0xffb020, 3);
           run.spawnParticles(b.x - b.vx * 0.045, b.y - b.vy * 0.045, 0xffe24a, 2);
         }
+      } else if (b.kind === 'bomb') {
+        // 転がりながら減速して止まる。回転させて「転がっている」ことを見せる（導火線口が回る）。
+        const k = Math.max(0, 1 - b.decel * dt);
+        b.vx *= k; b.vy *= k;
+        b.spr.rotation += dt * 9;
+        b.trailT -= dt;
+        if (b.trailT <= 0) { b.trailT = 0.08; run.spawnParticles(b.x, b.y, 0xffe24a, 1); }
       } else if (b.kind === 'cutter') {
         b.spr.rotation += dt * b.spin;
         if (b.returns) {
@@ -1023,7 +1400,14 @@ export function createBoss(run) {
           const dx = b.x - px, dy = b.y - py, rr = 30 + run.player.radius;
           if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(b.blast, b.x, b.y);
           run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8);
+        } else if (b.kind === 'bomb' && cfg && cfg.rollbomb) {
+          // 導火線が尽きた＝止まった場所に予告円を出し、warnSec 後に爆発（逃げる猶予を必ず作る）
+          const rb = cfg.rollbomb;
+          spawnStrike(b.x, b.y, rb.warnSec, rb.blastRadius, rb.damage);
+          Sound.sfx('tick', 0, 1.4);
         }
+      } else if (b.noHit) {
+        // 転がる爆弾は触れても爆ぜない（時間で爆発する）＝踏んでも即死しない安心を残す
       } else {
         const rr = run.player.radius + (b.kind === 'orb' ? 4 : 6);
         const dx = b.x - px, dy = b.y - py;
@@ -1042,6 +1426,7 @@ export function createBoss(run) {
   function clearBullets() {
     for (const b of bullets) { if (b.active) { b.active = false; recycleBullet(b); } }
     bullets.length = 0;
+    clearStrikes();   // 撃破の瞬間に予告中だった着弾も消す（勝利演出の最中に爆発させない）
     if (beam) { beam = null; if (beamImg) beamImg.setVisible(false); }
   }
 
@@ -1272,6 +1657,7 @@ export function createBoss(run) {
     clearIntroEls();     // 登場イベント途中で撃破/破棄されても text を確実に片付ける
     destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
     destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
+    destroyWeak();       // 弱点コアの表示を確実に破棄（リーク防止）
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();
@@ -1311,19 +1697,24 @@ export function createBoss(run) {
     if (boss && boss.active) {
       updateAI(dt);
       updateDisp(dt);
+      drawWeak();          // R29 弱点コア（持たないボスでは何もしない）
       if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
-      const dmg = (state === 'dash') ? cfg.dash.damage : cfg.bodyDamage;
+      // 突進中/フライパス通過中は体当たりのダメージが上がる（速い＝重い、が体で分かる）
+      const dmg = (state === 'dash') ? cfg.dash.damage
+        : (state === 'flypass') ? cfg.flypass.bodyDamage : cfg.bodyDamage;
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
       if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
     }
 
     updateBullets(dt);
+    updateStrikes(dt);      // R29: ボスが消えた後も残った着弾は最後まで爆発させる（bullets と同じ扱い）
     if (beam) updateBeam(dt);
   }
 
   function destroy() {
     clearBullets();
+    clearStrikes();
     for (const d of pool) { if (d.spr) d.spr.destroy(); if (d.glow) d.glow.destroy(); }
     pool.length = 0;
     destroyDisp();
@@ -1339,11 +1730,18 @@ export function createBoss(run) {
     breakTelegraph,
     // R23: 手動の命中に対する見た目の反応（billiard.hitOne が呼ぶ）
     bossHitReact,
+    // R29: 弱点コア。Run.dealDamage が weakGate で通す/弾くを決め、演出をここへ戻す。
+    weakGate, weakPoint, deflect, coreHitFx,
+    get hasWeak() { return !!(boss && boss.active && cfg && cfg.weak); },
     get telegraphing() { return isTelegraph(state); },
     get staggered() { return bossStagT > 0; },
     // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）
     get state() { return state; },
     get bulletCount() { return bullets.length; },
+    get strikeCount() { return strikes.length; },
+    // R29 検証用：弾の実速度／ロケットパンチの到達長を外から測る（本体は書き換えない）
+    debugBullets() { return bullets.map((b) => ({ kind: b.kind, vx: b.vx, vy: b.vy })); },
+    debugWire() { return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)) } : null; },
     get beamActive() { return !!beam; },
     get partCount() { return disp ? disp.parts.length : 0; },
   };
