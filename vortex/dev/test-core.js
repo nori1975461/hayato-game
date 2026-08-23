@@ -562,6 +562,25 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // ★予告より先によろけが切れると、断末魔が一度も出ないまま消える
   assert(G[D.fromGrade].stagSec > D.telegraphSec,
     `balance: よろけ猶予(${G[D.fromGrade].stagSec}s)が断末魔の予告(${D.telegraphSec}s)より長い`);
+  // ---- R27 一気撃破の連打（ガガガガ）----
+  {
+    const C = BALANCE.crush;
+    assert(C.presets.length >= 2 && C.presets[0].on,
+      'balance: 連打のプリセットが2つ以上あり、既定はONであること');
+    assert(C.minGroup >= 2, 'balance: 1体の撃破は連打にしない（単発は従来どおり）');
+    assert(C.maxBeats >= 4 && C.maxBeats <= 20, 'balance: 並べる打撃は4〜20発（多すぎると数が読めない）');
+    for (const p of C.presets) {
+      if (!p.on) continue;
+      // 打撃として読めるのは概ね 30〜90ms。これを外すと「連打」ではなく別の音になる
+      assert(p.gapMs >= 30 && p.gapMs <= 90, 'balance: 連打の間隔は30〜90ms（' + p.name + '）');
+    }
+    // 締めとスローの段は「頻度と逆相関」。スローは締めより必ず上の段に置く
+    assert(C.slowFrom > C.finaleFrom && C.finaleFrom >= C.minGroup,
+      'balance: スロー（最大の振幅）は締めより上の段に置く');
+    assert(C.slowSec > 0 && C.slowSec <= 0.5 && C.slowMul > 0 && C.slowMul < 1,
+      'balance: スローは0.5秒以内・倍率は1未満');
+  }
+
   assert(D.guardSec >= D.telegraphSec,
     'balance: 断末魔の掴み禁止は予告時間以上（穴が0.1秒あるだけで発火が84%→51%へ落ちた）');
   assert(D.aoeMul > 0 && D.aoeMul <= 1 && D.damageMul > 0 && D.damageMul <= 1,

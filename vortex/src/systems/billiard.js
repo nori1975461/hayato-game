@@ -943,7 +943,7 @@ export function createBilliard(run) {
       s.kills += specialChain(s.x, s.y, null, s.spec);
     }
     run.spawnParticles(s.x, s.y, s.color, 12);
-    run.popFx(s.x, s.y, s.color);
+    run.popNow(s.x, s.y, s.color);   // R27: 玉自体が砕けた絵。撃破ではないので連打の列には混ぜない
     st.throwKills += s.kills;
     st.bestChain = Math.max(st.bestChain, s.kills);
     // ボスに当たって砕けた玉は空振りではない（連鎖しないので kills は0のまま）
@@ -967,12 +967,20 @@ export function createBilliard(run) {
       if (T.streaks > 0) burstStreaks(s.x, s.y, T.streaks, T.color, baseR * 0.9);
       zoomPunch(T.zoom * Math.min(2.2, 0.7 + 0.22 * s.kills));
       run.spawnParticles(s.x, s.y, T.color, Math.min(46, 10 + 5 * s.kills));
-      Sound.sfx('bigBoom', Math.min(1, s.kills / 5));
+      // ★R27 音の役割を分ける。玉が落ちた瞬間は短い「ドッ」だけにして、
+      //   重さと段数は Run 側の連打（ガガガガ…ドン！）に持たせる。両方を長く鳴らすと
+      //   低域どうしが被って、せっかく並べた打撃が数えられなくなる。
+      const casc = run.crushPreset && run.crushPreset().on;
+      Sound.sfx('bigBoom', casc ? Math.min(0.5, 0.22 + 0.07 * s.kills) : Math.min(1, s.kills / 5));
       // 毎回の炸裂で全画面を洗うと敵が読めなくなるので上限を抑える（段位アップの一発だけは濃くてよい）
       if (T.flash > 0) screenFlash(T.flash * Math.min(1.25, 0.6 + 0.16 * s.kills), T.color);
-      if (s.kills >= 3) Sound.sfx('rush', 0.5);
-      if (s.kills >= 5) Sound.sfx('gaugeFull');
-      run.floatText(s.x, s.y - 12, s.kills + '体！', s.kills >= 3 ? '#ffd23f' : '#9fe8ff');
+      if (!casc) {
+        if (s.kills >= 3) Sound.sfx('rush', 0.5);
+        if (s.kills >= 5) Sound.sfx('gaugeFull');
+        run.floatText(s.x, s.y - 12, s.kills + '体！', s.kills >= 3 ? '#ffd23f' : '#9fe8ff');
+      } else if (s.kills > 0 && s.kills < BALANCE.crush.textFrom) {
+        run.floatText(s.x, s.y - 12, s.kills + '体！', '#9fe8ff');
+      }
     }
   }
 
@@ -1488,5 +1496,5 @@ export function createBilliard(run) {
   }
 
   return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul,
-           canReceiveBolt, giveBolt, st };
+           canReceiveBolt, giveBolt, shockRing, st };
 }

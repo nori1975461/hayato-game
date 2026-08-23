@@ -427,22 +427,73 @@ const SFX = {
   },
   // 特大炸裂：ズドン！重い低音インパクト＋ノイズバースト＋広い炸裂和音（約0.8秒・歪ませず厚みで派手に）
   // 必殺技のトドメや大ボスの決定打で鳴らす想定。
-  bigBoom() {
+  // R27: 第1引数 power(0..1) を**受け取っていなかった**ので、1体倒しても10体倒しても
+  //   まったく同じ音が鳴っていた（呼び出し側は kills/5 を渡していたのに無視されていた）。
+  //   ここで尾の長さ・低域の量・和音の枚数を power で変える。無引数の呼び出しは従来どおり。
+  bigBoom(power) {
+    const p = (power == null) ? 1 : Math.max(0, Math.min(1, power));
+    const k = 0.72 + 0.38 * p;      // p=0.6 で従来とほぼ同じ。上にも下にも伸びる
     // 重い低音インパクト2層（芯＋サブ）
-    tone({ type: 'sine', freq: 210, freqEnd: 28, dur: 0.55, gain: 0.34, attack: 0.002 });
-    tone({ type: 'triangle', freq: 100, freqEnd: 24, dur: 0.5, gain: 0.16, attack: 0.002 });
+    tone({ type: 'sine', freq: 210, freqEnd: 28, dur: 0.55 * k, gain: 0.34 * k, attack: 0.002 });
+    tone({ type: 'triangle', freq: 100, freqEnd: 24, dur: 0.5 * k, gain: 0.16 * k, attack: 0.002 });
     // 炸裂ノイズバースト（明るめ・歪ませない）
-    noiseHit({ dur: 0.4, gain: 0.22, hpFreq: 120, lpFreq: 9000 });
-    noiseHit({ start: 0.02, dur: 0.25, gain: 0.12, hpFreq: 2000, lpFreq: 13000 });
-    // 広い音域の炸裂和音（Cメジャー・分厚く）
-    [NOTE.C4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6].forEach((n, i) => {
-      tone({ type: 'square', freq: noteFreq(n), start: 0.02 + i * 0.012, dur: 0.45, gain: 0.11 });
-    });
+    noiseHit({ dur: 0.4 * k, gain: 0.22 * k, hpFreq: 120, lpFreq: 9000 });
+    noiseHit({ start: 0.02, dur: 0.25 * k, gain: 0.12 * k, hpFreq: 2000, lpFreq: 13000 });
+    // 広い音域の炸裂和音（Cメジャー・分厚く）。枚数も power で変える＝規模が耳で分かる
+    const chord = [NOTE.C4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6];
+    const take = Math.max(3, Math.min(chord.length, 3 + Math.round(p * 4)));
+    for (let i = 0; i < take; i++) {
+      tone({ type: 'square', freq: noteFreq(chord[i]), start: 0.02 + i * 0.012, dur: 0.45 * k, gain: 0.11 * k });
+    }
     // 余韻のきらめき
-    tone({ type: 'triangle', freq: noteFreq(NOTE.G6), start: 0.25, dur: 0.4, gain: 0.13 });
-    tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.32, dur: 0.3, gain: 0.09 });
-    noiseHit({ start: 0.25, dur: 0.2, gain: 0.05, hpFreq: 6500 });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.G6), start: 0.25, dur: 0.4 * k, gain: 0.13 * k });
+    tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.32, dur: 0.3 * k, gain: 0.09 * k });
+    noiseHit({ start: 0.25, dur: 0.2 * k, gain: 0.05 * k, hpFreq: 6500 });
   },
+
+  // ★R27 「ガガガガ」の1発ぶん。テトリスの段消しで気持ちがいいのは1発の大きさではなく
+  //   **打撃が何回続いたかを耳で数えられる**こと。だから同時に鳴らさず、必ず1発ずつ並べる。
+  //   i = 何発目（0起点）。半音ずつ上がる粒が「何段消えたか」を伝える。
+  crush(i) {
+    const step = Math.max(0, Math.min(11, i | 0));
+    // 胴体：低いサイン波が落ちる＝「ガ」の重さ。
+    //   ⚠️ 30Hz台まで落とすとノートPCやタブレットのスピーカーでは**再生されずに重さが消える**。
+    //   終端を60Hzで止めて、可聴帯(60〜200Hz)にエネルギーを残す。
+    tone({ type: 'sine', freq: 180 * Math.pow(1.045, step), freqEnd: 60, dur: 0.10,
+           gain: 0.26 + 0.012 * step, attack: 0.001 });
+    // 倍音の胴：小さいスピーカーは基音が出なくても倍音から低さを感じ取る（ミッシングファンダメンタル）。
+    //   矩形波をここに置くことで「安いスピーカーでも重い」を成立させる。
+    tone({ type: 'square', freq: 92, freqEnd: 46, dur: 0.09, gain: 0.11 + 0.006 * step, attack: 0.001 });
+    // サブ：ちゃんとした環境でだけ効く土台
+    tone({ type: 'triangle', freq: 62, freqEnd: 30, dur: 0.13, gain: 0.10 + 0.006 * step, attack: 0.001 });
+    // 破壊のざらつき：低域を残したノイズ（高域だけ通すと紙を破る音になる）
+    noiseHit({ dur: 0.045, gain: 0.17 + 0.008 * step, hpFreq: 160, lpFreq: 4200 });
+    // 数を伝える粒。半音ずつ上がるので、耳が勝手に段数を数える
+    tone({ type: 'square', freq: noteFreq(NOTE.C4 + step), dur: 0.05, gain: 0.075 + 0.006 * step });
+  },
+
+  // ★R27 連打の締め。「ガガガガ…ドン！」の最後のドン。倒した数で重さが変わる。
+  crushEnd(n) {
+    const c = Math.max(1, Math.min(14, n | 0));
+    const big = Math.max(0, Math.min(1, (c - 2) / 8));   // 3体で0.13・10体で1.0
+    tone({ type: 'sine', freq: 140, freqEnd: 52, dur: 0.55 + 0.25 * big, gain: 0.30 + 0.10 * big, attack: 0.002 });
+    // 締めも同じ理由で倍音を持たせる（小型スピーカーで「ドン」が消えないように）
+    tone({ type: 'square', freq: 74, freqEnd: 40, dur: 0.30 + 0.20 * big, gain: 0.12 + 0.06 * big, attack: 0.002 });
+    tone({ type: 'triangle', freq: 58, freqEnd: 22, dur: 0.50 + 0.30 * big, gain: 0.16 + 0.08 * big, attack: 0.002 });
+    noiseHit({ dur: 0.30 + 0.20 * big, gain: 0.20 + 0.08 * big, hpFreq: 90, lpFreq: 3200 });
+    noiseHit({ start: 0.015, dur: 0.10, gain: 0.12, hpFreq: 2200, lpFreq: 12000 });
+    // 上昇和音。枚数が段数に比例する＝「今のは大きかった」が音だけで分かる
+    const chord = [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6];
+    const take = Math.min(chord.length, 2 + Math.round(big * 6));
+    for (let i = 0; i < take; i++) {
+      tone({ type: 'square', freq: noteFreq(chord[i]), start: 0.02 + i * 0.018, dur: 0.34, gain: 0.10 });
+    }
+    if (c >= 8) {   // ここだけの特別な余韻＝テトリスの4段消しに当たる位置
+      tone({ type: 'triangle', freq: noteFreq(NOTE.C6) * 2, start: 0.30, dur: 0.35, gain: 0.12 });
+      noiseHit({ start: 0.30, dur: 0.25, gain: 0.06, hpFreq: 6000 });
+    }
+  },
+
   // ---- R24 投げの効果音（段位で3段階）----
   // 実プレイFB「メガ投げ？ボルテクス投げ？と名称は勇ましいが、なにもレベルアップしたことが
   //   感じられない。投げたときの効果音」。段位が上がったのに音が同じなら、耳では何も変わっていない。
@@ -944,7 +995,19 @@ export const Sound = {
     }
     masterGain = ctx.createGain();
     masterGain.gain.value = muted ? 0 : MASTER_VOL;
-    masterGain.connect(ctx.destination);
+    // R27: 保護リミッタ。連打＋締め＋着弾が重なるとピークが1.0を超えて歪むため、
+    //   最後だけ潰す。通常の音では働かない（threshold -3dB）ので音色は変わらない。
+    if (ctx.createDynamicsCompressor) {
+      const lim = ctx.createDynamicsCompressor();
+      lim.threshold.value = -3;
+      lim.knee.value = 6;
+      lim.ratio.value = 12;
+      lim.attack.value = 0.003;
+      lim.release.value = 0.15;
+      masterGain.connect(lim).connect(ctx.destination);
+    } else {
+      masterGain.connect(ctx.destination);
+    }
 
     sfxGain = ctx.createGain();
     sfxGain.gain.value = 1.0;

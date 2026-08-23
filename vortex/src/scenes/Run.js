@@ -187,6 +187,8 @@ export class RunScene extends Phaser.Scene {
       for (const r of this._stagPool) r.destroy();   // R21W2: よろけリングのプール
       this._stagPool.length = 0;
       if (this._crownPool) { for (const c of this._crownPool) c.destroy(); this._crownPool.length = 0; }
+      if (this._ghostPool) { for (const g of this._ghostPool) g.destroy(); this._ghostPool.length = 0; }
+      if (this._popFrame) { for (const it of this._popFrame) if (it.ghost) it.ghost.destroy(); this._popFrame.length = 0; }
       for (const e of this.enemies) if (e.stagRing) { e.stagRing.destroy(); e.stagRing = null; }
       if (this.boss) this.boss.destroy();
       if (this.items) this.items.destroy();
@@ -260,6 +262,15 @@ export class RunScene extends Phaser.Scene {
       const name = this.billiard.toggleExpire();
       if (this.fx) this.fx.announce('時間切れ：' + name, '#9fe8ff');
     });
+    //   0 … 一気に倒したときの連打（標準 ⇄ 全開 ⇄ ひかえめ ⇄ 切）。
+    //        「ガガガガ」の速さと厚みは文章では決められないので実プレイ中に切り替えて選ぶ
+    kb.on('keydown-ZERO', () => {
+      if (this.paused || this.ended) return;
+      const C = BALANCE.crush;
+      this._crushIdx = ((this._crushIdx | 0) + 1) % C.presets.length;
+      const p = C.presets[this._crushIdx];
+      if (this.fx) this.fx.announce('いっき撃破の音：' + p.name, '#ffd23f');
+    });
     //   9 … ボス戦の装甲片（切＝R23前の状態 ⇄ 弱 ⇄ 標準 ⇄ 強）。ボス戦の長さと手応えが変わる。
     //        ボットは「予告のほぼ全部を割る」上限値しか出せないので、強さの正解は実プレイでしか決まらない
     kb.on('keydown-NINE', () => {
@@ -300,6 +311,7 @@ export class RunScene extends Phaser.Scene {
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
     this.realDt = dt;         // スローモーションで縮める前の実時間（演出の尺はこちらで数える）
+    this.flushPops();         // R27: このフレームに死んだぶんを1本の連打へ束ねる
 
     // シネマティック中（合成/ボス撃破）は進行停止。演出tweenはScene側で継続する。
     if (this.cinematic) {
@@ -475,7 +487,7 @@ export class RunScene extends Phaser.Scene {
       duration: 160, yoyo: true, ease: 'Quad.Out',
     });
     this.spawnParticles(x, y, glowColor, 24);
-    this.popFx(x, y, 0xffd23f);
+    this.popNow(x, y, 0xffd23f);   // R27: 進化の演出。撃破ではないので連打の列には混ぜない
     Sound.sfx('evolve');
     this.shake(160, 4);
   }
@@ -1738,7 +1750,7 @@ export class RunScene extends Phaser.Scene {
       this.capture.onEnemyKilled(e);   // スターコア抽選
       this.rollHealDrop(e);            // FB#1: 回復ハート抽選（run.rng を使う）
     }
-    if (!quiet) this.popFx(e.x, e.y, e.color);
+    if (!quiet) this.popFx(e.x, e.y, e.color, e.spr && e.spr.texture ? e.spr.texture.key : null, e.baseScale || 2);
     // R25: 王冠。近くで仲間が倒れた敵が怒って格上げされる（密集を掃除するほど強い獲物が生まれる）。
     if (!quiet) this.maybeCrown(e.x, e.y);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
@@ -1760,7 +1772,42 @@ export class RunScene extends Phaser.Scene {
   }
 
   // 雑魚撃破の「ポンっ」（Wave C）。多発するのでプール＋短命tweenで軽く済ませる
-  popFx(x, y, color) {
+  // ★R27 撃破の絵と音。同じフレームに2体以上死んだら「同時」ではなく「連打」に変換する。
+  //   旧実装は音を0.05秒に1回へ間引いていたので、8体同時でも鳴るのは1回だけだった＝
+  //   「一気に倒した」が音にまったく出ていなかった（実測：3体以上の山が20.1回/分ある）。
+  popFx(x, y, color, tex, scale) {
+    if (!this.crushPreset().on) { this.popNow(x, y, color); this.popSfxThrottled(); return; }
+    if (!this._popFrame) this._popFrame = [];
+    // ★R27 「段が1つずつ消える」の絵。倒れた敵の姿を白いシルエットとしてその場に残し、
+    //   自分の番（打撃）が来たときに弾ける。これが無いと、絵は全部同時に消えて音だけが並ぶ。
+    const ghost = (tex && this._popFrame.length < BALANCE.crush.maxBeats)
+      ? this.spawnGhost(x, y, tex, scale) : null;
+    this._popFrame.push({ x, y, color, ghost });
+  }
+
+  spawnGhost(x, y, tex, scale) {
+    if (!this._ghostPool) this._ghostPool = [];
+    const g = this._ghostPool.pop() || this.add.image(0, 0, 'white');
+    g.setTexture(tex).setVisible(true).setActive(true).setDepth(12)
+      .setAlpha(0.95).setScale((scale || 2) * 1.08).setPosition(x, y).setRotation(0);
+    // ⚠️ 加算合成だと「光の塊」になって敵の形が消える。塗りつぶしの白なら
+    //    「倒れた敵がそこに立ったまま順番を待っている」ことが形で分かる（テトリスの光る段）。
+    g.setTintFill(0xffffff);
+    // 点滅させる。乱戦の画面では静止した白は背景に溶けるので、消える順番待ちだと分からない。
+    this.tweens.killTweensOf(g);
+    this.tweens.add({ targets: g, alpha: 0.35, duration: 85, yoyo: true, repeat: -1 });
+    return g;
+  }
+
+  releaseGhost(g) {
+    if (!g) return;
+    this.tweens.killTweensOf(g);
+    g.setVisible(false).setAlpha(1);
+    if (this._ghostPool) this._ghostPool.push(g);
+  }
+
+  // 絵だけ（音を伴わない1体ぶんの弾け）
+  popNow(x, y, color) {
     const spr = this._popPool.pop() || this.add.image(0, 0, 'w_star2').setBlendMode(ADD);
     spr.setTexture('w_star2').setVisible(true).setActive(true).setDepth(13)
       .setTint(color ?? 0xffffff).setPosition(x, y)
@@ -1769,10 +1816,96 @@ export class RunScene extends Phaser.Scene {
       targets: spr, scale: 3.2, alpha: 0, duration: 180,
       onComplete: () => { spr.setVisible(false); this._popPool.push(spr); },
     });
-    // 同時多発でも耳に痛くならないよう、音は 0.05 秒に1回だけ
+  }
+
+  // 単発の撃破音。多発しても耳に痛くならないよう 0.05 秒に1回だけ（従来どおり）
+  popSfxThrottled() {
     if (this.elapsed - (this._lastPopSfx ?? -1) >= 0.05) {
       this._lastPopSfx = this.elapsed;
       Sound.sfx('pop');
+    }
+  }
+
+  crushPreset() {
+    const C = BALANCE.crush;
+    return C.presets[this._crushIdx | 0] || C.presets[0];
+  }
+
+  // 1フレームぶんの撃破をまとめて処理する。update の先頭で必ず呼ぶ
+  //   （ヒットストップ中も呼ぶ。止まっている間に列が消えると「ドン」だけが浮く）。
+  flushPops() {
+    const q = this._popFrame;
+    if (!q || q.length === 0) return;
+    this._popFrame = [];
+    if (q.length < BALANCE.crush.minGroup) {
+      for (const it of q) { this.releaseGhost(it.ghost); this.popNow(it.x, it.y, it.color); this.popSfxThrottled(); }
+      return;
+    }
+    this.pushCrush(q);
+  }
+
+  // 撃破を時間軸に並べる。近い順に並べるので、破壊が中心から外へ広がって見える。
+  pushCrush(items) {
+    const C = BALANCE.crush;
+    const P = this.crushPreset();
+    const now = this.time.now;
+    // 前の列から離れていたら別の山。連続していれば同じ列に足す＝連鎖ぶん「ガガガ」が伸びる
+    if (now > (this._crushEnd || 0) + C.regroupMs) { this._crushSeq = 0; this._crushCount = 0; }
+    const ox = items[0].x, oy = items[0].y;
+    items.sort((a, b) => ((a.x - ox) ** 2 + (a.y - oy) ** 2) - ((b.x - ox) ** 2 + (b.y - oy) ** 2));
+    let slot = Math.max(now, this._crushEnd || 0);
+    for (const it of items) {
+      this._crushCount = (this._crushCount || 0) + 1;
+      const i = this._crushSeq || 0;
+      // 上限を超えたぶんは絵だけ即出す（音を並べ続けると数が読めなくなる）
+      if (i >= C.maxBeats) { this.releaseGhost(it.ghost); this.popNow(it.x, it.y, it.color); continue; }
+      this._crushSeq = i + 1;
+      const delay = Math.max(0, slot - now);
+      slot += P.gapMs;
+      this.time.delayedCall(delay, () => this.crushBeat(it, i, P));
+    }
+    this._crushEnd = slot;
+    // 締めは「その山の最後の1本」だけが鳴らす。あとから列が伸びたら古い予約は失効させる
+    const token = (this._crushToken || 0) + 1;
+    this._crushToken = token;
+    this.time.delayedCall(Math.max(0, slot - now) + 40, () => {
+      if (token !== this._crushToken) return;
+      this.crushFinale(this._crushCount || 0, ox, oy);
+    });
+  }
+
+  crushBeat(it, i, P) {
+    const C = BALANCE.crush;
+    this.releaseGhost(it.ghost);      // 自分の番が来たシルエットだけが消える＝1体ずつ減っていく
+    this.popNow(it.x, it.y, it.color);
+    Sound.sfx('crush', i);
+    if (P.ring && i >= (P.ringFrom || 3) && this.billiard && this.billiard.shockRing) {
+      this.billiard.shockRing(it.x, it.y, 34 + 6 * i, it.color ?? 0xffffff);
+    }
+    if (i + 1 >= C.beatShakeFrom) {
+      this.shake(60, Math.min(C.beatShakeMax, C.beatShake * (i + 1)));
+    }
+  }
+
+  crushFinale(n, x, y) {
+    const C = BALANCE.crush;
+    if (n < C.finaleFrom) return;
+    Sound.sfx('crushEnd', n);
+    this.shake(180, Math.min(C.finaleShake, 2 + n));
+    if (!this.cinematic) {
+      this.freezeT = Math.max(this.freezeT || 0, C.finaleFreeze * Math.min(1, n / 8));
+    }
+    if (n >= C.slowFrom && !this.cinematic) {
+      // 止める→ゆっくり戻る。「今のは特別だった」を体で分かる形にする
+      this.slowT = Math.max(this.slowT || 0, C.slowSec);
+      this.slowMul = C.slowMul;
+    }
+    if (n >= C.textFrom) {
+      const col = n >= 8 ? '#ff5a5a' : n >= 5 ? '#ffd23f' : '#9fe8ff';
+      this.floatText(x, y - 26, n + '体 いっき！', col);
+      if (n >= C.slowFrom && this.fx && this.fx.announce) {
+        this.fx.announce(n + '体 まとめて ふきとばした！！', '#ff9a3d');
+      }
     }
   }
 
