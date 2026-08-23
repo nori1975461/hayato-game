@@ -1564,8 +1564,11 @@ export function createBilliard(run) {
     const prey = run.nearestEnemy(grabReach(), 0, true,
       (e) => !e.isBoss && !(e.throe && e.guardT > 0));
     if (prey) { grab(prey); return; }
+    // ★1回のミスにつき罰は1回だけ。同じ紫の窓で2度3度しびれると、押しっぱなしのプレイヤー
+    //   （＝小さい子）が動けない時間だけを積む。実測でボットは 5.8〜11.1回/分 弾かれており、
+    //   0.30秒×その頻度＝プレイ時間の3〜6%が上限。ここを1窓1回に抑えて天井を下げる。
     const guarded = run.nearestEnemy(grabReach(), 0, true,
-      (e) => !e.isBoss && e.throe && e.guardT > 0);
+      (e) => !e.isBoss && e.throe && e.guardT > 0 && !e.grabBlocked);
     if (guarded && blockedGrab(guarded)) return;
     jab();
   }
@@ -1579,6 +1582,7 @@ export function createBilliard(run) {
     if (run.elapsed - (st.blockT == null ? -99 : st.blockT) < (K.cooldownSec || 0.5)) return false;
     st.blockT = run.elapsed;
     st.blocked = (st.blocked || 0) + 1;
+    e.grabBlocked = true;      // この紫の窓ではもう罰しない（startDeathThroe で戻る）
     // 主人公 ← 敵 の向きへ弾く（＝間合いの外へ押し出される。掴み直すには近づき直すしかない）
     const a = Math.atan2(run.player.y - e.y, run.player.x - e.x);
     run._knockX = Math.cos(a) * (K.knockback || 300);

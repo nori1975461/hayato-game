@@ -212,9 +212,14 @@ export const BALANCE = {
         pierceHp: 1,         // 貫通しない。最初に触れた1体で爆発して終わる＝爆弾の動き
         bossHpRatio: 0.10,   // ボスへは最大HPの10%（らいこうだん30%・ほのおだん12%の下）
         trashDamage: 999,
-        radiusMul: 2.2,      // 獲物の炸裂連鎖の半径（burstRadius 76 → 167px）
+        // ★初版は 2.2 / 140px。自然プレイ250秒の実測で**1投あたりの撃破が
+        //   ばくだん1.50 < ふつうの弾2.05** と逆転していた。原因は爆弾が貫通せず
+        //   「最初に触れた敵」＝主人公に近い側で爆発すること。そこは自分のキル圏の内側で
+        //   常に掃除されているので、140pxでは巻き込む相手が2〜3体しか居ない
+        //   （画面の19%）。半径を185pxへ広げて画面の約35%を覆う。
+        radiusMul: 2.6,      // 獲物の炸裂連鎖の半径（burstRadius 76 → 198px）
         // 健常な敵を面でまとめて倒す本体。gradeBurst と同じ経路なので上限で暴走しない。
-        blastRadius: 140, blastMax: 12, blastDmgMul: 3.0,
+        blastRadius: 185, blastMax: 16, blastDmgMul: 3.0,
         chainCount: 8, chainRange: 150, chainDamage: 999,   // 外したまま消えたときの保険
         freezeSec: 0.12, shakeMs: 300, shakeAmp: 13, zoom: 0.04,
         flash: 0.20, rings: 3, streaks: 20,

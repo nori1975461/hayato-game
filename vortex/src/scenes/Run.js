@@ -855,6 +855,7 @@ export class RunScene extends Phaser.Scene {
     //   だったため、0.5秒の予告は23回中19回が掴みで消えて**発火は9%**しかなかった。
     //   中断できなくして初めて「まず一発避けてから捕獲する」というリズムになる。
     e.guardT = isFuse ? (D.fuse.guardSec || 0) : (D.guardSec || 0);
+    e.grabBlocked = false;   // R29W2: 罰は1つの紫の窓につき1回だけ（billiard.press が見る）
     const dx = this.player.x - e.x, dy = this.player.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
     e.lockX = dx / d; e.lockY = dy / d;
@@ -1227,7 +1228,8 @@ export class RunScene extends Phaser.Scene {
       // R21W2: よろけ（瀕死）。spawnEnemy は毎回リテラルを作り直すのでここに書けば状態は漏れない。
       stag: false, stagT: 0, stagMax: 0, stagRing: null, rebooted: false, noReward: false,
       // R25: 王冠と断末魔。ここに書けばプール再利用でも前の個体の状態が漏れない。
-      crown: false, crownSpr: null, crownInv: 0, throe: false, guardT: 0, atkIntervalMul: 1,
+      crown: false, crownSpr: null, crownInv: 0, throe: false, guardT: 0, grabBlocked: false,
+      atkIntervalMul: 1,
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
