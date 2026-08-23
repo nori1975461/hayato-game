@@ -4,6 +4,7 @@ import { BootScene } from './scenes/Boot.js';
 import { OpeningScene } from './scenes/Opening.js';
 import { TitleScene } from './scenes/Title.js';
 import { RunScene } from './scenes/Run.js';
+import { EndingScene } from './scenes/Ending.js';
 import { ResultScene } from './scenes/Result.js';
 import { installErrorBanner } from './ui/hud.js';
 
@@ -33,7 +34,7 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: { antialias: false },
-  scene: [BootScene, OpeningScene, TitleScene, RunScene, ResultScene],
+  scene: [BootScene, OpeningScene, TitleScene, RunScene, EndingScene, ResultScene],
 };
 
 window.__vortexGame = new Phaser.Game(config);

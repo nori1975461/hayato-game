@@ -895,11 +895,37 @@ const MELODY_RESULT = [
   [NOTE.A4, -1, NOTE.B4, NOTE.C5, NOTE.D5, -1, -1, -1],
 ];
 
+// --- 曲5: エンディング ending（112BPM・8小節・C-G-Am-F / C-F-G-C／凱歌）---
+// リザルト曲(result)は「終わったね」のバラードなので、勝利の行進には軽すぎる。
+// ここは**明るいまま重く**する：ブラス風の主旋律＋行進のスネア＋祝祭のベル。最後の小節で C へ帰る。
+const CHORDS_END = [
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 }, // C
+  { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4], pad: [NOTE.G2, NOTE.D3, NOTE.G3], bass: NOTE.G2 }, // G
+  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 }, // Am
+  { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 }, // F
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 }, // C
+  { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 }, // F
+  { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4], pad: [NOTE.G2, NOTE.D3, NOTE.G3], bass: NOTE.G2 }, // G
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 }, // C
+];
+// 8分解像度（1小節=8音）の凱歌の主題。跳ね上がって降りてくる、歌える形にする。
+const MELODY_END = [
+  [NOTE.G4, -1, NOTE.C5, -1, NOTE.E5, -1, NOTE.G5, -1],
+  [NOTE.D5, -1, NOTE.B4, -1, NOTE.D5, -1, -1, -1],
+  [NOTE.C5, -1, NOTE.E5, -1, NOTE.A5, -1, NOTE.G5, -1],
+  [NOTE.F5, -1, NOTE.E5, -1, NOTE.C5, -1, -1, -1],
+  [NOTE.E5, -1, NOTE.G5, -1, NOTE.C6, -1, -1, NOTE.B5],
+  [NOTE.A5, -1, NOTE.C6, -1, NOTE.A5, -1, NOTE.F5, -1],
+  [NOTE.G5, -1, NOTE.B5, -1, NOTE.D6, -1, NOTE.B5, -1],
+  [NOTE.C6, -1, -1, NOTE.G5, NOTE.E5, -1, NOTE.C5, -1],
+];
+
 // 曲テーブル。style で声部・ドラムパターンを分岐する。
 const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
   boss:   { bpm: 172, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
   maou:   { bpm: 76,  bars: 4, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
+  ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
 let currentSong = SONGS.battle;   // 現在再生中の曲定義
@@ -1123,6 +1149,62 @@ function playBgmStep(step) {
       tone({ type: 'sine', freq: 116, freqEnd: 58, dur: 0.16,
              gain: 0.08 + (inBar - 12) * 0.022, dest: bgmGain, attack: 0.003 });
       noiseHit({ dur: 0.07, gain: 0.03 + (inBar - 12) * 0.01, hpFreq: 90, lpFreq: 1800, dest: bgmGain });
+    }
+  } else if (song.style === 'ending') {
+    // ★凱歌（112BPM）。明るいまま「重く」する＝ブラス風の厚い主旋律＋行進のスネア＋祝祭のベル。
+    // 弦のパッド：小節頭で和音を長く伸ばして土台を広げる
+    if (inBar === 0) {
+      chord.pad.forEach((n, i) => {
+        tone({ type: 'triangle', freq: noteFreq(n), dur: stepSec * 15,
+               gain: 0.075 - i * 0.012, dest: bgmGain, attack: 0.05 });
+      });
+      tone({ type: 'sine', freq: noteFreq(chord.bass) / 2, dur: stepSec * 15,
+             gain: 0.11, dest: bgmGain, attack: 0.03 });
+    }
+    // ベース：拍頭の力強い4分（行進のリズム。跳ねさせない）
+    if (inBar % 4 === 0) {
+      tone({ type: 'triangle', freq: noteFreq(chord.bass), dur: stepSec * 3.2,
+             gain: 0.20, dest: bgmGain, attack: 0.006 });
+    }
+    // アルペジオ：8分でやわらかく流して華やかさを添える
+    if (inBar % 2 === 0) {
+      const arpIdx = (inBar / 2) % chord.arp.length;
+      tone({ type: 'triangle', freq: noteFreq(chord.arp[arpIdx]) * 2, dur: stepSec * 1.6,
+             gain: 0.038, dest: bgmGain, attack: 0.006 });
+    }
+    // 主旋律：sawtooth のブラス＋detune＋オクターブ下の芯。歌える形なので長めに伸ばす
+    if (inBar % 2 === 0) {
+      const m = song.melody[bar][inBar / 2];
+      if (m !== undefined && m !== -1) {
+        const mf = noteFreq(m);
+        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 2.6,
+               gain: 0.13, dest: bgmGain, attack: 0.012 });
+        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 2.4,
+               gain: 0.055, dest: bgmGain, attack: 0.012, detune: 9 });
+        tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 2.2,
+               gain: 0.06, dest: bgmGain, attack: 0.014 });
+        tone({ type: 'sine', freq: mf * 2, dur: stepSec * 2.0,
+               gain: 0.03, dest: bgmGain, attack: 0.01 });
+      }
+    }
+    // キック＋行進のスネア（タタッ・タン）。祝祭なので裏の刻みは入れない
+    if (inBar % 8 === 0) {
+      tone({ type: 'sine', freq: 150, freqEnd: 48, dur: 0.14, gain: 0.22,
+             dest: bgmGain, attack: 0.002 });
+    }
+    if (inBar === 4 || inBar === 12) {
+      noiseHit({ dur: 0.09, gain: 0.10, hpFreq: 1500, lpFreq: 8000, dest: bgmGain });
+    }
+    if (inBar === 6 || inBar === 7 || inBar === 14 || inBar === 15) {
+      noiseHit({ dur: 0.05, gain: 0.05, hpFreq: 1700, lpFreq: 8500, dest: bgmGain });
+    }
+    // 祝祭のベル：フレーズ頭で高い鐘を1発、長く残す
+    if (inBar === 0 && (bar === 0 || bar === 4)) {
+      noiseHit({ dur: 0.36, gain: 0.06, hpFreq: 4000, lpFreq: 14000, dest: bgmGain });
+      tone({ type: 'sine', freq: noteFreq(NOTE.C6), dur: stepSec * 10, gain: 0.05,
+             dest: bgmGain, attack: 0.006 });
+      tone({ type: 'sine', freq: noteFreq(NOTE.G6), dur: stepSec * 8, gain: 0.028,
+             dest: bgmGain, attack: 0.01 });
     }
   } else if (song.style === 'result') {
     // ベース：小節頭のみ・長く伸ばす

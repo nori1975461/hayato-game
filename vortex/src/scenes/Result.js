@@ -94,10 +94,13 @@ export class ResultScene extends Phaser.Scene {
         .setStrokeStyle(2, 0x4de1c0);
       const id = ids[i];
       if (id != null) {
-        const def = MONSTERS.flatMap((m) => [m, m.evo]).find((m) => m && m.id === id);
+        // ⚠️ 進化形態(evo)は color を持たない（基本形から継承する仕様）。evo の id が渡ったときに
+        //   def.color が undefined でクラッシュするので、色は必ず基本形から引く。
+        const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));
+        const def = base && (base.id === id ? base : base.evo);
         if (def) {
           this.add.image(x, slotY, 'glow').setBlendMode(Phaser.BlendModes.ADD)
-            .setTint(int(def.color)).setScale(1.6);
+            .setTint(int(base.color)).setScale(1.6);
           this.add.image(x, slotY, 'mon_' + def.id).setScale(2.4);
         }
       }

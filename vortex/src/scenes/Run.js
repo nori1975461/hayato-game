@@ -2281,8 +2281,7 @@ export class RunScene extends Phaser.Scene {
     if (this.ended) return;
     this.ended = true;
     if (this.withAudio) Sound.stopBgm();
-    Sound.sfx(clear ? 'clear' : 'gameover');
-    this.scene.start('Result', {
+    const payload = {
       clear,
       bossDefeated: clear, // クリアはボス撃破のみ（202行）＝クリア時は必ずボス撃破
       withAudio: this.withAudio,
@@ -2291,6 +2290,12 @@ export class RunScene extends Phaser.Scene {
       captures: this.captures,
       coins: this.coins,
       party: this.party.map((m) => m.def.id),
-    });
+    };
+    // R29: クリアだけはエンディングを挟む（ゲームオーバーは従来どおり直行）。
+    //   Ending 側が終わったら同じ payload で Result へ渡すので、リザルトの表示は不変。
+    //   clear SFX はエンディング側の「ひかりが もどった」で鳴らす（ここで鳴らすと二重になる）。
+    if (clear) { this.scene.start('Ending', payload); return; }
+    Sound.sfx('gameover');
+    this.scene.start('Result', payload);
   }
 }
