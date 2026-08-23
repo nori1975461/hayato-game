@@ -843,7 +843,8 @@ export function createBilliard(run) {
     burstStreaks(s.x, s.y, L.streaks, L.color, 120);
     run.spawnParticles(s.x, s.y, L.color, 40);
     run.floatText(e.x, e.y - e.radius - 6, String(dealt), kind === 'bolt' ? '#ffe14d' : '#ff8a3d');
-    run.floatText(e.x, e.y - e.radius - 26, kind === 'bolt' ? 'らいこうだん!!' : 'ほのおだん!!', '#ffffff');
+    run.floatText(e.x, e.y - e.radius - 26,
+      kind === 'bolt' ? 'らいこうだん!!' : kind === 'bomb' ? 'ばくだん!!' : 'ほのおだん!!', '#ffffff');
     specialChain(s.x, s.y, e, kind);
     if (kind === 'bolt') st.boltHits++; else st.blastHits++;
   }
@@ -888,8 +889,8 @@ export function createBilliard(run) {
     run.shake(L.shakeMs, L.shakeAmp);
     zoomPunch(L.zoom);
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, L.freezeSec);
-    Sound.sfx('bigBoom', 0.85, 0.9);
-    Sound.sfx('fireBlast', 0.5);
+    // ⚠️ 爆発音は gradeBurst が既に bigBoom を鳴らしている。ここで重ねると濁って1発に聞こえない
+    Sound.sfx('fireBlast', 0.55);
     run.floatText(x, y - 30, 'ばくだん！！', '#ffd23f');
     s.hp = 0;               // 爆弾は貫通しない。ここで飛行を終える
   }
