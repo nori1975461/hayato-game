@@ -66,6 +66,22 @@ export function createBoss(run) {
   let stateT = 0;
   let attackIdx = 0;
   let phase2 = false;
+  // ★R30 マオウレクスの分離／再合体。
+  //   split  … 上半身（boss本体・コアを持つ）と下半身（lower・装甲だけの砲台）に分かれている
+  //   phase3 … 再合体してメタリックパープル。胸部レーザーを撃つ
+  //   ⚠️ HPは boss 1本だけ。lower はダメージを受けない（コアが上半身にあるため）＝
+  //      HPバーも撃破処理も既存のまま1体ぶんで足りる。
+  let split = false;
+  let phase3 = false;
+  let merging = false;        // 再合体カットシーンに入った印（多重発火を防ぐ）
+  let camHeld = false;        // カットシーン中にカメラを主人公から預かっている印
+  let lower = null;             // 下半身のエンティティ（run.enemies に載せる・被弾は弾く）
+  let lowerGlow = null;
+  let lowerState = 'chase';
+  let lowerT = 0;
+  let cineStage = 0;            // 分離/再合体カットシーンの進行段（1回ずつ発火させる）
+  let mergeFrom = null;         // 再合体の開始位置（下半身をここから本体へ吸い寄せる）
+  let chestAcc = 0;             // 胸部レーザーの溜め演出の間引き
   let killing = false;          // 撃破シネマティック中は多重発火を防ぐ
   let lockX = 0, lockY = 0;     // ダッシュ方向ロック
   let aim = 0;                  // 毎フレーム更新するプレイヤー方向角（砲身/弾に共用）
@@ -278,6 +294,7 @@ export function createBoss(run) {
     cfg = tierCfg;
     def = bossMap[cfg.bossId];
     phase2 = false;
+    split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
     killing = false;
     resetAttackVars();
 
@@ -339,8 +356,20 @@ export function createBoss(run) {
   // ============ AI ============
   function moveBoss(vx, vy, dt) { boss.x += vx * dt; boss.y += vy * dt; }
 
+  // ★R30 段階ごとの攻撃表。分離中は上半身の技だけ（ミサイルは下半身が撃つ）、
+  //   再合体後は胸部レーザーを軸にする。長さが違ってよいよう待ち時間は剰余で引く。
+  function attackList() {
+    if (phase3 && cfg.attacksP3) return cfg.attacksP3;
+    if (split && cfg.attacksSplit) return cfg.attacksSplit;
+    return cfg.attacks;
+  }
+  function idleFor(i) {
+    const arr = cfg.idleSec.betweenAttacks;
+    return arr[i % arr.length];
+  }
+
   function beginAttack() {
-    const a = cfg.attacks[attackIdx];
+    const a = attackList()[attackIdx % attackList().length];
     // 最終ボスは phase2 で laser の直後に vulcan を割り込ませる（連続コンボ）
     chainVulcan = (a === 'laser' && phase2 && !!cfg.vulcan);
     startAttackByName(a);
@@ -356,6 +385,10 @@ export function createBoss(run) {
       case 'wavecannon': state = 'waveTele';    stateT = cfg.wavecannon.chargeSec; Sound.sfx('specialCharge'); break;
       case 'missile':    state = 'missileTele'; stateT = cfg.missile.telegraphSec; break;
       case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge'); break;
+      // ★R30 再合体後だけの胸部レーザー。溜めのあいだ胸のコアへ光が収束する（updateDisp が描く）
+      case 'chestLaser': state = 'chestTele';   stateT = cfg.chestLaser.chargeSec;
+                         Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.7);
+                         introText('きょうぶレーザー ちょくげき', '#e0a0ff', 156, 18, 1); break;
       case 'nova':       state = 'novaTele';    stateT = cfg.nova.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'armslam':    state = 'slamTele';    stateT = cfg.armslam.telegraphSec; break;
       case 'knuckle':    state = 'knuckleTele'; stateT = cfg.knuckle.telegraphSec; knuckleFired = false;
@@ -395,8 +428,8 @@ export function createBoss(run) {
 
   function endAttackChase() {
     state = 'chase';
-    stateT = idleDur(cfg.idleSec.betweenAttacks[attackIdx]);
-    attackIdx = (attackIdx + 1) % cfg.attacks.length;
+    stateT = idleDur(idleFor(attackIdx)) * (phase3 && cfg.merge ? cfg.merge.idleMul : 1);
+    attackIdx = (attackIdx + 1) % attackList().length;
   }
 
   function updateAI(dt) {
@@ -437,10 +470,13 @@ export function createBoss(run) {
         break;
       }
 
-      case 'chase':
-        moveBoss(nx * cfg.chaseSpeed, ny * cfg.chaseSpeed, dt);
+      case 'chase': {
+        // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
+        const cs = cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
+        moveBoss(nx * cs, ny * cs, dt);
         if (stateT <= 0) beginAttack();
         break;
+      }
 
       case 'dashTele':
         lockX = nx; lockY = ny;
@@ -513,6 +549,67 @@ export function createBoss(run) {
         if (stateT <= 0) fireLaser();
         break;
       case 'laserFire':
+        if (stateT <= 0) afterAttack();
+        break;
+
+      // ★R30 分離のカットシーン。攻撃も体当たりもせず、下半身が切り離されるところだけを見せる。
+      case 'splitCine': {
+        const sp = cfg.split;
+        const it = sp.cineSec - stateT;
+        trackCine();
+        if (cineStage < 1 && it >= 0.45) {
+          cineStage = 1;
+          detachLower();                          // ここで下半身が実体になる（以後2体で襲う）
+        }
+        if (stateT <= 0) finishSplit();
+        break;
+      }
+
+      // ★R30 再合体のカットシーン。**必ずプレイヤーに見せる**（ユーザー指示）ので、
+      //   暗幕・スローモーション・吸い寄せ・白フラッシュ・色変化を順番に置く。
+      case 'mergeCine': {
+        const mg = cfg.merge;
+        const it = mg.cineSec - stateT;
+        trackCine();
+        if (lower && lower.active && mergeFrom) {
+          // 下半身を本体へ吸い寄せる（＝合体していく様子そのもの。脚の絵はこの座標に追従する）
+          const t = clamp01(it / (mg.cineSec * mg.contactAt));
+          const e = t * t * (3 - 2 * t);
+          lower.x = lerp(mergeFrom.x, boss.x, e);
+          lower.y = lerp(mergeFrom.y, boss.y, e);
+          if (lowerGlow) lowerGlow.setPosition(lower.x, lower.y).setAlpha(1 - e * 0.5);
+          if (Math.floor(it * 20) % 2 === 0) {
+            run.spawnParticles(lower.x, lower.y, int(cfg.glowInner), 2);
+          }
+        }
+        if (cineStage < 2 && it >= mg.cineSec * mg.contactAt) {
+          cineStage = 2;
+          applyMergeLook();                       // 合体の瞬間＝メタリックパープルへ変わる
+        }
+        if (stateT <= 0) finishMerge();
+        break;
+      }
+
+      case 'chestTele': {
+        // 溜めの「ド派手」は光が**胸のコアへ集まる**ことで作る（撃つ前から場所が分かる＝避けられる）
+        const ck = cfg.chestLaser;
+        const prog = clamp01(1 - stateT / ck.chargeSec);
+        chestAcc = (chestAcc || 0) + dt;
+        if (chestAcc >= 0.05) {
+          chestAcc = 0;
+          const w = weakPoint();
+          const r = lerp(150, 26, prog);
+          for (let i = 0; i < 3; i++) {
+            const a = run.rng.range(0, Math.PI * 2);
+            run.spawnParticles(w.x + Math.cos(a) * r, w.y + Math.sin(a) * r,
+              i % 2 ? int(cfg.merge.glowInner) : 0xffffff, 2);
+          }
+          if (prog > 0.6) run.shake(90, 2 + prog * 4);
+        }
+        if (stateT <= 0) fireChestLaser();
+        break;
+      }
+      case 'chestFire':
         if (stateT <= 0) afterAttack();
         break;
 
@@ -677,7 +774,164 @@ export function createBoss(run) {
     phase2 = true;
     run.shake(300, 5);
     run.spawnParticles(boss.x, boss.y, 0xff3355, 24);
+    // ★R30 マオウレクスは phase2 ＝ 分離。節目を1つにまとめる（節目が多いほど1つ1つが薄まる）。
+    if (cfg.split) { startSplit(); return; }
     if (cfg.rageText) run.floatText(boss.x, boss.y - 40, cfg.rageText, '#ff5e5e');
+  }
+
+  // ============ R30 分離／再合体（マオウレクス専用） ============
+  // 設計：HPは boss 1本のまま。下半身(lower)は**ダメージを受けない砲台**にして、
+  //   「どちらを先に倒すか」という別のゲームを作らない＝狙う場所は最後までコア1つに保つ。
+  //   ⚠️ 下半身の絵は新規に作らない。rig の legL/legR を lower の座標へ付け替えるだけ
+  //      （updateDisp のパーツ配置ループ1か所で分岐する）。破棄経路も既存のままで済む。
+  function startSplit() {
+    clearBullets();
+    destroyWire();
+    resetAttackVars();
+    cineStage = 0;
+    state = 'splitCine';
+    stateT = cfg.split.cineSec;
+    spawnIntroDim();
+    setBossDepthLift(INTRO_LIFT);
+    if (!run.cinematic) { run.slowT = Math.max(run.slowT || 0, cfg.split.cineSec * 0.7); run.slowMul = 0.42; }
+    whiteFlash(0.42);
+    run.shake(420, 9);
+    Sound.sfx('bigBoom');
+    Sound.sfx('metalSlam', 1, 0.55);
+    introText(cfg.split.text, '#ff7a7a', 128, 22, 3);
+    introText(cfg.split.text2, '#ffd23f', 162, 16, 2);
+  }
+
+  // 下半身を実体化して切り離す。ここから2体で襲う。
+  function detachLower() {
+    const ang = aim + Math.PI;                        // 主人公と反対側へ抜ける＝挟み撃ちの形になる
+    const d = cfg.split.dropDist;
+    lowerGlow = run.add.image(boss.x, boss.y, 'glow').setBlendMode(ADD).setDepth(6 + INTRO_LIFT)
+      .setTint(int(cfg.glowOuter)).setScale(cfg.glowScale * 0.9);
+    lower = {
+      active: true, isBoss: true, isLowerHalf: true, id: ++run._eid, def,
+      x: boss.x + Math.cos(ang) * d, y: boss.y + Math.sin(ang) * d,
+      color: int(def.color),
+      // 実体はダメージを受けない（コアは上半身にある）。HPバーも撃破処理も上半身のものだけを使う。
+      hp: 1e9, maxHp: 1e9,
+      radius: cfg.split.lowerRadius, damage: cfg.split.lowerBodyDamage,
+      isElite: false, slowMark: -1, flashT: 0,
+      spr: disp.parts[0].img, glow: lowerGlow,
+    };
+    run.enemies.push(lower);
+    lowerState = 'chase';
+    lowerT = cfg.split.lowerFirstDelay;
+    run.spawnParticles(boss.x, boss.y, int(cfg.glowInner), 34);
+    run.spawnParticles(lower.x, lower.y, 0xffb020, 24);
+    Sound.sfx('metalSlam', 1, 0.7);
+    Sound.sfx('missileLaunch', 0.6, 0.6);
+  }
+
+  function finishSplit() {
+    split = true;
+    releaseCamera();
+    clearIntroDim();
+    setBossDepthLift(0);
+    if (lowerGlow) lowerGlow.setDepth(6);
+    endAttackChase();
+    attackIdx = 0;
+  }
+
+  // 下半身のAI。追いかけて、一定間隔でホーミングミサイルを斉射するだけ（覚えることを増やさない）。
+  function updateLower(dt) {
+    if (!lower || !lower.active) return;
+    const dx = run.player.x - lower.x, dy = run.player.y - lower.y;
+    const d = Math.hypot(dx, dy) || 1;
+    lowerT -= dt;
+    if (lowerState === 'chase') {
+      const sp = cfg.split.lowerSpeed;
+      lower.x += (dx / d) * sp * dt;
+      lower.y += (dy / d) * sp * dt;
+      if (lowerT <= 0) {
+        lowerState = 'tele'; lowerT = cfg.split.lowerTeleSec;
+        Sound.sfx('warning', 0.5, 1.3);
+      }
+    } else if (lowerState === 'tele') {
+      if (lowerT <= 0) {
+        fireMissilesFrom(lower.x, lower.y, Math.atan2(dy, dx));
+        lowerState = 'chase'; lowerT = cfg.split.lowerIntervalSec;
+      }
+    }
+    if (lower.flashT > 0) lower.flashT -= dt;
+    // 体当たり。上半身と同じ扱い（近づかれたら痛い）
+    const rr = run.player.radius + lower.radius;
+    if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(lower.damage, lower.x, lower.y);
+  }
+
+  function startMerge() {
+    // ⚠️ この印を立てないと update の条件が毎フレーム真のままで startMerge が呼ばれ続け、
+    //    stateT と cineStage が巻き戻って**合体が永遠に終わらない**（実測で踏んだ）。
+    merging = true;
+    clearBullets();
+    destroyWire();
+    resetAttackVars();
+    cineStage = 0;
+    mergeFrom = lower ? { x: lower.x, y: lower.y } : null;
+    state = 'mergeCine';
+    stateT = cfg.merge.cineSec;
+    spawnIntroDim();
+    setBossDepthLift(INTRO_LIFT);
+    if (lowerGlow) lowerGlow.setDepth(6 + INTRO_LIFT);
+    if (!run.cinematic) { run.slowT = Math.max(run.slowT || 0, cfg.merge.cineSec * 0.8); run.slowMul = 0.38; }
+    run.shake(300, 5);
+    Sound.sfx('specialCharge');
+    Sound.sfx('warning', 0.8, 0.6);
+    introText(cfg.merge.text, '#e0a0ff', 122, 22, 3);
+  }
+
+  // 合体の瞬間。色が変わるところを必ず1フレームの白フラッシュ越しに見せる。
+  function applyMergeLook() {
+    removeLower();
+    split = false;
+    phase3 = true;
+    disp.glowP.setTint(int(cfg.merge.glowOuter));
+    disp.glowM.setTint(int(cfg.merge.glowInner));
+    whiteFlash(0.48);
+    run.shake(520, 12);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.16);
+    run.spawnParticles(boss.x, boss.y, int(cfg.merge.tint), 48);
+    run.spawnParticles(boss.x, boss.y, 0xffffff, 30);
+    for (let i = 0; i < 3; i++) {
+      run.time.delayedCall(i * 90, () => {
+        if (!boss || !boss.active) return;
+        run.spawnParticles(boss.x, boss.y, i % 2 ? 0xffffff : int(cfg.merge.glowInner), 22);
+      });
+    }
+    Sound.sfx('bigBoom');
+    Sound.sfx('thunder', 0.8);
+    Sound.sfx('metalSlam', 1, 0.5);
+    introText(cfg.merge.text2, '#c79cff', 160, 20, 3);
+  }
+
+  function finishMerge() {
+    releaseCamera();
+    clearIntroDim();
+    setBossDepthLift(0);
+    endAttackChase();
+    attackIdx = 0;
+    if (run.withAudio) Sound.startBgm('maou');
+  }
+
+  // ★胸部レーザー（再合体後だけ・作中最大ダメージ）。既存のビーム経路に乗せて、
+  //   派手さは「溜めの収束光＋発射の白フラッシュ＋長い薙ぎ＋落雷音」で作る。
+  function fireChestLaser() {
+    const ck = cfg.chestLaser;
+    startBeam(aim + ck.sweepFromDeg * D2R, aim + ck.sweepToDeg * D2R,
+      ck.beamLength, ck.beamWidth, ck.damage, ck.activeSec);
+    whiteFlash(0.49);
+    run.shake(600, 14);
+    Sound.sfx('bigBoom');
+    Sound.sfx('thunder');
+    Sound.sfx('fireBlast', 0.8);
+    recoil(aim);
+    run.spawnParticles(boss.x, boss.y, int(cfg.merge.glowInner), 40);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.10);
+    state = 'chestFire'; stateT = ck.activeSec;
   }
 
   // ============ 攻撃 ============
@@ -708,11 +962,14 @@ export function createBoss(run) {
   }
 
   // ミサイル：上方へ射出→弱ホーミング。走れば振り切れる旋回上限つき。
-  function fireMissiles() {
+  function fireMissiles() { fireMissilesFrom(boss.x, boss.y, aim); }
+
+  // R30: 発射元を引数にした（分離中は**下半身**が撃つ＝ユーザー指示「ミサイルは下半身が出す」）。
+  function fireMissilesFrom(ox, oy, ang) {
     const mk = cfg.missile, mid = (mk.count - 1) / 2;
     for (let i = 0; i < mk.count; i++) {
       const sx = (i - mid) * 45;
-      spawnBullet2(boss.x, boss.y, sx, -mk.launchSpeed,
+      spawnBullet2(ox, oy, sx, -mk.launchSpeed,
         { radius: mk.radius, damage: mk.damage, life: mk.lifeSec, kind: 'missile',
           maxTurn: mk.maxTurnDeg * D2R, speed: mk.speed, blast: mk.blastDamage });
     }
@@ -723,9 +980,13 @@ export function createBoss(run) {
     Sound.sfx('missileLaunch', 0.55, 0.9);
     Sound.sfx('missileFly', 0.8);
     run.shake(140, 4);
-    recoil(aim);                                        // 発射の反動でボス本体がのけぞる
-    const mt = tip();
-    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(mt.x, mt.y, aim, int(cfg.bulletTint));
+    // 反動でのけぞるのは「撃った本人」だけ。下半身が撃ったのに上半身が揺れると、
+    // どちらが撃ったのか分からなくなる（＝2体に分かれた意味が消える）。
+    const fromBoss = ox === boss.x && oy === boss.y;
+    if (fromBoss) recoil(aim);
+    const mt = fromBoss ? tip()
+      : { x: ox + Math.cos(ang) * cfg.split.lowerRadius, y: oy + Math.sin(ang) * cfg.split.lowerRadius };
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(mt.x, mt.y, ang, int(cfg.bulletTint));
     run.spawnParticles(mt.x, mt.y, int(cfg.bulletTint), 10);
     run.spawnParticles(mt.x, mt.y, 0xffb020, 8);
   }
@@ -1074,17 +1335,22 @@ export function createBoss(run) {
   //   - 素手の一撃／自動拳／オーラ  … 座標を持たない近接なので常に弾かれる（＝接近しても解決しない）
   //   - 必殺技                      … 爆風なので「コアが爆心から radius 以内か」で判定する（倍率は付かない）
   // コアは胸の高さで左右にゆっくり泳ぐ。phase2 では周期が縮んで狙いにくくなる。
-  function weakPoint() {
+  // ent を渡すとその個体のコアを返す。★R30 下半身(lower)はコアを持たない＝null。
+  //   null を返すと billiard 側は通常の当たり判定に落ち、dealDamage が weakGate で必ず弾く
+  //   （＝下半身は「触れると弾く装甲」。倒すには上半身のコアを狙うしかない）。
+  function weakPoint(ent) {
     if (!boss || !boss.active || !cfg || !cfg.weak) return null;
+    if (ent && ent.isLowerHalf) return null;
     const w = cfg.weak;
     const sec = phase2 ? w.phase2SwaySec : w.swaySec;
     const sx = Math.sin((run.elapsed * Math.PI * 2) / sec) * w.swayX;
     return { x: boss.x + sx, y: boss.y + boss.radius * w.offY, r: w.radius };
   }
   // at = { x, y, r } … r>0 は爆風（範囲攻撃）。at 省略＝座標を持たない近接。
-  function weakGate(src, at) {
+  function weakGate(src, at, ent) {
     if (!cfg || !cfg.weak) return { pass: true, mul: 1 };
-    const w = weakPoint();
+    if (ent && ent.isLowerHalf) return { pass: false, mul: 0 };
+    const w = weakPoint(ent);
     if (!w) return { pass: true, mul: 1 };
     if (!at || at.x == null) return { pass: false, mul: 0 };
     const dx = at.x - w.x, dy = at.y - w.y;
@@ -1176,6 +1442,32 @@ export function createBoss(run) {
     boss.flashT = Math.max(boss.flashT, flashSec == null ? 0.14 : flashSec);
     return true;
   }
+  // ★R30 カットシーンのあいだだけカメラを上半身（＋下半身）へ寄せる。
+  //   ⚠️ これが無いと、ボスから離れた位置で節目を迎えたとき分離も変色も**画面外で起きる**。
+  //      実測：主人公が320px離れていると、再合体の瞬間は画面左端の外だった。
+  //   ズームは触らない（scrollFactor 0 の暗幕/テロップがズームで縮み、画面端が空くため）。
+  //   尺は実時間で詰める（スロー中でもカメラだけは間に合わせる）。
+  function trackCine() {
+    if (!boss) return;
+    const cam = run.cameras.main;
+    if (!camHeld) { camHeld = true; cam.stopFollow(); }
+    const lp = lower && lower.active ? lower : null;
+    const tx = (lp ? (boss.x + lp.x) / 2 : boss.x) - cam.width / 2;
+    const ty = (lp ? (boss.y + lp.y) / 2 : boss.y) - cam.height / 2;
+    const k = Math.min(1, (run.realDt || 0.016) * 5);
+    cam.scrollX += (tx - cam.scrollX) * k;
+    cam.scrollY += (ty - cam.scrollY) * k;
+    // 見せているあいだは雑魚にも殴らせない（ボスの体当たりは既に止めてある）。
+    // 画面の外にいる主人公が理不尽に削られるのが一番しらける。
+    if (run.player) run.player.invuln = Math.max(run.player.invuln || 0, 0.3);
+  }
+  function releaseCamera() {
+    if (!camHeld) return;
+    camHeld = false;
+    const cam = run.cameras.main;
+    if (run.playerImg) cam.startFollow(run.playerImg, true, 0.18, 0.18);
+  }
+
   // 画面フラッシュ（白フラッシュ alpha < 0.5 厳守）
   function whiteFlash(a) {
     const cam = run.cameras.main;
@@ -1431,6 +1723,31 @@ export function createBoss(run) {
   }
 
   // ============ 表示（本体そのものが動く） ============
+  // ★R30 脚パーツの持ち主。null＝上半身にくっついたまま（＝従来どおり）。
+  //   splitCine 中は本体→切り離し先へ補間、分離中は lower に完全追従、
+  //   mergeCine 中は lower→本体へ吸い寄せる（＝合体していく様子が見える）。
+  function legTransform() {
+    const sp = cfg && cfg.split;
+    if (!sp) return null;
+    if (state === 'splitCine') {
+      if (!lower) return null;
+      const t = clamp01((sp.cineSec - stateT - 0.45) / Math.max(0.01, sp.cineSec - 0.45));
+      const e = t * t * (3 - 2 * t);
+      return { x: lerp(boss.x, lower.x, e), y: lerp(boss.y, lower.y, e),
+               scale: lerp(1, sp.lowerScaleMul, e), spread: lerp(1, 1.15, e) };
+    }
+    if (state === 'mergeCine' && lower) {
+      // 座標は updateAI 側で本体へ吸い寄せている。ここは大きさと開きだけを戻す。
+      const t = clamp01((cfg.merge.cineSec - stateT) / (cfg.merge.cineSec * cfg.merge.contactAt));
+      const e = t * t * (3 - 2 * t);
+      return { x: lower.x, y: lower.y, scale: lerp(sp.lowerScaleMul, 1, e), spread: lerp(1.15, 1, e) };
+    }
+    if (split && lower && lower.active) {
+      return { x: lower.x, y: lower.y, scale: sp.lowerScaleMul, spread: 1.15 };
+    }
+    return null;
+  }
+
   function updateDisp(dt) {
     const s = disp.spriteScale;
     const cx = boss.x, cy = boss.y;
@@ -1461,6 +1778,11 @@ export function createBoss(run) {
         armPose = lerp(-1.5, 1.0, dn);
         bodySink = dn * 4;
       }
+    } else if (state === 'chestTele' && cfg.chestLaser) {
+      // 両腕を大きく開いて胸を晒す＝「胸から来る」を姿勢で予告する
+      const prog = clamp01(1 - stateT / cfg.chestLaser.chargeSec);
+      armPose = lerp(0, -1.9, prog);
+      bodySink = -prog * 3;
     } else if (state === 'cutterTele') {
       armPose = lerp(0, -0.9, clamp01(1 - stateT / cfg.cutter.telegraphSec));
     } else if (state === 'missileTele') {
@@ -1495,9 +1817,17 @@ export function createBoss(run) {
     // 最終ボス登場中：全パーツ/グロウをフェードイン＋スケールイン＋上から降下させる（重量感のある登場）。
     const introFx = state === 'maouIntro' ? maouIntroFx() : null;
 
+    // ★R30 分離中は脚パーツだけを下半身(lower)の座標へ付け替える。新しい絵は作らない。
+    //   分離のカットシーン中は「切り離されて離れていく」途中経過を補間で見せる。
+    const legOwner = legTransform();
+
     for (const p of disp.parts) {
-      let px = cx + p.ox * s + rcx;
-      let py = cy + p.oy * s + bob + rcy;
+      const isLeg = legOwner && (p.role === 'legL' || p.role === 'legR');
+      // ⚠️ 位置は必ず素の s で置く。拡大した ls で ox を掛けると、脚2本の間隔が
+      //    scale×spread ぶん二重に開いて画面幅(640px)を超える（392px離れた）。
+      const ls = isLeg ? s * legOwner.scale : s;
+      let px = (isLeg ? legOwner.x : cx) + p.ox * s * (isLeg ? legOwner.spread : 1) + (isLeg ? 0 : rcx);
+      let py = (isLeg ? legOwner.y : cy) + p.oy * s * (isLeg ? 0.15 : 1) + bob + (isLeg ? 0 : rcy);
       let rot = 0;
       const m = p.mirror ? -1 : 1;
       switch (p.role) {
@@ -1543,6 +1873,10 @@ export function createBoss(run) {
       if (introFx) {
         py += introFx.drop;
         p.img.setAlpha(introFx.alpha).setScale((p.mirror ? -1 : 1) * s * introFx.scale, s * introFx.scale);
+      } else if (isLeg) {
+        p.img.setScale((p.mirror ? -1 : 1) * ls, ls);
+      } else if (p.img.scaleY !== s) {
+        p.img.setScale((p.mirror ? -1 : 1) * s, s);   // 合体で元の大きさへ戻す
       }
       p.img.setPosition(px, py).setRotation(rot);
     }
@@ -1569,7 +1903,15 @@ export function createBoss(run) {
     // 変わらず「今だけ大きい」が伝わっていなかった。よろけと同じ青白で塗って記号を揃える。
     else if (bossStagT > 0) tint = BALANCE.stagger.tint;
     else if (isTelegraph(state)) tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
+    // ★R30 再合体後はメタリックパープル（ユーザー指示）。予告の点滅より下・被弾フラッシュより下に
+    //   置くので、「今は何をしているか」の記号は今までどおり読める。
+    else if (phase3 && cfg.merge) tint = int(cfg.merge.tint);
     else if (phase2) tint = 0xff6a6a;
+    // 合体の瞬間だけ真っ白に飛ばす＝そのあと紫が現れる（色が変わったことが必ず目に入る）
+    if (state === 'mergeCine' && cineStage >= 2) {
+      const since = (cfg.merge.cineSec - stateT) - cfg.merge.cineSec * cfg.merge.contactAt;
+      if (since < 0.30) tint = 0xffffff;
+    }
     for (const p of disp.parts) { if (tint == null) p.img.clearTint(); else p.img.setTint(tint); }
   }
 
@@ -1654,6 +1996,7 @@ export function createBoss(run) {
   }
 
   function destroyDisp() {
+    removeLower();       // R30: 分離中に撃破/破棄されても下半身を必ず消す
     clearIntroEls();     // 登場イベント途中で撃破/破棄されても text を確実に片付ける
     destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
     destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
@@ -1668,13 +2011,23 @@ export function createBoss(run) {
   }
 
   function endFight() {
+    releaseCamera();
+    removeLower();
     boss = null;
     cfg = null;
     def = null;
     state = 'idle';
     phase2 = false;
+    split = false; phase3 = false; merging = false; mergeFrom = null;
     killing = false;
     ti++;
+  }
+
+  // ★R30 下半身の後始末。撃破・破棄・合体の全経路から必ず通す。
+  //   run.enemies から外すのは active=false で足りる（isBoss はプールへ戻らない）。
+  function removeLower() {
+    if (lower) { lower.active = false; lower = null; }
+    if (lowerGlow) { lowerGlow.destroy(); lowerGlow = null; }
   }
 
   // ============ 毎フレーム ============
@@ -1699,12 +2052,22 @@ export function createBoss(run) {
       updateDisp(dt);
       drawWeak();          // R29 弱点コア（持たないボスでは何もしない）
       if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
+      // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
+      if (split && !phase3 && !merging && cfg.merge && boss.hp <= cfg.hp * cfg.merge.hpRatio) startMerge();
+      if (camHeld && state !== 'splitCine' && state !== 'mergeCine') releaseCamera();
+      if (split && state !== 'mergeCine') updateLower(dt);
+      if (lowerGlow && lower && lower.active && state !== 'mergeCine') {
+        lowerGlow.setPosition(lower.x, lower.y)
+          .setScale(cfg.glowScale * 0.9 * (1 + Math.sin(run.elapsed * 4) * 0.12));
+      }
       // 突進中/フライパス通過中は体当たりのダメージが上がる（速い＝重い、が体で分かる）
       const dmg = (state === 'dash') ? cfg.dash.damage
         : (state === 'flypass') ? cfg.flypass.bodyDamage : cfg.bodyDamage;
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
-      if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
+      // カットシーン中は体当たりで削らない。見せている最中に理不尽に減るのが一番しらける
+      const cine = state === 'splitCine' || state === 'mergeCine';
+      if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
     }
 
     updateBullets(dt);
@@ -1713,6 +2076,7 @@ export function createBoss(run) {
   }
 
   function destroy() {
+    releaseCamera();
     clearBullets();
     clearStrikes();
     for (const d of pool) { if (d.spr) d.spr.destroy(); if (d.glow) d.glow.destroy(); }
@@ -1740,9 +2104,14 @@ export function createBoss(run) {
     get bulletCount() { return bullets.length; },
     get strikeCount() { return strikes.length; },
     // R29 検証用：弾の実速度／ロケットパンチの到達長を外から測る（本体は書き換えない）
-    debugBullets() { return bullets.map((b) => ({ kind: b.kind, vx: b.vx, vy: b.vy })); },
+    debugBullets() { return bullets.map((b) => ({ kind: b.kind, x: b.x, y: b.y, vx: b.vx, vy: b.vy })); },
     debugWire() { return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)) } : null; },
     get beamActive() { return !!beam; },
     get partCount() { return disp ? disp.parts.length : 0; },
+    // R30 検証用：分離／再合体の観測（本体は書き換えない）
+    get split() { return split; },
+    get phase3() { return phase3; },
+    get lowerPos() { return lower && lower.active ? { x: lower.x, y: lower.y, r: lower.radius } : null; },
+    get bossTint() { return disp && disp.parts[0] ? disp.parts[0].img.tintTopLeft : null; },
   };
 }

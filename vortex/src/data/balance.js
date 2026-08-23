@@ -959,7 +959,9 @@ export const BALANCE = {
         //   spriteScale 8→9.6・radius 68→82・glow/spawnDist も同率で追随（見た目と判定を一致させる）。
         //   HP は 28000→20000 へ下げた。弱点コア以外が通らなくなるぶん、総HPを据え置くと
         //   撃破までの時間だけが伸びて「硬いだけ」になるため（狙う難しさに、長さを足さない）。
-        hp: 20000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
+        // R30: 実プレイFB「まずマオウレクスの体力を1.2倍に」。20000→24000。
+        //   分離（50%）と再合体（33%）という2つの節目を入れるので、各段の尺を確保する意味もある。
+        hp: 24000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
         glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
         attacks: ['laser', 'knuckle', 'wirearm', 'missile', 'nova'],
@@ -1003,8 +1005,37 @@ export const BALANCE = {
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
         idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.4, 2.6, 2.0, 2.6] },
-        phase2: true, phase2HpRatio: 0.55, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
-        rageText: 'マオウレクス かくせい！', bulletTint: '#38e1ff',
+        // ★R30 分離／再合体（実プレイFB「体力が半分になると上半身と下半身とに分かれて二体で別々に
+        //   襲ってくる。移動スピードも速い。ロケットパンチは上半身が、ミサイルは下半身が出す。
+        //   体力が三分の一になると再び合体して体の色がメタリックパープルに変化」）。
+        // ⚠️ HPは1本のまま（下半身は装甲＝コアを持たない）。三分の一で必ず合体するので、
+        //    「どちらを先に倒すか」という別のゲームは作らない＝狙う場所は最後までコア1つ。
+        attacksSplit: ['wirearm', 'knuckle', 'nova', 'wirearm', 'vulcan'],   // 上半身＝腕の技が主役
+        attacksP3:    ['chestLaser', 'wirearm', 'nova', 'chestLaser', 'missile'],
+        split: {
+          hpRatio: 0.50,        // ここで分離（＝phase2 と同じ節目にまとめる。節目は少ないほど伝わる）
+          cineSec: 1.5,         // 分離の見せ場（この間は攻撃も体当たりもしない）
+          upperSpeedMul: 1.6,   // 「移動スピードも速い」。68 → 109px/秒
+          lowerSpeed: 122,      // 下半身のほうが速い（脚だけになったので身軽）
+          lowerRadius: 52, lowerScaleMul: 1.55, lowerBodyDamage: 34,
+          lowerFirstDelay: 1.1, lowerIntervalSec: 2.6, lowerTeleSec: 0.5,
+          dropDist: 96,         // 分離した瞬間に下半身が離れる距離
+          text: 'マオウレクス ぶんりつ！', text2: 'うえと したで おそってくる！',
+        },
+        merge: {
+          hpRatio: 0.3333,
+          cineSec: 2.4, contactAt: 0.62,   // cineSec のこの割合で合体の瞬間（白フラッシュ）
+          tint: '#a86bff', glowOuter: '#7a1cff', glowInner: '#e0a0ff',
+          speedMul: 1.35, idleMul: 0.62,
+          text: 'マオウレクス さいごうたい！', text2: 'メタリックパープル',
+        },
+        // ★胸部レーザー（再合体後だけ）。作中最大ダメージ。
+        //   80 は現状最大の wirearm 64 を超えるが、プレイヤーHP140 の57%＝満タンから一撃死はしない。
+        //   （「避けられない一撃で殺す」ではなく「当たったら立て直せない」の位置に置く）
+        chestLaser: { chargeSec: 1.5, beamWidth: 74, beamLength: 560, damage: 80,
+                      sweepFromDeg: -58, sweepToDeg: 58, activeSec: 1.1 },
+        phase2: true, phase2HpRatio: 0.50, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
+        rageText: 'マオウレクス ぶんりつ！', bulletTint: '#38e1ff',
         rewardCoins: 500, deathCinematicSec: 1.8,
       },
     ],

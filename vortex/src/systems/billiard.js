@@ -1232,7 +1232,7 @@ export function createBilliard(run) {
         // ★R29 弱点コア持ちボス（マオウレクス）は、当たり判定そのものが本体ではなくコア。
         //   本体の輪郭(radius 82)で当たり判定を取ると、コア(中心から約25px)には物理的に一生届かない。
         //   そこで本体は「触れると弾かれるだけの装甲」にし、ダメージ判定はコア円だけで取る。
-        const weak = (e.isBoss && run.boss && run.boss.hasWeak) ? run.boss.weakPoint() : null;
+        const weak = (e.isBoss && run.boss && run.boss.hasWeak) ? run.boss.weakPoint(e) : null;
         if (weak) {
           const wrr = s.radius + weak.r;
           const wdx = weak.x - s.x, wdy = weak.y - s.y;

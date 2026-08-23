@@ -1671,7 +1671,7 @@ export class RunScene extends Phaser.Scene {
     // ★弱点コア（マオウレクス）。本体に当たった攻撃はダメージにならず弾かれる。
     //   ここに置くのは dealDamage が全経路の合流点だから（個別の攻撃側に散らすと必ず漏れる）。
     if (e.isBoss && this.boss && this.boss.hasWeak) {
-      const w = this.boss.weakGate(src, at);
+      const w = this.boss.weakGate(src, at, e);   // R30: 分離した下半身はコアを持たない＝必ず弾く
       if (!w.pass) { this.boss.deflect(at && at.x, at && at.y); return; }
       if (w.mul !== 1) dmg = Math.max(1, Math.round(dmg * w.mul));
       if (w.core) this.boss.coreHitFx(at.x, at.y);
