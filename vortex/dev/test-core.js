@@ -354,6 +354,56 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   }
 }
 
+// --- R30: マオウレクスの分離／再合体（実プレイFBの指示をデータ側で固定する） ---
+{
+  const tiers = (BALANCE.boss && BALANCE.boss.tiers) || [];
+  const maou = tiers.find((t) => t.bossId === 'maou');
+  assert(!!maou, 'balance: 最終ボス maou の tier が存在');
+  if (maou) {
+    assert(maou.hp === 24000, `balance: マオウレクスのHPが1.2倍（旧20000→24000・実測 ${maou.hp}）`);
+    const sp = maou.split, mg = maou.merge, ck = maou.chestLaser;
+    assert(!!sp && !!mg && !!ck, 'balance: maou に split / merge / chestLaser が定義されている');
+    if (sp && mg && ck) {
+      // 節目の順序。逆転すると「合体してから分離」になって物語が壊れる
+      assert(maou.phase2HpRatio === sp.hpRatio, 'balance: 分離は phase2 の節目と同じHP（節目を増やさない）');
+      assert(sp.hpRatio > mg.hpRatio, `balance: 分離(${sp.hpRatio})は再合体(${mg.hpRatio})より手前`);
+      // 攻撃の分担（ユーザー指示：ロケットパンチは上半身・ミサイルは下半身）
+      const asp = maou.attacksSplit || [], ap3 = maou.attacksP3 || [];
+      assert(asp.includes('wirearm'), 'balance: 分離中の上半身はロケットパンチ(wirearm)を撃つ');
+      assert(!asp.includes('missile'), 'balance: 分離中の上半身はミサイルを撃たない（下半身の担当）');
+      assert(ap3.includes('chestLaser'), 'balance: 再合体後は胸部レーザーを撃つ');
+      assert(!asp.includes('chestLaser'), 'balance: 胸部レーザーは再合体後だけ（分離中には出さない）');
+      // 攻撃名が maou の設定に実在する（綴り違いで無音の不発になるのを防ぐ）
+      const known = asp.concat(ap3).every((a) => maou[a] !== undefined);
+      assert(known, 'balance: attacksSplit / attacksP3 の全攻撃が maou に定義されている');
+      // 「移動スピードも速い」
+      assert(sp.upperSpeedMul > 1, `balance: 分離した上半身は速い（×${sp.upperSpeedMul}）`);
+      assert(mg.speedMul > 1, `balance: 再合体後は速い（×${mg.speedMul}）`);
+      assert(sp.lowerSpeed > maou.chaseSpeed, `balance: 下半身は本体より速い（${sp.lowerSpeed} > ${maou.chaseSpeed}）`);
+      // 「再合体および色の変化の様子はプレーヤーに見せる」＝尺を確保する
+      assert(sp.cineSec >= 1.0 && mg.cineSec >= 1.5,
+        `balance: 分離/再合体のカットシーンに尺がある（${sp.cineSec}s / ${mg.cineSec}s）`);
+      assert(mg.contactAt > 0 && mg.contactAt < 1, 'balance: 色が変わる瞬間がカットシーンの途中にある');
+      // 「破壊力も作中最大ダメージに」＝全ボスの全攻撃で最大であること
+      let maxOther = 0, maxWho = '';
+      const scan = (obj, who) => {
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if (typeof v === 'number' && /amage$/i.test(k)) {
+            if (obj !== ck && v > maxOther) { maxOther = v; maxWho = who + '.' + k; }
+          } else if (v && typeof v === 'object' && !Array.isArray(v)) scan(v, who + '.' + k);
+        }
+      };
+      for (const t of tiers) scan(t, t.bossId);
+      assert(ck.damage > maxOther,
+        `balance: 胸部レーザーが作中最大ダメージ（${ck.damage} > 次点 ${maxOther} = ${maxWho}）`);
+      assert(ck.damage < BALANCE.player.hp,
+        `balance: 胸部レーザーでも満タンから一撃死しない（${ck.damage} < ${BALANCE.player.hp}）`);
+      assert(ck.chargeSec >= 1.0, `balance: 胸部レーザーには避けられる溜めがある（${ck.chargeSec}s）`);
+    }
+  }
+}
+
 // --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
 {
   const enemyIds = new Set(ENEMIES.map((e) => e.id));
