@@ -562,8 +562,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // ★予告より先によろけが切れると、断末魔が一度も出ないまま消える
   assert(G[D.fromGrade].stagSec > D.telegraphSec,
     `balance: よろけ猶予(${G[D.fromGrade].stagSec}s)が断末魔の予告(${D.telegraphSec}s)より長い`);
-  assert(D.fuse && D.fuse.sec > BALANCE.hero.billiard.chargeMaxSec,
-    'balance: ボンバの導火線が溜め切り(0.85s)より長い＝掴んでも投げる時間がある');
+  assert(D.fuse && D.fuse.sec > BALANCE.hero.billiard.chargeMaxSec
+    && D.fuse.sec < BALANCE.hero.billiard.chargeMaxSec * 2,
+    'balance: ボンバの導火線は溜め切り(0.85s)より長く、その2倍より短いこと（長すぎると実測どおり発火0回になる）');
   // ⚠️ 王冠は「時間で育つ」にすると成立しない（雑魚の生存時間は中央値3.7秒・30秒超は0体）。
   //    キル数がトリガーであることを固定する。
   assert(C && C.killsNeeded >= 1 && C.radius > 0, 'balance: 王冠はキル数と半径がトリガー');

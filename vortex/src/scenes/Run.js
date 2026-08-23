@@ -701,7 +701,8 @@ export class RunScene extends Phaser.Scene {
       }
       // 予告中の敵に当てるとカウンター（＝敵の攻撃を止めた証明）
       let mul = 1;
-      if (e.atkState === 'telegraph') {
+      // R26: 断末魔だけはカウンターで止められない（止まると避ける体験が生まれない）。
+      if (e.atkState === 'telegraph' && !e.throe) {
         mul = S.counterMul;
         counters++;
         // 実測20.4回/分。頻繁なので音とスパークだけ＝テキストも画面揺れも出さない。
@@ -815,14 +816,26 @@ export class RunScene extends Phaser.Scene {
     e.throe = true;
     e.atkState = 'telegraph';
     e.atkT = isFuse ? D.fuse.sec : D.telegraphSec;
+    // ★R26 予告のあいだは掴めない・割れない。実測で「よろけてから掴むまで 中央値0.23秒」
+    //   だったため、0.5秒の予告は23回中19回が掴みで消えて**発火は9%**しかなかった。
+    //   中断できなくして初めて「まず一発避けてから捕獲する」というリズムになる。
+    e.guardT = isFuse ? (D.fuse.guardSec || 0) : (D.guardSec || 0);
     const dx = this.player.x - e.x, dy = this.player.y - e.y;
     const d = Math.hypot(dx, dy) || 1;
     e.lockX = dx / d; e.lockY = dy / d;
     e.aimLocked = false;
     const A = e.def.attack;
-    if (A.type === 'lockbeam') this.showAimLine(e, A.range);
-    else if (A.aoe) this.showBlastRing(e, A.aoe);
-    Sound.sfx(isFuse ? 'tick' : 'warning', 0.45, isFuse ? 1.4 : 1.3);
+    const tint = isFuse ? 0 : D.tint;
+    // 見せる輪と当たり判定は必ず同じ式で作る（縮めるならこちらも縮める）
+    const aoe = A.aoe ? Math.round(A.aoe * (D.aoeMul || 1)) : 0;
+    if (A.type === 'lockbeam') this.showAimLine(e, A.range, tint);
+    else if (aoe) this.showBlastRing(e, aoe, tint);
+    Sound.sfx(isFuse ? 'tick' : 'warning', isFuse ? 0.45 : 0.85, isFuse ? 1.4 : 1.15);
+    if (!isFuse) {
+      Sound.sfx('metalSlam', 0.5, 0.6);
+      this.floatText(e.x, e.y - e.radius - 16, D.label || 'まだ しんでない！', '#e0a0ff');
+      if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, D.tint);
+    }
   }
 
   // 4.5秒放置すると復帰する。強くなって戻るので「殴らないと損」になる。
@@ -840,6 +853,8 @@ export class RunScene extends Phaser.Scene {
 
   // リングの破棄。撃破／復帰／プール返却／シーン終了の全経路から呼ぶ。
   clearStagger(e) {
+    e.guardT = 0;
+    e.throe = false;
     if (e.stagRing) {
       e.stagRing.setVisible(false);
       this._stagPool.push(e.stagRing);
@@ -858,6 +873,7 @@ export class RunScene extends Phaser.Scene {
     if (!this._killLog) this._killLog = [];
     this._killLog.push({ x, y, t: this.elapsed });
     while (this._killLog.length && this.elapsed - this._killLog[0].t > 2.5) this._killLog.shift();
+    if (this.elapsed < (C.fromSec || 0)) return;
     if (this.elapsed - (this._crownT || -99) < C.cooldownSec) return;
     const r2 = C.radius * C.radius;
     let near = 0;
@@ -891,8 +907,9 @@ export class RunScene extends Phaser.Scene {
   crownEnemy(e) {
     const C = BALANCE.crown;
     e.crown = true;
-    e.hp = Math.round(e.hp * C.hpMul);
+    // 削られた状態から倍率を掛けると「HP2.5倍の強敵」に見えない。全快させてから掛ける。
     e.maxHp = Math.round(e.maxHp * C.hpMul);
+    e.hp = e.maxHp;
     e.damage = Math.round(e.damage * C.damageMul);
     e.speed *= C.speedMul;
     e.radius *= C.radiusMul;
@@ -903,14 +920,37 @@ export class RunScene extends Phaser.Scene {
     if (!this._crownPool) this._crownPool = [];
     e.crownSpr = this._crownPool.pop()
       || this.add.image(0, 0, 'w_star2').setBlendMode(ADD).setDepth(12);
-    e.crownSpr.setVisible(true).setTint(C.tint).setAlpha(0.95).setScale(1.5).setPosition(e.x, e.y);
-    Sound.sfx('elite', 0.55, 1.3);
-    Sound.sfx('heatMax', 0.4);
+    e.crownSpr.setVisible(true).setTint(C.tint).setAlpha(0.95)
+      .setScale(C.starScale || 1.5).setPosition(e.x, e.y);
+    // ★R26 「生まれた瞬間」を作る。止める→揺らす→周りをどける→無敵で1秒立たせる。
+    e.crownInv = C.birthInvulnSec || 0;
+    if (!this.cinematic) this.freezeT = Math.max(this.freezeT || 0, C.birthFreeze || 0);
+    this.shake(200, C.birthShake || 6);
+    const pr2 = (C.pushRadius || 0) * (C.pushRadius || 0);
+    for (const o of this.enemies) {
+      if (!o.active || o === e || o.isBoss) continue;
+      const dx = o.x - e.x, dy = o.y - e.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > pr2 || d2 === 0) continue;
+      const d = Math.sqrt(d2);
+      o.knockX = (dx / d) * (C.pushPower || 300);
+      o.knockY = (dy / d) * (C.pushPower || 300);
+      o.knockT = 0.22;
+    }
+    this.spawnParticles(e.x, e.y, C.tint, 22);
+    Sound.sfx('elite', 0.75, 1.3);
+    Sound.sfx('heatMax', 0.6);
     this.floatText(e.x, e.y - e.radius - 18, 'おうかん！', '#ffd23f');
+    if (this.fx && this.fx.announce) this.fx.announce(C.label || 'おうかん！', '#ffd23f');
+    if (this.fx && this.fx.setTarget) {
+      this.fx.setTarget('crown' + e.id, e.x, e.y, { color: C.tint, label: 'おうかん' });
+    }
     if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, C.tint);
   }
 
   clearCrown(e) {
+    e.crownInv = 0;
+    if (this.fx && this.fx.clearTarget) this.fx.clearTarget('crown' + e.id);
     if (!e.crownSpr) return;
     e.crownSpr.setVisible(false);
     if (this._crownPool) this._crownPool.push(e.crownSpr);
@@ -1149,7 +1189,7 @@ export class RunScene extends Phaser.Scene {
       // R21W2: よろけ（瀕死）。spawnEnemy は毎回リテラルを作り直すのでここに書けば状態は漏れない。
       stag: false, stagT: 0, stagMax: 0, stagRing: null, rebooted: false, noReward: false,
       // R25: 王冠と断末魔。ここに書けばプール再利用でも前の個体の状態が漏れない。
-      crown: false, crownSpr: null, throe: false, atkIntervalMul: 1,
+      crown: false, crownSpr: null, crownInv: 0, throe: false, guardT: 0, atkIntervalMul: 1,
       glow: disp.glow, spr: disp.spr,
     };
     e.maxHp = e.hp;
@@ -1265,9 +1305,17 @@ export class RunScene extends Phaser.Scene {
       e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6);
       e.glow.setPosition(e.x, e.y);
       if (e.crownSpr) {
-        e.crownSpr.setPosition(e.x, e.y - e.radius - 9)
+        const cs = BALANCE.crown.starScale || 1.5;
+        e.crownSpr.setPosition(e.x, e.y - e.radius - 11)
           .setRotation(this.elapsed * 2.2)
-          .setScale(1.4 + 0.25 * Math.sin(this.elapsed * 6));
+          .setScale(cs * (0.92 + 0.20 * Math.sin(this.elapsed * 6)));
+        if (this.fx && this.fx.moveTarget) this.fx.moveTarget('crown' + e.id, e.x, e.y);
+      }
+      // R26: 生まれてすぐは無敵。金の輪郭で「今は触れない／もうすぐ動く」を見せる。
+      if (e.crownInv > 0) {
+        e.crownInv -= dt;
+        e.glow.setAlpha(0.55 + 0.45 * Math.sin(this.elapsed * 22));
+        if (e.crownInv <= 0) { e.glow.setAlpha(1); this.spawnParticles(e.x, e.y, BALANCE.crown.tint, 12); }
       }
 
       // フラッシュ・点滅
@@ -1366,8 +1414,14 @@ export class RunScene extends Phaser.Scene {
       }
     } else if (e.atkState === 'telegraph') {
       // 予告表現：本体を点滅（既存の被弾フラッシュと同系）
-      if (Math.floor(this.elapsed * 10) % 2 === 0) e.spr.setTint(0xffffff);
+      // R26: 断末魔は紫で点滅させる＝「これは触れない。避けるやつだ」を色だけで伝える。
+      if (Math.floor(this.elapsed * 10) % 2 === 0) e.spr.setTint(e.throe ? BALANCE.deathThroe.tint : 0xffffff);
       else e.spr.clearTint();
+      // 断末魔の輪は脈打たせる。静止した輪は背景に溶けて「今の予告」として読まれない。
+      if (e.throe && e.aimLine && e.aimLine.setScale) {
+        e.aimLine.setScale(1 + 0.13 * Math.sin(this.elapsed * 26));
+      }
+      if (e.guardT > 0) e.guardT = Math.max(0, e.guardT - dt);
       // R21W3: 照準ラインは自分に追従。lateLockSec を切るまでは向きも主人公へ追い続け、
       //   本ロックの瞬間に濃くして「今きまった」を見せる（残り時間が避ける猶予になる）。
       if (e.aimLine) {
@@ -1391,7 +1445,7 @@ export class RunScene extends Phaser.Scene {
         if (e.active) {
           e.atkState = 'ready';
           // R25: 断末魔は1回だけ。撃ち終わったら二度と撃たない（よろけ中の永久砲台にしない）。
-          if (e.throe) { e.throe = false; e.atkT = 1e9; }
+          if (e.throe) { e.throe = false; e.guardT = 0; e.atkT = 1e9; }
           else e.atkT = (A.intervalSec > 0 ? A.intervalSec : 0.2) * (e.atkIntervalMul || 1);
         }
       }
@@ -1399,9 +1453,9 @@ export class RunScene extends Phaser.Scene {
   }
 
   // snipa の照準ライン（'white' を細長く・赤・半透明）。telegraph 終了で破棄する。
-  showAimLine(e, len) {
+  showAimLine(e, len, tint) {
     const line = this.add.image(e.x, e.y, 'white').setOrigin(0, 0.5).setBlendMode(ADD)
-      .setDepth(8).setTint(0xff3b3b).setAlpha(0.35)
+      .setDepth(8).setTint(tint || 0xff3b3b).setAlpha(tint ? 0.55 : 0.35)
       .setDisplaySize(len, 2).setRotation(Math.atan2(e.lockY, e.lockX)).setPosition(e.x, e.y);
     e.aimLine = line;
   }
@@ -1421,7 +1475,7 @@ export class RunScene extends Phaser.Scene {
 
   // R21W3: quake / selfdestruct の予告リング。爆心は敵の足元なので aimLine と同じ追従・後始末に乗せる
   //   （e.aimLine は lockbeam 専用フィールドで、破棄経路が4箇所すでにある。新しい漏れ道を作らない）。
-  showBlastRing(e, aoe) {
+  showBlastRing(e, aoe, tint) {
     // 危険な半径はダメージ条件そのもの（dist <= aoe + player.radius）。見せる物は実装と同じ式で作る。
     //   w_ring は makeRing('w_ring', 48, 5) ＝ scale 1 で外周半径 24px、glow は makeGlow('glow', 32) ＝ 16px。
     // 輪だけだと「帯が危ないのか円の中が危ないのか」が伝わらないので、内側も薄く塗る。
@@ -1430,15 +1484,27 @@ export class RunScene extends Phaser.Scene {
     //   射程内に5体いれば2枚同時は時間の約24%起きる＝交差は例外ではなく常態として見積もる。
     // 2枚を Container 1個にまとめる。e.aimLine の破棄経路が既に4箇所あるので、新しい漏れ道を作らない。
     const R = aoe + this.player.radius;
-    const fill = this.add.image(0, 0, 'glow').setBlendMode(ADD).setTint(0xff3b3b)
-      .setAlpha(0.08).setScale(R / 16);
-    const ring = this.add.image(0, 0, 'w_ring').setBlendMode(ADD).setTint(0xff3b3b)
-      .setAlpha(0.24).setScale(R / 24);
+    // R26: 断末魔だけは専用色（紫）＋濃さ2倍。通常の赤い予告と混ざると「今のは何だったのか」が残らない。
+    const col = tint || 0xff3b3b;
+    const fill = this.add.image(0, 0, 'glow').setBlendMode(ADD).setTint(col)
+      .setAlpha(tint ? 0.16 : 0.08).setScale(R / 16);
+    const ring = this.add.image(0, 0, 'w_ring').setBlendMode(ADD).setTint(col)
+      .setAlpha(tint ? 0.52 : 0.24).setScale(R / 24);
     e.aimLine = this.add.container(e.x, e.y, [fill, ring]).setDepth(8);
   }
 
   fireEnemyAttack(e) {
-    const A = e.def.attack;
+    const A0 = e.def.attack;
+    // ★R26 断末魔は「避けられる一撃」でなければ理不尽になる。実測で回避率0%だった原因は
+    //   ガレオンの爆風120が広すぎたこと（主人公は0.7秒で104pxしか動けない）。
+    //   断末魔のときだけ爆風を縮める＝密着からでも歩いて出られる大きさにする。
+    const D = BALANCE.deathThroe;
+    const A = e.throe
+      ? Object.assign({}, A0, {
+          aoe: A0.aoe ? Math.round(A0.aoe * (D.aoeMul || 1)) : A0.aoe,
+          damage: A0.damage ? Math.max(1, Math.round(A0.damage * (D.damageMul || 1))) : A0.damage,
+        })
+      : A0;
     const dx = this.player.x - e.x, dy = this.player.y - e.y;
     const dist = Math.hypot(dx, dy) || 1;
     if (A.type === 'quake') {
@@ -1561,6 +1627,17 @@ export class RunScene extends Phaser.Scene {
     // よろけ中は仲間・自動拳が一切通らない（削りも無効＝再よろけのループを作らない）。
     // 音も数字も出さずに素通りさせる＝「仲間が引いた」ことが静けさで分かる。
     if (e.stag && src !== 'manual') return;
+    // ★R26 断末魔の予告中は割れない。紫の輪が消えるまでは手が出せない＝一発避けるしかない。
+    if (e.crownInv > 0) {
+      if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, BALANCE.crown.tint);
+      Sound.sfx('counter', 0.35, 1.4);
+      return;
+    }
+    if (e.guardT > 0 && e.throe) {
+      if (this.fx && this.fx.hitSpark) this.fx.hitSpark(e.x, e.y, BALANCE.deathThroe.tint);
+      Sound.sfx('counter', 0.35, 0.7);
+      return;
+    }
     e.hp -= dmg;
     e.flashT = 0.08;
     this.spawnHitMark(e.x, e.y, color);

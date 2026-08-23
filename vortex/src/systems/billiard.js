@@ -152,7 +152,18 @@ export function createBilliard(run) {
     const G0 = GR(st.held.grade);
     if (st.held.grade >= 2) {
       run.floatText(run.player.x, run.player.y - 40, G0.label + '！', '#ffd23f');
-      Sound.sfx('metalSlam', 0.45, st.held.grade >= 3 ? 0.7 : 0.9);
+      Sound.sfx('metalSlam', 0.7, st.held.grade >= 3 ? 0.62 : 0.82);
+      // ★R26 実プレイFB「重量のある弾を取得したという重みがそもそも感じられなかった」。
+      //   実測すると弾を持っている時間は格に関係なく0.53秒しかない＝「持っている間」では伝わらない。
+      //   山は掴んだ**瞬間**に置く：一瞬止めて、画面を揺らして、足元から波紋を出す。
+      if (G0.grabFreeze > 0 && !run.cinematic) run.freezeT = Math.max(run.freezeT || 0, G0.grabFreeze);
+      if (G0.grabShake > 0) run.shake(150, G0.grabShake);
+      for (let g = 0; g < (G0.grabRing || 0); g++) {
+        const rr = 52 + 34 * g;
+        if (g === 0) shockRing(run.player.x, run.player.y + 6, rr, G0.color);
+        else run.time.delayedCall(90, () => shockRing(run.player.x, run.player.y + 6, rr, 0xffffff));
+      }
+      run.spawnParticles(run.player.x, run.player.y + 8, G0.color, 10 + 8 * st.held.grade);
     }
     if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, BALANCE.stagger.tint);
   }
@@ -1328,7 +1339,10 @@ export function createBilliard(run) {
   }
 
   function press() {
-    const prey = run.nearestEnemy(grabReach(), 0, true, (e) => !e.isBoss);
+    // ★R26 断末魔の予告中は掴めない。実測で「よろけ→掴み 中央値0.23秒」だったため、
+    //   ここを開けたままだと予告23回中19回が掴みで消えて発火9%になっていた。
+    const prey = run.nearestEnemy(grabReach(), 0, true,
+      (e) => !e.isBoss && !(e.throe && e.guardT > 0));
     if (prey) grab(prey); else jab();
   }
 
@@ -1389,9 +1403,15 @@ export function createBilliard(run) {
         st.held.fuse -= dt;
         // 残りが減るほど速く鳴る＝耳で残り時間が分かる（数字は出さない）
         st.fuseBeep = (st.fuseBeep || 0) - dt;
+        const fsec = (BALANCE.deathThroe.fuse && BALANCE.deathThroe.fuse.sec) || 1.4;
         if (st.fuseBeep <= 0) {
-          st.fuseBeep = Math.max(0.08, st.held.fuse * 0.22);
-          Sound.sfx('tick', 0.5, 1.1 + 0.9 * (1 - Math.min(1, st.held.fuse / 3)));
+          st.fuseBeep = Math.max(0.06, st.held.fuse * 0.22);
+          Sound.sfx('tick', 0.6, 1.1 + 0.9 * (1 - Math.min(1, st.held.fuse / fsec)));
+        }
+        // 耳だけでなく目でも残りが分かるように、手の中の弾を赤く明滅させる（速さが残り時間）
+        if (st.heldSpr) {
+          const bl = Math.sin(run.elapsed * (16 + 34 * (1 - st.held.fuse / fsec))) > 0;
+          st.heldSpr.setTint(bl ? 0xff4020 : 0xffffff);
         }
         if (st.held.fuse <= 0) { blowUpInHand(); return; }
       }

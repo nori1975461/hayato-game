@@ -246,18 +246,22 @@ export const BALANCE = {
         //    ＝ かるい/おもい は種類で、ずっしり/ばくだん級は「状態」で決まる。
         { key: 'light', label: 'かるい',     minHp: 0,   dmgMul: 1.00, bossMul: 1.00, radiusMul: 1.00,
           ballMul: 1.00, holdMoveMul: 1.00, stagSec: 4.5, throe: false, burstAll: 0, gemMul: 1, charge: 0,
+          grabShake: 0, grabFreeze: 0, grabRing: 0,
           color: 0x9fe8ff, shake: 0, freeze: 0 },
         { key: 'mid',   label: 'おもい',     minHp: 10,  dmgMul: 1.50, bossMul: 1.25, radiusMul: 1.20,
           ballMul: 1.15, holdMoveMul: 1.00, stagSec: 4.0, throe: true,  burstAll: 68, burstMax: 5, gemMul: 2, charge: 0,
+          grabShake: 0, grabFreeze: 0, grabRing: 0,
           color: 0x8affd2, shake: 3, freeze: 0 },
         // ★burstAll ＝ 着弾点のこの半径にいる**健常な敵も**まとめて倒す。
         //   実測で分かった核心：雑魚は元々1発で死ぬので威力を上げても意味がなく、
         //   貫通は場の敵数で頭打ちになる（貫通HPの72%が未使用）。効くのは面で消すことだけ。
         { key: 'heavy', label: 'ずっしり',   minHp: 1e9, dmgMul: 2.20, bossMul: 1.60, radiusMul: 1.70,
-          ballMul: 1.35, holdMoveMul: 0.88, stagSec: 3.2, throe: true,  burstAll: 130, burstMax: 14, gemMul: 3, charge: 1,
+          ballMul: 1.45, holdMoveMul: 0.78, stagSec: 3.2, throe: true,  burstAll: 130, burstMax: 14, gemMul: 3, charge: 1,
+          grabShake: 7, grabFreeze: 0.10, grabRing: 1,
           color: 0xffa93d, shake: 7, freeze: 0 },
         { key: 'boom',  label: 'ばくだん級', minHp: 1e9, dmgMul: 3.50, bossMul: 2.25, radiusMul: 2.40,
-          ballMul: 1.65, holdMoveMul: 0.78, stagSec: 2.4, throe: true,  burstAll: 165, burstMax: 18, gemMul: 5, charge: 3,
+          ballMul: 1.85, holdMoveMul: 0.66, stagSec: 2.4, throe: true,  burstAll: 165, burstMax: 18, gemMul: 5, charge: 3,
+          grabShake: 14, grabFreeze: 0.16, grabRing: 2,
           color: 0xff5a5a, shake: 14, freeze: 0.12 },
       ],
 
@@ -523,14 +527,32 @@ export const BALANCE = {
   // ずっしり以上は、よろけた瞬間に予告つきで自分の攻撃を1回だけ放つ（既存の telegraph→fire をそのまま使う）。
   // ⚠️ 避ければ無傷にする。緊張感は被弾量ではなく「避けた回数」で作る。
   deathThroe: {
+    // ★R26 実プレイFB「断末魔は全く意識できなかった」。実装を読むと当然だった：
+    //   よろけた瞬間に0.5秒の予告を出しても、プレイヤーは0.5秒より速く掴む／割るので
+    //   予告は最後まで見えずに消える。さらに予告中に殴るとカウンター判定が入って停止する。
+    //   ＝「発生数」は出ていたが「発火数」はほぼ0だった（計測器が発生を数えていたのが誤り）。
+    // 直し方は頻度ではなく**中断できなくする**こと。予告中の敵は掴めず割れない＝
+    //   「うかつに捕獲しに行けない。まず一発避けてから捕獲する」というリズムになる。
     fromGrade: 1,          // おもい以上（タレット・マグマン・ガレオン・王冠・エリート）
-    telegraphSec: 0.5,     // 通常の予告(0.9)より短い＝反応を要求するが、見えない速さにはしない
-    // ⚠️ 初版は cooldown 1.4秒で 28.1回/分＝2秒に1回。画面が赤い予告だらけになり、
-    //    「1回1回を避ける」という体験にならなかった（緊張感は回数ではなく1回の重み）。
-    cooldownSec: 5.0,      // 目標6〜10回/分
-    maxActive: 1,          // 同時に断末魔を出せるのは1体まで＝赤い輪は常に画面に1つ
-    // ボンバだけは別格。よろけると導火線が点き、掴んでも燃え続ける＝時限爆弾として使える。
-    fuse: { enemyId: 'bomba', sec: 3.0, heldDamage: 28, heldRadius: 96 },
+    telegraphSec: 0.8,     // 主人公は148px/s＝0.8秒で118px動ける。爆風66+主人公7=73pxは確実に出られる
+    cooldownSec: 3.0,      // 中断されなくなったので実測10回/分。避ける操作の回数として妥当な帯に置く
+    maxActive: 1,          // 赤い輪は常に画面に1つだけ（1回1回を避ける体験にする）
+    guardSec: 0.7,         // 予告のあいだは掴めない・割れない（＝中断できない）
+    // 実測：ガレオンの爆風120をそのまま出したら回避率**0%**だった（0.7秒で動けるのは104px）。
+    // 0.55倍＝66pxなら、密着(30px)からでも歩いて出られる。避けられない緊張は理不尽なだけ。
+    aoeMul: 0.55,
+    // ★断末魔の価値は「避ける操作が起きること」であって当たったときの痛さではない。
+    //   ダメージをそのまま出すと、ボット（＝回避率0%のワーストケース）で被弾が+56%になった。
+    //   避けなくても即死しない痛さに落として、頻度＝体験の回数のほうを残す。
+    damageMul: 0.45,
+    tint: 0xc44bff,        // 通常の予告（赤）と混ざらない専用色。紫＝触れない合図
+    label: 'まだ しんでない！',
+    // R26: 3.0秒では実測**発火0回**（掴むまで0.29秒＋持つ時間0.53秒＝手を離れるのが速すぎた）。
+    // 溜め切り 0.85秒より少しだけ長い 1.4秒にして「ボンバは溜めきる余裕がない」ようにする。
+    // ボンバにも短い掴み禁止を掛ける＝導火線が0.35秒ぶん先に燃える。掴んだ時点の残りが
+    // 溜め切り0.85秒を下回るので「ボンバだけは溜められない。掴んだら即投げろ」になる。
+    // （実測：1.4秒＋掴み禁止なしでは手の中の爆発が**0回**だった）
+    fuse: { enemyId: 'bomba', sec: 1.0, guardSec: 0.35, heldDamage: 28, heldRadius: 96 },
   },
 
   // ★R25 王冠 — 「リスクを自分で作れる層」。
@@ -540,12 +562,22 @@ export const BALANCE = {
   // ＝ トリガーを「時間」から「**キルそのもの**」へ移す。近くで仲間が倒れた敵が怒って王冠を被る。
   //    密集に投げ込むほど強い獲物が生まれる＝攻撃が次の報酬を作る循環になる。
   crown: {
-    killsNeeded: 3, radius: 120,   // この半径内で3体倒れると、生き残りの1体が王冠を被る
-    cooldownSec: 7,                // 目標4〜6体/分。連発すると珍しさが消える
-    maxAlive: 2,
+    // ★R26 実プレイFB「王冠は全く意識できなかった」。実測すると当然だった：
+    //   王冠は「近くで3体倒れた場所」＝主人公のキル圏のど真ん中(中央値158px)に生まれるので、
+    //   **生存の中央値は1.2秒・72%が2秒未満**で巻き添えのまま消えていた。18体中10体は
+    //   弾にもされず割られていた。生まれたことに気づく時間が物理的に無かった。
+    // 直し方は「生まれた瞬間を作る」こと：一瞬止めて、仲間を吹き飛ばして場所を空け、
+    //   短い無敵で必ず1秒は立たせる。そこで初めて「狩るか無視するか」の選択が生まれる。
+    killsNeeded: 3, radius: 120, cooldownSec: 9, maxAlive: 2,
+    fromSec: 45,             // 序盤は出さない（Lv1〜3にHP2.5倍・ダメージ1.4倍は過剰）
     hpMul: 2.5, damageMul: 1.4, atkIntervalMul: 0.7, radiusMul: 1.25, speedMul: 0.9,
-    gradeUp: 1,                    // 弾にしたときの格が1段上がる（ずっしり→ばくだん級）
-    tint: 0xffd23f,
+    gradeUp: 1, tint: 0xffd23f,
+    birthInvulnSec: 0.6,     // 生まれてから この間は無敵（＝認識する時間を必ず作る）
+    birthFreeze: 0.10,       // 生まれた瞬間に画面が止まる
+    birthShake: 8,
+    pushRadius: 96, pushPower: 320,   // 周りの仲間を吹き飛ばす＝混戦から王冠が浮き上がる
+    starScale: 2.3,          // 頭上の金の星（1.5では乱戦に埋もれた）
+    label: 'おうかん！ たおして たまにしろ！',
   },
   // Wave R2: 合成祭壇は3回出現（150/250/340s）。開始2人スタートに合わせ最低人数を2へ
   altar: { appearSecs: [150, 250, 340], minParty: 2 },
