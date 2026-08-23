@@ -525,16 +525,37 @@ const SFX = {
   },
   // R24 ほのおだんの炸裂：らいこうだんの「パキッ」に対して、こちらは「ボワッ→ゴォォ」。
   // 高域の割れる音を出さず、低〜中域のうねりで「面が燃え広がる」を作る。
-  fireBlast() {
-    noiseHit({ dur: 0.12, gain: 0.24, hpFreq: 200, lpFreq: 5200 });     // 点火のボワッ
-    tone({ type: 'sawtooth', freq: 180, freqEnd: 40, dur: 0.45, gain: 0.22, attack: 0.004 });
-    tone({ type: 'sine', freq: 240, freqEnd: 36, dur: 0.6, gain: 0.30, attack: 0.004 });
-    noiseHit({ start: 0.05, dur: 0.5, gain: 0.18, hpFreq: 120, lpFreq: 3200 });   // 燃え広がるゴォォ
-    noiseHit({ start: 0.28, dur: 0.4, gain: 0.10, hpFreq: 90, lpFreq: 1800 });
-    [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5].forEach((n, i) => {
-      tone({ type: 'triangle', freq: noteFreq(n), start: 0.03 + i * 0.025, dur: 0.4, gain: 0.10 });
-    });
+  // ★R28 「炎熱炸裂弾も同様に派手すぎるぐらい」。power(0..1) で規模が変わる。
+  //   雷が「裂ける」なら炎は「膨らんで、長く燃え続ける」。尾の長さで別物として聞かせる。
+  fireBlast(power) {
+    const p = (power == null) ? 1 : Math.max(0, Math.min(1, power));
+    const k = 0.8 + 0.5 * p;
+    // ① 点火の一撃（ドッ）
+    noiseHit({ dur: 0.13 * k, gain: 0.26 * k, hpFreq: 200, lpFreq: 5200 });
+    tone({ type: 'sawtooth', freq: 190, freqEnd: 42, dur: 0.48 * k, gain: 0.24 * k, attack: 0.003 });
+    tone({ type: 'sine', freq: 250, freqEnd: 46, dur: 0.62 * k, gain: 0.31 * k, attack: 0.003 });
+    // 小型スピーカー用の倍音（R27と同じ理由）
+    tone({ type: 'square', freq: 88, freqEnd: 42, dur: 0.36 * k, gain: 0.14 * k, attack: 0.003 });
+    // ② 膨らむ火球。帯域を上から下へ動かすと「広がった」ように聞こえる
+    noiseHit({ start: 0.04, dur: 0.55 * k, gain: 0.19 * k, hpFreq: 120, lpFreq: 3400 });
+    noiseHit({ start: 0.26, dur: 0.50 * k, gain: 0.12 * k, hpFreq: 90, lpFreq: 1900 });
+    // ③ 燃え続ける尾。ここを長くするほど「まだ燃えている」になる
+    noiseHit({ start: 0.50, dur: 0.55 * k, gain: 0.09 * k, hpFreq: 70, lpFreq: 1200 });
+    if (p >= 0.9) {
+      noiseHit({ start: 0.85, dur: 0.45, gain: 0.06, hpFreq: 60, lpFreq: 900 });
+      // 爆ぜる粒（パチパチ）。着弾のときだけ
+      for (let i = 0; i < 7; i++) {
+        noiseHit({ start: 0.12 + i * 0.10, dur: 0.03, gain: 0.055, hpFreq: 2600, lpFreq: 12000 });
+      }
+    }
+    // ④ 明るい和音（ポップさの層）。枚数が power で増える
+    const chord = [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5, NOTE.E5];
+    const take = Math.max(3, Math.min(chord.length, 3 + Math.round(p * 2)));
+    for (let i = 0; i < take; i++) {
+      tone({ type: 'triangle', freq: noteFreq(chord[i]), start: 0.03 + i * 0.025, dur: 0.42, gain: 0.11 * k });
+    }
   },
+
   // R23 らいこうだんの手渡し：スローモーションの間ずっと鳴る「充電が満ちる」上昇音。
   // ⚠️ この音が鳴っている＝時間が遅い、と耳で分かるようにゆっくり上げる（1.1秒）。
   boltCharge() {
@@ -549,21 +570,66 @@ const SFX = {
     });
   },
   // R23 らいこうだんの着弾：落雷。パキッと割れる高音のクラック → 腹に来る低いゴロゴロ。
-  thunder() {
-    // 空気が裂ける瞬間（極短・超高域）
-    noiseHit({ dur: 0.05, gain: 0.3, hpFreq: 6000, lpFreq: 16000 });
-    noiseHit({ start: 0.01, dur: 0.12, gain: 0.22, hpFreq: 2200, lpFreq: 14000 });
-    tone({ type: 'square', freq: 2400, freqEnd: 620, dur: 0.09, gain: 0.14, attack: 0.001 });
-    // 落ちてくる芯
-    tone({ type: 'sine', freq: 320, freqEnd: 34, dur: 0.7, gain: 0.36, attack: 0.002 });
-    tone({ type: 'triangle', freq: 140, freqEnd: 30, dur: 0.62, gain: 0.18, attack: 0.002 });
-    // 遠くまで転がる余韻（ゴロゴロ）。ポップさを保つため濁らせず、明るい和音を薄く敷く
-    noiseHit({ start: 0.06, dur: 0.55, gain: 0.16, hpFreq: 90, lpFreq: 2600 });
-    noiseHit({ start: 0.3, dur: 0.45, gain: 0.09, hpFreq: 70, lpFreq: 1400 });
-    [NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6].forEach((n, i) => {
-      tone({ type: 'square', freq: noteFreq(n), start: 0.03 + i * 0.02, dur: 0.4, gain: 0.1 });
+  // ★R28 実プレイFB「らいこうだんの効果音をもっと派手に。派手すぎるぐらいでいい」。
+  //   power(0..1) で規模が変わる。投げ出しは0.75・着弾は1.0で呼ぶ。
+  //   本物の雷が怖いのは「裂ける音が何度も重なる」から。1発ではなく3段に割って重ねる。
+  thunder(power) {
+    const p = (power == null) ? 1 : Math.max(0, Math.min(1, power));
+    const k = 0.8 + 0.5 * p;
+    // ① 空気が裂ける瞬間を3段に割る＝「バリバリバリッ」。1発だと「パン」で終わってしまう
+    const rip = [0, 0.035, 0.085];
+    rip.forEach((t, i) => {
+      const d = 1 - i * 0.22;
+      noiseHit({ start: t, dur: 0.05 * d, gain: 0.30 * k * d, hpFreq: 6000, lpFreq: 16000 });
+      noiseHit({ start: t + 0.008, dur: 0.11 * d, gain: 0.22 * k * d, hpFreq: 2200, lpFreq: 14000 });
+      tone({ type: 'square', freq: 2600 - i * 420, freqEnd: 620, dur: 0.08 * d,
+             gain: 0.15 * k * d, attack: 0.001 });
     });
+    // ② 落ちてくる芯。2本を少しずらす＝落雷が1本ではなく束に見える
+    tone({ type: 'sine', freq: 330, freqEnd: 44, dur: 0.75 * k, gain: 0.36 * k, attack: 0.002 });
+    tone({ type: 'sine', freq: 250, freqEnd: 52, start: 0.04, dur: 0.60 * k, gain: 0.22 * k, attack: 0.002 });
+    // 小型スピーカーでも重さが出るように倍音を置く（R27と同じ理由）
+    tone({ type: 'square', freq: 96, freqEnd: 44, dur: 0.34 * k, gain: 0.14 * k, attack: 0.002 });
+    tone({ type: 'triangle', freq: 140, freqEnd: 30, dur: 0.62 * k, gain: 0.18 * k, attack: 0.002 });
+    // ③ 遠くまで転がる余韻（ゴロゴロ）。長いほど「でかい雷だった」になる
+    noiseHit({ start: 0.06, dur: 0.60 * k, gain: 0.17 * k, hpFreq: 90, lpFreq: 2600 });
+    noiseHit({ start: 0.30, dur: 0.55 * k, gain: 0.11 * k, hpFreq: 70, lpFreq: 1400 });
+    noiseHit({ start: 0.62, dur: 0.50 * k, gain: 0.07 * k, hpFreq: 60, lpFreq: 900 });
+    // ④ 明るい和音（この作品の「ポップさ」を保つ層）。枚数が power で増える
+    const chord = [NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6];
+    const take = Math.max(3, Math.min(chord.length, 3 + Math.round(p * 2)));
+    for (let i = 0; i < take; i++) {
+      tone({ type: 'square', freq: noteFreq(chord[i]), start: 0.03 + i * 0.02, dur: 0.42, gain: 0.10 * k });
+    }
+    // ⑤ 高域の残り火（ちりちり）。着弾のときだけ
+    if (p >= 0.9) {
+      for (let i = 0; i < 5; i++) {
+        noiseHit({ start: 0.18 + i * 0.09, dur: 0.05, gain: 0.05, hpFreq: 7000, lpFreq: 16000 });
+      }
+    }
   },
+
+  // ★R28 らいこうだんが飛んでいる間の放電。0.11秒ごとに鳴らして「ビリビリ」を作る。
+  //   arg=強さ(0..1)・pitch=音程倍率。毎回ずらさないと機械の警報音になる。
+  boltFly(v, pitch) {
+    const g = 0.7 + 0.6 * (v == null ? 0.5 : v);
+    const q = pitch || 1;
+    noiseHit({ dur: 0.035, gain: 0.15 * g, hpFreq: 5500 * q, lpFreq: 16000 });
+    tone({ type: 'square', freq: 2600 * q, freqEnd: 900 * q, dur: 0.045, gain: 0.085 * g, attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 430 * q, freqEnd: 190 * q, dur: 0.05, gain: 0.055 * g, attack: 0.001 });
+    // 帯電のうなり。ここが無いと「軽いノイズ」で終わって、通り過ぎる重さが出ない
+    tone({ type: 'square', freq: 118, freqEnd: 92, dur: 0.09, gain: 0.05 * g, attack: 0.002 });
+  },
+
+  // ★R28 ほのおだんが飛んでいる間の燃焼。「ゴォ…パチ」を0.12秒ごと。
+  blastFly(v, pitch) {
+    const g = 0.7 + 0.6 * (v == null ? 0.5 : v);
+    const q = pitch || 1;
+    noiseHit({ dur: 0.11, gain: 0.11 * g, hpFreq: 220 * q, lpFreq: 2600 * q });   // ゴォ
+    noiseHit({ start: 0.02, dur: 0.022, gain: 0.07 * g, hpFreq: 3500, lpFreq: 13000 }); // パチッ
+    tone({ type: 'sawtooth', freq: 152 * q, freqEnd: 96, dur: 0.11, gain: 0.05 * g, attack: 0.004 });
+  },
+
   // 必殺技ゲージ満タン：短い「チャリン↑」3音（約0.25秒）
   gaugeFull() {
     const seq = [NOTE.G5, NOTE.C6, NOTE.E6];

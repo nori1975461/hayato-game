@@ -403,12 +403,14 @@ export function createBilliard(run) {
   }
 
   // 画面全体の閃光。大連鎖のときだけ＝滅多に出ないから効く。
-  function screenFlash(alpha, color) {
+  // ★R28 ms を足した。200ms固定だと「一瞬光って終わり」で、等倍で見ると光った実感が残らない。
+  //   大きな着弾だけ長く（400ms前後）残す。
+  function screenFlash(alpha, color, ms) {
     const V = BALANCE.view;
     const f = run.add.image(V.width / 2, V.height / 2, 'white').setScrollFactor(0)
       .setBlendMode(ADD).setDepth(60).setTint(color).setAlpha(alpha)
       .setDisplaySize(V.width, V.height);
-    run.tweens.add({ targets: f, alpha: 0, duration: 200, onComplete: () => f.destroy() });
+    run.tweens.add({ targets: f, alpha: 0, duration: ms || 200, onComplete: () => f.destroy() });
   }
 
   // ---- 稲妻 ----
@@ -454,15 +456,16 @@ export function createBilliard(run) {
   }
 
   // 立ち上る火柱。らいこうだんの「天から落ちる柱」と上下が逆＝一目で別物と分かる。
-  function firePillar(x, y) {
+  function firePillar(x, y, mul) {
     const L = B().blast;
+    const m = mul || 1;
     for (let i = 0; i < 3; i++) {
-      const w = 30 - i * 8;
+      const w = (30 - i * 8) * m;
       const g = run.add.image(x, y + 8, 'glow').setBlendMode(ADD).setDepth(15)
         .setTint(i === 0 ? L.color : L.coreColor).setOrigin(0.5, 1)
         .setDisplaySize(w, 10).setAlpha(0.9);
-      run.tweens.add({ targets: g, displayHeight: 130 - i * 28, displayWidth: w * 1.7, alpha: 0,
-        duration: 420 + i * 90, ease: 'Cubic.out', onComplete: () => g.destroy() });
+      run.tweens.add({ targets: g, displayHeight: (130 - i * 28) * m, displayWidth: w * 1.7, alpha: 0,
+        duration: (420 + i * 90) * (0.8 + 0.35 * m), ease: 'Cubic.out', onComplete: () => g.destroy() });
     }
   }
 
@@ -677,15 +680,18 @@ export function createBilliard(run) {
       shockRing(px, py, 90, L.color);
       burstStreaks(px, py, 18, L.color, 90);
       if (kind === 'bolt') {
-        Sound.sfx('thunder');
-        for (let i = 0; i < 3; i++) {
-          const a = ang + run.rng.range(-0.9, 0.9);
-          lightning(px, py, px + Math.cos(a) * 60, py + Math.sin(a) * 60, L.color,
-            { seg: 5, jitter: 12, width: 3, lifeMs: 200 });
+        Sound.sfx('thunder', 0.75);
+        for (let i = 0; i < 7; i++) {
+          const a = ang + run.rng.range(-1.4, 1.4);
+          lightning(px, py, px + Math.cos(a) * run.rng.range(50, 95),
+            py + Math.sin(a) * run.rng.range(50, 95), i % 2 ? L.coreColor : L.color,
+            { seg: 5, jitter: 14, width: i === 0 ? 5 : 3, lifeMs: 220 });
         }
+        screenFlash(0.28, 0xffffff);
       } else {
         Sound.sfx('fireBlast', 0.7);
-        emberBurst(px, py, 14, 44);
+        emberBurst(px, py, 26, 60);
+        firePillar(px, py);
       }
     }
   }
@@ -747,18 +753,68 @@ export function createBilliard(run) {
     screenFlash(L.flash, L.color);
     if (kind === 'bolt') {
       // 天から落ちる本柱。画面の上端の外から引くので「落雷」に読める
-      for (let i = 0; i < 3; i++) {
-        lightning(e.x + run.rng.range(-34, 34), e.y - 260, e.x, e.y,
+      const nb = L.hitBolts || 3;
+      for (let i = 0; i < nb; i++) {
+        const wide = i === 0 ? 9 : i < 3 ? 5 : 3;
+        run.time.delayedCall(i * 26, () => lightning(
+          e.x + run.rng.range(-46, 46), e.y - 280, e.x + run.rng.range(-10, 10), e.y,
           i === 0 ? L.coreColor : L.color,
-          { seg: 12, jitter: 22, width: i === 0 ? 6 : 3, lifeMs: 330 });
+          { seg: 13, jitter: 24, width: wide, lifeMs: 480 }));
       }
-      Sound.sfx('thunder');
-      Sound.sfx('bigBoom', 0.85);
+      // ★R28 放射状の枝。落ちたあとに地面を這って広がる＝「一撃」が「範囲」に見える
+      for (let i = 0; i < (L.hitBranches || 8); i++) {
+        const a = (i / (L.hitBranches || 8)) * Math.PI * 2 + run.rng.range(-0.2, 0.2);
+        const d = run.rng.range(90, 190);
+        run.time.delayedCall(60 + i * 14, () => lightning(
+          e.x, e.y, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, L.color,
+          { seg: 7, jitter: 18, width: 3, lifeMs: 380 }));
+      }
+      // 画面を横切る線。ここだけ「画面の外から外へ」引くので規模が別物に見える。
+      // ⚠️ カメラは主人公を追うので、BALANCE.view の座標ではなく **いま映っている範囲**で引く。
+      // ★等倍のスクショで見ると1本・220msでは「一瞬」で終わっていたので、3本を時間差で重ねる。
+      for (let i = 0; i < 3; i++) {
+        run.time.delayedCall(i * 130, () => {
+          const wv = run.cameras.main.worldView;
+          lightning(wv.x - 20, e.y + run.rng.range(-60, 60), wv.right + 20, e.y + run.rng.range(-60, 60),
+            i % 2 ? L.color : L.coreColor, { seg: 16, jitter: 30, width: 5 - i, lifeMs: 420 });
+        });
+      }
+      // 白 → 金 の2段フラッシュ。本物の雷は一度光ってから空が明るくなる
+      screenFlash(0.5, 0xffffff, 260);
+      run.time.delayedCall(90, () => screenFlash(0.34, L.color, 460));
+      Sound.sfx('thunder', 1);
+      Sound.sfx('bigBoom', 1);
+      run.time.delayedCall(150, () => Sound.sfx('thunder', 0.55));   // 遅れて届く2発目の雷鳴
     } else {
-      firePillar(e.x, e.y);
-      emberBurst(s.x, s.y, 26, 78);
-      Sound.sfx('fireBlast');
-      Sound.sfx('bigBoom', 0.6);
+      // ★R28 火柱を並べて立てる＝1本の柱ではなく「火の壁」になる
+      const np = L.hitPillars || 3;
+      for (let i = 0; i < np; i++) {
+        const ox = (i - (np - 1) / 2) * 42;
+        run.time.delayedCall(i * 40,
+          () => firePillar(e.x + ox, e.y + run.rng.range(-6, 6), i === Math.floor(np / 2) ? 2.1 : 1.5));
+      }
+      // 放射状に噴き出す火炎。稲妻とは違い「太く短く」＝別の語彙にする
+      for (let i = 0; i < (L.hitJets || 8); i++) {
+        const a = (i / (L.hitJets || 8)) * Math.PI * 2 + run.rng.range(-0.15, 0.15);
+        const d = run.rng.range(70, 130);
+        run.time.delayedCall(30 + i * 16, () => {
+          lightning(e.x, e.y, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d,
+            i % 2 ? L.coreColor : L.color, { seg: 3, jitter: 10, width: 9, lifeMs: 420 });
+          emberBurst(e.x + Math.cos(a) * d * 0.7, e.y + Math.sin(a) * d * 0.7, 4, 30);
+        });
+      }
+      emberBurst(s.x, s.y, 48, 110);
+      run.time.delayedCall(180, () => emberBurst(s.x, s.y, 26, 150));
+      // ★らいこうだんの「画面を横切る稲妻」に相当する、規模を見せる層。
+      //   炎は線ではなく **広がる輪** で規模を出す（語彙を分ける）。
+      for (let i = 0; i < 3; i++) {
+        run.time.delayedCall(i * 90, () => shockRing(e.x, e.y, 120 + i * 90, i % 2 ? L.coreColor : L.color));
+      }
+      screenFlash(0.42, 0xffd24a, 260);
+      run.time.delayedCall(110, () => screenFlash(0.30, L.color, 460));
+      Sound.sfx('fireBlast', 1);
+      Sound.sfx('bigBoom', 0.9);
+      run.time.delayedCall(220, () => Sound.sfx('fireBlast', 0.4));  // まだ燃えている
     }
     for (let i = 0; i < L.rings; i++) {
       const rr = 70 + 46 * i;
@@ -798,11 +854,28 @@ export function createBilliard(run) {
       run.dealDamage(e, L.trashDamage, L.color, 'manual');
       if (alive && !e.active) s.kills++;
     }
-    if (kind === 'bolt') lightning(s.x, s.y, e.x, e.y, L.color, { seg: 4, jitter: 8, width: 3, lifeMs: 160 });
-    else emberBurst(e.x, e.y, 3, 20);
+    // ★R28 実プレイFB「当たったときも当たった音と一緒に雷の音も」。
+    //   打撃音だけだと通常の弾と区別が付かないので、必ず属性の音を重ねる。
+    if (kind === 'bolt') {
+      lightning(s.x, s.y, e.x, e.y, L.coreColor, { seg: 5, jitter: 10, width: 4, lifeMs: 180 });
+      for (let i = 0; i < 3; i++) {
+        const a = run.rng.range(0, Math.PI * 2);
+        lightning(e.x, e.y, e.x + Math.cos(a) * 46, e.y + Math.sin(a) * 46, L.color,
+          { seg: 4, jitter: 12, width: 2, lifeMs: 150 });
+      }
+      screenFlash(0.14, L.coreColor);
+      Sound.sfx('thunder', 0.30);           // 小さな雷鳴を重ねる
+      Sound.sfx('boltFly', 1, 0.9);
+    } else {
+      emberBurst(e.x, e.y, 10, 46);
+      firePillar(e.x, e.y);
+      screenFlash(0.12, L.color);
+      Sound.sfx('fireBlast', 0.28);
+      Sound.sfx('blastFly', 1, 0.85);
+    }
     run.spawnHitMark(s.x, s.y, L.color);
     Sound.sfx('metalSlam', 0.4, 1.5);
-    run.shake(50, 3);
+    run.shake(70, 5);
     s.hp -= B().hpCostPerHit;   // 貫通HPが大きいので雑魚では砕けない
   }
 
@@ -1022,11 +1095,53 @@ export function createBilliard(run) {
             const a = run.rng.range(0, Math.PI * 2);
             lightning(s.x, s.y, s.x + Math.cos(a) * 26, s.y + Math.sin(a) * 26, L.coreColor,
               { seg: 3, jitter: 8, width: 2, lifeMs: 120 });
+            // ★R28 前方にも走らせる＝「これから通る道が光っている」
+            const fwd = Math.atan2(s.vy, s.vx) + run.rng.range(-0.5, 0.5);
+            lightning(s.x, s.y, s.x + Math.cos(fwd) * 52, s.y + Math.sin(fwd) * 52, L.coreColor,
+              { seg: 4, jitter: 13, width: 2, lifeMs: 130 });
           } else {
             // 炎は後ろへ流れて上へ立ちのぼる＝「燃えながら飛んでいる」
             s.arcT = L.emberEverySec;
             const back = Math.atan2(s.vy, s.vx) + Math.PI;
-            emberBurst(s.x + Math.cos(back) * 10, s.y + Math.sin(back) * 10, 3, 22);
+            emberBurst(s.x + Math.cos(back) * 10, s.y + Math.sin(back) * 10, 4, 26);
+          }
+        }
+        // ★R28 飛行中の音。実プレイFB「飛んでいくときに稲光のエフェクトと音」。
+        //   1ボスに1〜2発しか来ないので、飛んでいる間じゅう鳴らして構わない。
+        //   ⚠️ 毎回同じ音程だと機械の警報音になるので、強さと音程を必ずずらす。
+        s.sfxT = (s.sfxT || 0) - dt;
+        if (s.sfxT <= 0) {
+          s.sfxT = L.flySfxSec || 0.12;
+          Sound.sfx(s.spec === 'bolt' ? 'boltFly' : 'blastFly',
+            run.rng.range(0.45, 1), run.rng.range(0.88, 1.14));
+        }
+        // 画面全体の明滅。雷（炎）が近くを通っている明るさの変化
+        s.flashT = (s.flashT || 0) - dt;
+        if (s.flashT <= 0) {
+          s.flashT = L.flyFlashSec || 0.25;
+          screenFlash(L.flyFlash || 0.08, s.spec === 'bolt' ? L.coreColor : L.color);
+        }
+        if (s.spec === 'bolt') {
+          // 近くの敵へ「当たっていない」放電が伸びる＝通り道の周りが危なく見える
+          s.zapT = (s.zapT || 0) - dt;
+          if (s.zapT <= 0) {
+            s.zapT = 0.09;
+            let n = 0;
+            for (const e of run.enemies) {
+              if (n >= (L.flyZaps || 2)) break;
+              if (!e.active || e.isBoss) continue;
+              const dx = e.x - s.x, dy = e.y - s.y;
+              if (dx * dx + dy * dy > (L.flyReach || 150) ** 2) continue;
+              lightning(s.x, s.y, e.x, e.y, L.color, { seg: 6, jitter: 14, width: 2, lifeMs: 110 });
+              n++;
+            }
+          }
+        } else {
+          // 通った跡がしばらく燃えている＝軌跡そのものが炎の川になる
+          s.trailT = (s.trailT || 0) - dt;
+          if (s.trailT <= 0) {
+            s.trailT = L.flyTrailSec || 0.10;
+            firePillar(s.x, s.y);
           }
         }
       }
