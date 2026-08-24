@@ -437,6 +437,70 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
     'practice: れんしゅうじょうが分離フラグを直接立てていない（判定は本編に任せる）');
 }
 
+// --- ★R31: 弱点コアの「当たり判定」と「ダメージ判定」が同じ円であること ---
+// 実プレイFB「コアにビリヤード弾をあてているのに体力がほとんどへらない」の原因がこの不一致だった。
+// billiard は `s.radius + weak.r` で当たったと判定して玉を消費し、boss.js は `weak.r` だけを要求
+// していたので、当たった面積のうち 7割強が**演出だけ出して0ダメージ**で砕けていた。
+// 2ファイルにまたがる不一致は片方だけ読んでも気づけないので、原文で縛る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const bil = read('systems/billiard.js');
+  const snd = read('audio/sound.js');
+
+  assert(/const rr = w\.r \+ \(at\.r \|\| at\.hitR \|\| 0\)/.test(boss),
+    'R31: weakGate が飛び道具の半径(hitR)を判定円に足している');
+  // ボスへの手動命中はすべて hitR を渡すこと（1か所でも漏れるとその弾だけ無言で通らなくなる）
+  const manualBossHits = bil.match(/dealDamage\([^)]*'manual',\s*\{[^}]*\}/g) || [];
+  assert(manualBossHits.length >= 3 && manualBossHits.every((s) => /hitR/.test(s)),
+    `R31: 座標つきの手動命中${manualBossHits.length}か所すべてが hitR を渡している`);
+  // 範囲攻撃(必殺)の r は別物＝コア倍率を落とす側。hitR と混ぜていないこと
+  assert(/mul: at\.r \? 1 : cfg\.weak\.mul/.test(boss),
+    'R31: 範囲攻撃(at.r)はコア倍率なしのまま＝hitR と役割が混ざっていない');
+  // ★R30 の下半身は倒せない砲台。玉を食べると「全力の投げが0表示で消える」ので、
+  //   上半身の装甲と同じく「カキン！を返して弾は通す」でなければならない。
+  assert(/e\.isBoss && e\.isLowerHalf[\s\S]{0,420}?__deflectedLower[\s\S]{0,200}?continue;/.test(bil),
+    'R31: 分離した下半身は玉を食べずに弾く（奥のコアへ通す）');
+
+  // --- R31: ミサイル（実プレイFB「遅すぎる。スピードを速く」）---
+  const mk = ((BALANCE.boss.tiers.find((t) => t.bossId === 'maou') || {}).missile) || {};
+  assert(mk.speed >= 480 && mk.launchSpeed >= 480,
+    'R31: ミサイルは 480px/秒 以上（R29の340から再度の速度指摘に応えている）');
+  assert(mk.speed * mk.lifeSec >= 340 * 3.2,
+    'R31: 速くしたぶん lifeSec を縮めても射程は R29 以前を下回らない');
+  // 速度だけ上げて旋回上限を据え置く＝旋回半径は逆に大きくなる（横へ切れば抜けられる＝理不尽にしない）
+  const turnRadius = mk.speed / ((mk.maxTurnDeg * Math.PI) / 180);
+  assert(turnRadius > 260,
+    `R31: ミサイルの旋回半径 ${Math.round(turnRadius)}px は主人公が横へ切って抜けられる広さ`);
+
+  // --- R31: 新SFXの綴り（無音不発を防ぐ。スプライトの remap と同じ罠）---
+  // boss.js が呼ぶ Sound.sfx の名前が sound.js の SFX テーブルに実在するかを総当たりで見る。
+  const called = new Set((boss.match(/Sound\.sfx\('([a-zA-Z0-9_]+)'/g) || [])
+    .map((s) => s.replace(/.*'([a-zA-Z0-9_]+)'.*/, '$1')));
+  const missing = [...called].filter((n) => !new RegExp(`^\\s{2}${n}\\(`, 'm').test(snd));
+  assert(missing.length === 0,
+    `R31: boss.js が鳴らす効果音${called.size}種すべてが sound.js に実在する`
+      + (missing.length ? `（欠落: ${missing.join(',')}）` : ''));
+  for (const n of ['samLaunch', 'samFly', 'samBoom', 'rocketPunchFire', 'rocketPunchFly', 'rocketPunchHit']) {
+    assert(called.has(n), `R31: 新SFX ${n} が boss.js から実際に呼ばれている`);
+  }
+  // 飛来音は「発射時に1回」ではなく飛んでいるあいだ鳴らし続ける（速くしたので1回では鳴り終わる前に着弾する）
+  assert(/missileFlyT/.test(boss) && /punchFlyT/.test(boss),
+    'R31: ミサイルとロケットパンチの飛来音が飛行中に繰り返し鳴る');
+  // 直撃は「爆発」であること（旧実装は Sound.sfx('hit') と粒子8個だけだった）
+  assert(/missileBoom\(b\.x, b\.y, true\)/.test(boss),
+    'R31: ミサイルが主人公へ直撃したとき爆発（大）が起きる');
+
+  // --- R31: マオウレクス戦BGM（実プレイFB「荘厳さはあったが暗すぎる」）---
+  assert(/maou:\s*\{ bpm: (8[0-9]|9[0-5]),/.test(snd),
+    'R31: マオウレクス曲は 80〜95BPM（明るくしたが battle/boss より遅い＝重さは保つ）');
+  assert(/NOTE\.Cs4/.test(snd) && /ピカルディ終止/.test(snd),
+    'R31: 締めが A メジャー（ピカルディ終止）＝荘厳さを崩さずに光を入れている');
+  assert(/CHORDS_MAOU[\s\S]*?\/\/ C（光①）/.test(snd),
+    'R31: 進行に長三和音(C)が入っている（旧版は全部マイナーで長三和音が0個だった）');
+}
+
 // --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
 {
   const enemyIds = new Set(ENEMIES.map((e) => e.id));
