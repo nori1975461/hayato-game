@@ -362,7 +362,10 @@ export class RunScene extends Phaser.Scene {
     this.billiard.update(dt);   // R22スパイク（_punchT を読む updateHeroFist より後）
     this.orbit.update(dt);
     if (this.practice) {
-      this.practice.update(dt);      // 湧き・ボス・モビット捕獲は回さない
+      this.practice.update(dt);      // 湧き・モビット捕獲は回さない
+      // ★R30W2 ④マオウレクスのコースだけボスを回す。出現は practiceSpawn が名指しでやるので、
+      //   boss.update の tier スケジューラは practiceMode で止めてある。
+      if (this.practice.wantBoss()) this.boss.update(dt);
     } else {
       this.spawner.update(dt);
       this.boss.update(dt);

@@ -1945,12 +1945,15 @@ export function createBoss(run) {
 
   // 最終ボス撃破＝フルbossVictory＋クリア
   function finishFinal(x, y) {
-    allDone = true;
+    allDone = !run.practiceMode;
     run.floatText(x, y - 46, def.name + ' を たおした！', '#ff6ec7');
     const finish = () => {
       run.cinematic = false;
       destroyDisp();
+      const keep = ti;
       endFight();
+      // ★れんしゅうじょうはクリアで終わらせない。何度でも出し直せるよう tier を戻す。
+      if (run.practiceMode) { ti = keep; allDone = false; return; }
       run.endRun(true);
     };
     if (run.fx && run.fx.bossVictory) {
@@ -2030,9 +2033,40 @@ export function createBoss(run) {
     if (lowerGlow) { lowerGlow.destroy(); lowerGlow = null; }
   }
 
+  // ============ R30W2 れんしゅうじょう専用の出入口 ============
+  // ⚠️ ここで戦闘を作り直さない。本編の spawnFight / endFight をそのまま呼ぶだけにする
+  //    （練習では起きるのに本編では起きない、を作らないため）。
+  function practiceSpawn(bossId) {
+    practiceClear();
+    const t = tiers.find((x) => x.bossId === bossId);
+    if (!t) return false;
+    ti = tiers.indexOf(t);       // 撃破後に endFight が正しい tier から戻せるよう合わせる
+    warnedArr[ti] = true; spawnedArr[ti] = true;
+    killing = false;
+    spawnFight(t);
+    return true;
+  }
+  // 出し直し・コース切替のための片付け。ごほうびも撃破演出も出さずに消す。
+  function practiceClear() {
+    if (!boss) return;
+    const keep = ti;
+    killing = true;              // 片付けの途中で撃破シネマが走らないようにする
+    boss.active = false;
+    clearBullets();
+    clearStrikes();
+    destroyWire();
+    clearIntroEls();
+    destroyIntroDim();
+    destroyDisp();
+    endFight();
+    ti = keep;
+    allDone = false;
+  }
+
   // ============ 毎フレーム ============
   function update(dt) {
-    if (!allDone && !boss && ti < tiers.length) {
+    // ★れんしゅうじょうでは時間で自動的にボスを出さない（practiceSpawn で名指しで出す）。
+    if (!run.practiceMode && !allDone && !boss && ti < tiers.length) {
       const t = tiers[ti];
       if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
         warnedArr[ti] = true;
@@ -2108,6 +2142,8 @@ export function createBoss(run) {
     debugWire() { return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)) } : null; },
     get beamActive() { return !!beam; },
     get partCount() { return disp ? disp.parts.length : 0; },
+    // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
+    practiceSpawn, practiceClear,
     // R30 検証用：分離／再合体の観測（本体は書き換えない）
     get split() { return split; },
     get phase3() { return phase3; },

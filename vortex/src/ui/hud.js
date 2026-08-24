@@ -230,9 +230,10 @@ export function createHud(run) {
       }
     }
 
-    overlayText.setText(
-      `FPS ${fps} | 敵 ${run.enemies.length} | 弾 ${run.bullets.length} | seed ${run.seed}`
-    );
+    // ★れんしゅうじょうでは開発用の数字を消す。下段の帯（コース名・ヒント・成績）と
+    //   左下で重なって、肝心の成績が読めなくなる（④の画面で実測）。
+    overlayText.setText(run.practiceMode ? ''
+      : `FPS ${fps} | 敵 ${run.enemies.length} | 弾 ${run.bullets.length} | seed ${run.seed}`);
   }
 
   return {
