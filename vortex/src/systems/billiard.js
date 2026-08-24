@@ -1235,6 +1235,19 @@ export function createBilliard(run) {
         // ★R29 弱点コア持ちボス（マオウレクス）は、当たり判定そのものが本体ではなくコア。
         //   本体の輪郭(radius 82)で当たり判定を取ると、コア(中心から約25px)には物理的に一生届かない。
         //   そこで本体は「触れると弾かれるだけの装甲」にし、ダメージ判定はコア円だけで取る。
+        // ★R31 分離した下半身（R30）はHPを持たない砲台なので、当てても絶対に減らない。
+        //   それ自体は仕様だが、旧実装ではここで玉が**消費**され、bossImpact が止め・揺れ・
+        //   衝撃波・金属音を全部出したうえで「0」を表示していた＝全力の投げが丸ごと消える。
+        //   上半身の装甲と同じ扱いにする：カキン！だけ返して**弾は通す**（奥のコアへ届く）。
+        if (e.isBoss && e.isLowerHalf) {
+          const lrr = s.radius + e.radius;
+          const ldx = e.x - s.x, ldy = e.y - s.y;
+          if (ldx * ldx + ldy * ldy <= lrr * lrr && !s.__deflectedLower) {
+            s.__deflectedLower = 1;
+            if (run.boss && run.boss.deflect) run.boss.deflect(s.x, s.y);
+          }
+          continue;
+        }
         const weak = (e.isBoss && run.boss && run.boss.hasWeak) ? run.boss.weakPoint(e) : null;
         if (weak) {
           const wrr = s.radius + weak.r;
