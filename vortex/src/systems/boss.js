@@ -1019,11 +1019,11 @@ export function createBoss(run) {
       Sound.sfx('samBoom', big ? 1 : 0.6);
       missileBoomT = big ? 0.16 : 0.09;
     }
+    // ⚠️ 揺れは「主人公に起きたこと」だけに使う。Phaser の shake は実行中だと後から来た
+    //    強い揺れを**無視する**ので、7発の自爆それぞれで揺らすと直撃の大きな揺れが飲まれる。
     if (big) {
       run.shake(280, 9); whiteFlash(0.30);
       if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.05);
-    } else {
-      run.shake(110, 3);
     }
   }
 
