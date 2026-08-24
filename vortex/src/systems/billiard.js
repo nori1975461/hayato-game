@@ -863,7 +863,8 @@ export function createBilliard(run) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
       const hpBefore = e.hp;
-      run.dealDamage(e, dmg, L.color, 'manual', { x, y });   // 命中座標＝マオウレクスの弱点コア判定
+      // 命中座標＝マオウレクスの弱点コア判定。R31: hitR で判定円を当たり判定とそろえる
+      run.dealDamage(e, dmg, L.color, 'manual', { x, y, hitR: s.radius });
       specialImpact(s, e, Math.max(0, hpBefore - e.hp));
       s.hp = 0;
       return;
@@ -914,7 +915,8 @@ export function createBilliard(run) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
       const hpBefore = e.hp;
-      run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y });   // R29: 命中座標＝弱点コア判定
+      // R29: 命中座標＝弱点コア判定。R31: hitR で判定円を当たり判定とそろえる
+      run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
       specialImpact(s, e, Math.max(0, hpBefore - e.hp));
       return;
     } else {
@@ -976,7 +978,8 @@ export function createBilliard(run) {
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
       const hpBefore = e.hp;
-      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y });   // R29: 命中座標＝弱点コア判定
+      // R29: 命中座標＝弱点コア判定。R31: hitR で判定円を上の当たり判定(s.radius + weak.r)とそろえる。
+      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
       if (e.isBoss) bossImpact(s, e, Math.max(0, hpBefore - e.hp), T);
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）

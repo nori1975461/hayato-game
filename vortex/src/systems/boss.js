@@ -1346,7 +1346,16 @@ export function createBoss(run) {
     const sx = Math.sin((run.elapsed * Math.PI * 2) / sec) * w.swayX;
     return { x: boss.x + sx, y: boss.y + boss.radius * w.offY, r: w.radius };
   }
-  // at = { x, y, r } … r>0 は爆風（範囲攻撃）。at 省略＝座標を持たない近接。
+  // at = { x, y, r, hitR } … r>0 は爆風（範囲攻撃・コア倍率なし）。at 省略＝座標を持たない近接。
+  // ★R31 hitR ＝ **飛び道具そのものの当たり半径**。実プレイFB「コアにビリヤード弾をあてているのに
+  //   体力がほとんどへらない」の原因がここにあった。
+  //   billiard 側の当たり判定は `s.radius + weak.r`（玉の半径を数える）で「コアに当たった」と判定して
+  //   玉を消費するのに、ここのダメージ判定は `weak.r` だけ（＝玉の中心が27px以内）を要求していた。
+  //   玉の半径は 22.7〜28.4px あるので、当たった面積のうち実際に通るのは 27²/(27+22.7)² ≒ 24〜30% だけ。
+  //   残りは **bossImpact の演出（止め・揺れ・輪・金属音）を全部出したうえで「0」を表示して砕ける**。
+  //   しかも玉は段位が上がるほど大きくなるので、**強くなるほど通らなくなる**という逆転まで起きていた。
+  //   → 判定円を billiard 側と一致させる。r（範囲攻撃）と違いコア倍率(2.4)は落とさない：
+  //     これは「範囲攻撃だからボーナス無し」ではなく「同じ1発の判定円をそろえる」だけの修正。
   function weakGate(src, at, ent) {
     if (!cfg || !cfg.weak) return { pass: true, mul: 1 };
     if (ent && ent.isLowerHalf) return { pass: false, mul: 0 };
@@ -1354,7 +1363,7 @@ export function createBoss(run) {
     if (!w) return { pass: true, mul: 1 };
     if (!at || at.x == null) return { pass: false, mul: 0 };
     const dx = at.x - w.x, dy = at.y - w.y;
-    const rr = w.r + (at.r || 0);
+    const rr = w.r + (at.r || at.hitR || 0);
     if (dx * dx + dy * dy <= rr * rr) return { pass: true, mul: at.r ? 1 : cfg.weak.mul, core: !at.r };
     return { pass: false, mul: 0 };
   }
