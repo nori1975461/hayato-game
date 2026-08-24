@@ -20,9 +20,10 @@ function noteFreq(semitonesFromA4) {
 }
 // 音名→A4からの半音数（Cメジャー中心・明るい長調）
 // Gs（G#）は最終ボス曲の E メジャー和音（ハーモニックマイナーのドミナント＝荘厳の決め手）に使う。
+// Cs（C#）は R31 で足した。最終ボス曲の締めを A メジャー（ピカルディ終止）にするのに要る。
 const NOTE = {
-  C4: -9, D4: -7, E4: -5, F4: -4, G4: -2, Gs4: -1, A4: 0, B4: 2,
-  C5: 3, D5: 5, E5: 7, F5: 8, G5: 10, Gs5: 11, A5: 12, B5: 14,
+  C4: -9, Cs4: -8, D4: -7, E4: -5, F4: -4, G4: -2, Gs4: -1, A4: 0, B4: 2,
+  C5: 3, Cs5: 4, D5: 5, E5: 7, F5: 8, G5: 10, Gs5: 11, A5: 12, B5: 14,
   C6: 15, D6: 17, E6: 19, F6: 20, G6: 22, A6: 24,
   C3: -21, D3: -19, E3: -17, F3: -16, G3: -14, Gs3: -13, A3: -12, B3: -10,
   C2: -33, D2: -31, E2: -29, F2: -28, G2: -26, A2: -24, B2: -22,
@@ -937,24 +938,39 @@ const MELODY_BOSS = [
   [NOTE.E6, -1, NOTE.D6, -1, NOTE.C6, -1, NOTE.B5, -1, NOTE.C6, -1, NOTE.D6, -1, NOTE.E6, -1, -1, -1],
 ];
 
-// --- 曲4: 最終ボス maou（76BPM・4小節・Am-F-G-E／荘厳）---
-// 実プレイFB「マオウレクス戦は荘厳に」。ポップなボス戦曲との対比が命なので、
-// **速さ・跳ね・明るさを全部捨てる**：172→76BPM（半分以下）、跳ねを消して全音符/2分音符主体、
-// 終止を E メジャー（G# を含むハーモニックマイナーのドミナント）にして教会音楽の厳かさを作る。
-// 声部＝パイプオルガンの持続和音／低い斉唱パッド／ティンパニ／教会の鐘。ドラムのビートは置かない
-// （四つ打ちを入れた瞬間ポップに戻ってしまうため）。
+// --- 曲4: 最終ボス maou（84BPM・8小節・Am-F-C-G / Am-F-E-A／荘厳＋光）---
+// 実プレイFB①「マオウレクス戦は荘厳に」→ 172→76BPM、跳ねを消して全音符/2分音符主体、
+//   終止を E メジャー（G# を含むハーモニックマイナーのドミナント）に。声部＝パイプオルガンの
+//   持続和音／斉唱パッド／ティンパニ／教会の鐘。ドラムのビートは置かない（四つ打ちを入れた瞬間ポップに戻る）。
+// 実プレイFB②（R31）「荘厳さはあったが、暗すぎる。いまの荘厳さ＋もう少し明るさをだして」。
+//   暗さの原因は3つあり、**荘厳さの材料には一切手を付けずに**その3つだけを直す:
+//     (1) 和音が全部マイナー（Am-F-G-E）で長三和音が1つも無かった
+//         → 4小節→8小節に伸ばし、3小節目に **C（長調の主和音）**、8小節目に **A メジャー**を置く。
+//            短調の曲を最後だけ長三和音で閉じるのは**ピカルディ終止**というバロック教会音楽の定石で、
+//            厳かさを崩さずに光だけを入れられる（＝「荘厳さ＋明るさ」の教科書的な解）。
+//     (2) 主題がオクターブ**下**しか重なっておらず、輝く高域が無かった → オクターブ上を足す
+//     (3) 鐘（唯一の明るい声部）が2小節に1回しか鳴っていなかった → 毎小節にする
+//   テンポも 76→84BPM。沈み込みを減らすが、まだ battle(150)/boss(172) の半分以下＝重さは保つ。
 const CHORDS_MAOU = [
   { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
   { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },  // C（光①）
   { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4], pad: [NOTE.G2, NOTE.D3, NOTE.G3], bass: NOTE.G2 },  // G
-  { arp: [NOTE.E3, NOTE.Gs3, NOTE.B3, NOTE.E4], pad: [NOTE.E2, NOTE.B2, NOTE.E3], bass: NOTE.E2 }, // E（荘厳な終止）
+  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
+  { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
+  { arp: [NOTE.E3, NOTE.Gs3, NOTE.B3, NOTE.E4], pad: [NOTE.E2, NOTE.B2, NOTE.E3], bass: NOTE.E2 }, // E（荘厳な属和音）
+  { arp: [NOTE.A3, NOTE.Cs4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 }, // A（ピカルディ終止＝光②）
 ];
-// 4分音符解像度（1小節=4音）の重い主題。高く跳ねず、じりじりと半音で締め上げる。
+// 4分音符解像度（1小節=4音）の重い主題。前半は低く抑え、C と A の小節で高く開く（＝光の差す位置を作る）。
 const MELODY_MAOU = [
   [NOTE.A4, -1, NOTE.C5, -1],
   [NOTE.C5, -1, NOTE.A4, -1],
-  [NOTE.B4, -1, NOTE.D5, -1],
-  [NOTE.Gs4, -1, NOTE.B4, -1],
+  [NOTE.E5, -1, NOTE.G5, -1],    // C の小節：ここで初めて高く上がる
+  [NOTE.D5, -1, NOTE.B4, -1],
+  [NOTE.A4, -1, NOTE.C5, -1],
+  [NOTE.F5, -1, NOTE.E5, -1],
+  [NOTE.Gs4, -1, NOTE.B4, -1],   // E の小節：G# でじりじり締め上げる（荘厳の芯は残す）
+  [NOTE.Cs5, -1, NOTE.A5, -1],   // A の小節：C# で長調へ開いて締める
 ];
 
 // --- 曲3: リザルト result（Cメジャー・96BPM・4小節・C-G-Am-F・やさしいバラード）---
@@ -1000,7 +1016,7 @@ const MELODY_END = [
 const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
   boss:   { bpm: 172, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
-  maou:   { bpm: 76,  bars: 4, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
+  maou:   { bpm: 84,  bars: 8, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
@@ -1182,10 +1198,16 @@ function playBgmStep(step) {
              gain: 0.15, dest: bgmGain, attack: 0.06 });
     }
     // 斉唱パッド：2拍目から遅れて入る高音の持続（人の声のように後から重なる）
+    // R31: さらに1オクターブ上の少年聖歌隊ぶんを薄く重ねる（暗さを消す高域の担い手）。
     if (inBar === 4) {
       chord.arp.forEach((n, i) => {
-        tone({ type: 'triangle', freq: noteFreq(n) * 2, dur: stepSec * 10,
+        const f = noteFreq(n);
+        tone({ type: 'triangle', freq: f * 2, dur: stepSec * 10,
                gain: 0.032 - i * 0.005, dest: bgmGain, attack: 0.22 });
+        if (i < 3) {
+          tone({ type: 'sine', freq: f * 4, dur: stepSec * 8,
+                 gain: 0.020 - i * 0.004, dest: bgmGain, attack: 0.26 });
+        }
       });
     }
     // ティンパニ：小節頭と3拍目の2発。重い胴鳴りを噛ませる（ビートではなく「合図」）
@@ -1197,17 +1219,22 @@ function playBgmStep(step) {
              dest: bgmGain, attack: 0.004 });
       noiseHit({ dur: 0.10, gain: g * 0.28, hpFreq: 90, lpFreq: 1600, dest: bgmGain });
     }
-    // 教会の鐘：1小節目と3小節目の頭で1発。長く残響させて空間を広く見せる
-    if (inBar === 0 && bar % 2 === 0) {
-      const bf = noteFreq(NOTE.A5);
-      tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: 0.06,
+    // 教会の鐘：長く残響させて空間を広く見せる。この曲で唯一の明るい声部なので、
+    // R31 で2小節に1回→**毎小節**にした（「暗すぎる」への一番効く手当て）。
+    // 長三和音の小節（C=2 / A=7）だけ鐘の基音を和音の第3音まで上げ、光の差す位置をはっきりさせる。
+    if (inBar === 0) {
+      const bright = bar === 2 || bar === 7;
+      const bf = noteFreq(bright ? chord.arp[1] : NOTE.A5) * (bright ? 2 : 1);
+      const bg = bright ? 0.075 : 0.058;
+      tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: bg,
              dest: bgmGain, attack: 0.004 });
-      tone({ type: 'sine', freq: bf * 1.5, dur: stepSec * 11, gain: 0.026,
+      tone({ type: 'sine', freq: bf * 1.5, dur: stepSec * 11, gain: bg * 0.44,
              dest: bgmGain, attack: 0.006 });
-      tone({ type: 'sine', freq: bf * 2.67, dur: stepSec * 8, gain: 0.014,
+      tone({ type: 'sine', freq: bf * 2.67, dur: stepSec * 8, gain: bg * 0.24,
              dest: bgmGain, attack: 0.008 });
     }
-    // 主題：4分音符解像度。sawtooth のブラス＋オクターブ下の重ねで威圧する
+    // 主題：4分音符解像度。sawtooth のブラス＋オクターブ下の重ねで威圧する。
+    // R31: オクターブ**上**のトランペット的な輝きを足す。下だけ重ねていたのが暗さの主因のひとつ。
     if (inBar % 4 === 0) {
       const m = song.melody[bar][inBar / 4];
       if (m !== undefined && m !== -1) {
@@ -1218,6 +1245,10 @@ function playBgmStep(step) {
                gain: 0.045, dest: bgmGain, attack: 0.03, detune: 8 });
         tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 3.2,
                gain: 0.05, dest: bgmGain, attack: 0.04 });
+        tone({ type: 'triangle', freq: mf * 2, dur: stepSec * 3.0,
+               gain: 0.055, dest: bgmGain, attack: 0.02 });
+        tone({ type: 'square', freq: mf * 4, dur: stepSec * 2.2,
+               gain: 0.016, dest: bgmGain, attack: 0.03 });
       }
     }
     // 最終小節の終わりだけティンパニの連打で締め、Am へ戻る（＝ループが「一周した」と分かる）
