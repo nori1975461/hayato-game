@@ -1,6 +1,9 @@
 // core/data のユニットテスト（PROTOTYPE_SPEC §8.2）。
 // node vortex/dev/test-core.js で実行。失敗時 process.exit(1)。Phaser 非依存。
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRng } from '../src/core/rng.js';
 import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS } from '../src/data/monsters.js';
@@ -402,6 +405,36 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
       assert(ck.chargeSec >= 1.0, `balance: 胸部レーザーには避けられる溜めがある（${ck.chargeSec}s）`);
     }
   }
+}
+
+// --- R30W2: れんしゅうじょう④（マオウレクス）の配線 ---
+// Phaser を読めないので、壊れると無言で効かなくなる**つなぎ目だけ**を原文で確かめる。
+// （課題そのものの検証は scratchpad/cdp-r30w2-practice-maou.mjs が実機でやる）
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const run = read('scenes/Run.js');
+  const prac = read('systems/practice.js');
+
+  assert(/practiceSpawn\s*,\s*practiceClear/.test(boss),
+    'practice: boss.js が practiceSpawn / practiceClear を公開している');
+  assert(/!run\.practiceMode\s*&&\s*!allDone\s*&&\s*!boss/.test(boss),
+    'practice: れんしゅうじょうでは時間で勝手にボスが出ない（tierスケジューラを止めている）');
+  assert(/if\s*\(run\.practiceMode\)\s*\{\s*ti = keep; allDone = false; return; \}/.test(boss),
+    'practice: 最終ボスを倒してもエンディングへ飛ばない（何度でも出し直せる）');
+  assert(/this\.practice\.wantBoss\(\)\)\s*this\.boss\.update\(dt\)/.test(run),
+    'practice: ④のときだけ Run が boss.update を回す');
+  assert(/key:\s*'maou'/.test(prac), 'practice: コース④（マオウレクス）が存在する');
+  assert(/keydown-FOUR/.test(prac), 'practice: キー4がコース④に割り当たっている');
+  assert(/keydown-Z/.test(prac) && /keydown-X/.test(prac) && /keydown-C/.test(prac),
+    'practice: Z（ぶんりつ）X（がったい）C（かいふく）の節目ジャンプがある');
+  assert(/practiceClear\(\);/.test(prac),
+    'practice: コースを切り替えるときにボスを片付ける（幽霊が残らない）');
+  // ⚠️ 節目ジャンプは HP を動かすだけにする。ここで split/phase3 を直接触ると
+  //    「練習では起きるのに本編では起きない」が生まれる（このモードの大前提）。
+  assert(!/practice[\s\S]*?split\s*=\s*true/.test(prac),
+    'practice: れんしゅうじょうが分離フラグを直接立てていない（判定は本編に任せる）');
 }
 
 // --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
