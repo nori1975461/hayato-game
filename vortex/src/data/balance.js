@@ -977,9 +977,12 @@ export const BALANCE = {
                  sweepFromDeg: -42, sweepToDeg: 42, activeSec: 0.7 },
         // 特別攻撃②：多連ホーミングミサイル斉射（count 4→7・扇状に一斉発射で"斉射"感）
         // R29: 実プレイFB「ミサイルの速度が遅すぎる。もっと早く」。180→340（+89%）・旋回も 70→88°/秒。
-        //   旋回半径は 340 /(88°/秒) ≒ 221px と大きいままなので、「怖いが横へ切れば抜けられる」を保つ。
-        missile: { telegraphSec: 0.55, count: 7, launchSpeed: 340, homingRate: 2.4, maxTurnDeg: 88,
-                   speed: 340, radius: 6, damage: 24, blastDamage: 18, lifeSec: 3.2 },
+        // R31: 同じ指摘が再度（「ミサイルが遅すぎる。スピードを速く」）。340→480（+41%・R29比では2.7倍）。
+        //   旋回上限は 88°/秒 のまま据え置く。速度だけ上げると旋回半径は 340/1.536≒221px → 480/1.536≒313px
+        //   と**逆に大きくなる**＝「速くて怖いが、横へ切れば前より抜けやすい」。理不尽にせずに速さだけ増やせる。
+        //   lifeSec は 3.2→2.4 に縮める（射程 1088px → 1152px でほぼ同じ。伸ばすと画面外を延々飛ぶ）。
+        missile: { telegraphSec: 0.55, count: 7, launchSpeed: 480, homingRate: 2.4, maxTurnDeg: 88,
+                   speed: 480, radius: 6, damage: 24, blastDamage: 18, lifeSec: 2.4 },
         // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
         nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
                 bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },

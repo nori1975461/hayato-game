@@ -88,6 +88,13 @@ export function createBoss(run) {
   // 攻撃の連射/掃射用アキュムレータ（stateT基準・決定的）
   let shotAcc = 0, shotIdx = 0, slamFired = false, chainVulcan = false;
   let knuckleFired = false;         // ナックルウェーブの一斉発射を1回だけにするフラグ
+  // R31: ミサイルの「飛来する音」を飛んでいるあいだ鳴らし続けるためのタイマー（0で次を鳴らす）。
+  // 発射時に1回だけ鳴らすと、速度を上げたぶん「音より先に着弾する」ので迫る怖さが出ない。
+  let missileFlyT = 0;
+  // R31: 着弾爆発音の間引き。7発斉射が同時に爆ぜると音が潰れて1発ぶんに聞こえる（＝派手さが消える）。
+  let missileBoomT = 0;
+  // R31: ロケットパンチの飛来音。拳が近づくほど音程を上げて鳴らす（マッハ2で迫る恐怖）。
+  let punchFlyT = 0;
   let wire = null;                  // ワイヤーアーム（両拳＋ワイヤー）の表示状態。攻撃終了/撃破で必ず destroy
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
   // R21W2: 予告を主人公の一撃で割られた直後の隙。recoilT は描画オフセット専用で state を止めない
@@ -287,7 +294,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -975,11 +982,15 @@ export function createBoss(run) {
     }
     // R29: 発射音（実プレイFB「発射音も作って」）。斉射なので3発ぶんだけ音程をずらして重ね、
     //   「シュボボッ！」と束で撃ち出された厚みを作る（7発ぶん鳴らすと潰れて1発に聞こえる）。
-    Sound.sfx('missileLaunch');
-    Sound.sfx('missileLaunch', 0.7, 1.12);
-    Sound.sfx('missileLaunch', 0.55, 0.9);
-    Sound.sfx('missileFly', 0.8);
-    run.shake(140, 4);
+    // R31: 実プレイFB「発射音やミサイルの飛来する音は、本物の地対空ミサイルを参考にして」。
+    //   missileLaunch（点火だけ）→ samLaunch（コールドローンチの破裂→空中点火のクラック→短い噴射）へ。
+    //   飛来音は撃った瞬間に1回鳴らして終わりだったので、飛んでいるあいだ鳴らし続ける（下の flySfxT）。
+    Sound.sfx('samLaunch');
+    Sound.sfx('samLaunch', 0.72, 1.14);
+    Sound.sfx('samLaunch', 0.56, 0.88);
+    Sound.sfx('samFly', 0.85);
+    missileFlyT = 0.34;
+    run.shake(220, 6);
     // 反動でのけぞるのは「撃った本人」だけ。下半身が撃ったのに上半身が揺れると、
     // どちらが撃ったのか分からなくなる（＝2体に分かれた意味が消える）。
     const fromBoss = ox === boss.x && oy === boss.y;
@@ -989,6 +1000,31 @@ export function createBoss(run) {
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(mt.x, mt.y, ang, int(cfg.bulletTint));
     run.spawnParticles(mt.x, mt.y, int(cfg.bulletTint), 10);
     run.spawnParticles(mt.x, mt.y, 0xffb020, 8);
+  }
+
+  // R31 ミサイルの着弾爆発（実プレイFB「主人公に当たった先の爆発や爆発音もつけて」）。
+  // 旧実装は `Sound.sfx('hit')` と粒子8個だけで、当たっても爆発が起きていなかった。
+  // big = 主人公に直撃した1発（＝いちばん見せたい爆発）。false は寿命切れの自爆。
+  function missileBoom(x, y, big) {
+    const tint = int(cfg.bulletTint);
+    run.spawnParticles(x, y, 0xfff0a0, big ? 18 : 8);   // 閃光の芯（白〜黄）
+    run.spawnParticles(x, y, 0xff8a2b, big ? 22 : 10);  // 火の玉（橙）
+    run.spawnParticles(x, y, tint, big ? 14 : 6);       // 弾体の破片
+    if (run.billiard && run.billiard.shockRing) {
+      run.billiard.shockRing(x, y, big ? 96 : 52, 0xffc060);
+      if (big) run.billiard.shockRing(x, y, 150, 0xffffff);
+    }
+    // 音は間引く（7発が同時に爆ぜると潰れて1発ぶんに聞こえ、かえって地味になる）
+    if (missileBoomT <= 0) {
+      Sound.sfx('samBoom', big ? 1 : 0.6);
+      missileBoomT = big ? 0.16 : 0.09;
+    }
+    if (big) {
+      run.shake(280, 9); whiteFlash(0.30);
+      if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.05);
+    } else {
+      run.shake(110, 3);
+    }
   }
 
   // 波動砲：前方へ太い短命ビームを sweepDeg 分だけ薙ぐ
@@ -1215,13 +1251,39 @@ export function createBoss(run) {
     }
     // R29: 射出音を激しく（実プレイFB）。金属スイープ(wireShot)だけだと「ギーン」で終わるので、
     //   ロケットの点火(missileLaunch)を重ねて「ドシュッ！ギュイィン」の2段にし、揺れも倍にする。
-    Sound.sfx('wireShot'); Sound.sfx('missileLaunch', 1, 0.75); Sound.sfx('wireFly');
-    run.shake(220, 7); whiteFlash(0.3);
-    for (const arm of wire.arms) run.spawnParticles(arm.sx, arm.sy, 0xffb020, 8);
+    // R31: 実プレイFB「攻撃音をもっと派手に。マジンガーゼットを参考にして」。
+    //   マジンガーZ のロケットパンチは①肘から先が分離 ②光子力ロケットで点火 ③マッハ2で飛ぶ、の3段。
+    //   旧実装には①の分離音と③の超音速が無かったので、rocketPunchFire（3段を1音にまとめた新SFX）へ。
+    Sound.sfx('rocketPunchFire');
+    Sound.sfx('wireShot', 0.55);          // 従来の金属スイープは薄く残す（拳＝機械の質感）
+    punchFlyT = 0.12;
+    run.shake(340, 11); whiteFlash(0.38);
+    if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.05);
+    for (const arm of wire.arms) {
+      run.spawnParticles(arm.sx, arm.sy, 0xffb020, 14);   // 肘から噴く光子力ロケットの炎
+      run.spawnParticles(arm.sx, arm.sy, 0xffffff, 8);
+      if (run.billiard && run.billiard.shockRing) run.billiard.shockRing(arm.sx, arm.sy, 62, 0xffd070);
+    }
     drawWire();
   }
   function updateWire(dt) {
     const wk = cfg.wirearm;
+    // R31: 飛来音。拳が主人公へ近づくほど音程を上げて連打する（マッハ2で迫ってくる恐怖）。
+    // 旧実装は射出時に wireFly を1回鳴らすだけで、飛んでいる 0.55 秒間ずっと無音だった。
+    if (punchFlyT > 0) punchFlyT -= dt;
+    if (punchFlyT <= 0) {
+      let nd = -1;
+      for (const arm of wire.arms) {
+        if (arm.hit) continue;
+        const d = Math.hypot(arm.fx - run.player.x, arm.fy - run.player.y);
+        if (nd < 0 || d < nd) nd = d;
+      }
+      if (nd >= 0) {
+        const near = clamp01(1 - nd / 360);
+        Sound.sfx('rocketPunchFly', 0.6 + near * 0.5, 0.9 + near * 0.5);
+        punchFlyT = 0.16 - near * 0.06;
+      }
+    }
     for (const arm of wire.arms) {
       const sh = shoulderOf(arm); arm.sx = sh.x; arm.sy = sh.y;
       if (!arm.hit && arm.len < wk.maxLen) {
@@ -1241,9 +1303,18 @@ export function createBoss(run) {
         if (dx * dx + dy * dy <= rr * rr) {
           arm.hit = true; run.hitPlayer(wk.damage, arm.fx, arm.fy);
           // R29: 命中の瞬間を「殴られた」音にする（hit の軽い音では 64 ダメージの重さに合わない）
-          Sound.sfx('rocketHit'); run.shake(300, 8);
-          run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 16);
-          run.spawnParticles(arm.fx, arm.fy, 0xffffff, 10);
+          // R31: 「主人公にあたったときの音や衝撃も」＝音だけでなく**衝撃**を足す。
+          //   rocketPunchHit（より低く長い金属爆発）＋強シェイク＋白フラッシュ＋ヒットストップ＋衝撃波。
+          Sound.sfx('rocketPunchHit');
+          run.shake(460, 14); whiteFlash(0.42);
+          if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.11);
+          if (run.billiard && run.billiard.shockRing) {
+            run.billiard.shockRing(arm.fx, arm.fy, 120, 0xffffff);
+            run.billiard.shockRing(arm.fx, arm.fy, 76, int(cfg.bulletTint));
+          }
+          run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 22);
+          run.spawnParticles(arm.fx, arm.fy, 0xffffff, 16);
+          run.spawnParticles(arm.fx, arm.fy, 0xffb020, 12);
         }
       }
     }
@@ -1257,8 +1328,13 @@ export function createBoss(run) {
     for (const arm of wire.arms) arm.backFrom = arm.len;
     // 命中/最大到達の一撃感：大きな衝撃音＋強めシェイク＋whiteFlash(<0.5)＋一瞬のヒットストップ
     // R29: metalSlam → rocketHit（拉げる低音＋破断の高域）に差し替えて攻撃音を激しくする
-    Sound.sfx('rocketHit'); run.shake(300, 8); whiteFlash(0.44);
-    if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.07);
+    // R31: 命中していたら updateWire で rocketPunchHit を鳴らし切っているので、ここで重ねると
+    //   低音が団子になって**かえって軽く聞こえる**。当たらず空振りで伸び切ったときだけ鳴らす。
+    const anyHit = wire.arms.some((a) => a.hit);
+    if (!anyHit) {
+      Sound.sfx('rocketHit'); run.shake(300, 8); whiteFlash(0.44);
+      if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.07);
+    }
     for (const arm of wire.arms) run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 12);
   }
   function updateWireBack(dt) {
@@ -1650,6 +1726,10 @@ export function createBoss(run) {
 
   function updateBullets(dt) {
     const px = run.player.x, py = run.player.y;
+    // R31: 飛来音／爆発音のタイマーを進める（実プレイFB「ミサイルの飛来する音」「爆発音もつけて」）。
+    if (missileFlyT > 0) missileFlyT -= dt;
+    if (missileBoomT > 0) missileBoomT -= dt;
+    let nearestMissile = -1;      // 主人公にいちばん近いミサイルまでの距離（飛来音の音程に使う）
     for (const b of bullets) {
       if (!b.active) continue;
       if (b.kind === 'missile') {
@@ -1661,6 +1741,8 @@ export function createBoss(run) {
         b.spd += (b.cruise - b.spd) * Math.min(1, dt * 1.5);
         b.vx = Math.cos(cur) * b.spd; b.vy = Math.sin(cur) * b.spd;
         b.spr.setRotation(cur + Math.PI / 2);
+        const md = Math.hypot(b.x - px, b.y - py);
+        if (nearestMissile < 0 || md < nearestMissile) nearestMissile = md;
         b.trailT -= dt;
         if (b.trailT <= 0) { b.trailT = 0.09; run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 2); }
       } else if (b.kind === 'tomahawk') {
@@ -1699,8 +1781,9 @@ export function createBoss(run) {
         b.active = false;
         if (b.kind === 'missile' && b.blast > 0) {
           const dx = b.x - px, dy = b.y - py, rr = 30 + run.player.radius;
-          if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(b.blast, b.x, b.y);
-          run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8);
+          const near = dx * dx + dy * dy <= rr * rr;
+          if (near) run.hitPlayer(b.blast, b.x, b.y);
+          missileBoom(b.x, b.y, near);   // R31: 寿命切れの自爆も爆発として見せる
         } else if (b.kind === 'bomb' && cfg && cfg.rollbomb) {
           // 導火線が尽きた＝止まった場所に予告円を出し、warnSec 後に爆発（逃げる猶予を必ず作る）
           const rb = cfg.rollbomb;
@@ -1714,10 +1797,19 @@ export function createBoss(run) {
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
           run.hitPlayer(b.dmg, b.x, b.y); b.active = false;
-          if (b.kind === 'missile') { run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 8); Sound.sfx('hit'); }
+          // R31: 直撃こそがユーザーの言う「主人公に当たった先の爆発」。ここが `hit` の軽い音だった。
+          if (b.kind === 'missile') missileBoom(b.x, b.y, true);
         }
       }
       if (!b.active) recycleBullet(b);
+    }
+    // R31: 飛んでいるあいだ「飛来する音」を鳴らし続ける（実プレイFB）。
+    // 近いほど音程を上げる＝ドップラー。480px/秒まで上げたので、発射時の1回きりでは
+    // 音が鳴り終わる前に着弾してしまい「迫ってくる」怖さが出ない。
+    if (nearestMissile >= 0 && missileFlyT <= 0) {
+      const near = clamp01(1 - nearestMissile / 520);        // 0(遠い)→1(目の前)
+      Sound.sfx('samFly', 0.5 + near * 0.55, 0.86 + near * 0.42);
+      missileFlyT = 0.30 - near * 0.10;                      // 近いほど間隔も詰める
     }
     for (let i = bullets.length - 1; i >= 0; i--) {
       if (!bullets[i].active) bullets.splice(i, 1);

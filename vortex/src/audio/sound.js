@@ -872,6 +872,89 @@ const SFX = {
     tone({ type: 'triangle', freq: 700, freqEnd: 2400, dur: 0.40, gain: 0.08, attack: 0.02 }); // 上昇ホイッスル
     tone({ type: 'square', freq: 1050, freqEnd: 3400, dur: 0.34, gain: 0.04, attack: 0.03, detune: 10 });
   },
+
+  // ============ R31 ミサイル：本物の地対空ミサイル(SAM)を参考にした3点セット ============
+  // 実プレイFB「発射音やミサイルの飛来する音は、本物の地対空ミサイルを参考にして」。
+  // 参考にした実物の音響特徴（S-400 等のコールドローンチ式）:
+  //   ① 発射の第一音は「火の轟音」ではなく**高圧ガスの破裂**（発射管から押し出す）
+  //   ② 空中でモーターに点火し、**耳を裂く鋭いクラック**が走る
+  //   ③ 固体燃料は数秒で燃え尽きるので、宇宙ロケットのような**持続する轟音にはならない**
+  //   ④ 飛翔中に聞こえるのは主に**大気を切り裂く風の音**（＋超音速のクラックル）
+  // 旧 missileLaunch は②③が無く「シュボッ」で終わっていた＝遅く軽く聞こえる主因。
+  samLaunch(power, pitch) {
+    const p = pitch == null ? 1 : pitch;
+    const g = power == null ? 1 : power;
+    // ① コールドローンチ：高圧ガスで押し出す「ボスンッ」（低く詰まった破裂）
+    tone({ type: 'sine', freq: 190 * p, freqEnd: 44 * p, dur: 0.10, gain: 0.30 * g, attack: 0.001 });
+    noiseHit({ dur: 0.07, gain: 0.13 * g, hpFreq: 60, lpFreq: 900 });
+    // ② 空中でのモーター点火：耳を裂く鋭いクラック
+    noiseHit({ start: 0.07, dur: 0.035, gain: 0.22 * g, hpFreq: 1800, lpFreq: 14000 });
+    tone({ type: 'square', freq: 2600 * p, freqEnd: 480 * p, dur: 0.06, start: 0.07,
+           gain: 0.13 * g, attack: 0.001 });
+    // ③ 短く猛烈な噴射ブラスト（持続させない＝ロケット打上げの音にしない）
+    noiseHit({ start: 0.09, dur: 0.30, gain: 0.13 * g, hpFreq: 320, lpFreq: 5200 });
+    tone({ type: 'sawtooth', freq: 120 * p, freqEnd: 700 * p, dur: 0.30, start: 0.09,
+           gain: 0.11 * g, attack: 0.006 });
+  },
+  // 飛来音：主役は**大気を切り裂く風**。近づくぶんの音程上昇（ドップラー）を必ず付ける。
+  samFly(power, pitch) {
+    const p = pitch == null ? 1 : pitch;
+    const g = power == null ? 1 : power;
+    noiseHit({ dur: 0.46, gain: 0.12 * g, hpFreq: 700, lpFreq: 7000 });
+    noiseHit({ start: 0.05, dur: 0.34, gain: 0.07 * g, hpFreq: 3200, lpFreq: 15000 }); // 超音速のクラックル
+    tone({ type: 'sawtooth', freq: 220 * p, freqEnd: 620 * p, dur: 0.44, gain: 0.09 * g, attack: 0.05 });
+    tone({ type: 'triangle', freq: 880 * p, freqEnd: 2100 * p, dur: 0.40, gain: 0.05 * g, attack: 0.07 });
+  },
+  // 着弾爆発：腹に来る低音ドロップ＋爆風の轟き＋破片の高域。命中の瞬間にだけ鳴らす。
+  samBoom(power) {
+    const g = power == null ? 1 : power;
+    tone({ type: 'sine', freq: 240, freqEnd: 18, dur: 0.60, gain: 0.40 * g, attack: 0.001 });
+    tone({ type: 'triangle', freq: 120, freqEnd: 16, dur: 0.52, gain: 0.20 * g, attack: 0.001 });
+    noiseHit({ dur: 0.045, gain: 0.26 * g, hpFreq: 200, lpFreq: 11000 });               // 炸裂の一撃
+    noiseHit({ start: 0.02, dur: 0.42, gain: 0.17 * g, hpFreq: 150, lpFreq: 3200 });    // 爆風の轟き
+    noiseHit({ start: 0.03, dur: 0.16, gain: 0.11 * g, hpFreq: 4000, lpFreq: 15000 });  // 破片の飛散
+    tone({ type: 'square', freq: 900, freqEnd: 90, dur: 0.18, gain: 0.10 * g });
+  },
+
+  // ============ R31 ロケットパンチ：マジンガーZ を参考にした3点セット ============
+  // 実プレイFB「発射音や飛来する音、主人公にあたったときの音や衝撃も。マジンガーゼットを参考にして」。
+  // 参考にした設定（東映アニメ／各資料）: 肘から先が**分離**し、**光子力ロケット**で飛行、速度は**マッハ2**、
+  // 誘導も可能。⚠️ 実際の効果音の音色そのものは資料で確認できなかったので、上の「分離・ロケット点火・
+  // 超音速」という**機構**から音を組み立てている（音色の再現ではない＝ここは推測を含む）。
+  // 旧実装は wireShot（金属スイープ）＋missileLaunch の重ねで、①分離の機械音と③超音速が無かった。
+  rocketPunchFire() {
+    // ① 肘の結合が外れて鉄拳が撃ち出される「ガシャンッ」
+    tone({ type: 'square', freq: 1500, freqEnd: 300, dur: 0.07, gain: 0.15, attack: 0.001 });
+    noiseHit({ dur: 0.05, gain: 0.17, hpFreq: 400, lpFreq: 9000 });
+    // ② 光子力ロケットの点火＝腹に来る破裂
+    tone({ type: 'sine', freq: 220, freqEnd: 40, dur: 0.16, gain: 0.30, attack: 0.001 });
+    noiseHit({ start: 0.03, dur: 0.28, gain: 0.14, hpFreq: 300, lpFreq: 5000 });
+    // ③ マッハ2へ駆け上がる金属スイープ「ギュイィィン！」
+    tone({ type: 'sawtooth', freq: 300, freqEnd: 3000, dur: 0.34, gain: 0.19, attack: 0.004 });
+    tone({ type: 'square', freq: 600, freqEnd: 4200, dur: 0.30, gain: 0.10, detune: 14 });
+    tone({ type: 'triangle', freq: 1200, freqEnd: 5400, dur: 0.26, gain: 0.08 });
+    noiseHit({ start: 0.04, dur: 0.30, gain: 0.10, hpFreq: 2200, lpFreq: 12000 });
+  },
+  // 飛来音：マッハ2＝大気を裂く裂帛＋超音速のクラックル。近づくほど pitch を上げて呼ぶ。
+  rocketPunchFly(power, pitch) {
+    const p = pitch == null ? 1 : pitch;
+    const g = power == null ? 1 : power;
+    noiseHit({ dur: 0.30, gain: 0.10 * g, hpFreq: 900, lpFreq: 8000 });
+    noiseHit({ start: 0.03, dur: 0.20, gain: 0.06 * g, hpFreq: 3600, lpFreq: 15000 });
+    tone({ type: 'sawtooth', freq: 420 * p, freqEnd: 1300 * p, dur: 0.28, gain: 0.10 * g, attack: 0.03 });
+    tone({ type: 'square', freq: 840 * p, freqEnd: 2600 * p, dur: 0.24, gain: 0.05 * g,
+           attack: 0.04, detune: 10 });
+  },
+  // 命中：鉄拳の質量が叩き込まれる「ドゴォォン！」。既存 rocketHit より低く・長く・爆発を伴う。
+  rocketPunchHit() {
+    tone({ type: 'sine', freq: 320, freqEnd: 16, dur: 0.62, gain: 0.42, attack: 0.001 });
+    tone({ type: 'triangle', freq: 160, freqEnd: 15, dur: 0.56, gain: 0.22, attack: 0.001 });
+    tone({ type: 'square', freq: 1500, freqEnd: 90, dur: 0.20, gain: 0.15 });
+    tone({ type: 'sawtooth', freq: 700, freqEnd: 70, dur: 0.24, gain: 0.11 });
+    noiseHit({ dur: 0.05, gain: 0.24, hpFreq: 150, lpFreq: 9000 });                     // 叩き込まれた瞬間
+    noiseHit({ start: 0.02, dur: 0.46, gain: 0.17, hpFreq: 170, lpFreq: 3200 });        // 装甲の胴鳴り
+    noiseHit({ start: 0.03, dur: 0.14, gain: 0.13, hpFreq: 3400, lpFreq: 15000 });      // 破片
+  },
 };
 
 // ================= BGM =================
