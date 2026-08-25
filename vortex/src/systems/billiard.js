@@ -98,7 +98,11 @@ export function createBilliard(run) {
       run.time.delayedCall(i * 70, () => shockRing(run.player.x, run.player.y, rr, i % 2 ? 0xffffff : t.color));
     }
   }
-  const grabReach = () => B().grabReach + (run.playerStage - 1) * B().grabReachPerStage;
+  // R32: どうくつのビッグ／ミニで届く距離が伸び縮みする（run.reachMul）。
+  const grabReach = () => (B().grabReach + (run.playerStage - 1) * B().grabReachPerStage)
+    * (run.reachMul ? run.reachMul() : 1);
+  // R32 マシンガンアーム：溜めが要らなくなる＝掴んだ瞬間から最大威力。
+  const machineOn = () => !!(run.hasBuff && run.hasBuff('machine'));
   const driftMul = () => (BALANCE.stagger.driftModes[st.driftIdx] || { speedMul: 0.55 }).speedMul;
 
   // ---- 開幕の空白対策 ----
@@ -144,8 +148,10 @@ export function createBilliard(run) {
       fuse: (e.throe && BALANCE.deathThroe.fuse && e.def
              && e.def.id === BALANCE.deathThroe.fuse.enemyId) ? Math.max(0.35, e.atkT) : 0,
     };
-    st.chargeT = 0;
-    st.maxRung = false;
+    // ★R32 マシンガンアーム中は掴んだ瞬間に溜め切り扱い＝押した瞬間に最大威力で飛ぶ。
+    //   「1発を大きく」ではなく「N発ならべる」側の報酬（快感は数えられること）。
+    st.chargeT = machineOn() ? B().chargeMaxSec : 0;
+    st.maxRung = machineOn();
     st.grabs++;
     st.gradeGrabs[st.held.grade] = (st.gradeGrabs[st.held.grade] || 0) + 1;
     if (st.held.crown) st.crownGrabs++;
@@ -620,6 +626,17 @@ export function createBilliard(run) {
   //   実プレイFB「主人公の身体から弾が飛び出しているようにしか見えない」の直接の原因がここだった。
   function launchShot(ang, ratio, h, px, py) {
     const b = B();
+    // ★R32 こうしえんの すな。ここで1回ぶん消費して、この弾にだけ「渾身」の印を付ける。
+    //   ⚠️ 溜め量に関係なく必ず最大（ratio=1）にする。レアの価値を溜め操作の成否に賭けさせない。
+    const suna = run.sunaShots > 0;
+    if (suna) {
+      run.sunaShots--;
+      ratio = 1;
+      if (run.fx && run.fx.announce) run.fx.announce('こんしんの いっとう！！', '#ffe6a8');
+      Sound.sfx('sunaThrow');
+      run.shake(240, 8);
+      run.slowMotion(0.32, 0.34);   // 投げた瞬間だけ世界が遅くなる＝「ここぞ」が体に伝わる
+    }
     let speed = b.speedMin + (b.speedMax - b.speedMin) * ratio;
     // 溜めは速度と貫通HPの両方を買う（速度だけだと最小溜め連打が支配戦略になる）
     // ⚠️ 下限つき。掴んだ敵のHPだけだとチビット(4)を掴んだ時に4体で砕け、
@@ -627,8 +644,10 @@ export function createBilliard(run) {
     const T = tier();
     const kind = h.spec || null;         // 'bolt'（らいこうだん）/ 'blast'（ほのおだん）/ null
     const L = SPEC(kind);
-    const hp = L ? L.pierceHp
-                 : Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio) + T.hpBonus;
+    const SU = BALANCE.cave.buffs.suna;
+    const hp = (L ? L.pierceHp
+                  : Math.max(b.minHp, h.maxHp) + Math.round(b.chargeHpBonus * ratio) + T.hpBonus)
+             + (suna ? SU.pierceHpAdd : 0);   // 渾身の一投は群れを端まで貫く
 
     const disp = st.pool.pop() || {
       spr: run.add.image(0, 0, 'bullet').setDepth(13),
@@ -662,10 +681,19 @@ export function createBilliard(run) {
             : L ? h.radius * 1.4
                 : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
       life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
-      grade: h.grade || 0, crown: !!h.crown,
+      grade: h.grade || 0, crown: !!h.crown, suna,
       hero: heroMul(),   // 投げた時点の攻撃力で固定する（飛んでいる間に強化が入っても揺れない）
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
     });
+    if (suna) {
+      // 見た目でも「これは別の弾だ」と分かるようにする（数字だけ強い弾は強く見えない）
+      const s = st.shots[st.shots.length - 1];
+      s.radius *= 1.5;
+      disp.spr.setScale(ballScale * 1.7).setTint(SU.tint);
+      disp.glow.setTint(SU.tint).setAlpha(1)
+        .setDisplaySize(h.radius * 16, h.radius * 9).setRotation(ang);
+      disp.ring.setTint(SU.tint).setAlpha(1).setScale(h.radius * 0.13);
+    }
 
     st.throws++;
     st.chargeSum += ratio * b.chargeMaxSec;
@@ -970,6 +998,8 @@ export function createBilliard(run) {
       // ★格の倍率。ボスへは bossMul（半額側）を使う＝「ボス戦の主役は装甲片(×2.5)」を壊さない。
       const G = GR(s.grade);
       let dmg = Math.round(B().damage * T.dmgMul * (s.hero || 1) * (e.isBoss ? G.bossMul : G.dmgMul));
+      // ★R32 こうしえんの すな＝渾身の一投。ボスにも雑魚にも同じ倍率で乗せる。
+      if (s.suna) dmg = Math.round(dmg * BALANCE.cave.buffs.suna.dmgMul);
       // ★装甲片をボスへ投げ返すと特効＝「ボスの装甲でボスを殴る」。
       //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
       if (e.isBoss && s.shard) {
@@ -1056,6 +1086,27 @@ export function createBilliard(run) {
 
   function burstEnd(s) {
     s.active = false;
+    // ★R32 こうしえんの すな は、雑魚に当てても・外しても**必ず特大の爆風**で終わる。
+    //   レアを雑魚に誤爆した瞬間に「損した」と感じさせない（小5が取り置きに失敗しても報われる）。
+    //   ボスに当たって砕けた場合(noChain)は装甲片を巻き込むので連鎖はさせず、演出だけ出す。
+    if (s.suna) {
+      const SU = BALANCE.cave.buffs.suna;
+      if (!s.noChain) {
+        const rs = run.burstStagger(s.x, s.y, SU.blastRadius, SU.blastMax);
+        s.kills += rs.total;
+        s.chain = Math.max(s.chain, rs.chain);
+      }
+      screenFlash(0.30, SU.tint);
+      shockRing(s.x, s.y, SU.blastRadius * 1.15, SU.tint);
+      shockRing(s.x, s.y, SU.blastRadius * 0.7, 0xffffff);
+      burstStreaks(s.x, s.y, 34, SU.tint, SU.blastRadius);
+      run.spawnParticles(s.x, s.y, SU.tint, 30);
+      run.spawnParticles(s.x, s.y, 0xffffff, 18);
+      run.shake(420, 13);
+      zoomPunch(0.055);
+      Sound.sfx('sunaBoom');
+      Sound.sfx('bigBoom', 0.9, 0.8);
+    }
     // 飛び終わりに必ず炸裂する。ここが無いと「当たらなかった投げ」が完全な無駄になり、
     // 主武器としての信頼が落ちる＝必殺技に頼る動機になる（実プレイFB）。
     // s.noChain ＝ ボスに当たって砕けた玉。ここで連鎖させると自分の装甲片を巻き込んで消す
@@ -1508,7 +1559,7 @@ export function createBilliard(run) {
     // e＝振りかぶりの深さ。軽い溜めでも半分は引く（引かないと「振りかぶった」に見えない）
     st.wind = { ang, ratio, h: st.held, t: 0, fired: false, e: 0.5 + 0.5 * ratio };
     st.held = null; st.chargeT = 0; st.maxRung = false;
-    st.cd = b.grabCooldownSec;
+    st.cd = b.grabCooldownSec * (machineOn() ? BALANCE.cave.buffs.machine.grabCdMul : 1);
     hideAim();
     // 振り始めの風切り。「ヒュッ（振り）→ ドンッ（離す）」の2段になって投げた実感が出る
     Sound.sfx('throwWhoosh', ratio);
