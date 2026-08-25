@@ -17,6 +17,8 @@ const THEME = {
 };
 function themeColor(up) {
   if (!up) return 0xffe066;
+  // R32: どうくつのアイテムは強化カードではなく色そのものを渡す（アイテムごとに違う色で光らせる）。
+  if (typeof up === 'number') return up;
   if (String(up.id).indexOf('rainbow') === 0) return 0xffd23f;
   return THEME[up.id] || 0xffe066;
 }
