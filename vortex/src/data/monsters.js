@@ -423,6 +423,9 @@ export const MONSTERS = [
       id: 'heartangel',
       name: 'ハートエンジェル',
       baseDamage: 3,
+      // ⚠️ ovr が無く、コメントの「回復量が上がる」が実装されていなかった（進化しても2のまま）。
+      //    3.5秒に3回復＝0.86HP/秒。ジェル回復(1.25HP/秒)は超えないので「少しずつ」は保たれる。
+      ovr: { amount: 3 },
       sprite: {
         palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
         rows: [
@@ -460,7 +463,7 @@ export const MONSTERS = [
     baseDamage: 2,   // AMMO は敵にダメージを与えないので未使用。データ検証のために持たせている
     forms: [
       { name: 'ちくでんタッチ',   kind: 'melee',  archetype: 'AMMO', tex: 'w_star2', sfx: 'counter' },
-      { name: 'らいこうだん わたし', kind: 'ranged', archetype: 'AMMO', tex: 'w_rainbow', sfx: 'counter' },
+      { name: 'とくべつなたま わたし', kind: 'ranged', archetype: 'AMMO', tex: 'w_rainbow', sfx: 'counter' },
     ],
     sprite: {
       palette: { c: '#5b5fa8', d: '#33376e', y: '#ffe14d', w: '#ffffff', k: '#191b3d' },
