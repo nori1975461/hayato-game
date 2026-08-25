@@ -873,6 +873,106 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/Sound\.sfx\('buffEnd'\)/.test(run), 'R32: 効果が切れた合図が鳴る');
 }
 
+// --- ★R33: ビリッコが配る弾3種と、その配り役が実際に仲間になれること ---
+// 実プレイFB「マオウレクスまでいったのだが、一度も雷光弾が生成されなかった」。
+// 実装は生きていた。原因は**配り役が仲間にならない**こと：パーティは開始時点で 2体/2枠 の
+// 満杯で、実測（自然プレイ）では 78秒で43個・251秒で241個のコアがコインに化けていた。
+// 3枠目が開く180秒に配っていたビリッコのコアも、その瞬間に落ちている通常コアと取り合いになる。
+{
+  const HB = BALANCE.hero.billiard;
+  const kinds = HB.ammoKinds || [];
+  assert(kinds.length >= 3, `R33: ビリッコが配る弾は3種以上（現在${kinds.length}種）`);
+  assert(kinds.includes('bolt'), 'R33: らいこうだんが配布候補に残っている（回帰防止）');
+  assert(new Set(kinds).size === kinds.length, 'R33: 配布候補に重複がない');
+  for (const k of kinds) {
+    const S = HB[k];
+    assert(!!S, `R33: 配布候補「${k}」が hero.billiard に実在する`);
+    if (!S) continue;
+    for (const key of ['color', 'coreColor', 'scale', 'radius', 'speedMul', 'pierceHp',
+                       'bossHpRatio', 'trashDamage']) {
+      assert(typeof S[key] === 'number', `R33: ${k}.${key} が数値（手渡しの経路が共通なので必須）`);
+    }
+    // 3種は色で見分けられること。手渡しの尺は共通なので、色と音だけが区別の手がかりになる。
+    for (const o of kinds) {
+      if (o === k) continue;
+      assert(HB[o].color !== S.color, `R33: ${k} と ${o} の色が違う（見分けられること）`);
+    }
+  }
+  // ボス特効の序列。らいこうだんが切り札の座を保つ（他の弾がそれを超えない）。
+  for (const k of kinds) {
+    if (k === 'bolt') continue;
+    assert(HB[k].bossHpRatio < HB.bolt.bossHpRatio,
+      `R33: ${k} のボス特効は らいこうだん(${HB.bolt.bossHpRatio}) より小さい`);
+  }
+  // スーパーボールだん＝「数える」弾。跳ね返り回数が体験の本体。
+  const SB = HB.superball;
+  assert(SB.bounces >= 8, 'R33: スーパーボールは8回以上跳ねる（数えられる刻みが要る）');
+  assert(SB.bounceRange > 0 && SB.turnRate > 0,
+    'R33: 跳ね先を探す距離と、追いかける速さの両方がある（決め打ちの向き変更では実測1回で止まった）');
+  assert(SB.bounceDmgAdd > 0, 'R33: 跳ねるほど強くなる（後半ほど気持ちよくする）');
+  assert(SB.comboEvery >= 1, 'R33: 何回ごとにカウンタを出すかが決まっている');
+  // ブラックホールだん＝唯一「集める」弾。壊す力ではなく次に投げるものを作る力。
+  const BH = HB.blackhole;
+  assert(BH.holeSec > 0 && BH.holeRadius > 0 && BH.pullSpeed > 0,
+    'R33: ブラックホールは時間・範囲・吸う速さを持つ');
+  assert(BH.endMax >= 8, 'R33: 閉じたときに作る弾の上限が8体以上（弾の量産機として成立する数）');
+  assert(BH.pierceHp <= 1, 'R33: ブラックホールは貫通しない（どこで開くかを選ぶ弾）');
+
+  // ★配り役が実際に仲間になれること。ここが今回のFBの本体。
+  assert(BALANCE.orbit.maxSlots === 3,
+    'R33: 戦う仲間は最大3人のまま（火力過多の回帰防止・R2の約束）');
+  assert((BALANCE.orbit.ammoExtraSlots || 0) >= 1,
+    'R33: 弾配り役は戦力外なので別枠で入れる（枠の取り合いで永久に仲間にならない事故を断つ）');
+  const firstBoss = BALANCE.boss.tiers[0].spawnSec;
+  assert(typeof BALANCE.capture.ammoCoreSec === 'number'
+    && BALANCE.capture.ammoCoreSec < firstBoss,
+    `R33: 弾配り役のコアは1体目のボス(${firstBoss}秒)より前に配る`);
+
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const cap = read('systems/capture.js');
+  const orb = read('systems/orbit.js');
+  const bil = read('systems/billiard.js');
+  const snd = read('audio/sound.js');
+
+  assert(/archetype !== 'AMMO'/.test(cap) && /ammoExtraSlots/.test(cap),
+    'R33: コア拾得に AMMO の別枠例外が入っている');
+  assert(/NON_COMBAT\s*=\s*\[[^\]]*'AMMO'/.test(cap),
+    'R33: 弾配り役は合成の素材にしない（切り札の配り係が勝手に消える回帰の防止）');
+  assert(/bl\.giveAmmo\(o, kind\)/.test(orb) && /canReceiveAmmo/.test(orb),
+    'R33: orbit が種類つきで手渡しを呼んでいる');
+  assert(/ammoQueue = run\.rng\.shuffle/.test(orb),
+    'R33: 配る弾はボスごとに引き直す（マオウレクスの2発が必ず別の種類になる）');
+  // ★ブラックホールの締めは enterStagger。burstStagger は「既によろけている敵を消す」処理なので
+  //   ここで使うと弾が1体も増えない（実測：吸い込み7体→弾0体で踏んだ）。
+  assert(/run\.enterStagger\(e\);[\s\S]{0,200}made\+\+/.test(bil),
+    'R33: ブラックホールは閉じるときに敵を弾に変える（enterStagger を通す）');
+  assert(!/burstStagger\(h\.x, h\.y/.test(bil),
+    'R33: 穴の締めに burstStagger を使っていない（弾が増えない実装への逆戻り防止）');
+  // 連鎖を持たない弾で specialChain を素通りさせない（undefined で NaN ダメージになる）
+  assert(/typeof L\.chainCount !== 'number' \|\| typeof L\.chainDamage !== 'number'/.test(bil),
+    'R33: 連鎖設定を持たない弾は specialChain を通らない（NaNダメージの防止）');
+  for (const name of ['superGet', 'superEnd', 'holeGet', 'holeOpen', 'holeClose']) {
+    assert(new RegExp(`\\n\\s{2}${name}\\(`).test(snd), `R33: 効果音 ${name} が sound.js に実在する`);
+    assert(new RegExp(`'${name}'`).test(bil), `R33: 効果音 ${name} が実際に呼ばれている`);
+  }
+
+  // ★進化は必ず「画面で強くなる」こと。非戦闘役（HEAL/AMMO）は baseDamage が飾りなので、
+  //   ovr が無いと進化しても中身が1つも変わらない。実際マシュモの進化は
+  //   コメントに「回復量が上がる」と書いてあるのに ovr が無く、2のまま据え置きだった。
+  for (const m of MONSTERS) {
+    if (!m.evo) continue;
+    const nonCombat = m.archetype === 'HEAL' || m.archetype === 'AMMO';
+    if (nonCombat && m.archetype === 'AMMO') continue;   // ビリッコは「発数を増やさない」が意図
+    assert(m.evo.ovr || m.evo.baseDamage > m.baseDamage,
+      `R33: ${m.name} の進化は数値が実際に変わる（ovr か baseDamage の上昇を持つ）`);
+    if (nonCombat) {
+      assert(m.evo.ovr && Object.keys(m.evo.ovr).length > 0,
+        `R33: ${m.name}（非戦闘役）の進化は ovr で中身が変わる（baseDamage は使われない）`);
+    }
+  }
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
