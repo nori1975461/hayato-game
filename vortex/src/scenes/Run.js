@@ -98,6 +98,13 @@ export class RunScene extends Phaser.Scene {
     // --- プレイヤー ---
     const P = BALANCE.player;
     this.player = { x: 0, y: 0, vx: 0, vy: 0, hp: P.hp, maxHp: P.hp, radius: P.radius, invuln: 0, flashT: 0 };
+    // ★R32 どうくつのバフ。id → のこり秒。どうくつは「一時的で派手な超能力」を配る場所なので、
+    //   恒久ステータス（やしろの担当）とは別枠でここに持つ。billiard/HUD がこれを読む。
+    this.buffs = {};
+    this.sunaShots = 0;        // こうしえんの すな：のこり「渾身の一投」回数（秒ではなく回数）
+    this._baseRadius = P.radius;
+    this._sizeApplied = 1;     // 見た目スケールを毎フレーム書き戻すとtweenを潰すので、変化時だけ当てる
+    this._buffMove = 1;        // ミニドリンクの移動倍率
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4f8cff).setScale(2.2).setAlpha(0.55);   // R16: コバルトのオーラ（ブレイブギア配色）
     // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
@@ -352,6 +359,11 @@ export class RunScene extends Phaser.Scene {
 
     this.elapsed += dt;
 
+    // ★R32 ときのすなどけい：**敵側の時間だけ**を止める。slowMotion は主人公も一緒に遅くなる
+    //   ので「時間停止」にならない（遅いだけ）。敵・敵弾・ボス・湧きへ渡す dt だけを縮める。
+    const edt = this.hasBuff('clock') ? dt * BALANCE.cave.buffs.clock.mul : dt;
+
+    this.updateBuffs(dt);
     this.updatePlayer(dt);
     this.updateHeroAim(dt);     // R14: 構えの狙い角だけを決める（銃は全廃）
     this.updateHeroMelee(dt);   // R12: 主武器（クラッシュアーム）。_punchT/_punchAng を決める
@@ -367,16 +379,16 @@ export class RunScene extends Phaser.Scene {
       //   boss.update の tier スケジューラは practiceMode で止めてある。
       if (this.practice.wantBoss()) this.boss.update(dt);
     } else {
-      this.spawner.update(dt);
-      this.boss.update(dt);
+      this.spawner.update(edt);
+      this.boss.update(edt);
       this.capture.update(dt);
     }
     this.items.update(dt);
     this.special.update(dt);
     if (this.levelup.update) this.levelup.update(dt);
-    this.updateEnemies(dt);
-    this.updateBullets(dt);
-    this.updateFoeBullets(dt);
+    this.updateEnemies(edt);
+    this.updateBullets(dt);      // 自分の投げた玉は止めない（止めたら攻める時間にならない）
+    this.updateFoeBullets(edt);
     this.updateGems(dt);
     this.updateHearts(dt);
     this.updateParticles(dt);
@@ -406,6 +418,79 @@ export class RunScene extends Phaser.Scene {
     return alive || arr;
   }
 
+  // ============ R32 どうくつのバフ ============
+  // どうくつ＝「取った瞬間に画面が変わる時限バフ」の場所。旧版が地味なステータスを配っていて
+  // 「意味がない」と言われたので、ここは**見えない効果を1つも置かない**方針で作ってある。
+  addBuff(id, sec) {
+    this.buffs[id] = Math.max(this.buffs[id] || 0, sec);
+  }
+  buffT(id) { return this.buffs[id] || 0; }
+  hasBuff(id) { return (this.buffs[id] || 0) > 0; }
+  // 体の大きさ倍率（ビッグ／ミニ）。両方持つことは無いが、持ったら後勝ちにせず大きい方を採る。
+  sizeMul() {
+    const B = BALANCE.cave.buffs;
+    if (this.hasBuff('big')) return B.big.scale;
+    if (this.hasBuff('mini')) return B.mini.scale;
+    return 1;
+  }
+  // 届く範囲の倍率。掴み・突き・拳が共通で読む（大きくなったら届く／小さくなったら届かない）。
+  reachMul() {
+    const B = BALANCE.cave.buffs;
+    if (this.hasBuff('big')) return B.big.reachMul;
+    if (this.hasBuff('mini')) return B.mini.reachMul;
+    return 1;
+  }
+  updateBuffs(dt) {
+    const CB = BALANCE.cave.buffs;
+    for (const id in this.buffs) {
+      if (this.buffs[id] <= 0) continue;
+      this.buffs[id] -= dt;
+      if (this.buffs[id] <= 0) {
+        this.buffs[id] = 0;
+        Sound.sfx('buffEnd');
+        if (this.fx && this.fx.announce) this.fx.announce((CB[id] && CB[id].label) + ' おわり', '#c8c8d8');
+      }
+    }
+    // スターダスト：むてきを切らさない＋触れた雑魚をよろけさせる（＝無敵中は弾の量産時間）
+    if (this.hasBuff('star')) {
+      const S = CB.star;
+      this.player.invuln = Math.max(this.player.invuln, 0.25);
+      const rr = this.player.radius + S.touchPad;
+      for (const e of this.enemies) {
+        if (!e.active || e.isBoss || e.stag) continue;
+        const dx = e.x - this.player.x, dy = e.y - this.player.y;
+        if (dx * dx + dy * dy <= (rr + e.radius) * (rr + e.radius)) {
+          e.hp = 1; this.enterStagger(e);
+          this.spawnParticles(e.x, e.y, S.tint, 6);
+        }
+      }
+    }
+    // ビッグドリンク：体当たりで雑魚がよろける（デカさが攻撃になる）
+    if (this.hasBuff('big') && CB.big.rammingStagger) {
+      const rr = this.player.radius;
+      for (const e of this.enemies) {
+        if (!e.active || e.isBoss || e.stag) continue;
+        const dx = e.x - this.player.x, dy = e.y - this.player.y;
+        if (dx * dx + dy * dy <= (rr + e.radius) * (rr + e.radius)) {
+          e.hp = 1; this.enterStagger(e);
+          this.spawnParticles(e.x, e.y, CB.big.tint, 6);
+        }
+      }
+    }
+    // 見た目と当たり判定。毎フレーム setScale すると変身tweenを潰すので、変わった時だけ当てる。
+    const sm = this.sizeMul();
+    if (sm !== this._sizeApplied) {
+      this._sizeApplied = sm;
+      this.playerImg.setScale(3.0 * sm);
+      this.playerGlow.setScale((2.2 + (this.playerStage - 1) * 0.55) * sm);
+      const rm = this.hasBuff('big') ? CB.big.radiusMul : this.hasBuff('mini') ? CB.mini.radiusMul : 1;
+      // ⚠️ 当たり判定も一緒に動かす。ビッグは強くなるだけの薬にしない（②被弾の緊張感を殺さない）。
+      this.player.radius = Math.max(3, Math.round(this._baseRadius * rm));
+      this.spawnParticles(this.player.x, this.player.y, sm > 1 ? CB.big.tint : CB.mini.tint, 16);
+    }
+    this._buffMove = this.hasBuff('mini') ? CB.mini.moveMul : 1;
+  }
+
   // ============ プレイヤー ============
   updatePlayer(dt) {
     // FB#5: レベル到達で主人公が変身（スターテイマー→ボルテックスマスター）
@@ -423,7 +508,7 @@ export class RunScene extends Phaser.Scene {
       const inv = 1 / Math.hypot(dx, dy);
       // R21W2: 硬直中は鈍る／R22: 溜め中も鈍る（_moveMul。②被弾の緊張感のアンカー）
       const sp = P.speed * this.stats.moveMult
-        * (this._strikeRecover > 0 ? 0.6 : 1) * (this._moveMul || 1);
+        * (this._strikeRecover > 0 ? 0.6 : 1) * (this._moveMul || 1) * (this._buffMove || 1);
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
       // R21W3: 偏差射撃の予測に使う。ノックバックと踏み込みは自分の意思でない動きなので含めない。
@@ -465,6 +550,13 @@ export class RunScene extends Phaser.Scene {
     if (this.player.flashT > 0) {
       this.player.flashT -= dt;
       this.playerImg.setTint(0xffffff);
+    } else if (this.hasBuff('gold')) {
+      // ★R32 ゴールドスーツ（見た目が変わるアイテム）。全身が金色に染まる。
+      //   のこり2秒で点滅して「そろそろ終わる」を知らせる（無言で切れると事故に見える）。
+      const t = this.buffT('gold');
+      const blink = t < 2 && Math.floor(this.elapsed * 10) % 2 === 0;
+      if (blink) this.playerImg.clearTint();
+      else this.playerImg.setTint(BALANCE.cave.buffs.gold.bodyTint);
     } else {
       this.playerImg.clearTint();
     }
@@ -555,7 +647,7 @@ export class RunScene extends Phaser.Scene {
   // R12: 拳の間合い（melee）を返す。銃・拳・オーラ表示で同じ値を使う。
   meleeRange() {
     const M = BALANCE.hero.melee;
-    return M.radius + (this.playerStage - 1) * M.radiusPerStage;
+    return (M.radius + (this.playerStage - 1) * M.radiusPerStage) * this.reachMul();
   }
 
   // R14: 構えの狙い角を決める（銃は全廃したので「撃つ相手」ではなく「体を向ける相手」）。
@@ -595,7 +687,7 @@ export class RunScene extends Phaser.Scene {
 
   strikeRange() {
     const S = BALANCE.hero.strike;
-    return S.reach + (this.playerStage - 1) * S.reachPerStage;
+    return (S.reach + (this.playerStage - 1) * S.reachPerStage) * this.reachMul();
   }
 
   // 狙う向き。マウスを使っていればカーソル方向、まだなら最寄りのよろけ→最寄り敵。
@@ -809,6 +901,9 @@ export class RunScene extends Phaser.Scene {
       for (let i = 0; i < G.length; i++) if (hp >= G[i].minHp) idx = i;
     }
     if (e.crown) idx += BALANCE.crown.gradeUp;
+    // ★R32 ゴールドスーツ：掴んだ瞬間の格が1段上がる。王冠とまったく同じ仕組みに乗せて、
+    //   プレイヤーが覚える概念を増やさない（「金色のあいだは たまが おもくなる」だけ）。
+    if (this.hasBuff('gold')) idx += BALANCE.cave.buffs.gold.gradeUp;
     return Math.max(0, Math.min(G.length - 1, idx));
   }
   grade(e) { return BALANCE.hero.billiard.grades[this.gradeIdx(e)]; }
