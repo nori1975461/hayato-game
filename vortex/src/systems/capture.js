@@ -62,8 +62,19 @@ export function createCapture(run) {
     makeCore(x, y, run.rng.pick(pool));
   }
 
+  // ★R33 弾配り役（AMMO）だけの特別枠。戦う仲間は今までどおり最大3人。
+  //   AMMO は敵にダメージを一切与えないので「公転仲間は最大3人（火力過多の回帰防止）」の
+  //   趣旨には触れない。ここが無いと、開始時点で満杯のパーティに弾配り役は永久に入れない。
+  function canJoin(def) {
+    if (run.party.length < currentSlots()) return true;
+    if (!def || def.archetype !== 'AMMO') return false;
+    if (run.party.some((p) => p.def && p.def.archetype === 'AMMO')) return false;  // 1体だけ
+    const extra = BALANCE.orbit.ammoExtraSlots || 0;
+    return run.party.length < currentSlots() + extra;
+  }
+
   function pickupCore(core) {
-    if (run.party.length < currentSlots()) {
+    if (canJoin(core.def)) {
       run.party.push({ def: core.def });
       run.orbit.rebuild();
       run.captures++;
@@ -84,7 +95,10 @@ export function createCapture(run) {
   // ⚠️ 配る時刻は**3枠目が開く瞬間**にしてある。手持ちの攻撃役を降ろさずに載せられる唯一のタイミング。
   function ensureBoltMobit() {
     if (boltCoreGiven) return;
-    const gate = BALANCE.orbit.slotSchedule[0] ? BALANCE.orbit.slotSchedule[0].untilSec : 180;
+    // ★R33 旧実装は「3枠目が開く180秒」に配っていたが、開いた瞬間に落ちている通常コアが
+    //   先に入って枠が埋まり、ビリッコのコアは10秒で消えてコインに化けていた（実測で確認）。
+    //   ammoExtraSlots（弾配り役の特別枠）で取り合いが消えたので、1体目のボスに間に合わせる。
+    const gate = C.ammoCoreSec == null ? 180 : C.ammoCoreSec;
     if (run.elapsed < gate) return;
     boltCoreGiven = true;
     if (run.party.some((pt) => pt.def && pt.def.id === 'biricco')) return;   // もう持っている
