@@ -80,6 +80,17 @@ export function createHud(run) {
     fontFamily: 'monospace', fontSize: '10px', color: '#7fffcf',
   }).setScrollFactor(0).setDepth(D + 1);
 
+  // ★R32 どうくつのバフ表示。右上に縦積みで「なまえ ＋ のこり秒」を出す。
+  //   効いていることが画面から読めないと、旧洞窟と同じ「取っても意味が分からない」に戻る。
+  const BUFF_ROWS = 4;
+  const buffTexts = [];
+  for (let i = 0; i < BUFF_ROWS; i++) {
+    buffTexts.push(run.add.text(632, 60 + i * 14, '', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#241040', strokeThickness: 3,
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(D + 1).setVisible(false));
+  }
+
   const pauseText = run.add.text(320, 180, 'ポーズちゅう\n（P でさいかい / R でやりなおし）', {
     fontFamily: 'monospace', fontSize: '16px', color: '#ffffff', align: 'center',
   }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 5).setVisible(false);
@@ -196,6 +207,28 @@ export function createHud(run) {
     }
 
     coinText.setText('C ' + run.coins);
+
+    // ★R32 効いているどうくつのバフ。のこり2秒を切ったら点滅させて「そろそろ終わる」を知らせる。
+    {
+      const CB = BALANCE.cave.buffs;
+      const rows = [];
+      if (run.sunaShots > 0) {
+        rows.push({ s: 'こんしんの いっとう ×' + run.sunaShots, c: '#ffe6a8', blink: false });
+      }
+      for (const id in run.buffs || {}) {
+        const t = run.buffs[id];
+        if (t <= 0) continue;
+        const cfg = CB[id] || {};
+        const col = '#' + ((cfg.tint || 0xffffff) & 0xffffff).toString(16).padStart(6, '0');
+        rows.push({ s: (cfg.label || id) + ' ' + Math.ceil(t), c: col, blink: t < 2 });
+      }
+      for (let i = 0; i < BUFF_ROWS; i++) {
+        const r = rows[i];
+        if (!r) { buffTexts[i].setVisible(false); continue; }
+        const on = !r.blink || Math.floor(run.elapsed * 8) % 2 === 0;
+        buffTexts[i].setText(r.s).setColor(r.c).setVisible(on);
+      }
+    }
 
     // ボスHPバー
     bossBar.clear();
