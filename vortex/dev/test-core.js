@@ -8,6 +8,7 @@ import { createRng } from '../src/core/rng.js';
 import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS } from '../src/data/monsters.js';
 import { ENEMIES, BOSS } from '../src/data/enemies.js';
+import { ENDING_ART } from '../src/data/ending_art.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -971,6 +972,135 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(m.evo.ovr && Object.keys(m.evo.ovr).length > 0,
         `R33: ${m.name}（非戦闘役）の進化は ovr で中身が変わる（baseDamage は使われない）`);
     }
+  }
+}
+
+// ===================== R34: 最終ボスの尺と、エンディングの作り直し =====================
+// 実プレイFB「マオウレクスの音楽が変わってない／ミサイルやロケットパンチの音は直したか／
+// 再合体してもメタリックパープルにならない／撃破7秒は早すぎる／エンディングがしょぼすぎる」。
+// ①〜④は別々の不具合ではなく「戦闘が短すぎて再生される前に終わる」の症状だった。
+// ここに置くのは**その原因に戻らないためのガード**。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const bos = read('systems/boss.js');
+  const bil = read('systems/billiard.js');
+  const hud = read('ui/hud.js');
+  const snd = read('audio/sound.js');
+  const end = read('scenes/Ending.js');
+  const boot = read('scenes/Boot.js');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+
+  assert(!!maou, 'R34: 最終ボス maou の tier が存在');
+  if (maou) {
+    // ④尺。1発が最大HPの23%だったので、HPを上げないと演出が全部間に合わない
+    assert(maou.hp >= 90000, `R34: マオウレクスのHPが90000以上（実測 ${maou.hp}）`);
+    // 硬いだけにしないための3点セット
+    assert(maou.gaugeSegments >= 2,
+      'R34: HPゲージが複数段（1本ぶち抜いたことが数えられる＝硬いだけにしない手当て）');
+    assert(maou.specialBulletMul > 0 && maou.specialBulletMul < 1,
+      'R34: 特殊弾のボス特効を最終ボスだけ薄めている（30%×2発で6割消える回帰の防止）');
+    assert(maou.idleSec.betweenAttacks.every((v) => v <= 2.2),
+      'R34: 攻撃の間合いを詰めてある（伸ばした尺を待ち時間ではなく手数で埋める）');
+    // ②ミサイルは攻撃表の先頭。4番目だと実測で本体から一度も発射されなかった
+    assert(maou.attacks[0] === 'missile',
+      `R34: ミサイルが攻撃表の1番目（実測 ${maou.attacks[0]}）`);
+    assert(maou.attacks.indexOf('wirearm') <= 1,
+      'R34: ロケットパンチが攻撃表の前半（後ろだと戦闘中に出ない）');
+    // ★割られても止まらない。これが無いと署名攻撃は予告のまま中断されて音が鳴らない
+    assert(maou.unstoppable === true,
+      'R34: 最終ボスは予告を割られても止まらない（unstoppable）');
+  }
+
+  // ③実バグの再発防止：カットシーン中に倒せてはいけない
+  assert(/function weakGate[\s\S]{0,700}?state === 'mergeCine'/.test(bos),
+    'R34: weakGate がカットシーン中を弾く（合体の途中で倒せると紫は原理的に見えない）');
+  assert(/function weakGate[\s\S]{0,700}?state === 'splitCine'/.test(bos),
+    'R34: weakGate が分離カットシーン中も弾く');
+  // unstoppable の分岐は「止めない」＝ endAttackChase を呼ばずに return すること
+  assert(/if \(cfg\.unstoppable\) \{[\s\S]{0,400}?return true;/.test(bos)
+    && !/if \(cfg\.unstoppable\) \{[\s\S]{0,400}?endAttackChase\(\)/.test(bos),
+    'R34: 割られても止まらない分岐が endAttackChase を呼んでいない（呼ぶと従来どおり中断される）');
+  assert(/brokeThisAttack/.test(bos),
+    'R34: 1回の予告につき割れるのは1回まで（連打で追撃窓と装甲片が無限に湧くのを防ぐ）');
+  assert(/brokeThisAttack = false;/.test(bos.slice(bos.indexOf('function startAttackByName'))),
+    'R34: 新しい予告が始まると「割られる権利」が戻る');
+  // メタリックパープルは単色ではなく脈打たせる（塗っただけだと"暗くなった"に見える）
+  assert(/function metalPurple/.test(bos) && /phase3 && cfg\.merge\) tint = metalPurple\(\)/.test(bos),
+    'R34: 再合体後の体色が金属光沢（色を脈打たせている）');
+
+  // 特殊弾のボス特効に個別倍率が漏れなく掛かっていること（複数か所ある）
+  const ratioSites = (bil.match(/L\.bossHpRatio/g) || []).length;
+  const mulSites = (bil.match(/bossSpecialMul\(e\)/g) || []).length;
+  assert(ratioSites > 0 && ratioSites === mulSites,
+    `R34: 特殊弾のボス特効すべてに個別倍率が掛かっている（${ratioSites}か所中${mulSites}か所）`);
+
+  assert(/gaugeSegments/.test(hud), 'R34: HUD が段つきゲージを描いている');
+
+  // ①BGM：荘厳さの材料は残したまま、勇ましさ（ファンファーレ＋行進）を足したこと
+  assert(/FANFARE_AT/.test(snd), 'R34: マオウレクス曲にファンファーレの声部がある');
+  assert(/TIMPANI_MARCH/.test(snd), 'R34: マオウレクス曲のティンパニが行進の形になっている');
+  assert(/bar === 3 \|\| bar === 7\) && inBar >= 12/.test(snd),
+    'R34: 区切りの直前に行進のスネアロールがある');
+  {
+    const NLC = String.fromCharCode(10);
+    const chords = (snd.match(/const CHORDS_MAOU = \[[\s\S]*?\];/) || [''])[0].split(NLC);
+    const cBar = chords.findIndex((l) => /\/\/ C（光①/.test(l)) - 1;   // 1行目は宣言
+    assert(cBar >= 0 && cBar <= 2,
+      `R34: 長三和音(C)が進行の前半（${cBar + 1}小節目）。第一印象が短調一色だと「変わってない」と言われる`);
+  }
+  assert(/ピカルディ終止/.test(snd), 'R34: ピカルディ終止（締めのAメジャー）は残っている');
+  assert(/パイプオルガン/.test(snd) && /教会の鐘/.test(snd),
+    'R34: 荘厳さの材料（オルガン・鐘）を消していない');
+
+  // ⑤エンディング：専用の祝祭SFXと、キーイラスト
+  for (const name of ['firework', 'endChime', 'endFanfare', 'stampHit', 'endRubble']) {
+    assert(new RegExp(`\\n\\s{2}${name}\\(`).test(snd), `R34: 効果音 ${name} が sound.js に実在する`);
+    assert(new RegExp(`'${name}'`).test(end), `R34: 効果音 ${name} が Ending.js から実際に呼ばれている`);
+  }
+  assert(/'ending_art'/.test(boot) && /ENDING_ART/.test(boot),
+    'R34: Boot がキーイラストをテクスチャ化している');
+  assert(/'ending_art'/.test(end), 'R34: Ending がキーイラストを画面に出している');
+  assert(/fireworks\(/.test(end), 'R34: エンディングに打ち上げ花火がある');
+  // 過去にハマった罠の恒久化：Phaser の Rectangle は width を tween しても見た目が変わらない
+  assert(!/targets: [A-Za-z.]+, [^}]*\bwidth:/.test(end),
+    'R34: Rectangle の width を tween していない（geom が更新されず幕が開かない罠）');
+  // 子ども安全と、既存の作法
+  // ⚠️ コメントの「Math.random 禁止」という但し書き自体を拾わないよう、実際の呼び出しだけ見る
+  {
+    const NLE = String.fromCharCode(10);
+    const code = end.split(NLE).filter((l) => !/^\s*(\/\/|\*)/.test(l)).join(NLE);
+    assert(!/Math\.random\(/.test(code), 'R34: Ending は Math.random を呼ばない（決定的LCG）');
+  }
+  assert(!/^import Phaser/m.test(end), 'R34: Ending は Phaser を import しない（window.Phaser）');
+  // 全画面の白フラッシュだけが対象（幕の先端のような細い光の帯は別。まぶしさの問題は面積で決まる）
+  assert(/Math\.min\(0\.49, alpha\)/.test(end),
+    'R34: 全画面フラッシュは alpha < 0.5 に丸められている（子ども安全）');
+  const fullWhite = (end.match(/this\.W, this\.H, 0xffffff, ([01]?\.?\d*)/g) || [])
+    .map((t) => parseFloat(t.split(', ').pop()));
+  assert(fullWhite.every((a) => a < 0.5),
+    `R34: 全画面の白い矩形の初期alphaが 0.5 未満（実測 max ${fullWhite.length ? Math.max(...fullWhite) : 0}）`);
+}
+
+// --- R34: キーイラストのデータ健全性 ---
+{
+  assert(ENDING_ART.rows.length === 54, `R34: イラストは54行（実測 ${ENDING_ART.rows.length}）`);
+  const w = ENDING_ART.rows[0].length;
+  assert(w === 96, `R34: イラストは96列（実測 ${w}）`);
+  assert(ENDING_ART.rows.every((r) => r.length === w),
+    'R34: イラストの全行が同じ長さ（1行でもずれるとテクスチャが崩れる）');
+  const missing = new Set();
+  for (const r of ENDING_ART.rows) {
+    for (const ch of r) if (ch !== '.' && !ENDING_ART.palette[ch]) missing.add(ch);
+  }
+  assert(missing.size === 0,
+    `R34: イラストの使用文字がすべてパレットにある（欠け: ${[...missing].join(',') || 'なし'}）`);
+  // 主人公・なかま3体・敵が全部いること＝「一緒に戦っている絵」であることの最低条件
+  const flat = ENDING_ART.rows.join('');
+  const WHO = [['b', '主人公の装甲'], ['y', 'スターパピー'], ['n', 'ピカビット'],
+    ['m', 'トゲロン'], ['P', 'マオウレクス']];
+  for (const [ch, who] of WHO) {
+    assert(flat.indexOf(ch) >= 0, `R34: イラストに ${who} が描かれている`);
   }
 }
 
