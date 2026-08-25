@@ -780,6 +780,99 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(C.gradeUp >= 1, 'balance: 王冠は格を1段以上上げる');
 }
 
+// --- ★R32: どうくつのごほうび。実プレイFB「洞窟のアイテムがあまり意味がない」への作り直し ---
+// 旧版が「意味がない」と言われた原因は、効果の大半が**画面に何も起きない恒久ステータス**だった
+// こと（攻撃力+8%・移動+6% 等）。取った瞬間に見た目か世界の動きが変わるものだけを置く、という
+// 設計をデータ側で固定する。恒久強化は「やしろ」、合体は「さいだん」が既に担当している。
+{
+  const C = BALANCE.cave;
+  const ids = C.rewards.map((r) => r.id);
+  assert(new Set(ids).size === ids.length, 'R32: どうくつのごほうびの id が一意');
+  assert(C.rewards.length >= 8, `R32: ごほうびは8種以上（現在${C.rewards.length}種）`);
+  for (const r of C.rewards) {
+    assert(!!r.label && !!r.get, `R32: ${r.id} に名前と「何が起きるか」の1行がある`);
+    assert(typeof r.weight === 'number' && r.weight > 0, `R32: ${r.id} の重みが正`);
+    assert(!!C.buffs[r.buff], `R32: ${r.id} の buff「${r.buff}」が cave.buffs に実在する`);
+    // ⚠️ 恒久ステータスの配布はここへ戻さない（＝旧版が「意味がない」と言われた形そのもの）
+    for (const k of ['stat', 'perm', 'heroMult', 'speedMul', 'dmgMul', 'hpAdd']) {
+      assert(!(k in r), `R32: ${r.id} に恒久強化(${k})を持たせない（どうくつは一時効果の場所）`);
+    }
+  }
+  // レアは「頻度と逆相関で振幅を決める」ための土台。普通の枠より必ず出にくいこと。
+  const rare = C.rewards.filter((r) => r.rare);
+  const total = C.rewards.reduce((s, r) => s + r.weight, 0);
+  assert(rare.length >= 1, 'R32: レアのごほうびが存在する');
+  for (const r of rare) {
+    assert(r.weight < total / C.rewards.length,
+      `R32: レア「${r.id}」は平均より出にくい（${r.weight}/${total}）`);
+  }
+  assert(rare.reduce((s, r) => s + r.weight, 0) / total <= 0.2,
+    'R32: レアの合計出現率は2割以下（大振幅を許す代わりに滅多に出ない）');
+  // 効果は必ず「時間で切れる」か「その場かぎり」。切れないものを作らない。
+  for (const id in C.buffs) {
+    const b = C.buffs[id];
+    const timed = typeof b.sec === 'number' && b.sec > 0;
+    const oneShot = typeof b.shots === 'number' || typeof b.radius === 'number';
+    assert(timed || oneShot, `R32: バフ「${id}」は時間で切れるか、その場かぎりであること`);
+    if (timed) assert(b.sec <= 30, `R32: バフ「${id}」は30秒以内（ランの半分を支配させない）`);
+    assert(typeof b.tint === 'number', `R32: バフ「${id}」に色がある（HUDと演出で使う）`);
+  }
+  // こうしえんの すな（ユーザー指定）。溜めの成否に賭けさせない＝必ず最大威力。
+  assert(C.buffs.suna.shots === 1 && C.buffs.suna.forceMaxCharge === true,
+    'R32: こうしえんの すな は「次の1投」限定で、溜め量に関係なく最大威力');
+  assert(C.buffs.suna.dmgMul >= 4,
+    'R32: こうしえんの すな の倍率は4倍以上（1ランに0〜1回しか出ないので振り切る）');
+  // ときのすなどけい。ほぼ停止するぶん、短くする（頻度と振幅の逆相関）。
+  assert(C.buffs.clock.mul < 0.2 && C.buffs.clock.sec <= 6,
+    'R32: ときのすなどけい は「ほぼ停止」かつ6秒以内');
+  // スターダスト（ユーザー指定）。守りの報酬を攻めへ翻訳する＝触れた敵がよろける。
+  assert(C.buffs.star.sec >= 4 && C.buffs.star.staggerOnTouch === true,
+    'R32: スターダスト は無敵中に弾を量産できる（触れた敵がよろける）');
+  // 見た目が変わる薬（ユーザー要望）。大小は必ず表裏＝強くなるだけの薬にしない。
+  const big = C.buffs.big, mini = C.buffs.mini;
+  assert(big.scale > 1 && mini.scale < 1, 'R32: ビッグは大きく・ミニは小さくなる');
+  assert(big.reachMul > 1 && mini.reachMul < 1, 'R32: 届く範囲は大小と同じ向きに動く');
+  assert(big.radiusMul > 1 && mini.radiusMul < 1,
+    'R32: 当たり判定も大小と同じ向きに動く（ビッグは被弾しやすくなる＝ただの強化にしない）');
+  assert(mini.moveMul > 1, 'R32: ミニは速い（小ささの代償に見合う取り柄がある）');
+
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const items = read('systems/items.js');
+  const bil = read('systems/billiard.js');
+  const run = read('scenes/Run.js');
+  const snd = read('audio/sound.js');
+  const hud = read('ui/hud.js');
+
+  // 配り口。ごほうび全種が applyReward の分岐に実在すること（1つ欠けると無音で何も起きない）
+  for (const id in C.buffs) {
+    assert(new RegExp(`case '${id}'`).test(items), `R32: applyReward に「${id}」の分岐がある`);
+  }
+  // ★渾身の一投は「投げた瞬間に1回ぶん減る」。秒ではなく回数で持つ＝溜めても消えない。
+  assert(/run\.sunaShots--/.test(bil), 'R32: 渾身の一投は投げた時に1回ぶん消費する');
+  assert(/dmg \* BALANCE\.cave\.buffs\.suna\.dmgMul/.test(bil),
+    'R32: 渾身の一投の倍率が実ダメージに掛かっている（設定値だけ増える回帰を防ぐ）');
+  // ★ときのすなどけい：敵側だけ時間を落とす。自分の投げた玉まで止めない。
+  assert(/const edt = this\.hasBuff\('clock'\)/.test(run),
+    'R32: 時間停止は敵側の dt(edt) を分けて実装している');
+  assert(/this\.updateBullets\(dt\)/.test(run),
+    'R32: 自分の投げた玉は止めない（止めると「止めた意味」が消える）');
+  // ★ゴールドは王冠と同じ仕組みに乗せる（プレイヤーが覚える概念を増やさない）
+  assert(/BALANCE\.cave\.buffs\.gold\.gradeUp/.test(run),
+    'R32: ゴールドスーツは grade の仕組みに乗っている');
+  // ★HUDに残り時間が出る。見えない効果は「意味がない」と同義（今回の作り直しの原因）。
+  assert(/run\.buffs/.test(hud) && /run\.sunaShots/.test(hud),
+    'R32: いま効いているごほうびがHUDに出る');
+  // ★新しい効果音が実在し、実際に呼ばれていること
+  for (const name of ['rareGet', 'sunaThrow', 'sunaBoom', 'buffEnd']) {
+    assert(new RegExp(`\\n\\s{2}${name}\\(`).test(snd), `R32: 効果音 ${name} が sound.js に実在する`);
+  }
+  assert(/Sound\.sfx\('rareGet'\)/.test(items), 'R32: レア取得音が鳴らされている');
+  assert(/Sound\.sfx\('sunaThrow'\)/.test(bil) && /Sound\.sfx\('sunaBoom'\)/.test(bil),
+    'R32: 渾身の一投は投げる音と着弾音が別で鳴る');
+  assert(/Sound\.sfx\('buffEnd'\)/.test(run), 'R32: 効果が切れた合図が鳴る');
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
