@@ -285,6 +285,9 @@ export function createOrbit(run) {
       const final = !!(ent.def && ent.def.id === 'maou');
       o.ammoStock = final ? o.ammoPerFinal : o.ammoPerBoss;
       o.ammoT = o.ammoFirst;
+      // ★R33 配る弾は3種になった。ボスごとに引き直す＝「今回は何をくれるか」がボス戦の顔になる。
+      //   マオウレクス戦は2発なので、シャッフルした順に配る＝**必ず違う種類**が来る。
+      o.ammoQueue = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
     }
     if (o.ammoStock <= 0) return;
     o.ammoT -= dt;
@@ -292,10 +295,11 @@ export function createOrbit(run) {
     // 手がふさがっている間は渡さずに待つ。掴んでいる獲物を雷光弾で上書きすると、
     // 「投げようとしていた弾が消えた」＝プレイヤーの入力を奪うことになる。
     const bl = run.billiard;
-    if (!bl || !bl.canReceiveBolt || !bl.canReceiveBolt()) return;
+    if (!bl || !bl.canReceiveAmmo || !bl.canReceiveAmmo()) return;
     o.ammoStock--;
     o.ammoT = o.ammoRefill;
-    bl.giveBolt(o);
+    const kind = (o.ammoQueue && o.ammoQueue.length) ? o.ammoQueue.shift() : 'bolt';
+    bl.giveAmmo(o, kind);
   }
 
   // R22: 回復モビット（マシュモ）。実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。

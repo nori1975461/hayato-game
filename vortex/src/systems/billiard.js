@@ -50,6 +50,8 @@ export function createBilliard(run) {
     gradeGrabs: [0, 0, 0, 0], crownGrabs: 0, handBooms: 0, fuseBeep: 0,
     // R29W2 つかめない獲物に手を出して弾かれた回数と、そのしびれの残り時間
     blocked: 0, blockT: -99, stunT: 0, bombHits: 0,
+    // R33 ビリッコが配る弾が3種になった。スーパーボール（跳ね返り）とブラックホール（吸い込み）
+    superHits: 0, bestBounce: 0, holeHits: 0, holeStaggers: 0, holes: [],
   };
 
   const B = () => BALANCE.hero.billiard;
@@ -492,22 +494,29 @@ export function createBilliard(run) {
   // ★操作は1つも増えない。手の中身が雷光弾に変わるだけで、狙って離す動作は普段の投げと同じ。
   //   増えるのは「今これを持っている」という緊張だけ＝新しい語彙を子どもに覚えさせない。
   // ★渡すタイミングを決めるのは orbit.js（ビリッコ本体）。ここは渡す演出と弾の中身を持つ。
+  // ★R33 手渡しの弾は3種になった。手渡しの尺（スロー・稲妻）は らいこうだん の設定を
+  //   共通の「手渡し演出」として使い回す（種類ごとに違う渡され方を覚えさせない）。
+  //   変わるのは色と名前と、受け取ったあとの弾の中身だけ。
   const BOLT = () => B().bolt;
+  const HANDED_NAME = { bolt: 'らいこうだん', superball: 'スーパーボールだん', blackhole: 'ブラックホールだん' };
 
-  function canReceiveBolt() {
+  function canReceiveAmmo() {
     return st.mode === 1 && !st.held && !st.wind && !st.handover
       && !!run.player && !run.ended && !run.cinematic && !run.paused;
   }
 
-  function giveBolt(o) {
-    const L = BOLT();
-    st.handover = { o, t: 0, arcT: 0 };
+  function giveAmmo(o, kind) {
+    const k = SPEC(kind) ? kind : 'bolt';
+    const L = BOLT(), S = SPEC(k);
+    st.handover = { o, t: 0, arcT: 0, kind: k };
     // ★時間を落とす。ここが「渡されたことを意識させる」唯一の仕掛け。
     //   数字やアイコンで説明せず、世界が止まりかけることで「何か起きた」を体に入れる。
     run.slowMotion(L.slowSec, L.slowMul);
     Sound.sfx('boltCharge');
-    if (run.fx && run.fx.announce) run.fx.announce('ビリッコ が らいこうだん を つくった！', '#ffe14d');
-    screenFlash(0.32, L.color);
+    if (run.fx && run.fx.announce) {
+      run.fx.announce('ビリッコ が ' + (HANDED_NAME[k] || 'とくべつな たま') + ' を つくった！', S.color);
+    }
+    screenFlash(0.32, S.color);
   }
 
   function cancelHandover() {
@@ -518,6 +527,7 @@ export function createBilliard(run) {
   // dtReal＝スローで縮める前の実時間。縮めたdtで数えると、遅くしたぶん手渡しが延びて終わらない。
   function updateHandover(dtReal) {
     const L = BOLT(), H = st.handover;
+    const S = SPEC(H.kind) || L;      // 色と大きさは受け取る弾のもの、尺は共通
     H.t += dtReal;
     const k = Math.min(1, H.t / L.handoverSec);
     const px = run.player.x, py = run.player.y - 4;
@@ -530,43 +540,44 @@ export function createBilliard(run) {
       st.boltSpr = run.add.image(0, 0, 'bullet').setBlendMode(ADD).setDepth(16);
       st.boltGlow = run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(15);
     }
-    st.boltSpr.setVisible(true).setTint(L.coreColor).setScale(L.scale * (0.35 + 0.75 * k))
+    st.boltSpr.setVisible(true).setTint(S.coreColor).setScale(S.scale * (0.35 + 0.75 * k))
       .setRotation(run.elapsed * 16).setPosition(bx, by);
-    const sz = L.radius * (3.4 + 4.2 * k);
-    st.boltGlow.setVisible(true).setTint(L.color).setAlpha(0.5 + 0.45 * k)
+    const sz = S.radius * (3.4 + 4.2 * k);
+    st.boltGlow.setVisible(true).setTint(S.color).setAlpha(0.5 + 0.45 * k)
       .setDisplaySize(sz, sz).setPosition(bx, by);
     // 迸る稲妻。モビット→弾／弾→主人公の両方へ走らせる＝「渡している」線がはっきり出る
     H.arcT -= dtReal;
     if (H.arcT <= 0) {
       H.arcT = L.arcEverySec;
-      lightning(ox, oy, bx, by, L.color, { seg: 5, jitter: 8, width: 3 });
-      lightning(bx, by, px, py, L.coreColor, { seg: 6, jitter: 10, width: 2 });
+      lightning(ox, oy, bx, by, S.color, { seg: 5, jitter: 8, width: 3 });
+      lightning(bx, by, px, py, S.coreColor, { seg: 6, jitter: 10, width: 2 });
       for (let i = 0; i < 2; i++) {
         const a = run.rng.range(0, Math.PI * 2), r = 24 + 20 * k;
-        lightning(bx, by, bx + Math.cos(a) * r, by + Math.sin(a) * r, L.color,
+        lightning(bx, by, bx + Math.cos(a) * r, by + Math.sin(a) * r, S.color,
           { seg: 3, jitter: 7, width: 2, lifeMs: 140 });
       }
-      run.spawnParticles(bx, by, L.color, 3);
+      run.spawnParticles(bx, by, S.color, 3);
     }
     if (k < 1) return;
 
     // 受け取り。溜めは済んだ状態で手に収まる＝あとは狙って離すだけ。
+    const kind = H.kind || 'bolt';
     cancelHandover();
-    st.held = { maxHp: 1, color: L.color, tex: 'bullet', scale: L.scale, radius: L.radius,
-                shard: false, spec: 'bolt', handed: true };
+    st.held = { maxHp: 1, color: S.color, tex: 'bullet', scale: S.scale, radius: S.radius,
+                shard: false, spec: kind, handed: true };
     st.chargeT = B().chargeMaxSec;
     st.maxRung = true;
     st.boltsGot++;
-    screenFlash(0.45, L.color);
+    screenFlash(0.45, S.color);
     run.shake(200, 9);
     zoomPunch(0.05);
-    shockRing(px, py, 74, L.color);
-    burstStreaks(px, py, 18, L.color, 76);
+    shockRing(px, py, 74, S.color);
+    burstStreaks(px, py, 18, S.color, 76);
     Sound.sfx('gaugeFull');
-    Sound.sfx('thunder');
+    Sound.sfx(kind === 'bolt' ? 'thunder' : kind === 'superball' ? 'superGet' : 'holeGet');
     // ⚠️ ここでテロップをもう1本出すと、受け取りの瞬間に3行が縦に積まれて全部読めなくなる
     //    （等倍スクショで確認）。指示は主人公の頭上の1行だけにする。
-    run.floatText(px, py - 40, 'なげろ！', '#ffe14d');
+    run.floatText(px, py - 40, 'なげろ！', '#' + S.color.toString(16).padStart(6, '0'));
   }
 
   // 着弾点から周囲の敵へ広がる二次被害。らいこうだん＝連鎖雷／ほのおだん＝延焼。
@@ -574,6 +585,9 @@ export function createBilliard(run) {
   function specialChain(x, y, skip, kind) {
     const L = SPEC(kind);
     if (!L) return 0;
+    // ★R33 連鎖を持たない弾（スーパーボール＝跳ね返りが本体／ブラックホール＝吸い込みが本体）。
+    //   ここを素通りさせると chainCount/chainDamage が undefined のまま全員に NaN ダメージが入る。
+    if (typeof L.chainCount !== 'number' || typeof L.chainDamage !== 'number') return 0;
     let n = 0;
     for (const e of run.enemies) {
       if (n >= L.chainCount) break;
@@ -680,7 +694,9 @@ export function createBilliard(run) {
       radius: kind === 'bomb' ? Math.max(b.hitRadius, h.radius) * 1.5
             : L ? h.radius * 1.4
                 : Math.max(b.hitRadius, h.radius) * (0.85 + 0.25 * T.ballMul * 0.6),
-      life: b.lifeSec, hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
+      // ★R33 スーパーボールだけは跳ね返るぶん長く生きる（設定に lifeSec があればそちらが勝つ）
+      life: (L && L.lifeSec) || b.lifeSec,
+      hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
       grade: h.grade || 0, crown: !!h.crown, suna,
       hero: heroMul(),   // 投げた時点の攻撃力で固定する（飛んでいる間に強化が入っても揺れない）
       spin: 7 + 20 * ratio, spr: disp.spr, glow: disp.glow, ring: disp.ring,
@@ -924,10 +940,188 @@ export function createBilliard(run) {
     s.hp = 0;               // 爆弾は貫通しない。ここで飛行を終える
   }
 
+  // ---- ★R33 スーパーボールだん。敵から敵へ跳ね返り続ける「数える」弾 ----
+  // 快感は振幅ではなく数えられること。1発を大きくするのではなく、跳ね返りを積み上げる。
+  // ⚠️ 一度当てた相手は s.hit に入るので二度は狙わない＝同じ敵で無限に跳ねる事故が起きない。
+  function nextBounceTarget(s, range) {
+    let best = null, bd = range * range;
+    for (const e of run.enemies) {
+      if (!e.active || s.hit.has(e.id)) continue;
+      const dx = e.x - s.x, dy = e.y - s.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bd) { bd = d2; best = e; }
+    }
+    return best;
+  }
+
+  function superballHit(s, e) {
+    const L = SPEC('superball');
+    s.bounced = (s.bounced || 0) + 1;
+    const mul = 1 + (L.bounceDmgAdd || 0) * (s.bounced - 1);   // 跳ねるほど重くなる
+    if (e.stag) {
+      const r = run.burstStagger(e.x, e.y, B().burstRadius * 1.4, B().burstMaxChain);
+      s.kills += r.total;
+      s.chain = Math.max(s.chain, r.chain);
+    } else if (e.isBoss) {
+      breakBoss(e);
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * mul));
+      if (run.boss && run.boss.staggered) {
+        dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
+      }
+      const hpBefore = e.hp;
+      run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
+      run.floatText(e.x, e.y - e.radius - 6, String(Math.max(0, hpBefore - e.hp)), '#4dff9e');
+    } else {
+      const alive = e.active;
+      run.dealDamage(e, L.trashDamage, L.color, 'manual');
+      if (alive && !e.active) s.kills++;
+    }
+    // 1回ぶんの手応えは小さく、刻みでカウンタを大きく出す（＝数えられる形にする）
+    Sound.sfx(L.bounceSfx || 'counter', 0.55, Math.min(2.4, 1 + 0.07 * s.bounced));
+    run.spawnHitMark(s.x, s.y, L.color);
+    shockRing(s.x, s.y, 36, s.bounced % 2 ? L.coreColor : L.color);
+    st.superHits++;
+    st.bestBounce = Math.max(st.bestBounce, s.bounced);
+    if (s.bounced % (L.comboEvery || 3) === 0) {
+      run.floatText(s.x, s.y - 26, s.bounced + ' れんぞく！', '#4dff9e');
+      zoomPunch(0.018);
+      run.shake(90, 5);
+    }
+    if (s.bounced >= (L.bounces || 12)) { s.hp = 0; return; }
+    let t = nextBounceTarget(s, L.bounceRange || 300);
+    // ★まだ跳ね返り回数が残っているのに「初めての相手」が居ないときは、一度だけ相手を
+    //   リセットしてもう一周する（本物のスーパーボールと同じで、同じ壁に何度でも当たる）。
+    //   実測：これが無いと35体いる群れでも4回で止まり、14回まで数える設計が働かなかった。
+    if (!t && s.hit.size >= 1) {
+      s.hit.clear();
+      s.hit.add(e.id);     // いま当てた相手だけは除く（重なったまま同じ敵を連打しない）
+      t = nextBounceTarget(s, L.bounceRange || 300);
+    }
+    if (!t) { s.hp = 0; return; }        // 跳ね先が無くなったら締めの一発で終わる
+    const ang = Math.atan2(t.y - s.y, t.x - s.x);
+    const sp = Math.hypot(s.vx, s.vy) || 1;
+    s.vx = Math.cos(ang) * sp; s.vy = Math.sin(ang) * sp;
+    s.bTarget = t.id;                    // 以降は毎フレーム少しずつこの相手へ曲がる
+    s.life = Math.max(s.life, 1.0);      // 跳ね続けるあいだは寿命を継ぎ足す
+    lightning(s.x, s.y, t.x, t.y, L.coreColor, { seg: 3, jitter: 6, width: 2, lifeMs: 110 });
+  }
+
+  // ---- ★R33 ブラックホールだん。唯一「壊す」ではなく「集める」弾 ----
+  // 着弾点に穴が開き、雑魚を吸い寄せて、閉じるときにまとめてよろけさせる＝**弾の量産機**。
+  // 骨子（掴む→溜める→投げる）に直結させるのが狙い。倒す力ではなく次に投げるものを作る力。
+  function openHole(x, y) {
+    const L = SPEC('blackhole');
+    const core = run.add.image(x, y, 'core').setBlendMode(ADD).setDepth(14)
+      .setTint(L.color).setScale(1.2);
+    const ring = run.add.image(x, y, 'w_ring').setBlendMode(ADD).setDepth(13)
+      .setTint(L.coreColor).setScale(0.5).setAlpha(0.9);
+    st.holes.push({ x, y, t: L.holeSec, max: L.holeSec, core, ring, pulled: new Set() });
+    screenFlash(L.flash, L.color);
+    run.shake(L.shakeMs, L.shakeAmp);
+    zoomPunch(L.zoom);
+    shockRing(x, y, L.holeRadius * 0.5, L.color);
+    run.floatText(x, y - 30, 'ブラックホール！！', '#b06bff');
+    Sound.sfx('holeOpen');
+  }
+
+  function updateHoles(dt) {
+    if (!st.holes.length) return;
+    const L = SPEC('blackhole');
+    for (const h of st.holes) {
+      h.t -= dt;
+      const k = Math.max(0, h.t / h.max);
+      // 見た目：渦は最後に向かって縮みながら速く回る＝「閉じる」が目で分かる
+      const sc = 0.6 + 1.5 * k;
+      h.core.setScale(sc * 1.5).setRotation(run.elapsed * L.spinSpeed).setAlpha(0.75 + 0.25 * k);
+      h.ring.setScale((L.holeRadius / 32) * (0.35 + 0.65 * k))
+        .setRotation(-run.elapsed * L.spinSpeed * 0.6).setAlpha(0.25 + 0.5 * k);
+      // 吸い寄せ。ボスは重くて動かない（吸えるなら位置取りの遊びが全部壊れる）
+      let n = 0;
+      for (const e of run.enemies) {
+        if (!e.active || e.isBoss) continue;
+        const dx = h.x - e.x, dy = h.y - e.y;
+        const d = Math.hypot(dx, dy);
+        if (d > L.holeRadius) continue;
+        if (n++ >= L.holeMax) break;
+        h.pulled.add(e.id);
+        const step = Math.min(d, L.pullSpeed * dt);
+        e.x += (dx / (d || 1)) * step;
+        e.y += (dy / (d || 1)) * step;
+      }
+      if (h.t > 0) continue;
+      // 閉じる。吸い込んだ相手をまとめて**よろけさせる**＝そのまま次の弾になる。
+      // ⚠️ ここで run.burstStagger を使ってはいけない。あれは「既によろけている敵を連鎖で
+      //    消す」処理で、健常な敵は削るだけ＝弾が1体も増えない（実測：吸い込み7体→弾0体）。
+      //    弾を作るのは enterStagger（ビリビリホイッスルと同じ経路）。
+      let made = 0;
+      const er2 = L.endRadius * L.endRadius;
+      for (const e of run.enemies) {
+        if (made >= L.endMax) break;
+        if (!e.active || e.isBoss || e.stag) continue;
+        const dx = e.x - h.x, dy = e.y - h.y;
+        if (dx * dx + dy * dy > er2) continue;
+        e.hp = 1;
+        run.enterStagger(e);
+        run.spawnParticles(e.x, e.y, L.color, 6);
+        made++;
+      }
+      st.holeStaggers += made;
+      screenFlash(L.endFlash, L.color);
+      run.shake(L.endShakeMs, L.endShakeAmp);
+      zoomPunch(0.04);
+      for (let i = 0; i < 3; i++) {
+        run.time.delayedCall(i * 70,
+          () => shockRing(h.x, h.y, 90 + i * 80, i % 2 ? 0xffffff : L.color));
+      }
+      burstStreaks(h.x, h.y, 26, L.color, L.endRadius * 0.8);
+      run.spawnParticles(h.x, h.y, L.color, 34);
+      // ★出す数は「新しくよろけさせた数」ではなく**穴のまわりに集まった弾の総数**。
+      //   ボス戦では場の雑魚が絞られていて（trashCount 1／2.4秒）新規は0になりがちだが、
+      //   散らばった装甲片を1か所へ集める働きは実際にある。0と出すと失敗に見えてしまう。
+      let gathered = 0;
+      for (const e of run.enemies) {
+        if (!e.active || e.isBoss || !e.stag) continue;
+        const gx = e.x - h.x, gy = e.y - h.y;
+        if (gx * gx + gy * gy <= er2) gathered++;
+      }
+      run.floatText(h.x, h.y - 30, gathered + 'この たまが あつまった！', '#b06bff');
+      Sound.sfx('holeClose');
+      Sound.sfx('bigBoom', 0.6, 0.7);
+      h.core.destroy(); h.ring.destroy();
+      h.dead = true;
+    }
+    st.holes = st.holes.filter((h) => !h.dead);
+  }
+
+  function blackholeHit(s, e) {
+    const L = SPEC('blackhole');
+    const x = s.x, y = s.y;
+    s.noChain = 1;              // 穴が本体。burstEnd で二重に演出しない
+    st.holeHits++;
+    if (e.isBoss) {
+      breakBoss(e);
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
+      if (run.boss && run.boss.staggered) {
+        dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
+      }
+      const hpBefore = e.hp;
+      run.dealDamage(e, dmg, L.color, 'manual', { x, y, hitR: s.radius });
+      run.floatText(e.x, e.y - e.radius - 6, String(Math.max(0, hpBefore - e.hp)), '#b06bff');
+    } else {
+      const alive = e.active;
+      run.dealDamage(e, L.trashDamage, L.color, 'manual');
+      if (alive && !e.active) s.kills++;
+    }
+    openHole(x, y);
+    s.hp = 0;                   // 穴を開けたらそこで終わり＝「どこで開くか」を選ぶ弾になる
+  }
+
   // 特殊弾は砕けない。触れた敵を全部消し飛ばしながら飛び続ける。
   function specialHit(s, e) {
     const kind = s.spec, L = SPEC(kind);
     if (kind === 'bomb') { bombHit(s, e); return; }
+    if (kind === 'superball') { superballHit(s, e); return; }
+    if (kind === 'blackhole') { blackholeHit(s, e); return; }
     if (e.stag) {
       const r = run.burstStagger(e.x, e.y, B().burstRadius * (L.radiusMul || 1.6), B().burstMaxChain);
       s.kills += r.total;
@@ -1134,6 +1328,23 @@ export function createBilliard(run) {
         Sound.sfx('bigBoom', 0.7, 1.0);
         firePillar(s.x, s.y);
         emberBurst(s.x, s.y, 16, 60);
+      } else if (s.spec === 'superball') {
+        // ★跳ね返りを使い切った締め。数えた先にごほうびが要る（数えるだけで終わらせない）。
+        const r = run.burstStagger(s.x, s.y, L.endRadius, L.endMax);
+        s.kills += r.total;
+        s.chain = Math.max(s.chain, r.chain);
+        run.shake(L.endShakeMs, L.endShakeAmp);
+        screenFlash(L.endFlash, L.color);
+        for (let i = 0; i < 3; i++) {
+          run.time.delayedCall(i * 60,
+            () => shockRing(s.x, s.y, 90 + i * 70, i % 2 ? 0xffffff : L.color));
+        }
+        run.floatText(s.x, s.y - 42, (s.bounced || 0) + ' かい はねた！！', '#4dff9e');
+        Sound.sfx('superEnd');
+        Sound.sfx('bigBoom', 0.8, 1.25);
+      } else if (s.spec === 'blackhole') {
+        // 当たらずに落ちても穴は開く（稀な弾が「何も起きずに消えた」を作らない）
+        openHole(s.x, s.y);
       } else {
         Sound.sfx('fireBlast');
         firePillar(s.x, s.y);
@@ -1194,6 +1405,23 @@ export function createBilliard(run) {
   function updateShots(dt) {
     for (const s of st.shots) {
       if (!s.active) continue;
+      // ★R33 スーパーボールだけは「次に当てる相手」を追いかける。跳ね返った瞬間に向きを
+      //   決め打ちすると、狙った敵が動くぶんだけ外れて2回目が起きない（実測1回で停止）。
+      if (s.spec === 'superball' && s.bTarget != null) {
+        let tg = null;
+        for (const e of run.enemies) { if (e.active && e.id === s.bTarget) { tg = e; break; } }
+        if (!tg) {
+          s.bTarget = null;
+        } else {
+          const want = Math.atan2(tg.y - s.y, tg.x - s.x);
+          const cur = Math.atan2(s.vy, s.vx);
+          let d = Phaser.Math.Angle.Wrap(want - cur);
+          const mx = (SPEC('superball').turnRate || 9) * dt;
+          if (d > mx) d = mx; else if (d < -mx) d = -mx;
+          const sp = Math.hypot(s.vx, s.vy) || 1;
+          s.vx = Math.cos(cur + d) * sp; s.vy = Math.sin(cur + d) * sp;
+        }
+      }
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
       // ゆらぎ：当てた直後だけ弾の「絵」が進行方向と直角に振れる。当たり判定(s.x,s.y)はぶらさない。
       let ox = 0, oy = 0;
@@ -1226,6 +1454,19 @@ export function createBilliard(run) {
             const fwd = Math.atan2(s.vy, s.vx) + run.rng.range(-0.5, 0.5);
             lightning(s.x, s.y, s.x + Math.cos(fwd) * 52, s.y + Math.sin(fwd) * 52, L.coreColor,
               { seg: 4, jitter: 13, width: 2, lifeMs: 130 });
+          } else if (s.spec === 'superball') {
+            // ★R33 弾んでいる残像。跳ね返るたびに向きが変わるので、通った線を細かく置く
+            s.arcT = 0.04;
+            const back = Math.atan2(s.vy, s.vx) + Math.PI;
+            run.spawnParticles(s.x + Math.cos(back) * 12, s.y + Math.sin(back) * 12, L.color, 2);
+            shockRing(s.x, s.y, 16, L.color);
+          } else if (s.spec === 'blackhole') {
+            // ★R33 飛んでいる間から空間を吸っている＝着弾前に「これは吸う弾だ」と分かる
+            s.arcT = 0.06;
+            const a = run.rng.range(0, Math.PI * 2), r = run.rng.range(24, 44);
+            lightning(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, s.x, s.y, L.color,
+              { seg: 3, jitter: 5, width: 2, lifeMs: 130 });
+            run.spawnParticles(s.x, s.y, L.color, 1);
           } else {
             // 炎は後ろへ流れて上へ立ちのぼる＝「燃えながら飛んでいる」
             s.arcT = L.emberEverySec;
@@ -1263,7 +1504,7 @@ export function createBilliard(run) {
               n++;
             }
           }
-        } else {
+        } else if (s.spec === 'blast' || s.spec === 'bomb') {
           // 通った跡がしばらく燃えている＝軌跡そのものが炎の川になる
           s.trailT = (s.trailT || 0) - dt;
           if (s.trailT <= 0) {
@@ -1693,6 +1934,7 @@ export function createBilliard(run) {
       run.cameras.main.setZoom(1); st.zooming = false;
     }
     updateShots(dt);
+    updateHoles(dt);          // ★R33 ブラックホールだんが開けた穴（吸い込み→閉じてよろけ）
     // ランが終わったら、振りかぶりで傾けた体と残像を必ず戻す（残すと死亡画面で斜めのまま固まる）
     if (!run.player || run.cinematic || run.paused || run.ended) {
       if (run.ended) {
@@ -1845,5 +2087,5 @@ export function createBilliard(run) {
   }
 
   return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul,
-           canReceiveBolt, giveBolt, shockRing, st };
+           canReceiveAmmo, giveAmmo, shockRing, st };
 }
