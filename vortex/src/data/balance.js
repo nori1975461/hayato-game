@@ -1116,10 +1116,25 @@ export const BALANCE = {
         //   撃破までの時間だけが伸びて「硬いだけ」になるため（狙う難しさに、長さを足さない）。
         // R30: 実プレイFB「まずマオウレクスの体力を1.2倍に」。20000→24000。
         //   分離（50%）と再合体（33%）という2つの節目を入れるので、各段の尺を確保する意味もある。
-        hp: 24000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
+        // ★R34: 実プレイFB「撃破7秒は早すぎる」。実測は 12.8〜17.6秒（登場イントロ4.4秒込み）で、
+        //   **ボスが攻撃を1回も完遂できずに終わる回があった**。原因は総HPではなく1発の重さで、
+        //   コアへの渾身の一投が**5558＝最大HPの23%**（4発で92%）。24000→90000（3.75倍）。
+        //   硬いだけにしないための手当てを3つ同時に入れている:
+        //     ①ゲージを3本に区切って描く（gaugeSegments）＝「1本ぶち抜いた」が数えられる
+        //     ②攻撃の間合いを2割詰める（idleSec）＝伸びた尺を「手数」で埋める
+        //     ③特殊弾のボス特効を最終ボスだけ薄める（specialBulletMul）
+        //   ③が無いと らいこうだん(最大HPの30%)×2発 だけで6割が消えて元の木阿弥になる。
+        hp: 120000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
+        gaugeSegments: 3,
+        // ★特殊弾（らいこうだん/ほのおだん/スーパーボール/ブラックホール）のボス特効に掛ける倍率。
+        //   通常ボスの尺（HP1800〜8000）に合わせた 30% は、3段構えの最終ボスでは1段を丸ごと消す。
+        //   0.34 なら らいこうだん1発＝10%＝「切り札」の格は保ったまま、段の構造を壊さない。
+        specialBulletMul: 0.34,
         glowOuter: '#b01c22', glowInner: '#4ad4ff',
         chaseSpeed: 68, bodyDamage: 30,
-        attacks: ['laser', 'knuckle', 'wirearm', 'missile', 'nova'],
+        // ★R34: 並び替え。旧 ['laser','knuckle','wirearm','missile','nova'] ではミサイルが4番目で、
+        //   実測の戦闘長（12.8秒）では**本体から一度も発射されなかった**。派手な技を先に出す。
+        attacks: ['missile', 'wirearm', 'laser', 'knuckle', 'nova'],
         // ★弱点コア（R29・マオウレクス専用）。胸の装甲が開いて露出した炉心。
         //   ここに**弾が当たったときだけ**ダメージが通る。本体は「カキン！」と弾く。
         //   offY は本体半径に対する比（胸の高さ）。sway で左右にゆっくり泳ぐので、狙いを合わせる遊びが要る。
@@ -1162,7 +1177,8 @@ export const BALANCE = {
         ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
                 bulletRadius: 4, damage: 18, lifeSec: 3.8 },
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
-        idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.4, 2.6, 2.0, 2.6] },
+        // R34: 尺が伸びたぶんを「待ち時間」ではなく「手数」で埋める（-20%）。硬いだけにしないため。
+        idleSec: { afterSpawn: 2.2, betweenAttacks: [1.8, 1.9, 2.1, 1.6, 2.1] },
         // ★R30 分離／再合体（実プレイFB「体力が半分になると上半身と下半身とに分かれて二体で別々に
         //   襲ってくる。移動スピードも速い。ロケットパンチは上半身が、ミサイルは下半身が出す。
         //   体力が三分の一になると再び合体して体の色がメタリックパープルに変化」）。
@@ -1192,6 +1208,11 @@ export const BALANCE = {
         //   （「避けられない一撃で殺す」ではなく「当たったら立て直せない」の位置に置く）
         chestLaser: { chargeSec: 1.5, beamWidth: 74, beamLength: 560, damage: 80,
                       sweepFromDeg: -58, sweepToDeg: 58, activeSec: 1.1 },
+        // ★R34「割られても止まらない」。実測でボットは予告をほぼ毎回割っており、31.5秒の戦闘で
+        //   ロケットパンチの射出音が0回だった（予告のまま中断されて発射に至らない）。
+        //   最終ボスだけ、割っても**ひるむだけで攻撃は最後まで来る**。追撃の窓（×2.4）と
+        //   装甲片（弾薬）は今までどおり渡すので「割る」動機は減らない＝格だけが上がる。
+        unstoppable: true,
         phase2: true, phase2HpRatio: 0.50, phase2IdleMult: 0.65, phase2DashSpeedMult: 1.2,
         rageText: 'マオウレクス ぶんりつ！', bulletTint: '#38e1ff',
         rewardCoins: 500, deathCinematicSec: 1.8,

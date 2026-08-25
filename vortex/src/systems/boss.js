@@ -87,6 +87,8 @@ export function createBoss(run) {
   let aim = 0;                  // 毎フレーム更新するプレイヤー方向角（砲身/弾に共用）
   // 攻撃の連射/掃射用アキュムレータ（stateT基準・決定的）
   let shotAcc = 0, shotIdx = 0, slamFired = false, chainVulcan = false;
+  // R34: 1回の予告につき「割られる」のは1回まで（unstoppable のボスで連打を無効化する）
+  let brokeThisAttack = false;
   let knuckleFired = false;         // ナックルウェーブの一斉発射を1回だけにするフラグ
   // R31: ミサイルの「飛来する音」を飛んでいるあいだ鳴らし続けるためのタイマー（0で次を鳴らす）。
   // 発射時に1回だけ鳴らすと、速度を上げたぶん「音より先に着弾する」ので迫る怖さが出ない。
@@ -287,6 +289,14 @@ export function createBoss(run) {
 
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+  // 24bit色の線形補間（R34 メタリックパープルの光沢に使う）
+  const mixHex = (a, b, t) => {
+    const u = clamp01(t);
+    const r = Math.round(lerp((a >> 16) & 255, (b >> 16) & 255, u));
+    const g = Math.round(lerp((a >> 8) & 255, (b >> 8) & 255, u));
+    const bl = Math.round(lerp(a & 255, b & 255, u));
+    return (r << 16) | (g << 8) | bl;
+  };
   function summonHpMult() {
     const t = Math.max(0, Math.min(1, run.elapsed / (W.stepSec * W.steps)));
     return lerp(W.hpMultStart, W.hpMultEnd, t);
@@ -333,6 +343,11 @@ export function createBoss(run) {
       x, y, color: int(def.color),
       hp: cfg.hp, maxHp: cfg.hp, radius: cfg.radius,
       damage: cfg.bodyDamage, isElite: false, slowMark: -1, flashT: 0,
+      // R34: 特殊弾のボス特効に掛かる個別倍率（billiard.js が読む）。最終ボスだけ薄める。
+      specialMul: cfg.specialBulletMul || 1,
+      // R34: HPゲージを何本に区切って描くか（hud.js が読む）。長い戦いを「硬いだけ」にしないため、
+      //   1本ぶち抜いたことが数えられるようにする＝[[快感は振幅ではなく数えられること]]。
+      gaugeSegments: cfg.gaugeSegments || 1,
       spr: parts[0].img, glow: glowP,   // releaseEnemy 互換（isBoss なので実際はプールされない）
     };
     run.enemies.push(boss);
@@ -384,6 +399,7 @@ export function createBoss(run) {
 
   // 攻撃名 → 予告(Tele)ステートへ遷移。summon は即時発火。
   function startAttackByName(a) {
+    brokeThisAttack = false;   // R34: 新しい予告が始まったら「割られる権利」が1回戻る
     switch (a) {
       case 'dash':       state = 'dashTele';    stateT = cfg.dash.telegraphSec; break;
       case 'machinegun': state = 'mgTele';      stateT = cfg.machinegun.telegraphSec; break;
@@ -421,8 +437,24 @@ export function createBoss(run) {
   }
   // R21W2: 予告中のボスに手動の一撃を当てると割り込める＝ボス戦でも「倒すのは手動」が効く。
   // ボスによろけは持ち込まない（独自のライフサイクルとHPバーを壊すため）。代わりにこれ。
+  // ★R34 実測で分かったこと：ボットは**予告をほぼ毎回割っていた**ので、マオウレクスの
+  //   ロケットパンチは 31.5秒の戦闘で射出音が **0回**（wireTele は17回サンプルされたのに
+  //   wireShot へ一度も進んでいない）。実プレイFB「ミサイルやロケットパンチ？も攻撃音や
+  //   射出音は修正したか？」に対する答えは「直っているが、割られて発射に至っていない」だった。
+  //   → 最終ボスだけ「割ってもひるむだけで止まらない」にする（cfg.unstoppable）。
+  //     追撃の窓（×2.4）も装甲片（弾薬供給）も今までどおり渡すので、割る動機は減らない。
+  //     ただし**1回の予告につき1回まで**。同じ予告を連打で割り続けると窓と弾が無限に湧く。
   function breakTelegraph() {
     if (!boss || !boss.active || !isTelegraph(state)) return false;
+    if (cfg.unstoppable) {
+      if (brokeThisAttack) return false;
+      brokeThisAttack = true;
+      bossStagT = BALANCE.hero.strike.bossBreakSec;
+      Sound.sfx('metalSlam');
+      run.shake(200, 6);
+      run.floatText(boss.x, boss.y - boss.radius - 26, 'それでも とまらない！', '#ff9e66');
+      return true;
+    }
     destroyWire();
     if (beamImg) { beamImg.destroy(); beamImg = null; }
     resetAttackVars();
@@ -889,6 +921,13 @@ export function createBoss(run) {
     Sound.sfx('specialCharge');
     Sound.sfx('warning', 0.8, 0.6);
     introText(cfg.merge.text, '#e0a0ff', 122, 22, 3);
+  }
+
+  // ★R34 メタリックパープルの光沢。tint 単色だと「塗った」ではなく「暗くなった」に見えるので、
+  //   本体色(#a86bff)と内側グロウ(#e0a0ff)のあいだをゆっくり往復させて金属の照り返しを作る。
+  function metalPurple() {
+    const t = (Math.sin(run.elapsed * 2.6) + 1) / 2;
+    return mixHex(int(cfg.merge.tint), int(cfg.merge.glowInner), 0.20 + t * 0.45);
   }
 
   // 合体の瞬間。色が変わるところを必ず1フレームの白フラッシュ越しに見せる。
@@ -1434,6 +1473,14 @@ export function createBoss(run) {
   //     これは「範囲攻撃だからボーナス無し」ではなく「同じ1発の判定円をそろえる」だけの修正。
   function weakGate(src, at, ent) {
     if (!cfg || !cfg.weak) return { pass: true, mul: 1 };
+    // ★R34 実バグ。カットシーン中は一切通さない。
+    //   実測：再合体カットシーン(2.4秒)の**0.9秒目**でHPが0になり、体の色がメタリックパープルへ
+    //   変わる瞬間（contactAt=0.62＝1.49秒目）に一度も到達していなかった。実プレイFB
+    //   「再合体した際に体の色がメタリックパープルへ変化するはずだが。それもなかった」の正体はこれ。
+    //   演出の途中で倒せてしまう限り、演出をどれだけ豪華にしても**原理的に見えない**。
+    if (state === 'maouIntro' || state === 'splitCine' || state === 'mergeCine') {
+      return { pass: false, mul: 0 };
+    }
     if (ent && ent.isLowerHalf) return { pass: false, mul: 0 };
     const w = weakPoint(ent);
     if (!w) return { pass: true, mul: 1 };
@@ -2003,10 +2050,17 @@ export function createBoss(run) {
     // R21W2: 予告を割った直後の追撃窓（bossBreakSec）。倍率2.4が効いているのに見た目が
     // 変わらず「今だけ大きい」が伝わっていなかった。よろけと同じ青白で塗って記号を揃える。
     else if (bossStagT > 0) tint = BALANCE.stagger.tint;
-    else if (isTelegraph(state)) tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
+    else if (isTelegraph(state)) {
+      // R34: 再合体後は予告の"消灯側"も紫のままにする。null に落とすと素の赤へ戻ってしまい、
+      //      せっかく変えた体色が予告のたびに剥がれて見えた（予告は白の点灯側だけで十分伝わる）。
+      const off = phase3 && cfg.merge ? metalPurple() : null;
+      tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : off;
+    }
     // ★R30 再合体後はメタリックパープル（ユーザー指示）。予告の点滅より下・被弾フラッシュより下に
     //   置くので、「今は何をしているか」の記号は今までどおり読める。
-    else if (phase3 && cfg.merge) tint = int(cfg.merge.tint);
+    // ★R34 単色で塗るだけだと「紫にした」ではなく「暗くなった」に見える。ハイライトが表面を
+    //   舐めるようにゆっくり明滅させて金属光沢にする（＝メタリックの定石）。
+    else if (phase3 && cfg.merge) tint = metalPurple();
     else if (phase2) tint = 0xff6a6a;
     // 合体の瞬間だけ真っ白に飛ばす＝そのあと紫が現れる（色が変わったことが必ず目に入る）
     if (state === 'mergeCine' && cineStage >= 2) {

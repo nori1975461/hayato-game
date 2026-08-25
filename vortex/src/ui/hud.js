@@ -238,10 +238,24 @@ export function createHud(run) {
       const ent = boss.entity;
       const bw = 360, bx = 140, by = 44;
       const ratio = ent ? Math.max(0, Math.min(1, (ent.hp || 0) / (ent.maxHp || 1))) : 0;
+      // ★R34 段つきゲージ。最終ボスだけ3本に区切る。
+      //   HP を 3.75 倍にして戦闘を伸ばしたので、1本の長いバーのままだと「減らない＝硬いだけ」に
+      //   見える。区切り線を入れると **1本ぶち抜くたびに達成が数えられる**（＝分離/再合体の節目とも一致）。
+      const seg = ent && ent.gaugeSegments > 1 ? ent.gaugeSegments : 1;
       bossBar.fillStyle(0x30060f, 0.9);
       bossBar.fillRect(bx, by, bw, 8);
       bossBar.fillStyle(0xff4d6d, 1);
       bossBar.fillRect(bx, by, bw * ratio, 8);
+      if (seg > 1) {
+        // 残っている段のぶんだけ、区切りの左側を明るく光らせる＝「いま何本目か」が一目で分かる
+        const lit = Math.max(0, Math.ceil(ratio * seg) - 1);
+        bossBar.fillStyle(0xffd23f, 0.55);
+        bossBar.fillRect(bx, by, (bw / seg) * lit, 8);
+        bossBar.lineStyle(2, 0x1a0510, 1);
+        for (let s = 1; s < seg; s++) {
+          bossBar.lineBetween(bx + (bw / seg) * s, by - 1, bx + (bw / seg) * s, by + 9);
+        }
+      }
       bossBar.lineStyle(1, 0xffffff, 0.5);
       bossBar.strokeRect(bx, by, bw, 8);
       if (ent && ent.def && ent.def.name) bossName.setText(ent.def.name);

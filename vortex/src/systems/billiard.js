@@ -500,6 +500,11 @@ export function createBilliard(run) {
   const BOLT = () => B().bolt;
   const HANDED_NAME = { bolt: 'らいこうだん', superball: 'スーパーボールだん', blackhole: 'ブラックホールだん' };
 
+  // ★R34 特殊弾のボス特効に掛かる、ボス個別の倍率。boss.js が spawn 時に entity へ載せる。
+  //   らいこうだん30%は通常ボス（HP1800〜8000・戦闘30〜60秒）に合わせた値で、3段構えの
+  //   マオウレクス（HP90000・分離/再合体）に素で掛けると**1発で1段が消える**。最終ボスだけ薄める。
+  const bossSpecialMul = (e) => (e && e.specialMul) || 1;
+
   function canReceiveAmmo() {
     return st.mode === 1 && !st.held && !st.wind && !st.handover
       && !!run.player && !run.ended && !run.cinematic && !run.paused;
@@ -902,7 +907,7 @@ export function createBilliard(run) {
     st.bombHits = (st.bombHits || 0) + 1;
     if (e.isBoss) {
       breakBoss(e);
-      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * bossSpecialMul(e)));
       if (run.boss && run.boss.staggered) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
@@ -964,7 +969,7 @@ export function createBilliard(run) {
       s.chain = Math.max(s.chain, r.chain);
     } else if (e.isBoss) {
       breakBoss(e);
-      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * mul));
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * mul * bossSpecialMul(e)));
       if (run.boss && run.boss.staggered) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
@@ -1100,7 +1105,7 @@ export function createBilliard(run) {
     st.holeHits++;
     if (e.isBoss) {
       breakBoss(e);
-      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * bossSpecialMul(e)));
       if (run.boss && run.boss.staggered) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }
@@ -1132,7 +1137,7 @@ export function createBilliard(run) {
       // ★「必ず最大HPの◯%」を守る。dealDamage はブレイク中の手動命中に ×2.4 を乗せるので、
       //   その分をここで割って打ち消す（乗ると1発で7割超＝マオウレクス戦が2発で終わってしまう）。
       //   タイミングの当たり外れを作らないのは意図：稀な弾に運を絡ませない。
-      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio));
+      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * bossSpecialMul(e)));
       if (run.boss && run.boss.staggered) {
         dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
       }

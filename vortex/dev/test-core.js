@@ -363,7 +363,8 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   const maou = tiers.find((t) => t.bossId === 'maou');
   assert(!!maou, 'balance: 最終ボス maou の tier が存在');
   if (maou) {
-    assert(maou.hp === 24000, `balance: マオウレクスのHPが1.2倍（旧20000→24000・実測 ${maou.hp}）`);
+    // R34: 24000 では実測 12.8〜17.6秒でボスが攻撃を1回も完遂できずに終わっていた
+    assert(maou.hp === 120000, `balance: マオウレクスのHP（R34で24000→120000・実測 ${maou.hp}）`);
     const sp = maou.split, mg = maou.merge, ck = maou.chestLaser;
     assert(!!sp && !!mg && !!ck, 'balance: maou に split / merge / chestLaser が定義されている');
     if (sp && mg && ck) {
@@ -493,11 +494,11 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
     'R31: ミサイルが主人公へ直撃したとき爆発（大）が起きる');
 
   // --- R31: マオウレクス戦BGM（実プレイFB「荘厳さはあったが暗すぎる」）---
-  assert(/maou:\s*\{ bpm: (8[0-9]|9[0-5]),/.test(snd),
-    'R31: マオウレクス曲は 80〜95BPM（明るくしたが battle/boss より遅い＝重さは保つ）');
+  assert(/maou:\s*\{ bpm: (8[0-9]|9[0-9]|10[0-5]),/.test(snd),
+    'R31: マオウレクス曲は 80〜105BPM（明るく勇ましくしたが battle/boss より遅い＝重さは保つ）');
   assert(/NOTE\.Cs4/.test(snd) && /ピカルディ終止/.test(snd),
     'R31: 締めが A メジャー（ピカルディ終止）＝荘厳さを崩さずに光を入れている');
-  assert(/CHORDS_MAOU[\s\S]*?\/\/ C（光①）/.test(snd),
+  assert(/CHORDS_MAOU[\s\S]*?\/\/ C（光①/.test(snd),
     'R31: 進行に長三和音(C)が入っている（旧版は全部マイナーで長三和音が0個だった）');
 }
 
