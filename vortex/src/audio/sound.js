@@ -1035,6 +1035,74 @@ const SFX = {
     noiseHit({ start: 0.02, dur: 0.46, gain: 0.17, hpFreq: 170, lpFreq: 3200 });        // 装甲の胴鳴り
     noiseHit({ start: 0.03, dur: 0.14, gain: 0.13, hpFreq: 3400, lpFreq: 15000 });      // 破片
   },
+
+  // ================= R34 エンディング専用 =================
+  // 実プレイFB「エンディングがしょぼすぎる。もっと派手な演出や音にして」。
+  // ここまでの音は全部「戦いの音」なので、祝祭の語彙（打ち上げ花火・シャンパンの泡・
+  // ファンファーレ・鐘）を新しく作る。戦闘音の使い回しでは"派手"にならない。
+
+  // 打ち上げ花火：①ヒュ〜ッと上がる笛 ②ドン！の破裂 ③パチパチと散る火の粉
+  firework(arg) {
+    const p = 0.9 + (arg || 0) * 0.2;
+    // ①上昇の笛（0.42秒かけて上がる）
+    tone({ type: 'sine', freq: 420 * p, freqEnd: 1500 * p, dur: 0.42, gain: 0.10, attack: 0.02 });
+    noiseHit({ dur: 0.40, gain: 0.035, hpFreq: 1800, lpFreq: 6000 });
+    // ②破裂
+    tone({ start: 0.44, type: 'sine', freq: 220, freqEnd: 40, dur: 0.34, gain: 0.34, attack: 0.001 });
+    noiseHit({ start: 0.44, dur: 0.13, gain: 0.30, hpFreq: 200, lpFreq: 12000 });
+    // ③散る火の粉（間隔をずらした細かい破裂を12粒）
+    for (let i = 0; i < 12; i++) {
+      noiseHit({ start: 0.50 + i * 0.045 + (i % 3) * 0.012, dur: 0.05,
+                 gain: 0.085 - i * 0.005, hpFreq: 3000, lpFreq: 15000 });
+    }
+  },
+
+  // 到達のきらめき：上へ駆け上がる鐘の分散和音（イラストが現れる瞬間に使う）
+  endChime() {
+    const seq = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093];
+    seq.forEach((f, i) => {
+      tone({ start: i * 0.055, type: 'sine', freq: f, dur: 0.9 - i * 0.06,
+             gain: 0.14 - i * 0.012, attack: 0.003 });
+      tone({ start: i * 0.055, type: 'triangle', freq: f * 2, dur: 0.5 - i * 0.04,
+             gain: 0.05 - i * 0.005, attack: 0.004 });
+    });
+  },
+
+  // 凱歌のファンファーレ：金管の付点3連（タッタ・ター！）＋ティンパニ。締めの一発。
+  endFanfare() {
+    const fig = [[0, 392], [0.11, 523.25], [0.22, 659.25], [0.40, 783.99]];
+    for (const [t, f] of fig) {
+      const long = t >= 0.40;
+      tone({ start: t, type: 'sawtooth', freq: f, dur: long ? 1.1 : 0.13,
+             gain: 0.20, attack: 0.006 });
+      tone({ start: t, type: 'square', freq: f, dur: long ? 1.0 : 0.11,
+             gain: 0.085, attack: 0.008, detune: 8 });
+      tone({ start: t, type: 'sawtooth', freq: f * 1.5, dur: long ? 0.9 : 0.10,
+             gain: 0.07, attack: 0.006 });
+      tone({ start: t, type: 'triangle', freq: f / 2, dur: long ? 1.0 : 0.12,
+             gain: 0.10, attack: 0.006 });
+    }
+    tone({ type: 'sine', freq: 120, freqEnd: 50, dur: 0.4, gain: 0.26, attack: 0.003 });
+    tone({ start: 0.40, type: 'sine', freq: 120, freqEnd: 46, dur: 0.5, gain: 0.30, attack: 0.003 });
+    noiseHit({ start: 0.40, dur: 0.12, gain: 0.10, hpFreq: 120, lpFreq: 2600 });
+  },
+
+  // 記録が1行ずつ「押される」音（スタンプ）。紙を打つ乾いた一撃。
+  stampHit(arg) {
+    const p = 1 + (arg || 0) * 0.06;
+    tone({ type: 'square', freq: 900 * p, freqEnd: 300 * p, dur: 0.05, gain: 0.14 });
+    tone({ type: 'sine', freq: 180 * p, freqEnd: 70 * p, dur: 0.11, gain: 0.16, attack: 0.001 });
+    noiseHit({ dur: 0.035, gain: 0.13, hpFreq: 900, lpFreq: 9000 });
+  },
+
+  // 崩れ落ちる残骸（エンディング冒頭の連鎖爆発）。bigBoom より低く、尾を長く。
+  endRubble(arg) {
+    const p = 0.85 + (arg || 0) * 0.3;
+    tone({ type: 'sine', freq: 150 * p, freqEnd: 22, dur: 0.9, gain: 0.30, attack: 0.002 });
+    tone({ type: 'triangle', freq: 74 * p, freqEnd: 18, dur: 1.0, gain: 0.16, attack: 0.002 });
+    noiseHit({ dur: 0.10, gain: 0.22, hpFreq: 120, lpFreq: 8000 });
+    noiseHit({ start: 0.05, dur: 0.75, gain: 0.13, hpFreq: 90, lpFreq: 2400 });
+  },
 };
 
 // ================= BGM =================
@@ -1114,10 +1182,21 @@ const MELODY_BOSS = [
 //     (2) 主題がオクターブ**下**しか重なっておらず、輝く高域が無かった → オクターブ上を足す
 //     (3) 鐘（唯一の明るい声部）が2小節に1回しか鳴っていなかった → 毎小節にする
 //   テンポも 76→84BPM。沈み込みを減らすが、まだ battle(150)/boss(172) の半分以下＝重さは保つ。
+// 実プレイFB③（R34）「マオウレクスの音楽が変わってない。元の荘厳さ＋明るさを足した勇ましい曲を
+//   依頼したはずだが」。実測すると R31 の明るさは**確かに入っていたが、一度も鳴っていなかった**：
+//   ピカルディ終止は8小節目＝20.0秒の位置にあるのに、戦闘の実測が 12.8〜17.6秒だったため。
+//   直し方は3つ:
+//     (1) 戦闘そのものを伸ばす（boss側・HP 24000→90000）＝1周が最後まで鳴るようにする
+//     (2) **光を曲の頭へ移す**。1小節目を F(短調寄り) から C(長三和音) へ入れ替え、
+//         長三和音が 5.7秒→**2.5秒**で来るようにした（第一印象が短調一色だった）
+//     (3) 「勇ましさ」の声部を新設する。荘厳さの材料（オルガン・鐘・低音・和声）には触らず、
+//         **ファンファーレ（付点の三連ブラス）と行進のティンパニ／スネア**だけを足す。
+//         勇ましさ＝前へ進む推進力なので、和音を明るくするのではなくリズムで作るのが定石。
+//   テンポも 84→96BPM（ゆっくりした行進の速さ。battle 150 / boss 172 とはなお別世界）。
 const CHORDS_MAOU = [
   { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },  // C（光①・2.5秒）
   { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
-  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },  // C（光①）
   { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4], pad: [NOTE.G2, NOTE.D3, NOTE.G3], bass: NOTE.G2 },  // G
   { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
   { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
@@ -1127,8 +1206,8 @@ const CHORDS_MAOU = [
 // 4分音符解像度（1小節=4音）の重い主題。前半は低く抑え、C と A の小節で高く開く（＝光の差す位置を作る）。
 const MELODY_MAOU = [
   [NOTE.A4, -1, NOTE.C5, -1],
+  [NOTE.E5, -1, NOTE.G5, -1],    // C の小節：ここで初めて高く上がる（R34 で2小節目へ前倒し）
   [NOTE.C5, -1, NOTE.A4, -1],
-  [NOTE.E5, -1, NOTE.G5, -1],    // C の小節：ここで初めて高く上がる
   [NOTE.D5, -1, NOTE.B4, -1],
   [NOTE.A4, -1, NOTE.C5, -1],
   [NOTE.F5, -1, NOTE.E5, -1],
@@ -1179,7 +1258,7 @@ const MELODY_END = [
 const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
   boss:   { bpm: 172, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
-  maou:   { bpm: 84,  bars: 8, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
+  maou:   { bpm: 96,  bars: 8, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
@@ -1373,20 +1452,50 @@ function playBgmStep(step) {
         }
       });
     }
-    // ティンパニ：小節頭と3拍目の2発。重い胴鳴りを噛ませる（ビートではなく「合図」）
-    if (inBar === 0 || inBar === 8) {
-      const g = inBar === 0 ? 0.20 : 0.13;
-      tone({ type: 'sine', freq: 120, freqEnd: 52, dur: 0.34, gain: g,
+    // ★勇ましさ①：行進のティンパニ（R34）。旧実装は小節頭と3拍目の2発だけ＝「合図」で、
+    //   鳴ってはいるが**前へ進まない**（葬列に聞こえる原因のひとつ）。付点の行進形
+    //   「ドーン・ドッ・ドン・ドッ・ドッ」にして推進力を出す。四つ打ちにはしない
+    //   （等間隔にした瞬間ポップへ戻り、荘厳さが消える）。
+    const TIMPANI_MARCH = { 0: 0.20, 6: 0.075, 8: 0.13, 12: 0.075, 14: 0.09 };
+    if (TIMPANI_MARCH[inBar]) {
+      const g = TIMPANI_MARCH[inBar];
+      const long = inBar === 0 || inBar === 8;
+      tone({ type: 'sine', freq: 120, freqEnd: 52, dur: long ? 0.34 : 0.16, gain: g,
              dest: bgmGain, attack: 0.004 });
-      tone({ type: 'triangle', freq: 61, freqEnd: 34, dur: 0.30, gain: g * 0.5,
+      tone({ type: 'triangle', freq: 61, freqEnd: 34, dur: long ? 0.30 : 0.14, gain: g * 0.5,
              dest: bgmGain, attack: 0.004 });
-      noiseHit({ dur: 0.10, gain: g * 0.28, hpFreq: 90, lpFreq: 1600, dest: bgmGain });
+      noiseHit({ dur: long ? 0.10 : 0.05, gain: g * 0.28, hpFreq: 90, lpFreq: 1600, dest: bgmGain });
+    }
+    // ★勇ましさ②：ファンファーレ（R34）。区切りの小節で「タッ・タッ・ターン！」と立ち上がる。
+    //   軍隊ラッパと同じく和音の構成音（主音→5度→オクターブ）だけを使い、音価は短く切る
+    //   （伸ばすとオルガンの持続音と濁って、荘厳さのほうが壊れる）。
+    //   置き場所は 1小節目＝曲の名乗り／5小節目＝後半の名乗り／8小節目＝ピカルディ終止への凱歌。
+    const FANFARE_AT = { 0: [0, 3, 6], 4: [0, 3, 6], 7: [8, 11, 14] };
+    const fanSteps = FANFARE_AT[bar];
+    if (fanSteps) {
+      const fi = fanSteps.indexOf(inBar);
+      if (fi >= 0) {
+        const ff = noteFreq(chord.arp[fi === 2 ? 3 : fi === 1 ? 2 : 0]) * 2;
+        const fg = 0.055 + fi * 0.018;
+        tone({ type: 'sawtooth', freq: ff, dur: stepSec * (fi === 2 ? 4.2 : 1.6),
+               gain: fg, dest: bgmGain, attack: 0.006 });
+        tone({ type: 'square', freq: ff, dur: stepSec * (fi === 2 ? 3.8 : 1.4),
+               gain: fg * 0.42, dest: bgmGain, attack: 0.008, detune: 7 });
+        tone({ type: 'triangle', freq: ff * 2, dur: stepSec * 1.2,
+               gain: fg * 0.30, dest: bgmGain, attack: 0.004 });
+      }
+    }
+    // ★勇ましさ③：行進のスネアロール（R34）。区切りの直前（4/8小節目の最後の1拍）だけ。
+    //   軍楽のロールは四つ打ちではないので、荘厳さを壊さずに「次へ進む」合図だけを足せる。
+    if ((bar === 3 || bar === 7) && inBar >= 12) {
+      noiseHit({ dur: 0.045, gain: 0.020 + (inBar - 12) * 0.009,
+                 hpFreq: 1400, lpFreq: 7200, dest: bgmGain });
     }
     // 教会の鐘：長く残響させて空間を広く見せる。この曲で唯一の明るい声部なので、
     // R31 で2小節に1回→**毎小節**にした（「暗すぎる」への一番効く手当て）。
-    // 長三和音の小節（C=2 / A=7）だけ鐘の基音を和音の第3音まで上げ、光の差す位置をはっきりさせる。
+    // 長三和音の小節（R34 で C=1 へ前倒し / A=7）だけ鐘の基音を和音の第3音まで上げ、光の位置を示す。
     if (inBar === 0) {
-      const bright = bar === 2 || bar === 7;
+      const bright = bar === 1 || bar === 7;
       const bf = noteFreq(bright ? chord.arp[1] : NOTE.A5) * (bright ? 2 : 1);
       const bg = bright ? 0.075 : 0.058;
       tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: bg,
