@@ -945,6 +945,42 @@ const SFX = {
     tone({ type: 'square', freq: 840 * p, freqEnd: 2600 * p, dur: 0.24, gain: 0.05 * g,
            attack: 0.04, detune: 10 });
   },
+  // ============ R32 どうくつのアイテム ============
+  // ★レア入手：短いファンファーレ。他の入手音(powerup)と**明確に別物**でなければ、
+  //   レアを引いた瞬間が「いつものやつ」に埋もれる（旧洞窟が意味を失っていた理由のひとつ）。
+  rareGet() {
+    const seq = [523.25, 659.25, 783.99, 1046.5, 1318.5];   // C-E-G-C-E（明るい分散和音の駆け上がり）
+    seq.forEach((f, i) => {
+      tone({ type: 'square', freq: f, dur: 0.16, start: i * 0.065, gain: 0.14, attack: 0.004 });
+      tone({ type: 'triangle', freq: f * 2, dur: 0.20, start: i * 0.065, gain: 0.07, attack: 0.006 });
+    });
+    tone({ type: 'sine', freq: 1046.5, dur: 0.9, start: 0.34, gain: 0.11, attack: 0.01 });  // 伸びる主音
+    tone({ type: 'sine', freq: 1567.98, dur: 0.8, start: 0.34, gain: 0.05, attack: 0.02 }); // 5度上の輝き
+    noiseHit({ start: 0.34, dur: 0.5, gain: 0.06, hpFreq: 5000, lpFreq: 15000 });           // きらめき
+  },
+  // ★こうしえんの すな を投げる瞬間：息を吸い込んでから振り抜く「タメ→バシュンッ」。
+  sunaThrow() {
+    tone({ type: 'sine', freq: 90, freqEnd: 300, dur: 0.14, gain: 0.20, attack: 0.02 });    // 踏み込み
+    noiseHit({ start: 0.10, dur: 0.10, gain: 0.20, hpFreq: 700, lpFreq: 11000 });           // 振り抜き
+    tone({ type: 'sawtooth', freq: 300, freqEnd: 1700, dur: 0.20, start: 0.10, gain: 0.15, attack: 0.004 });
+    tone({ type: 'square', freq: 900, freqEnd: 2600, dur: 0.16, start: 0.10, gain: 0.07 });
+  },
+  // ★こうしえんの すな の着弾：作中でいちばん大きい炸裂。低音の底を深く、余韻を長く。
+  sunaBoom() {
+    tone({ type: 'sine', freq: 300, freqEnd: 14, dur: 0.85, gain: 0.44, attack: 0.001 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 13, dur: 0.75, gain: 0.24, attack: 0.001 });
+    tone({ type: 'square', freq: 1300, freqEnd: 70, dur: 0.24, gain: 0.14 });
+    noiseHit({ dur: 0.05, gain: 0.28, hpFreq: 180, lpFreq: 12000 });                   // 炸裂の芯
+    noiseHit({ start: 0.02, dur: 0.60, gain: 0.19, hpFreq: 130, lpFreq: 3000 });       // 長い爆風
+    noiseHit({ start: 0.04, dur: 0.22, gain: 0.13, hpFreq: 4200, lpFreq: 15000 });     // 砂と破片
+    tone({ type: 'sine', freq: 1046.5, dur: 0.5, start: 0.06, gain: 0.06, attack: 0.01 }); // 抜ける余韻
+  },
+  // ★バフ切れ：下がる2音だけ。短く小さく（終わりを知らせるだけで、場面の主役にはしない）。
+  buffEnd() {
+    tone({ type: 'triangle', freq: 660, dur: 0.10, gain: 0.07, attack: 0.004 });
+    tone({ type: 'triangle', freq: 440, dur: 0.14, start: 0.09, gain: 0.06, attack: 0.004 });
+  },
+
   // 命中：鉄拳の質量が叩き込まれる「ドゴォォン！」。既存 rocketHit より低く・長く・爆発を伴う。
   rocketPunchHit() {
     tone({ type: 'sine', freq: 320, freqEnd: 16, dur: 0.62, gain: 0.42, attack: 0.001 });
