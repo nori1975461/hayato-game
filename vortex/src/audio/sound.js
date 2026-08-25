@@ -981,6 +981,50 @@ const SFX = {
     tone({ type: 'triangle', freq: 440, dur: 0.14, start: 0.09, gain: 0.06, attack: 0.004 });
   },
 
+  // ============ R33 ビリッコが配る弾（らいこうだん以外の2種）============
+  // ⚠️ 3種は「受け取った瞬間の音」で聞き分けられなければならない。手渡しの尺は共通なので、
+  //    音だけが「今どれを渡されたか」を伝える唯一の手がかりになる。
+  //    らいこうだん＝thunder（低く裂ける）／スーパーボール＝弾む上昇／ブラックホール＝沈む下降。
+  superGet() {
+    // ぽんぽんと弾んで上がる。間隔が詰まっていくので「弾んでいる」ことが耳で分かる
+    const seq = [0, 0.13, 0.23, 0.30, 0.35, 0.385];
+    seq.forEach((t, i) => {
+      const f = 420 * Math.pow(1.16, i);
+      tone({ type: 'square', freq: f, freqEnd: f * 1.5, dur: 0.09, start: t, gain: 0.13 - i * 0.012,
+             attack: 0.002 });
+      tone({ type: 'sine', freq: f * 2, dur: 0.07, start: t, gain: 0.05 });
+    });
+    tone({ type: 'triangle', freq: 1318.5, dur: 0.5, start: 0.42, gain: 0.10, attack: 0.008 });
+  },
+  // 跳ね返った瞬間の締め（跳ね返り回数を使い切ったとき）。上がりきって弾ける
+  superEnd() {
+    tone({ type: 'square', freq: 700, freqEnd: 2400, dur: 0.18, gain: 0.16, attack: 0.003 });
+    tone({ type: 'sine', freq: 1400, freqEnd: 3200, dur: 0.22, gain: 0.09, attack: 0.004 });
+    noiseHit({ dur: 0.06, gain: 0.20, hpFreq: 900, lpFreq: 14000 });
+    noiseHit({ start: 0.05, dur: 0.30, gain: 0.11, hpFreq: 400, lpFreq: 6000 });
+  },
+  // ブラックホールを受け取る：下へ沈み込む。上の2種と逆向きにして取り違えを消す
+  holeGet() {
+    tone({ type: 'sawtooth', freq: 620, freqEnd: 90, dur: 0.55, gain: 0.15, attack: 0.01 });
+    tone({ type: 'sine', freq: 310, freqEnd: 45, dur: 0.65, gain: 0.17, attack: 0.02 });
+    tone({ type: 'triangle', freq: 155, freqEnd: 30, dur: 0.75, gain: 0.10, attack: 0.03 });
+    noiseHit({ start: 0.06, dur: 0.55, gain: 0.08, hpFreq: 120, lpFreq: 1800 });
+  },
+  // 穴が開く：空気を吸い込む長い音。爆発ではないので破裂音を混ぜない
+  holeOpen() {
+    tone({ type: 'sine', freq: 60, freqEnd: 220, dur: 0.70, gain: 0.22, attack: 0.08 });
+    tone({ type: 'sawtooth', freq: 120, freqEnd: 480, dur: 0.60, gain: 0.08, attack: 0.10 });
+    noiseHit({ dur: 0.70, gain: 0.12, hpFreq: 200, lpFreq: 2600 });
+  },
+  // 穴が閉じる：吸い込んだものが一点で潰れる。低い「ドンッ」＋金属的なきしみ
+  holeClose() {
+    tone({ type: 'sine', freq: 420, freqEnd: 20, dur: 0.55, gain: 0.36, attack: 0.001 });
+    tone({ type: 'triangle', freq: 210, freqEnd: 18, dur: 0.50, gain: 0.20, attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 1600, freqEnd: 120, dur: 0.18, gain: 0.10 });
+    noiseHit({ dur: 0.05, gain: 0.22, hpFreq: 200, lpFreq: 10000 });
+    noiseHit({ start: 0.03, dur: 0.34, gain: 0.13, hpFreq: 150, lpFreq: 3000 });
+  },
+
   // 命中：鉄拳の質量が叩き込まれる「ドゴォォン！」。既存 rocketHit より低く・長く・爆発を伴う。
   rocketPunchHit() {
     tone({ type: 'sine', freq: 320, freqEnd: 16, dur: 0.62, gain: 0.42, attack: 0.001 });
