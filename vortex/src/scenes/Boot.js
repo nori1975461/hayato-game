@@ -2,6 +2,7 @@
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_FISTS } from '../data/monsters.js';
 import { ENEMIES, BOSSES } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
+import { ENDING_ART } from '../data/ending_art.js';
 import { createRng } from '../core/rng.js';
 
 const Phaser = window.Phaser;
@@ -31,6 +32,8 @@ export class BootScene extends Phaser.Scene {
     }
     // 強化アイコン7種
     for (const [id, ic] of Object.entries(UPGRADE_ICONS)) this.makeGrid('icon_' + id, ic);
+    // R34: エンディングのキーイラスト（96×54・Ending.js が6倍で全画面に敷く）
+    this.makeGrid('ending_art', ENDING_ART);
 
     // --- 発光・エフェクト系テクスチャ（白で作り、実行時に tint） ---
     this.makeGlow('glow', 32);
