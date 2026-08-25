@@ -60,23 +60,87 @@ export function createItems(run) {
     return rewards[rewards.length - 1];
   }
 
+  // ★R32 報酬の適用。どうくつは「取った瞬間に画面が変わる」ものだけを配る。
+  //   旧版は damageMult や coins のような**画面に何も出ない数字**を配っていて、
+  //   実プレイFBで「あまり意味がない」と言われた。ここでは全種類に必ず見える変化を付ける。
   function applyReward(r) {
-    if (r.stat === 'maxHpAdd') {
-      run.player.maxHp += r.add;
-      run.player.hp = Math.min(run.player.maxHp, run.player.hp + r.add);
-    } else if (r.stat) {
-      run.stats[r.stat] = (run.stats[r.stat] || 0) + r.add;
-    }
-    if (r.invulnSec) run.player.invuln = Math.max(run.player.invuln || 0, r.invulnSec);
-    if (r.dropCore && run.capture && run.capture.dropCoreAt) {
-      run.capture.dropCoreAt(run.player.x, run.player.y, r.dropCore);
-    }
-    if (r.coins) run.coins += r.coins;
+    const CB = C.buffs, cfg = CB[r.buff] || {};
+    const px = run.player.x, py = run.player.y;
 
-    Sound.sfx('powerup');
-    run.floatText(run.player.x, run.player.y - 34, r.label + '！', '#ffc9ee');
-    if (run.fx && run.fx.announce) run.fx.announce(r.label + ' ゲット！', '#ffc9ee');
-    if (run.fx && run.fx.powerupFlash) run.fx.powerupFlash(null);
+    switch (r.buff) {
+      case 'suna':
+        // こうしえんの すな：次の1投が渾身の一撃。秒ではなく**回数**で持つ（投げるまで消えない）。
+        run.sunaShots += cfg.shots;
+        break;
+      case 'clock':
+        run.addBuff('clock', cfg.sec);
+        break;
+      case 'star':
+        run.addBuff('star', cfg.sec);
+        run.player.invuln = Math.max(run.player.invuln || 0, cfg.sec);
+        break;
+      case 'gold':
+      case 'big':
+      case 'mini':
+      case 'machine':
+        run.addBuff(r.buff, cfg.sec);
+        break;
+      case 'whistle': {
+        // 即時。画面じゅうの雑魚を一斉によろけさせる＝弾が一気に手に入る。
+        let n = 0;
+        for (const e of run.enemies) {
+          if (!e.active || e.isBoss || e.stag) continue;
+          const dx = e.x - px, dy = e.y - py;
+          if (dx * dx + dy * dy > cfg.radius * cfg.radius) continue;
+          e.hp = 1; run.enterStagger(e);
+          run.spawnParticles(e.x, e.y, cfg.tint, 8);
+          n++;
+        }
+        run.floatText(px, py - 56, n + 'たい よろけた！', '#9fe8ff');
+        break;
+      }
+      case 'heal':
+        run.player.maxHp += cfg.maxHpAdd;
+        run.player.hp = run.player.maxHp;
+        run.addBuff('heal', cfg.sec);
+        run.player.invuln = Math.max(run.player.invuln || 0, cfg.sec);
+        break;
+      default:
+        break;
+    }
+
+    // ---- 取った瞬間の演出。レアは尺も振幅も別格にする（頻度6.25%なので振り切ってよい）----
+    const tint = cfg.tint || 0xffc9ee;
+    if (r.rare) {
+      Sound.sfx('rareGet');
+      run.shake(360, 10);
+      if (run.fx && run.fx.powerupFlash) run.fx.powerupFlash(tint);
+      run.slowMotion(0.5, 0.35);
+      for (let i = 0; i < 3; i++) {
+        run.time.delayedCall(i * 110, () => {
+          if (run.billiard && run.billiard.shockRing) {
+            run.billiard.shockRing(run.player.x, run.player.y, 150 + i * 60, i % 2 ? 0xffffff : tint);
+          }
+        });
+      }
+      run.spawnParticles(px, py, tint, 34);
+      run.spawnParticles(px, py, 0xffffff, 20);
+    } else {
+      Sound.sfx('powerup');
+      run.shake(150, 4);
+      if (run.fx && run.fx.powerupFlash) run.fx.powerupFlash(tint);
+      if (run.billiard && run.billiard.shockRing) run.billiard.shockRing(px, py, 120, tint);
+      run.spawnParticles(px, py, tint, 20);
+    }
+    const color = '#' + tint.toString(16).padStart(6, '0');
+    run.floatText(px, py - 34, r.label + '！', color);
+    // ★2行で出す。名前だけだと何が起きたのか分からない（旧版の「意味がない」の一因）。
+    if (run.fx && run.fx.announce) {
+      run.fx.announce((r.rare ? '★レア★ ' : '') + r.label + ' ゲット！', color);
+      run.time.delayedCall(420, () => {
+        if (run.fx && run.fx.announce) run.fx.announce(r.get, color);
+      });
+    }
   }
 
   function openChest() {
@@ -226,5 +290,13 @@ export function createItems(run) {
     update, destroy,
     get caveCount() { return cave ? 1 : 0; },
     get shrineCount() { return shrine ? 1 : 0; },
+    // 検証用（R32）：どうくつの報酬を id 名指しで発動させる。抽選を待つと9種を測れないため。
+    // ⚠️ 適用経路は本編とまったく同じ applyReward を通す（別経路を作ると測ったものが本編と違う）。
+    giveReward(id) {
+      const r = C.rewards.find((x) => x.id === id);
+      if (!r) return false;
+      applyReward(r);
+      return true;
+    },
   };
 }
