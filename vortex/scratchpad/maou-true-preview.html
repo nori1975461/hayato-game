@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真マオウレクス 軌道神核 ― 実装完了</title>
+<title>真マオウレクス 軌道神核 ― 修正6件 完了</title>
 <style>
   :root { color-scheme: dark; }
   body { margin: 0; padding: 28px 20px 70px; background: #0a0a12; color: #e8e8f2;
@@ -19,7 +19,6 @@
             border: 1px solid #3a2f5e; border-radius: 10px; }
   section h2 { font-size: 19px; margin: 0 0 14px; color: #c98cff; }
   .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   figure { margin: 0; }
   figcaption { color: #a8a8c6; font-size: 12.5px; margin-top: 7px; }
   figcaption b { color: #ffd98a; }
@@ -30,97 +29,109 @@
   th, td { border: 1px solid #33335a; padding: 7px 11px; text-align: left; }
   th { background: #1a1a30; color: #c0aef5; font-weight: 600; }
   td.n { font-family: Consolas, monospace; color: #9ee8c8; }
-  .bug { border-left: 3px solid #e05a5a; background: #1c1218; padding: 14px 18px;
-         border-radius: 0 6px 6px 0; margin-bottom: 16px; }
-  .bug h3 { margin: 0 0 6px; font-size: 15px; color: #ff9a9a; }
-  .bug p { margin: 0; font-size: 14px; color: #d6c6cc; }
   .note { border-left: 3px solid #4a4a7a; padding: 4px 0 4px 15px; color: #b9b9d8;
           font-size: 14px; margin-top: 18px; }
+  .why { border-left: 3px solid #e05a5a; background: #1c1218; padding: 12px 16px;
+         border-radius: 0 6px 6px 0; margin-top: 14px; font-size: 14px; color: #d6c6cc; }
+  .why b { color: #ff9a9a; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<h1>真マオウレクス「軌道神核」― 実装完了</h1>
-<p class="sub">承認された C-4改 のビジュアルを本編へ実装しました。すべて Phaser の実描画（実プレイの画面そのもの）です。</p>
-<div class="ver">v20260827-3 ／ タイトル画面の左下がこの番号なら届いています</div>
+<h1>真マオウレクス「軌道神核」― 修正6件 完了</h1>
+<p class="sub">いただいた6件の修正指示への実装報告です。画像はすべて Phaser の実描画（実プレイの画面そのもの）。</p>
+<div class="ver">v20260827-4 ／ タイトル画面の左下がこの番号なら届いています</div>
 
 <section>
-  <h2>① 転生 ― 亀裂 → 粉砕 → 出現</h2>
+  <h2>① BGMはギターで確定</h2>
+  <p>「①ギター（ひずみ）」が本編の既定だったので、そのまま本採用です。れんしゅうじょうの聞き比べ（T→4→B）には
+  ①に「★さいよう」の印を付け、<b>④に軌道神核の専用曲を追加</b>しました＝転生まで進まなくても B キーで聞けます。</p>
+</section>
+
+<section>
+  <h2>② レーザーは「分離したとき」の技へ ― じゃがんレーザー（紫）</h2>
   <div class="grid">
-    <figure><img src="shots-true/02-crack.png" alt="亀裂">
-      <figcaption><b>亀裂（1.0秒）</b>／メタリックパープルの体に稲妻状の亀裂が走り、内部の火が漏れる。この間は動かない</figcaption></figure>
-    <figure><img src="shots-true/03-shatter.png" alt="粉砕">
-      <figcaption><b>粉砕（1.0秒）</b>／9つのパーツが四方へ吹き飛ぶ。中心に光の核が残る</figcaption></figure>
-    <figure><img src="shots-true/04-rise.png" alt="出現">
-      <figcaption><b>出現（2.0秒）</b>／真の姿がせり上がる。HPバーの名前も「しん・マオウレクス」に変わる</figcaption></figure>
-    <figure><img src="shots-true/05c-center.png" alt="真の姿">
-      <figcaption><b>軌道神核</b>／装甲球の窓から血走った単眼が覗き、傾きの違う3つの環が球を貫いて公転する</figcaption></figure>
+    <figure><img src="shots-true/00-jagan-laser.png" alt="じゃがんレーザー">
+      <figcaption><b>じゃがんレーザー</b>（旧・レーザー改め）／分離した上半身の単眼バイザーから撃つので「邪眼」。
+      紫の縁＋白熱の芯の2層ビーム。分離した直後の1手目がこれ＝「分かれたら撃ってくる」が最初の1回で伝わります</figcaption></figure>
+    <figure><img src="shots-true/01b-jashin-laser.png" alt="じゃしんレーザー">
+      <figcaption><b>じゃしんレーザー</b>（旧・きょうぶレーザー改め）／再合体後は胸の炉心＝心臓から撃つので「邪神」。
+      同じ紫の2層。眼→心臓、と撃つ場所が名前で分かる対の命名です</figcaption></figure>
   </div>
-  <p class="note">転生の瞬間だけ音楽を止めています。「終わったと思った」ところに沈黙を置いてから、真の姿が立ち上がった瞬間に鳴らし直します。</p>
-</section>
-
-<section>
-  <h2>② 攻撃3種 ― 予告は文字ではなく「形」で読ませる</h2>
-  <div class="grid3">
-    <figure><img src="shots-true/07-align-fire.png" alt="整列レーザー">
-      <figcaption><b>整列レーザー</b>／3つの環が主人公の方向へ一直線に揃う。揃った面がそのまま射線。ダメージ84＝作中最大（満タンからは一撃死しない）</figcaption></figure>
-    <figure><img src="shots-true/08-verse-fire.png" alt="聖句解放">
-      <figcaption><b>聖句解放</b>／環に刻まれた聖句が1文字ずつ剥がれて弾になる。3つの環が同じ角度から同時に剥がれるので、弾は環の形のまま散る</figcaption></figure>
-    <figure><img src="shots-true/10-shell-hold.png" alt="殻閉じ">
-      <figcaption><b>殻閉じ</b>／環が核へ閉じて球になり無敵＋全方位衝撃波。閉じきる前に眼へ2発当てれば割れて、大きな隙になる</figcaption></figure>
-  </div>
-  <p class="note">攻撃を3種に絞ったのは、20秒台の戦いに5種を積むと1種あたり1回も回ってこないからです（R34で踏んだ「再生される前に終わる」と同じ失敗を避けるため）。実測では3種とも各2回以上出ています。</p>
-</section>
-
-<section>
-  <h2>③ 実測（headless・3回）</h2>
-  <table>
-    <tr><th>測ったもの</th><th>結果</th><th>ねらい</th></tr>
-    <tr><td>真の姿の戦闘の長さ</td><td class="n">21.7 / 22.9 / 21.6 秒</td><td>指定の20〜25秒</td></tr>
-    <tr><td>整列レーザーの発射</td><td class="n">2回</td><td>各2回以上</td></tr>
-    <tr><td>聖句解放の発射</td><td class="n">2回</td><td>各2回以上</td></tr>
-    <tr><td>殻閉じ</td><td class="n">成立1回 ／ 割られた2回</td><td>どちらも起きる＝遊びとして機能している</td></tr>
-    <tr><td>実行時エラー</td><td class="n">0件</td><td>—</td></tr>
-    <tr><td>恒久ガード</td><td class="n">582 → 619件（+37）</td><td>今回踏んだ罠を全部固定</td></tr>
-  </table>
-  <p class="note">HPは推測ではなく実測から決めました。同じ設定でも ±10% ぶれる（最後の1手に入れるかで ±2秒動く）ので、秒数ではなく実DPSの平均 3550/秒 から 75000 を引いています。</p>
-</section>
-
-<section>
-  <h2>④ 作りながら見つかった不具合（直しました）</h2>
-
-  <div class="bug">
-    <h3>転生カットシーンが、分離／再合体に横取りされて丸ごと消えていた</h3>
-    <p>転生に入ると内部のHPを1に落とすので、同じフレームで「HP50%で分離」「33%で再合体」の判定が両方成立し、分離の演出が転生の演出を上書きしていました。実測すると「転生した：NO ／ 転生処理は走っている ／ でも通常戦闘に戻っている」という状態。実プレイでも、HP33%超から一撃で0にすれば同じことが起きます。</p>
-  </div>
-
-  <div class="bug">
-    <h3>描き下ろした眼が、弱点コアのUIに覆われて一度も画面に出ていなかった</h3>
-    <p>弱点の記号（半径34pxの金色のベタ塗り）が眼の中心を完全に塗りつぶしていました。第3形態は「装甲が開いて露出した炉心」＝そこに絵が無いので塗りが正しかったのですが、真の姿は眼そのものが絵です。弱点が絵のときは輪と照準だけにしました。</p>
-  </div>
-
-  <div class="bug">
-    <h3>「粉々に飛び散る」が0.45秒しかなく、瞬きの間に終わっていた</h3>
-    <p>撮影しようとして初めて気づきました。1.0秒へ伸ばしています。</p>
-  </div>
-
-  <div class="bug">
-    <h3>設計プレビューは画面を480×360と見込んでいたが、実際は640×360だった</h3>
-    <p>そのままの縮尺（9.4）で撮ると、球も環も光背も画面外へ出て<b>眼の周りしか映りません</b>でした。7.4へ下げて全身が入るようにしています。設計プレビューは自作の描画で作った別物なので、良く見えても本編で同じには見えない、という教訓でもあります。</p>
-  </div>
-
-  <p class="note">どれも「構文は通る・既存テストも通る・でも画面には何も出ない」形の壊れ方でした。同じことが起きないよう、37件の恒久ガードにしています。</p>
-</section>
-
-<section>
-  <h2>⑤ 遊びに行くには</h2>
-  <ul>
-    <li>公開URL <b>https://nori1975461.github.io/hayato-game/vortex/</b> ／ タイトル画面の左下が <b>v20260827-3</b> なら新しいものが届いています</li>
-    <li>すぐ見たいときは、タイトルで <b>T</b> → <b>4</b>（れんしゅうじょう「マオウレクスとたたかう」）。通常どおり倒しきると転生します</li>
-    <li>本編では360秒でマオウレクスが出現します</li>
+  <ul style="margin-top:16px">
+    <li><b>出現時（分離前）の表からレーザーを削除</b> ― ナックルウェーブ／ワイヤーアーム／ミサイル・バルカン・ノヴァの5種に</li>
+    <li><b>照射時の効果音を新設</b>（darkLaser）― 高から低へ落ちる歪んだうなり。邪悪な音は下へ落ちます</li>
+    <li><b>受けた実感</b> ― 専用の被弾音（バチィッ＋焼かれるジリジリ）＋ビームの進行方向へ吹き飛ばされる＋画面の揺れとヒットストップ</li>
   </ul>
-  <p class="note">見てみて直したいところ（大きさ・色・攻撃の激しさ・尺）があれば、場所と方向を教えてください。</p>
+</section>
+
+<section>
+  <h2>③ 再合体＝本物のメタリックパープルに</h2>
+  <div class="grid">
+    <figure><img src="shots-true/01-phase3-purple.png" alt="メタリックパープル">
+      <figcaption><b>再合体後</b>／赤い装甲の主面が完全に紫。金冠とシアンの炉心はアクセントとして残しています</figcaption></figure>
+  </div>
+  <div class="why"><b>「一部のみ変わった」の正体：</b>今までは色を「掛け算」で紫にしていましたが、掛け算では赤は紫になりません
+  （赤 #e5202c に紫を掛けても #970d2c＝赤のまま。赤には青の成分がほぼ無いので、何を掛けても青は増えない）。
+  灰色の装甲だけが紫がかり、赤い主面が赤のまま残っていました。今回は<b>紫のパレットでテクスチャそのものを焼き直し</b>、
+  再合体の白フラッシュの裏で丸ごと差し替えています。</div>
+</section>
+
+<section>
+  <h2>④ 整列レーザー＝深みのある赤＋最大の発射演出</h2>
+  <div class="grid">
+    <figure><img src="shots-true/07-align-fire.png" alt="整列レーザー 深紅">
+      <figcaption><b>整列レーザー（深紅）</b>／3つの環が射線方向へ一直線に揃って発射。暗い深紅の縁＋白熱の芯の2層
+      ＝「深みのある赤」は1色では出ず、縁と芯の階層でしか出ません。紫のじゃがん・じゃしんに対し、純白の神核が撃つのは血の色</figcaption></figure>
+    <figure><img src="shots-true/10-shell-hold.png" alt="殻閉じ">
+      <figcaption>（参考）殻閉じ。閉じきる前に眼へ当て続ければ割れます＝実測で成立も中断もどちらも起きることを確認済み</figcaption></figure>
+  </div>
+  <ul style="margin-top:16px">
+    <li><b>発射音 godLaser を新設</b> ― 点火の閃光→地を踏む低音→本物の歪み（WaveShaper）を通した照射の轟音→金属の悲鳴、の4段構成。
+    発射の瞬間はBGMを深く沈めます＝世界がこの一撃に譲る</li>
+    <li><b>演出</b> ― 白フラッシュ0.55＋画面の揺れ700ms＋ヒットストップ＋ビームに沿って散る火花。溜めの後半から赤い粒子を混ぜ、「深紅が来る」を色でも予告</li>
+    <li><b>受けた実感</b> ― じゃがんレーザーと同じ3点セット（専用音・吹き飛ばし・揺れ）</li>
+  </ul>
+</section>
+
+<section>
+  <h2>⑤ 軌道神核の専用BGM ― ギターの土台に「神々しさ」を積む</h2>
+  <p>マオウレクス戦BGM（採用されたギター編成）を土台のまま、神々しさの声部を上へ足しました。
+  転生の沈黙のあと、この曲で鳴らし直します。</p>
+  <ul>
+    <li><b>鐘が倍の頻度</b>＋段の頭でカリヨンの3連打（高い音から降りてくる＝「天から降る」方向）</li>
+    <li><b>聖歌隊が最初から</b>歌い続ける（元の曲は第3段から。神々しさは「あとから来る」ものではなくこの姿の常態）</li>
+    <li><b>光背ドローン</b> ― 和音の4倍音の高いサインが頭上で鳴り続ける光</li>
+    <li><b>天使の声</b> ― 主題を1オクターブ上のやわらかい声が常にユニゾンでなぞる</li>
+  </ul>
+  <p class="note">邪悪な音は下へ落ち（じゃがんレーザーの発射音）、神々しい音は上へ昇る（この曲の追加声部）。
+  同じ作曲のまま編成が昇格するので「同じ戦いの、別の段」だと耳で分かります。れんしゅうじょうの B キー④でも聞けます。</p>
+</section>
+
+<section>
+  <h2>⑥ 戦闘の長さ ― 35秒前後に設計（おまかせ分）</h2>
+  <table>
+    <tr><th>測ったもの</th><th>結果</th><th>設計</th></tr>
+    <tr><td>真の姿の戦闘の長さ（実測3回）</td><td class="n">34.5 / 34.6 / 33.7 秒</td><td>35秒前後</td></tr>
+    <tr><td>攻撃3種の発射</td><td class="n">整列3回・聖句3回・殻閉じ3回</td><td>各3回＝2周目で「読める」</td></tr>
+    <tr><td>BGMの切替列</td><td class="n">maou → maou → maouTrue</td><td>転生後に専用曲</td></tr>
+    <tr><td>紫テクスチャ</td><td class="n">9枚（全パーツ）</td><td>—</td></tr>
+    <tr><td>実行時エラー</td><td class="n">0件</td><td>—</td></tr>
+    <tr><td>恒久ガード</td><td class="n">619 → 656件（+37）</td><td>配置・改名・色を数で縛る</td></tr>
+  </table>
+  <p class="note">35秒の根拠：①専用BGM（1周21.6秒）が1.6周＝4段構成（名乗り→追い立て→主題→頂点）を最後まで聞かせられる
+  ②攻撃3種が各3回ずつ回り、「読んで避ける」が2周目で上達として実感できる ③「もう少し」の指示なので2倍にはしない
+  （40秒超はゲージ3本でも中だるみ）。HPは実測の削り速度から逆算し、ゲージは3本（1本≒12秒）にしました。</p>
+</section>
+
+<section>
+  <h2>遊びに行くには</h2>
+  <ul>
+    <li>公開URL <b>https://nori1975461.github.io/hayato-game/vortex/</b> ／ タイトル左下が <b>v20260827-4</b> なら新版です</li>
+    <li>タイトルで <b>T → 4</b>：マオウレクス戦。分離させると<b>じゃがんレーザー</b>、再合体で<b>メタリックパープル＋じゃしんレーザー</b>、倒しきると転生して<b>専用BGM＋深紅の整列レーザー</b></li>
+    <li><b>T → 4 → B</b>：BGMの聞き比べ（①ギター★さいよう／④きどうしんかく）</li>
+  </ul>
 </section>
 
 </div>
