@@ -1156,6 +1156,75 @@ const SFX = {
     noiseHit({ start: 0.05, dur: 0.20, gain: 0.15, hpFreq: 55, lpFreq: 760 });
   },
 
+  // ============ R36W2 マオウレクスのレーザー3点セット ============
+  // 実プレイFB「照射時に効果音」「発射音やその演出をできるだけ派手に」「レーザーを受けた主人公が、
+  // 攻撃を受けてしまった実感がでるように」。3つで1組：
+  //   darkLaser … じゃがん/じゃしんレーザー（紫）の発射。邪悪＝**下へ落ちる音**で作る
+  //   godLaser  … 整列レーザー（深紅・作中最大）の発射。ここが最大の見せ場
+  //   beamHit   … 受けた側の音。R34W4 の鈍器の作法（鋭い立ち上がり・固定音程の胴・短い尾）に
+  //               「焼かれる」のジリジリを足す
+
+  // 紫レーザー発射：「ヴンッ…ゾゾゾ」。高から低へ落ちる歪んだうなり＝邪悪の定石
+  //（神々しい音は上へ昇り、邪悪な音は下へ落ちる。じゃがん＝邪眼はこちら）。
+  darkLaser() {
+    const D = sfxDistBus;
+    duckBgm(0.38, 0.08, 0.24);
+    // 点火の「カッ」
+    noiseHit({ dur: 0.012, gain: 0.5, hpFreq: 900, lpFreq: 14000 });
+    // 落ちる主部（歪みへ送る＝ただのサイレンにしない）
+    tone({ type: 'sawtooth', freq: 860, freqEnd: 120, dur: 0.5, gain: 0.34, attack: 0.004, dest: D });
+    tone({ type: 'sawtooth', freq: 862, freqEnd: 118, dur: 0.5, gain: 0.22, attack: 0.004, detune: 14, dest: D });
+    // 低い土台のドン
+    tone({ type: 'sine', freq: 150, freqEnd: 40, dur: 0.42, gain: 0.6, attack: 0.002 });
+    // 照射のうなり（activeSec 0.7〜1.1 のあいだ鳴り続ける胴）
+    tone({ type: 'sawtooth', freq: 92, dur: 0.85, gain: 0.20, attack: 0.03, release: 0.95, dest: D });
+    tone({ type: 'square', freq: 184, dur: 0.8, gain: 0.10, attack: 0.04, detune: -10, dest: D });
+    // 邪気のきらめき（高域を1本だけ・残響へ）
+    tone({ type: 'sine', freq: 1560, freqEnd: 1180, dur: 0.5, gain: 0.07, attack: 0.02, verb: 0.5 });
+    noiseHit({ start: 0.03, dur: 0.28, gain: 0.12, hpFreq: 2400, lpFreq: 9000 });
+  },
+
+  // 整列レーザー発射：「カッ→ドンッ→ゴォォォ」。作中最大ダメージにふさわしい最大の音。
+  // ①点火の閃光 ②地を踏む低音 ③本物の歪みを通した照射の轟音 ④金属の悲鳴 の4段構成。
+  // BGMを深く沈める（duck）＝音量を上げずに「世界がこの一撃に譲る」を作る。
+  godLaser() {
+    const D = sfxDistBus;
+    duckBgm(0.20, 0.16, 0.42);
+    // ① 点火（1〜2ms の閃光。ここが鋭いほど「撃った」に聞こえる）
+    noiseHit({ dur: 0.010, gain: 0.9, hpFreq: 500, lpFreq: 16000 });
+    tone({ type: 'square', freq: 4200, freqEnd: 2300, dur: 0.018, gain: 0.30, attack: 0.0004, dest: D });
+    // ② 地を踏む（サブの落下＋胴の固定音程）
+    tone({ type: 'sine', freq: 130, freqEnd: 30, dur: 0.5, gain: 0.95, attack: 0.001 });
+    tone({ type: 'square', freq: 98, dur: 0.16, gain: 0.4, attack: 0.001, dest: D });
+    noiseHit({ start: 0.012, dur: 0.10, gain: 0.55, hpFreq: 90, lpFreq: 2600 });
+    // ③ 照射の轟音（デチューンした2本を同じシェイパーへ＝互いに潰し合う本物の歪み）
+    tone({ type: 'sawtooth', freq: 55, dur: 0.92, gain: 0.30, attack: 0.02, release: 1.0, dest: D });
+    tone({ type: 'sawtooth', freq: 82.5, dur: 0.9, gain: 0.22, attack: 0.02, detune: 9, dest: D });
+    noiseHit({ start: 0.05, dur: 0.55, gain: 0.16, hpFreq: 300, lpFreq: 5200 });
+    // ④ 金属の悲鳴（非整数比の高域が残響へ伸びる＝巨大な構造物が撃った感じ）
+    tone({ type: 'sawtooth', freq: 2200, freqEnd: 880, dur: 0.4, gain: 0.10, attack: 0.006, verb: 0.55 });
+    tone({ type: 'sine', freq: 3060, freqEnd: 1400, dur: 0.3, gain: 0.06, attack: 0.008, verb: 0.5 });
+    // 尾（0.3秒未満の低いゴロゴロ）
+    tone({ start: 0.10, type: 'sine', freq: 44, freqEnd: 32, dur: 0.28, gain: 0.30, attack: 0.01 });
+  },
+
+  // レーザー被弾：「バチィッ＋ジリッ」。鈍器の作法（R34W4）＝0.4ms級の立ち上がり・固定音程の胴・
+  // 短い尾。そこへ「焼かれる」ジリジリ（高域ノイズ0.18秒＝0.3秒未満に収める）を足す。
+  beamHit() {
+    const D = sfxDistBus;
+    duckBgm(0.30, 0.08, 0.22);
+    // 直撃の輪郭
+    noiseHit({ dur: 0.010, gain: 0.7, hpFreq: 600, lpFreq: 15000 });
+    tone({ type: 'square', freq: 190, dur: 0.08, gain: 0.45, attack: 0.0004, dest: D });
+    tone({ type: 'square', freq: 266, dur: 0.06, gain: 0.28, attack: 0.0004, detune: -14, dest: D });
+    // 重さ（固定寄りの低音・下げても半分まで）
+    tone({ type: 'sine', freq: 90, freqEnd: 52, dur: 0.16, gain: 0.7, attack: 0.0006 });
+    // 焼かれるジリジリ（バチバチ2発＋短い高域ヒス）
+    tone({ start: 0.015, type: 'square', freq: 1500, freqEnd: 900, dur: 0.03, gain: 0.16, dest: D });
+    tone({ start: 0.05, type: 'square', freq: 1180, freqEnd: 760, dur: 0.03, gain: 0.12, dest: D });
+    noiseHit({ start: 0.012, dur: 0.18, gain: 0.26, hpFreq: 2800, lpFreq: 12000 });
+  },
+
   // ============ R34W2 ナックルウェーブ：トマホーク斉射の3点セット ============
   // 実プレイFB「ナックルウェーブやワイヤーアームも攻撃音や発射音がなにもかわっていない」。
   // 実測したところ**指摘のとおり**で、ナックルウェーブは R29 の knuckle＋missileFly＋shoot を
@@ -1513,6 +1582,15 @@ const SONGS = {
                variant: 'orch',   label: '② オーケストラ' },
   maouSynth: { bpm: 190, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
                variant: 'synth',  label: '③ シンセ（しっそう）' },
+  // ★R36W2 軌道神核（第4形態）の専用曲。実プレイFB「マオウレクスのBGMを基にしてよい。それに
+  //   神々しさのアレンジを加えて」＋「BGMはギターでいこう」（聞き比べの決着）。
+  //   ＝**採用されたギター編成を土台のまま**、神々しさの声部を上へ積む（変えるのではなく足す）。
+  //   神々しさの正体は3つ：①鐘（倍の頻度＋段の頭でカリヨンの連打） ②聖歌隊（第3段からではなく
+  //   **最初から**歌い続ける） ③光背ドローン（和音の4倍音の高いサイン＝頭上で鳴り続ける光）。
+  //   さらに主題を天使の声（1オクターブ上・立ち上がりの遅いサイン）が常にユニゾンでなぞる。
+  //   邪悪は下へ落ち、神々しさは上へ昇る＝同じ作曲でも「別の段」だと耳で分かる。
+  maouTrue:  { bpm: 178, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
+               variant: 'true',   label: '④ きどうしんかく（かみ）' },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
@@ -1690,6 +1768,7 @@ function playBgmStep(step) {
     const lift = [0, 0.10, 0.20, 0.36][sec];
     const beat = inBar % 4;
     const V = song.variant || 'guitar';
+    const GT = V === 'guitar' || V === 'true';  // R36W2 軌道神核はギター編成が土台（採用版に足すだけ）
     const GTR = distBus || bgmGain;             // WaveShaper 非対応環境では素のBGMバスへ落とす
 
     // ===== ① 低音：疾走の土台 =====
@@ -1716,7 +1795,7 @@ function playBgmStep(step) {
     }
 
     // ===== ② 中音：和音の受け持ち（ここが編成の性格をいちばん決める） =====
-    if (V === 'guitar') {
+    if (GT) {
       // パワーコードのバッキング。**本物の歪み**を通すので、同時に鳴る音同士が
       // シェイパーの中で干渉して濁る＝実際のギターアンプと同じ「壁」ができる。
       if (inBar % 2 === 0) {
@@ -1800,7 +1879,9 @@ function playBgmStep(step) {
     }
 
     // ===== ⑤ 荘厳：聖歌隊（第3段から。orch は第2段から厚く） =====
-    if (inBar === 8 && (sec >= 2 || (V === 'orch' && sec >= 1))) {
+    // R36W2 軌道神核は聖歌隊が**最初の小節から**入る（神々しさは「あとから来る」ものではなく
+    //   その姿の常態。段の高まりは音量 lift が引き受ける）。
+    if (inBar === 8 && (sec >= 2 || (V === 'orch' && sec >= 1) || V === 'true')) {
       ch.arp.forEach((n, i) => {
         const f = noteFreq(n);
         tone({ type: 'triangle', freq: f * 2, dur: stepSec * 7,
@@ -1830,7 +1911,7 @@ function playBgmStep(step) {
         const len = stepSec * 2 * hold;          // 1枡＝8分音符＝2ステップ
         const mf = noteFreq(m);
         const g = 0.105 * (1 + lift);
-        if (V === 'guitar') {
+        if (GT) {
           // 歪みギターのリード。デチューン3枚を**同じシェイパーへ**送るので、
           // 足し算ではなく互いに潰し合って本当のひずみになる。
           for (const det of [-12, 0, 12]) {
@@ -1839,6 +1920,14 @@ function playBgmStep(step) {
           }
           tone({ type: 'triangle', freq: mf * 2, dur: len * 0.9, gain: g * 0.40,
                  dest: bgmGain, attack: 0.008, verb: 0.30 });
+          // R36W2 軌道神核：天使の声のユニゾン（1オクターブ上・遅い立ち上がり・深い残響）。
+          // ギターの刃の上に、同じ旋律が光としてかぶさる＝「歌っているのは同じ主題」。
+          if (V === 'true') {
+            tone({ type: 'sine', freq: mf * 2, dur: len * 0.95, gain: g * 0.30,
+                   dest: bgmGain, attack: 0.07, verb: 0.60 });
+            tone({ type: 'triangle', freq: mf * 4, dur: len * 0.7, gain: g * 0.12,
+                   dest: bgmGain, attack: 0.09, verb: 0.55 });
+          }
         } else if (V === 'orch') {
           // ブラス。立ち上がりをわずかに遅らせる（0.03秒）と金管らしい「ブワッ」になる。
           for (const det of [-6, 6]) {
@@ -1863,8 +1952,8 @@ function playBgmStep(step) {
       }
     }
 
-    // ===== ⑦ 光：教会の鐘（段の頭と、転調した頂点の段） =====
-    if (inBar === 0 && (bar % 4 === 0 || sec === 3)) {
+    // ===== ⑦ 光：教会の鐘（段の頭と、転調した頂点の段。軌道神核は2小節ごと＝倍の頻度） =====
+    if (inBar === 0 && (bar % 4 === 0 || sec === 3 || (V === 'true' && bar % 2 === 0))) {
       const bright = sec === 3;
       const bf = noteFreq(bright ? ch.arp[1] : ch.arp[0]) * 2;
       const bg = (bright ? 0.058 : 0.040) * (1 + lift * 0.5);
@@ -1874,6 +1963,29 @@ function playBgmStep(step) {
              dest: bgmGain, attack: 0.006, verb: 0.55 });
       tone({ type: 'sine', freq: bf * 2.67, dur: stepSec * 8, gain: bg * 0.22,
              dest: bgmGain, attack: 0.008, verb: 0.50 });
+    }
+
+    // ===== ⑧ R36W2 軌道神核だけの声部 =====
+    if (V === 'true') {
+      // 光背ドローン：和音の4倍音の高いサインが頭上で鳴り続ける（光は上に置く。
+      // 下へ重ねても子どものノートPCでは鳴らない＝R34W3の教訓の逆用）。
+      if (inBar === 0) {
+        tone({ type: 'sine', freq: noteFreq(ch.arp[0]) * 4, dur: stepSec * 15.5,
+               gain: 0.026 * (1 + lift * 0.5), dest: bgmGain, attack: 0.12, verb: 0.60 });
+        tone({ type: 'sine', freq: noteFreq(ch.arp[2]) * 4, dur: stepSec * 15.5,
+               gain: 0.018, dest: bgmGain, attack: 0.16, verb: 0.60 });
+      }
+      // カリヨン：段の頭で3連の鐘が上から降りてくる（arp[2]→arp[1]→arp[0]の下行＝
+      // 「天から降る」方向。上行にすると出発の音になり、降臨の音にならない）。
+      if (inBar === 0 && bar % 4 === 0) {
+        [2, 1, 0].forEach((ai, k) => {
+          const bf2 = noteFreq(ch.arp[ai]) * 4;
+          tone({ start: k * stepSec * 2, type: 'sine', freq: bf2, dur: stepSec * 9,
+                 gain: 0.030 - k * 0.005, attack: 0.004, dest: bgmGain, verb: 0.60 });
+          tone({ start: k * stepSec * 2, type: 'sine', freq: bf2 * 2.67, dur: stepSec * 5,
+                 gain: 0.012, attack: 0.006, dest: bgmGain, verb: 0.55 });
+        });
+      }
     }
   } else if (song.style === 'ending') {
     // ★凱歌（112BPM）。明るいまま「重く」する＝ブラス風の厚い主旋律＋行進のスネア＋祝祭のベル。
