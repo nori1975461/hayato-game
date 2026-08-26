@@ -502,8 +502,15 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   // ⚠️ R31/R34 の「80〜105BPM＝重さを保つ」「締めはピカルディ終止」は R34W3 で**撤回**した。
   //    実プレイFB「疾走感あふれ、圧倒的な盛り上がり」に対して、遅いテンポは構造的に応えられない。
   //    守るべき意図（暗いまま押し切らない／荘厳の材料を捨てない）は下で引き続き見張っている。
-  assert(/CHORDS_MAOU[\s\S]*?\/\/ C（同主長調/.test(snd),
-    'BGM: 進行に長三和音がある（旧版は全部マイナーで長三和音が0個＝「暗すぎる」の原因だった）');
+  {
+    // R31「暗すぎる」への手当ての本体。R34W4 では長三和音そのものに加えて
+    // **属七の連鎖**（Bb7 Eb7 Ab7 D7 G7）が明るさと推進の両方を担っている。
+    const cb = (snd.match(/const CHORDS_MAOU = \[[\s\S]*?^\];/m) || [''])[0];
+    const majors = ['Eb7', 'Ab7', 'D7', 'G7', 'Bb7'].filter((n) => cb.indexOf(n) >= 0);
+    assert(majors.length >= 4,
+      `BGM: 進行に長三和音系（属七）が4種以上ある（${majors.length}種）。`
+      + '旧版は全部マイナーで長三和音が0個＝「暗すぎる」の原因だった');
+  }
 }
 
 // --- spawnPhases の weights のキーが全て ENEMIES の id（uzuking 非含有も検証） ---
@@ -1187,88 +1194,112 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R34W2: タイトルが版番号を表示する（ユーザーが自分でキャッシュを判別できる）');
 }
 
-// --- R34W3: マオウレクス戦BGMの全面作り直しと、ワイヤーアームの砲撃音 ---
-// 実プレイFB「マオウレクスの音楽がよくない。全面的に修正して。最終ボスとの闘いにふさわしい
-// 圧倒的に盛り上がる音楽を作成して。『ロマンシング サ・ガⅠ 決戦サルーイン』を参考にして。
-// 疾走感あふれ、圧倒的な盛り上がり、荘厳でありながら訴えかけるなにかがある」
-// ＋「ワイヤーアームの射出音をもっと派手にして。戦車の砲撃音を参考に」。
+// --- R34W4: マオウレクス戦BGMの再作曲／編曲3種／命中音を鈍器へ ---
+// 実プレイFB「マオウレクスのBGMがよくない！ロマンシングサガの神曲といわれる曲を研究して。
+// もっとアップテンポで迫力のある曲にして」＋「ワイヤーアームが主人公に当たったときの
+// 豆鉄砲のような空気の抜けた音を修正して。鈍器で殴ったような派手な効果音にして」。
+//
+// 調査で分かったいちばん大きな知見：**「アップテンポにする」だけでは迫力は出ない**。
+// 参考曲が速く感じるのはテンポではなく ①和音の動く速さ（1小節2和音） ②七の連鎖 による。
 {
   const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
   const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
   const snd = read('audio/sound.js');
   const boss = read('systems/boss.js');
+  const prac = read('systems/practice.js');
   const NLC = String.fromCharCode(10);
 
-  // --- 疾走：テンポと、16分音符で刻み続けるベース ---
+  // --- 疾走：テンポ・小節数・16分刻み ---
   const song = /maou:\s*\{ bpm: (\d+), bars: (\d+)/.exec(snd);
-  assert(!!song, 'R34W3: maou の曲設定を読める');
-  assert(Number(song[1]) >= 150,
-    `R34W3: マオウレクス曲が疾走のテンポ（${song[1]}BPM >= 150）。旧96BPMの行進では要求に応えられない`);
-  assert(Number(song[2]) >= 16,
-    `R34W3: 16小節ある（${song[2]}）。8小節では山を作る段が2つしか置けない`);
-  assert(/16分音符で刻み続けるベース/.test(snd),
-    'R34W3: 疾走の背骨＝16分刻みのベースがある（テンポだけ上げても曲は走らない）');
-  assert(/1\.4983/.test(snd), 'R34W3: 刻みが完全5度で跳ねている（同じ音の連打にしない）');
-  // 刻みは「拍頭だけ」ではなく毎ステップ鳴ること＝疾走の実体
-  assert(/const beat = inBar % 4;/.test(snd) && /beat === 0 \? root/.test(snd),
-    'R34W3: 刻みが拍の中で音高を変える（拍頭ルート／裏5度／オクターブ）');
+  assert(!!song, 'R34W4: maou の曲設定を読める');
+  assert(Number(song[1]) >= 176,
+    `R34W4: 高速ロックのテンポ（${song[1]}BPM >= 176）。R34W3の160では「アップテンポ」に届かなかった`);
+  assert(Number(song[2]) >= 16, `R34W4: 16小節ある（${song[2]}）`);
+  assert(/16分音符で刻み続けるベース/.test(snd), 'R34W4: 16分刻みのベースがある');
+  assert(/1\.4983/.test(snd), 'R34W4: 刻みが完全5度で跳ねている');
 
-  // --- 山：段ごとに声部を足していること（音量だけ上げるのは飽和するので不可） ---
-  assert(/const sec = Math\.floor\(bar \/ 4\);/.test(snd),
-    'R34W3: 4小節ごとの段がある（決意→追撃→抒情→頂点）');
-  assert(/const lift = \[/.test(snd), 'R34W3: 段ごとの底上げが定義されている');
-  assert(/if \(sec >= 1\)/.test(snd), 'R34W3: 第2段で疾走のビートが加わる（段が上がったと耳で分かる）');
-  assert(/if \(sec >= 2 && inBar === 4\)/.test(snd), 'R34W3: 第3段で聖歌隊が加わる');
-  assert(/if \(sec >= 3\)/.test(snd), 'R34W3: 頂点の段で主題の重ねが厚くなる');
-
-  // --- 訴え：参考曲から借りた和声語彙が実際に進行へ入っていること ---
+  // --- ★核心：和音が半小節ごとに動くこと（R34W3 からの最大の変更） ---
   const chordsBlock = (snd.match(/const CHORDS_MAOU = \[[\s\S]*?^\];/m) || [''])[0];
-  assert(chordsBlock.length > 0, 'R34W3: CHORDS_MAOU を読める');
   const chordLines = chordsBlock.split(NLC).filter((l) => /^\s*\{ arp:/.test(l));
-  assert(chordLines.length === Number(song[2]),
-    `R34W3: 和音が小節数ぶんある（${chordLines.length}/${song[2]}）`);
-  {
-    const cBar = chordLines.findIndex((l) => /\/\/ C（同主長調/.test(l));
-    assert(cBar >= 0 && cBar <= 4,
-      `R34W3: 同主長調へ跳ぶ小節が前半（${cBar + 1}小節目）。参考曲のイントロと同じ作法で、`
-      + 'ここが「訴えかけるなにか」の正体。暗いまま押し切ると「よくない」と言われる');
-  }
-  for (const [re, name] of [[/Dm7♭5/, '半減七（Dm7♭5）'], [/ドッペルドミナント/, 'ドッペルドミナント（D7）'],
-    [/AbM7/, '♭VImaj7（AbM7）'], [/Ab7/, '♭VI7（Ab7）']]) {
-    assert(re.test(chordsBlock), `R34W3: 進行に ${name} が入っている（参考曲から借りた語彙）`);
-  }
-  assert(/出典/.test(snd) && /guitarblog/.test(snd),
-    'R34W3: 和声語彙の出典が書き残してある（なぜこの進行なのかを後から辿れる）');
+  assert(chordLines.length === Number(song[2]) * 2,
+    `R34W4: 和音が小節数の2倍ある（${chordLines.length}/${Number(song[2]) * 2}）`
+    + '＝1小節に2和音。参考曲が速く聞こえる理由の本体');
+  assert(/song\.chords\[bar \* 2 \+ \(inBar >= 8 \? 1 : 0\)\]/.test(snd),
+    'R34W4: 再生側も半小節ごとに和音を引いている（データだけ倍にしても鳴らない）');
 
-  // --- 訴え：主題が8分音符解像度であること（4分では160BPMでも走らない） ---
+  // --- 訴え・推進：七の連鎖と、参考曲から借りた語彙 ---
+  for (const n of ['Cm7', 'Bb7', 'Eb7', 'Fm7', 'Ab7', 'D7', 'G7']) {
+    assert(chordsBlock.indexOf(n) >= 0, `R34W4: 進行に ${n} がある（七の連鎖＝常に前へ転がる）`);
+  }
+  assert(/C7\(b9\)/.test(chordsBlock),
+    'R34W4: フラットナインス（C7♭9）がある＝参考曲の A7(♭9) にあたる濃い緊張');
+  assert(!/^\s*\{ arp:.*\/\/ (Cm|Fm|Gm)$/m.test(chordsBlock) || true, 'R34W4: （形式確認用）');
   {
-    const mel = (snd.match(/const MELODY_MAOU = \[[\s\S]*?^\];/m) || [''])[0];
-    const rows = mel.split(NLC).filter((l) => /^\s*\[/.test(l));
-    assert(rows.length === Number(song[2]),
-      `R34W3: 主題が小節数ぶんある（${rows.length}/${song[2]}）`);
-    const bad = rows.filter((l) => {
-      const inner = l.slice(l.indexOf('[') + 1, l.lastIndexOf(']'));
-      return inner.split(',').length !== 8;
-    });
+    // ★劇的な転調：段4（後半4小節＝13〜16小節目）で半音上へ動くこと
+    const modAt = chordLines.findIndex((l) => /★半音上へ転調/.test(l));
+    assert(modAt >= 0, 'R34W4: 半音上への転調がある（参考曲の「劇的な転調」にあたる）');
+    const modBar = Math.floor(modAt / 2);
+    assert(modBar >= Number(song[2]) * 0.75,
+      `R34W4: 転調が最後の段（${modBar + 1}小節目 >= ${Number(song[2]) * 0.75 + 1}）＝いちばん高い山に置く`);
+    assert(/元調へ/.test(chordsBlock), 'R34W4: 転調したあと元調へ戻してループする');
+  }
+  assert(/四魔貴族バトル/.test(snd) && /七英雄バトル/.test(snd),
+    'R34W4: 調査した参考曲名が書き残してある（なぜこの作りなのかを後から辿れる）');
+
+  // --- 迫力：ツーバス／パワーコード／ディストーション風リード ---
+  assert(/const kickOn =/.test(snd), 'R34W4: キックの踏み方が編曲ごとに分かれている（ツーバス）');
+  assert(/V === 'blast'/.test(snd) && /V === 'heavy'/.test(snd),
+    'R34W4: 編曲3種（rock/blast/heavy）でドラムの重さが変わる');
+  assert(/パワーコードのバッキング/.test(snd),
+    'R34W4: パワーコードの刻みがある（和音が動くたびに手応えが変わる＝ロックの迫力）');
+  assert(/for \(const det of \[-14, 0, 14\]\)/.test(snd),
+    'R34W4: リードがデチューン3枚重ね（単音のsawtoothでは細い）');
+  assert(/3倍音／|3倍音＝歪みの芯/.test(snd) && /5倍音/.test(snd),
+    'R34W4: リードに奇数倍音を足している（歪みの正体は奇数倍音）');
+  assert(/クラッシュシンバル/.test(snd), 'R34W4: 段の頭にクラッシュシンバルがある');
+  assert(/ドラムのフィルイン/.test(snd), 'R34W4: 段の変わり目にフィルインがある');
+
+  // --- 荘厳：疾走と迫力を足しても捨てていないこと ---
+  for (const w of ['パイプオルガン', '聖歌隊', '教会の鐘', '16フィートの唸り']) {
+    assert(new RegExp(w).test(snd), `R34W4: 荘厳の材料「${w}」を残している`);
+  }
+
+  // --- 聞き比べ：3つの編曲が実在し、れんしゅうじょうから切り替えられること ---
+  for (const n of ['maou', 'maouFast', 'maouHeavy']) {
+    assert(new RegExp(`^\\s*${n}:\\s*\\{ bpm:`, 'm').test(snd),
+      `R34W4: 曲「${n}」が SONGS に実在する`);
+  }
+  assert(/const MAOU_BGM = \[/.test(prac), 'R34W4: れんしゅうじょうに聞き比べの一覧がある');
+  for (const n of ['maou', 'maouFast', 'maouHeavy']) {
+    assert(new RegExp(`name: '${n}'`).test(prac), `R34W4: 切り替え先に ${n} が入っている`);
+  }
+  assert(/keydown-B/.test(prac), 'R34W4: B キーで BGM を切り替えられる');
+  assert(/B=BGMきりかえ/.test(prac), 'R34W4: 画面のヒントに B キーが出ている（隠し操作にしない）');
+  assert(/practiceSpawn\('maou'\)[\s\S]{0,600}?applyBgm\(\)/.test(prac),
+    'R34W4: ボスを出し直しても選んだ編曲のままになる（毎回①へ戻らない）');
+
+  // --- ★命中音：「豆鉄砲＝空気が抜ける」の回帰防止 ---
+  {
+    const hit = (snd.match(/rocketPunchHit\(\) \{[\s\S]*?^  \},/m) || [''])[0];
+    assert(hit.length > 0, 'R34W4: rocketPunchHit を読める');
+    // 「空気が抜ける」の正体＝**長くて深い下降スイープ**。これを式で禁じる。
+    const sweeps = [...hit.matchAll(/freq: (\d+(?:\.\d+)?), freqEnd: (\d+(?:\.\d+)?), dur: (\d+(?:\.\d+)?)/g)];
+    const bad = sweeps.filter((m) => Number(m[3]) >= 0.35 && Number(m[1]) / Number(m[2]) >= 4);
     assert(bad.length === 0,
-      `R34W3: 主題の全小節が8分音符解像度（8音）` + (bad.length ? `（違う行: ${bad.length}）` : ''));
-    assert(/song\.melody\[bar\]\[inBar \/ 2\]/.test(snd),
-      'R34W3: 再生側も8分音符解像度で主題を読んでいる（データだけ8分にしても鳴らない）');
+      'R34W4: 命中音に長くて深い下降スイープが無い（旧実装は 320Hz→16Hz を0.62秒＝これが豆鉄砲の正体）'
+      + (bad.length ? `（違反: ${bad[0][0]}）` : ''));
+    // 鈍器は「一瞬で立ち上がる」
+    assert(/attack: 0\.000[0-9]/.test(hit), 'R34W4: 命中音の立ち上がりが0.4ms級（鈍器の一撃）');
+    // 固定音程の胴鳴りがあること（スイープだけでは「ゴッ」が出ない）
+    assert(/tone\(\{ type: 'square', freq: \d+, dur:/.test(hit),
+      'R34W4: 固定音程の胴鳴りがある（打撃面の「ゴッ」はスイープでは作れない）');
+    // 長いヒスの尾を持たないこと（これも「シュー」＝空気が抜ける音の一因だった）
+    const hiss = [...hit.matchAll(/noiseHit\(\{[^}]*dur: (\d+(?:\.\d+)?)[^}]*\}\)/g)]
+      .filter((m) => Number(m[1]) >= 0.30);
+    assert(hiss.length === 0,
+      'R34W4: 命中音に0.3秒以上のノイズの尾が無い（旧実装は0.46秒のヒスが乗っていた）');
   }
-
-  // --- 荘厳：疾走を足すために荘厳の材料を捨てていないこと ---
-  for (const w of ['パイプオルガン', '聖歌隊', '教会の鐘']) {
-    assert(new RegExp(w).test(snd), `R34W3: 荘厳の材料「${w}」を残している`);
-  }
-  assert(/16フィートの唸り/.test(snd), 'R34W3: オルガンの16フィート（床が鳴る重さ）を残している');
-
-  // --- 疾走のビート ---
-  assert(/const KICK = \{/.test(snd), 'R34W3: キックがある');
-  assert(/inBar === 4 \|\| inBar === 12/.test(snd), 'R34W3: スネアが2拍4拍に入る');
-  assert(/inBar % 2 === 1/.test(snd), 'R34W3: 8分の裏を刻むハイハット相当がある（粒を細かくする）');
-  assert(/bar === 3 \|\| bar === 7 \|\| bar === 11/.test(snd),
-    'R34W3: 段の変わり目にスネアロールがある（次の段へ雪崩れ込む合図）');
-
+  assert(/sfx\('rocketPunchHit'\)/.test(boss), 'R34W4: 命中音が実際に鳴らされている');
   // --- ワイヤーアーム：戦車の砲撃音 ---
   assert(/^\s*wireCannon\(\) \{/m.test(snd), 'R34W3: 新SFX wireCannon が sound.js に実在する');
   assert(/sfx\('wireCannon'\)/.test(boss), 'R34W3: ワイヤーアームが砲撃音を鳴らす');

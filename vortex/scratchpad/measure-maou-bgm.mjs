@@ -95,7 +95,7 @@ async function measure(modPath, label) {
   const S = mod.Sound;
   S.init();
   log.step = 0;                 // startBgm は step0 をその場で鳴らす
-  S.startBgm('maou');
+  S.startBgm(process.env.MEASURE_SONG || 'maou');
 
   // 8小節ぶん（16step×8）を回す。ctx.currentTime も一緒に進める
   const ctxRef = log; // ctx は閉じているので、時刻はスケジューラのms合計で追う
@@ -138,12 +138,17 @@ function summarize(r, bpm) {
   };
 }
 
-const OLD_REF = process.argv[2] || '80e6b6c';   // R34 直前のコミット
+const OLD_REF = process.argv[2] || '80e6b6c';   // 既定は R34 直前のコミット
 const tmpOld = path.join(HERE, '_sound_pre_r34.mjs');
 const tmpNew = path.join(HERE, '_sound_head.mjs');
-fs.writeFileSync(tmpOld, execFileSync('git', ['show', `${OLD_REF}:vortex/src/audio/sound.js`],
-  { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }));
-fs.copyFileSync(SRC, tmpNew);
+// ⚠️ 子プロセス（MEASURE_ONE）もこのトップレベルを実行するので、比較対象の取り出しは
+//    親のときだけにする。子で走らせると argv[2] が渡らず**既定のコミットで上書きしてしまい**、
+//    引数で指定した比較対象が黙って無視される（実際にそうなっていた）。
+if (!process.env.MEASURE_ONE) {
+  fs.writeFileSync(tmpOld, execFileSync('git', ['show', `${OLD_REF}:vortex/src/audio/sound.js`],
+    { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }));
+  fs.copyFileSync(SRC, tmpNew);
+}
 
 const NL = String.fromCharCode(10);
 const out = [];
@@ -158,7 +163,7 @@ if (process.env.MEASURE_ONE) {
   console.log(JSON.stringify({ sum: summarize(r), steps: r.steps,
     fingerprint: tones.slice(0, 400).map((t) => t.f + '/' + t.type).join(' ') }));
 } else {
-  for (const [label, p] of [['変更前(pre-R34)', tmpOld], ['変更後(HEAD)', tmpNew]]) {
+  for (const [label, p] of [[`変更前(${OLD_REF})`, tmpOld], ['変更後(HEAD)', tmpNew]]) {
     const json = execFileSync(process.execPath, [fileURLToPath(import.meta.url)], {
       cwd: ROOT, env: { ...process.env, MEASURE_ONE: p }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     });

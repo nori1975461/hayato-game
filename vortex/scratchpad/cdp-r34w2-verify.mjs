@@ -125,6 +125,28 @@ async function main() {
   })()`);
   say('② タイトルの版表示: ' + JSON.stringify(shown));
 
+  // ---------- ⑤ れんしゅうじょうの BGM 聞き比べ（R34W4）----------
+  // ⚠️ autotest では withAudio が false で startBgm が呼ばれないので、素のまま起動して確かめる。
+  const bgmLog = await evalJs(`(async function(){
+    var mod = await import('/vortex/src/audio/sound.js');
+    var S = mod.Sound;
+    window.__B = [];
+    var ob = S.startBgm.bind(S);
+    S.startBgm = function(n){ window.__B.push(n || 'battle'); return ob(n); };
+    var key = function(code, kc){
+      window.dispatchEvent(new KeyboardEvent('keydown',
+        { key: code, code: code, keyCode: kc, which: kc, bubbles: true }));
+    };
+    // ⚠️ ここは既にタイトル画面。Space を押すと本編が始まってしまい T が効かない（実際に踏んだ）。
+    key('KeyT', 84);  await new Promise(function(r){ setTimeout(r, 1200); });
+    key('Digit4', 52); await new Promise(function(r){ setTimeout(r, 900); });
+    key('KeyB', 66);  await new Promise(function(r){ setTimeout(r, 400); });
+    key('KeyB', 66);  await new Promise(function(r){ setTimeout(r, 400); });
+    key('KeyB', 66);  await new Promise(function(r){ setTimeout(r, 400); });
+    return window.__B;
+  })()`);
+  say('⑤ れんしゅうじょうで鳴らしたBGMの並び: ' + JSON.stringify(bgmLog));
+
   // ---------- ③④ 戦闘の実測 ----------
   await send('Page.navigate', { url: BASE + '?autotest=1&seed=42' });
   await sleep(2500);
