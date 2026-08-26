@@ -27,6 +27,9 @@ const NOTE = {
   C6: 15, D6: 17, E6: 19, F6: 20, G6: 22, A6: 24,
   C3: -21, D3: -19, E3: -17, F3: -16, G3: -14, Gs3: -13, A3: -12, B3: -10,
   C2: -33, D2: -31, E2: -29, F2: -28, G2: -26, A2: -24, B2: -22,
+  // R34W3: マオウレクス戦を Cマイナー へ移したので派生音を足す（Eb=Ds / Bb=As / F#=Fs）
+  Gs2: -25, As2: -23, Ds3: -18, Fs3: -15, As3: -11,
+  Ds4: -6, Fs4: -3, As4: 1, Ds5: 6, Fs5: 9, As5: 13, Ds6: 18,
 };
 
 // --- ノイズバッファ（打楽器用・キャッシュ） ---
@@ -922,18 +925,50 @@ const SFX = {
   // 誘導も可能。⚠️ 実際の効果音の音色そのものは資料で確認できなかったので、上の「分離・ロケット点火・
   // 超音速」という**機構**から音を組み立てている（音色の再現ではない＝ここは推測を含む）。
   // 旧実装は wireShot（金属スイープ）＋missileLaunch の重ねで、①分離の機械音と③超音速が無かった。
-  rocketPunchFire() {
+  // R34W3: 戦車砲(wireCannon)と重ねるので音量引数を足した（既定1＝従来どおり）。
+  rocketPunchFire(power) {
+    const g = power == null ? 1 : power;
     // ① 肘の結合が外れて鉄拳が撃ち出される「ガシャンッ」
-    tone({ type: 'square', freq: 1500, freqEnd: 300, dur: 0.07, gain: 0.15, attack: 0.001 });
-    noiseHit({ dur: 0.05, gain: 0.17, hpFreq: 400, lpFreq: 9000 });
+    tone({ type: 'square', freq: 1500, freqEnd: 300, dur: 0.07, gain: 0.15 * g, attack: 0.001 });
+    noiseHit({ dur: 0.05, gain: 0.17 * g, hpFreq: 400, lpFreq: 9000 });
     // ② 光子力ロケットの点火＝腹に来る破裂
-    tone({ type: 'sine', freq: 220, freqEnd: 40, dur: 0.16, gain: 0.30, attack: 0.001 });
-    noiseHit({ start: 0.03, dur: 0.28, gain: 0.14, hpFreq: 300, lpFreq: 5000 });
+    tone({ type: 'sine', freq: 220, freqEnd: 40, dur: 0.16, gain: 0.30 * g, attack: 0.001 });
+    noiseHit({ start: 0.03, dur: 0.28, gain: 0.14 * g, hpFreq: 300, lpFreq: 5000 });
     // ③ マッハ2へ駆け上がる金属スイープ「ギュイィィン！」
-    tone({ type: 'sawtooth', freq: 300, freqEnd: 3000, dur: 0.34, gain: 0.19, attack: 0.004 });
-    tone({ type: 'square', freq: 600, freqEnd: 4200, dur: 0.30, gain: 0.10, detune: 14 });
-    tone({ type: 'triangle', freq: 1200, freqEnd: 5400, dur: 0.26, gain: 0.08 });
-    noiseHit({ start: 0.04, dur: 0.30, gain: 0.10, hpFreq: 2200, lpFreq: 12000 });
+    tone({ type: 'sawtooth', freq: 300, freqEnd: 3000, dur: 0.34, gain: 0.19 * g, attack: 0.004 });
+    tone({ type: 'square', freq: 600, freqEnd: 4200, dur: 0.30, gain: 0.10 * g, detune: 14 });
+    tone({ type: 'triangle', freq: 1200, freqEnd: 5400, dur: 0.26, gain: 0.08 * g });
+    noiseHit({ start: 0.04, dur: 0.30, gain: 0.10 * g, hpFreq: 2200, lpFreq: 12000 });
+  },
+
+  // ============ R34W3 ワイヤーアーム射出：戦車の主砲を参考にした砲撃音 ============
+  // 実プレイFB「ワイヤーアームの射出音をもっと派手にして。戦車の砲撃音を参考に」。
+  // 参考にした実物の音響特徴（大口径砲の砲口爆風に関する測定研究より）:
+  //   ① 砲口爆風は装薬室と大気の**圧力差**で生じる衝撃波＝立ち上がりが極端に速い（ミリ秒級）
+  //   ② 推進ガスが**超音速**で砲身を抜けるため、高強度のインパルス音になる
+  //   ③ 戦車砲(HEAT弾)の初速はマッハ3.5。弾体そのものが**N波**（鋭いクラック）を引く
+  //   ④ 銃声・砲声は「一発の破裂」ではなく、そのあと周囲に**轟いて減衰する長い尾**を持つ
+  // ⚠️ 録音そのものの音色資料は確認できていないので、上の①〜④という**機構**から組み立てている。
+  // 旧実装（rocketPunchFire）は「ガシャン→点火→スイープ」でロケットの語彙だけだった。
+  // 足りなかったのは **極端に速い立ち上がり** と **長い反響**＝これが「砲撃」の正体。
+  wireCannon() {
+    // ① 撃発：圧力が一瞬で立ち上がって落ちる（attack を 0.5ms まで詰めるのが要点）
+    tone({ type: 'sine', freq: 430, freqEnd: 24, dur: 0.30, gain: 0.46, attack: 0.0005 });
+    tone({ type: 'triangle', freq: 215, freqEnd: 19, dur: 0.44, gain: 0.26, attack: 0.0005 });
+    // ② 砲口爆風：超音速のガス流。極端に短く、極端に広帯域
+    noiseHit({ dur: 0.030, gain: 0.40, hpFreq: 40, lpFreq: 16000 });
+    noiseHit({ start: 0.004, dur: 0.10, gain: 0.26, hpFreq: 60, lpFreq: 5000 });
+    // ③ N波：マッハ3.5 で飛ぶ弾体が空気を裂く鋭いクラック
+    noiseHit({ start: 0.016, dur: 0.022, gain: 0.24, hpFreq: 3500, lpFreq: 18000 });
+    tone({ start: 0.016, type: 'square', freq: 3300, freqEnd: 700, dur: 0.05,
+           gain: 0.10, attack: 0.0005 });
+    // ④ 反響：周囲に轟いて減衰していく長い尾。これが無いと「大砲」ではなく「破裂」に聞こえる
+    noiseHit({ start: 0.05, dur: 0.88, gain: 0.13, hpFreq: 70, lpFreq: 1500 });
+    tone({ start: 0.05, type: 'sine', freq: 62, freqEnd: 26, dur: 0.92, gain: 0.16, attack: 0.02 });
+    // ⑤ 後座：砲身が下がって戻る重い金属（発射の"重さ"はここで出る）
+    tone({ start: 0.06, type: 'sawtooth', freq: 190, freqEnd: 92, dur: 0.22,
+           gain: 0.09, attack: 0.006 });
+    noiseHit({ start: 0.21, dur: 0.15, gain: 0.09, hpFreq: 700, lpFreq: 5200 });
   },
   // 飛来音：マッハ2＝大気を裂く裂帛＋超音速のクラックル。近づくほど pitch を上げて呼ぶ。
   rocketPunchFly(power, pitch) {
@@ -1251,26 +1286,74 @@ const MELODY_BOSS = [
 //         **ファンファーレ（付点の三連ブラス）と行進のティンパニ／スネア**だけを足す。
 //         勇ましさ＝前へ進む推進力なので、和音を明るくするのではなくリズムで作るのが定石。
 //   テンポも 84→96BPM（ゆっくりした行進の速さ。battle 150 / boss 172 とはなお別世界）。
+// --- 曲: 最終ボス maou（★R34W3 で全面作り直し・Cマイナー・160BPM・16小節）---
+// 実プレイFB「マオウレクスの音楽がよくない。全面的に修正して。最終ボスとの闘いにふさわしい
+//   圧倒的に盛り上がる音楽を作成して。RPGゲームの『ロマンシング サ・ガ Ⅰ 決戦サルーイン』の
+//   楽曲を参考にして。疾走感あふれ、圧倒的な盛り上がり、荘厳でありながら訴えかけるなにかがある」。
+//
+// 旧曲（96BPM・8小節の行進）では要求を構造的に満たせなかった:
+//   ・疾走感 … 前へ進む刻みが1つも無い（ティンパニは「合図」で、音符は4分音符解像度）
+//   ・盛り上がり … 8小節では山を作る場所が無い。段が2つしか置けない
+// そこで4本柱で作り直した:
+//   ① 疾走 … 160BPM＋**16分音符で刻み続けるベース**。テンポだけ上げても曲は走らない
+//   ② 山   … 8→**16小節**。4小節ずつ4つの段（決意→追撃→抒情→頂点）にし、段ごとに声部を足す
+//   ③ 訴え … 参考曲の**和声語彙**を借りる（下記）
+//   ④ 荘厳 … オルガン・聖歌隊・鐘は**残す**。疾走を足すために荘厳を捨てない
+//
+// ★参考曲から借りた和声語彙（出典: guitarblog.net のコード採譜。原調Cマイナー／記事は Bm へ移調）
+//   ・イントロは主和音の短三和音を4小節保持したあと、**同主長調へ跳ぶ**（Bm×5→B ＝ Cm×4→C）
+//     ……「訴えかけるなにか」の正体はこれ。暗いまま押し切らず、同じ主音のまま光が差す
+//   ・B7→Em（＝C7→Fm）… 下属調へのセカンダリドミナント
+//   ・C#7→F#7（＝D7→G7）… ドッペルドミナント→ドミナントの強い推進
+//   ・GM7（＝AbM7）… ♭VImaj7 の抒情。Aメロ/Bメロの広がりはここから
+//   ・G7（＝Ab7）… ♭VI7。非和声的な押し上げ
+//   ・C#m7(♭5)（＝Dm7♭5）… 半減七。締めの直前に置くと「訴え」が最も濃くなる
+//   ⚠️ 借りたのは**和声の語彙と配置の作法**であって、旋律ではない。主題はこの曲のために書いている。
 const CHORDS_MAOU = [
-  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
-  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },  // C（光①・2.5秒）
-  { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
-  { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4], pad: [NOTE.G2, NOTE.D3, NOTE.G3], bass: NOTE.G2 },  // G
-  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 },  // Am
-  { arp: [NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.F3], bass: NOTE.F2 },  // F
-  { arp: [NOTE.E3, NOTE.Gs3, NOTE.B3, NOTE.E4], pad: [NOTE.E2, NOTE.B2, NOTE.E3], bass: NOTE.E2 }, // E（荘厳な属和音）
-  { arp: [NOTE.A3, NOTE.Cs4, NOTE.E4, NOTE.A4], pad: [NOTE.A2, NOTE.E3, NOTE.A3], bass: NOTE.A2 }, // A（ピカルディ終止＝光②）
+  // 第1段（決意）：短三和音を保持 → 4小節目で同主長調へ跳ぶ
+  { arp: [NOTE.C4, NOTE.Ds4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },   // Cm
+  { arp: [NOTE.C4, NOTE.Ds4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },   // Cm
+  { arp: [NOTE.C4, NOTE.Ds4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.C4], bass: NOTE.C3 },   // Cm
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], pad: [NOTE.C3, NOTE.G3, NOTE.E4], bass: NOTE.C3 },    // C（同主長調＝光①・4.5秒）
+  // 第2段（追撃）：C7→Fm → D7→G7
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.As4], pad: [NOTE.C3, NOTE.G3, NOTE.As3], bass: NOTE.C3 },  // C7
+  { arp: [NOTE.F3, NOTE.Gs3, NOTE.C4, NOTE.F4], pad: [NOTE.F2, NOTE.C3, NOTE.Gs3], bass: NOTE.F2 },  // Fm
+  { arp: [NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.C5], pad: [NOTE.D3, NOTE.A3, NOTE.Fs4], bass: NOTE.D3 },  // D7（ドッペルドミナント）
+  { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.F4], pad: [NOTE.G2, NOTE.D3, NOTE.B3], bass: NOTE.G2 },    // G7
+  // 第3段（抒情）：♭VImaj7 の広がり → 主和音の七
+  { arp: [NOTE.Gs3, NOTE.C4, NOTE.Ds4, NOTE.G4], pad: [NOTE.Gs2, NOTE.Ds3, NOTE.C4], bass: NOTE.Gs2 },// AbM7
+  { arp: [NOTE.Gs3, NOTE.C4, NOTE.Ds4, NOTE.G4], pad: [NOTE.Gs2, NOTE.Ds3, NOTE.C4], bass: NOTE.Gs2 },// AbM7
+  { arp: [NOTE.C4, NOTE.Ds4, NOTE.G4, NOTE.As4], pad: [NOTE.C3, NOTE.G3, NOTE.Ds4], bass: NOTE.C3 }, // Cm7
+  { arp: [NOTE.C4, NOTE.Ds4, NOTE.G4, NOTE.As4], pad: [NOTE.C3, NOTE.G3, NOTE.Ds4], bass: NOTE.C3 }, // Cm7
+  // 第4段（頂点）：♭VI7 で押し上げ → 半減七の訴え → 属和音で振り出しへ
+  { arp: [NOTE.Gs3, NOTE.C4, NOTE.Ds4, NOTE.Fs4], pad: [NOTE.Gs2, NOTE.Ds3, NOTE.C4], bass: NOTE.Gs2 },// Ab7
+  { arp: [NOTE.Gs3, NOTE.C4, NOTE.Ds4, NOTE.Fs4], pad: [NOTE.Gs2, NOTE.Ds3, NOTE.C4], bass: NOTE.Gs2 },// Ab7
+  { arp: [NOTE.D4, NOTE.F4, NOTE.Gs4, NOTE.C5], pad: [NOTE.D3, NOTE.Gs3, NOTE.F4], bass: NOTE.D3 },  // Dm7♭5（半減七＝訴え）
+  { arp: [NOTE.G3, NOTE.B3, NOTE.D4, NOTE.F4], pad: [NOTE.G2, NOTE.D3, NOTE.B3], bass: NOTE.G2 },    // G7（振り出しへ）
 ];
-// 4分音符解像度（1小節=4音）の重い主題。前半は低く抑え、C と A の小節で高く開く（＝光の差す位置を作る）。
+// 主題は**8分音符解像度**（1小節8音）。4分音符では160BPMでも走らないため。-1 は休み/伸ばし。
+// 段が上がるほど音域も上げる（第1段は G4〜G5、第4段は Eb5〜C6）＝旋律そのものが山を作る。
 const MELODY_MAOU = [
-  [NOTE.A4, -1, NOTE.C5, -1],
-  [NOTE.E5, -1, NOTE.G5, -1],    // C の小節：ここで初めて高く上がる（R34 で2小節目へ前倒し）
-  [NOTE.C5, -1, NOTE.A4, -1],
-  [NOTE.D5, -1, NOTE.B4, -1],
-  [NOTE.A4, -1, NOTE.C5, -1],
-  [NOTE.F5, -1, NOTE.E5, -1],
-  [NOTE.Gs4, -1, NOTE.B4, -1],   // E の小節：G# でじりじり締め上げる（荘厳の芯は残す）
-  [NOTE.Cs5, -1, NOTE.A5, -1],   // A の小節：C# で長調へ開いて締める
+  // 第1段（決意）
+  [NOTE.G4, -1, NOTE.C5, -1, NOTE.Ds5, NOTE.D5, NOTE.C5, -1],
+  [NOTE.G4, -1, NOTE.C5, -1, NOTE.F5, NOTE.Ds5, NOTE.D5, -1],
+  [NOTE.Ds5, NOTE.D5, NOTE.C5, NOTE.As4, NOTE.C5, -1, NOTE.G4, -1],
+  [NOTE.E5, -1, NOTE.G5, -1, NOTE.E5, NOTE.C5, NOTE.G4, -1],      // 同主長調の小節：E♮ で光が差す
+  // 第2段（追撃）
+  [NOTE.As4, NOTE.C5, NOTE.Ds5, NOTE.C5, NOTE.As4, -1, NOTE.G4, -1],
+  [NOTE.Gs4, NOTE.C5, NOTE.F5, NOTE.Ds5, NOTE.C5, -1, NOTE.Gs4, -1],
+  [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.Fs5, NOTE.D5, -1, NOTE.C5, -1], // F# で締め上げる
+  [NOTE.B4, NOTE.D5, NOTE.G5, NOTE.F5, NOTE.D5, NOTE.B4, NOTE.G4, -1],
+  // 第3段（抒情）
+  [NOTE.C5, -1, NOTE.Ds5, -1, NOTE.G5, -1, NOTE.Gs5, -1],
+  [NOTE.G5, -1, NOTE.Ds5, -1, NOTE.C5, -1, NOTE.G4, -1],
+  [NOTE.As4, -1, NOTE.C5, -1, NOTE.Ds5, NOTE.D5, NOTE.C5, -1],
+  [NOTE.G4, -1, NOTE.As4, -1, NOTE.C5, -1, -1, -1],
+  // 第4段（頂点）
+  [NOTE.Gs5, -1, NOTE.G5, -1, NOTE.Ds5, NOTE.F5, NOTE.G5, -1],
+  [NOTE.Gs5, -1, NOTE.As5, -1, NOTE.C6, -1, NOTE.As5, -1],          // 最高音 C6
+  [NOTE.Gs5, -1, NOTE.F5, -1, NOTE.D5, -1, NOTE.F5, -1],            // 半減七の上で訴える
+  [NOTE.G5, NOTE.F5, NOTE.Ds5, NOTE.D5, NOTE.C5, NOTE.D5, NOTE.G4, -1],
 ];
 
 // --- 曲3: リザルト result（Cメジャー・96BPM・4小節・C-G-Am-F・やさしいバラード）---
@@ -1316,7 +1399,7 @@ const MELODY_END = [
 const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
   boss:   { bpm: 172, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
-  maou:   { bpm: 96,  bars: 8, chords: CHORDS_MAOU,   melody: MELODY_MAOU,   style: 'maou'   },
+  maou:   { bpm: 160, bars: 16, chords: CHORDS_MAOU,  melody: MELODY_MAOU,   style: 'maou'   },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
@@ -1483,109 +1566,142 @@ function playBgmStep(step) {
              gain: 0.045, dest: bgmGain, attack: 0.003 });
     }
   } else if (song.style === 'maou') {
-    // ★荘厳（76BPM）。ポップなボス戦曲との対比が全て。ビートを置かず、和音の厚みと余韻で押す。
-    // パイプオルガン：小節頭で pad の3声を全音符で伸ばす（sawtooth＋square の重ねでリード管の質感）。
+    // ★R34W3 全面作り直し（設計の根拠は CHORDS_MAOU の上の解説）。
+    // 段（4小節ごと）で声部を足していくのが「圧倒的な盛り上がり」の作り方。
+    // 段を上げるたびに音量を上げるのではなく、**鳴っている声部の数を増やす**（音量だけだと飽和する）。
+    const sec = Math.floor(bar / 4);            // 0=決意 1=追撃 2=抒情 3=頂点
+    const lift = [0, 0.12, 0.20, 0.38][sec];    // 段ごとの底上げ（控えめ。主役は声部数）
+    const beat = inBar % 4;
+
+    // ===== ① 疾走：16分音符で刻み続けるベース =====
+    // これがこの曲の背骨。テンポを上げただけでは走らない（旧曲96BPMの失敗）。
+    // 拍頭はルート、2つ目は5度、3つ目はオクターブ、4つ目は5度＝上下に跳ねて前へ転がる。
+    {
+      const root = noteFreq(chord.bass) / 2;
+      const f = beat === 0 ? root : beat === 2 ? root * 2 : root * 1.4983;   // 1.4983 = 完全5度
+      const g = (beat === 0 ? 0.088 : 0.046) * (1 + lift);
+      tone({ type: 'sawtooth', freq: f, dur: stepSec * 0.94, gain: g,
+             dest: bgmGain, attack: 0.002 });
+      // ⚠️ 重ねはオクターブ**上**。下(C1=32Hz)へ重ねても子どものノートPCのスピーカーでは
+      //    何も鳴らず、疾走の刻みが聞こえないまま終わる。上へ重ねると小さいスピーカーでも輪郭が出る。
+      tone({ type: 'square', freq: f * 2, dur: stepSec * 0.88, gain: g * 0.34,
+             dest: bgmGain, attack: 0.002 });
+    }
+
+    // ===== ② 疾走のビート（第2段から入る＝段が上がったことが耳で分かる） =====
+    if (sec >= 1) {
+      const KICK = { 0: 1, 6: 0.62, 8: 0.86, 11: 0.55 };
+      if (KICK[inBar]) {
+        const g = 0.17 * KICK[inBar] * (1 + lift);
+        tone({ type: 'sine', freq: 128, freqEnd: 46, dur: 0.13, gain: g,
+               dest: bgmGain, attack: 0.002 });
+        noiseHit({ dur: 0.035, gain: g * 0.30, hpFreq: 60, lpFreq: 1200, dest: bgmGain });
+      }
+      if (inBar === 4 || inBar === 12) {
+        noiseHit({ dur: 0.085, gain: 0.075 * (1 + lift), hpFreq: 900, lpFreq: 9000, dest: bgmGain });
+        tone({ type: 'triangle', freq: 220, freqEnd: 150, dur: 0.07,
+               gain: 0.05, dest: bgmGain, attack: 0.001 });
+      }
+      // 8分の裏でハイハット相当を刻む＝疾走感の粒を細かくする
+      if (inBar % 2 === 1) {
+        noiseHit({ dur: 0.022, gain: 0.020 + lift * 0.02, hpFreq: 6000, lpFreq: 15000, dest: bgmGain });
+      }
+    }
+
+    // ===== ③ 荘厳：パイプオルガン（全段で鳴らす。疾走のために荘厳を捨てない） =====
     if (inBar === 0) {
       chord.pad.forEach((n, i) => {
         const f = noteFreq(n);
         tone({ type: 'sawtooth', freq: f, dur: stepSec * 15.2,
-               gain: 0.075 - i * 0.012, dest: bgmGain, attack: 0.09 });
+               gain: (0.072 - i * 0.011) * (1 + lift * 0.6), dest: bgmGain, attack: 0.07 });
         tone({ type: 'square', freq: f * 2, dur: stepSec * 15.0,
-               gain: 0.028, dest: bgmGain, attack: 0.12 });
+               gain: 0.026, dest: bgmGain, attack: 0.10 });
       });
       // 16フィートの唸り（ルートの1オクターブ下）＝床が鳴る重さ
       tone({ type: 'sine', freq: noteFreq(chord.bass) / 2, dur: stepSec * 15.4,
-             gain: 0.15, dest: bgmGain, attack: 0.06 });
+             gain: 0.13, dest: bgmGain, attack: 0.05 });
     }
-    // 斉唱パッド：2拍目から遅れて入る高音の持続（人の声のように後から重なる）
-    // R31: さらに1オクターブ上の少年聖歌隊ぶんを薄く重ねる（暗さを消す高域の担い手）。
-    if (inBar === 4) {
+
+    // ===== ④ 荘厳：聖歌隊（第3段から。抒情の段で人の声が加わる） =====
+    if (sec >= 2 && inBar === 4) {
       chord.arp.forEach((n, i) => {
         const f = noteFreq(n);
-        tone({ type: 'triangle', freq: f * 2, dur: stepSec * 10,
-               gain: 0.032 - i * 0.005, dest: bgmGain, attack: 0.22 });
+        tone({ type: 'triangle', freq: f * 2, dur: stepSec * 11,
+               gain: (0.034 - i * 0.005) * (1 + lift), dest: bgmGain, attack: 0.20 });
         if (i < 3) {
-          tone({ type: 'sine', freq: f * 4, dur: stepSec * 8,
-                 gain: 0.020 - i * 0.004, dest: bgmGain, attack: 0.26 });
+          tone({ type: 'sine', freq: f * 4, dur: stepSec * 9,
+                 gain: 0.021 - i * 0.004, dest: bgmGain, attack: 0.24 });
         }
       });
     }
-    // ★勇ましさ①：行進のティンパニ（R34）。旧実装は小節頭と3拍目の2発だけ＝「合図」で、
-    //   鳴ってはいるが**前へ進まない**（葬列に聞こえる原因のひとつ）。付点の行進形
-    //   「ドーン・ドッ・ドン・ドッ・ドッ」にして推進力を出す。四つ打ちにはしない
-    //   （等間隔にした瞬間ポップへ戻り、荘厳さが消える）。
-    const TIMPANI_MARCH = { 0: 0.20, 6: 0.075, 8: 0.13, 12: 0.075, 14: 0.09 };
-    if (TIMPANI_MARCH[inBar]) {
-      const g = TIMPANI_MARCH[inBar];
-      const long = inBar === 0 || inBar === 8;
-      tone({ type: 'sine', freq: 120, freqEnd: 52, dur: long ? 0.34 : 0.16, gain: g,
-             dest: bgmGain, attack: 0.004 });
-      tone({ type: 'triangle', freq: 61, freqEnd: 34, dur: long ? 0.30 : 0.14, gain: g * 0.5,
-             dest: bgmGain, attack: 0.004 });
-      noiseHit({ dur: long ? 0.10 : 0.05, gain: g * 0.28, hpFreq: 90, lpFreq: 1600, dest: bgmGain });
+
+    // ===== ⑤ 訴え：主題（8分音符解像度） =====
+    // sawtooth のブラス＋オクターブ上下。段が上がるほど重ねを厚くする＝旋律そのものが山になる。
+    if (inBar % 2 === 0) {
+      const m = song.melody[bar][inBar / 2];
+      if (m !== undefined && m !== -1) {
+        const mf = noteFreq(m);
+        const g = 0.096 * (1 + lift);
+        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 1.9,
+               gain: g, dest: bgmGain, attack: 0.012 });
+        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 1.8,
+               gain: g * 0.44, dest: bgmGain, attack: 0.012, detune: 9 });
+        tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 1.7,
+               gain: g * 0.50, dest: bgmGain, attack: 0.016 });
+        tone({ type: 'triangle', freq: mf * 2, dur: stepSec * 1.6,
+               gain: g * 0.52, dest: bgmGain, attack: 0.010 });
+        if (sec >= 3) {
+          // 頂点の段だけ4オクターブ目を足す（＝いちばん高い山でいちばん広くする）
+          tone({ type: 'square', freq: mf * 4, dur: stepSec * 1.2,
+                 gain: 0.020, dest: bgmGain, attack: 0.014 });
+        }
+      }
     }
-    // ★勇ましさ②：ファンファーレ（R34）。区切りの小節で「タッ・タッ・ターン！」と立ち上がる。
-    //   軍隊ラッパと同じく和音の構成音（主音→5度→オクターブ）だけを使い、音価は短く切る
-    //   （伸ばすとオルガンの持続音と濁って、荘厳さのほうが壊れる）。
-    //   置き場所は 1小節目＝曲の名乗り／5小節目＝後半の名乗り／8小節目＝ピカルディ終止への凱歌。
-    const FANFARE_AT = { 0: [0, 3, 6], 4: [0, 3, 6], 7: [8, 11, 14] };
+
+    // ===== ⑥ 光：教会の鐘 =====
+    // 同主長調の小節（4小節目）と頂点の段だけ、鐘の基音を和音の第3音まで上げて光の位置を示す。
+    if (inBar === 0) {
+      const bright = bar === 3 || sec === 3;
+      const bf = noteFreq(bright ? chord.arp[1] : chord.arp[0]) * 2;
+      const bg = (bright ? 0.070 : 0.048) * (1 + lift * 0.5);
+      tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: bg,
+             dest: bgmGain, attack: 0.004 });
+      tone({ type: 'sine', freq: bf * 1.5, dur: stepSec * 11, gain: bg * 0.42,
+             dest: bgmGain, attack: 0.006 });
+      tone({ type: 'sine', freq: bf * 2.67, dur: stepSec * 8, gain: bg * 0.22,
+             dest: bgmGain, attack: 0.008 });
+    }
+
+    // ===== ⑦ 凱歌のファンファーレ（段の頭で名乗る） =====
+    // 参考曲がドッペルドミナントで押してくる位置（7小節目）と、頂点の入口（13小節目）に置く。
+    const FANFARE_AT = { 0: [0, 3, 6], 6: [0, 3, 6], 12: [0, 3, 6], 15: [8, 11, 14] };
     const fanSteps = FANFARE_AT[bar];
     if (fanSteps) {
       const fi = fanSteps.indexOf(inBar);
       if (fi >= 0) {
         const ff = noteFreq(chord.arp[fi === 2 ? 3 : fi === 1 ? 2 : 0]) * 2;
-        const fg = 0.055 + fi * 0.018;
+        const fg = (0.052 + fi * 0.017) * (1 + lift);
         tone({ type: 'sawtooth', freq: ff, dur: stepSec * (fi === 2 ? 4.2 : 1.6),
-               gain: fg, dest: bgmGain, attack: 0.006 });
+               gain: fg, dest: bgmGain, attack: 0.005 });
         tone({ type: 'square', freq: ff, dur: stepSec * (fi === 2 ? 3.8 : 1.4),
-               gain: fg * 0.42, dest: bgmGain, attack: 0.008, detune: 7 });
+               gain: fg * 0.42, dest: bgmGain, attack: 0.007, detune: 7 });
         tone({ type: 'triangle', freq: ff * 2, dur: stepSec * 1.2,
                gain: fg * 0.30, dest: bgmGain, attack: 0.004 });
       }
     }
-    // ★勇ましさ③：行進のスネアロール（R34）。区切りの直前（4/8小節目の最後の1拍）だけ。
-    //   軍楽のロールは四つ打ちではないので、荘厳さを壊さずに「次へ進む」合図だけを足せる。
-    if ((bar === 3 || bar === 7) && inBar >= 12) {
-      noiseHit({ dur: 0.045, gain: 0.020 + (inBar - 12) * 0.009,
-                 hpFreq: 1400, lpFreq: 7200, dest: bgmGain });
+
+    // ===== ⑧ 段の変わり目のスネアロール（次の段へ雪崩れ込む合図） =====
+    if ((bar === 3 || bar === 7 || bar === 11) && inBar >= 12) {
+      noiseHit({ dur: 0.040, gain: 0.022 + (inBar - 12) * 0.010,
+                 hpFreq: 1400, lpFreq: 7600, dest: bgmGain });
     }
-    // 教会の鐘：長く残響させて空間を広く見せる。この曲で唯一の明るい声部なので、
-    // R31 で2小節に1回→**毎小節**にした（「暗すぎる」への一番効く手当て）。
-    // 長三和音の小節（R34 で C=1 へ前倒し / A=7）だけ鐘の基音を和音の第3音まで上げ、光の位置を示す。
-    if (inBar === 0) {
-      const bright = bar === 1 || bar === 7;
-      const bf = noteFreq(bright ? chord.arp[1] : NOTE.A5) * (bright ? 2 : 1);
-      const bg = bright ? 0.075 : 0.058;
-      tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: bg,
-             dest: bgmGain, attack: 0.004 });
-      tone({ type: 'sine', freq: bf * 1.5, dur: stepSec * 11, gain: bg * 0.44,
-             dest: bgmGain, attack: 0.006 });
-      tone({ type: 'sine', freq: bf * 2.67, dur: stepSec * 8, gain: bg * 0.24,
-             dest: bgmGain, attack: 0.008 });
-    }
-    // 主題：4分音符解像度。sawtooth のブラス＋オクターブ下の重ねで威圧する。
-    // R31: オクターブ**上**のトランペット的な輝きを足す。下だけ重ねていたのが暗さの主因のひとつ。
-    if (inBar % 4 === 0) {
-      const m = song.melody[bar][inBar / 4];
-      if (m !== undefined && m !== -1) {
-        const mf = noteFreq(m);
-        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 3.6,
-               gain: 0.10, dest: bgmGain, attack: 0.03 });
-        tone({ type: 'sawtooth', freq: mf, dur: stepSec * 3.4,
-               gain: 0.045, dest: bgmGain, attack: 0.03, detune: 8 });
-        tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 3.2,
-               gain: 0.05, dest: bgmGain, attack: 0.04 });
-        tone({ type: 'triangle', freq: mf * 2, dur: stepSec * 3.0,
-               gain: 0.055, dest: bgmGain, attack: 0.02 });
-        tone({ type: 'square', freq: mf * 4, dur: stepSec * 2.2,
-               gain: 0.016, dest: bgmGain, attack: 0.03 });
-      }
-    }
-    // 最終小節の終わりだけティンパニの連打で締め、Am へ戻る（＝ループが「一周した」と分かる）
-    if (bar === song.bars - 1 && inBar >= 12) {
-      tone({ type: 'sine', freq: 116, freqEnd: 58, dur: 0.16,
-             gain: 0.08 + (inBar - 12) * 0.022, dest: bgmGain, attack: 0.003 });
-      noiseHit({ dur: 0.07, gain: 0.03 + (inBar - 12) * 0.01, hpFreq: 90, lpFreq: 1800, dest: bgmGain });
+
+    // ===== ⑨ 最終小節：ティンパニ連打で振り出しへ叩き戻す =====
+    if (bar === song.bars - 1 && inBar >= 10) {
+      const k = inBar - 10;
+      tone({ type: 'sine', freq: 118, freqEnd: 56, dur: 0.14,
+             gain: 0.07 + k * 0.019, dest: bgmGain, attack: 0.002 });
+      noiseHit({ dur: 0.06, gain: 0.026 + k * 0.009, hpFreq: 90, lpFreq: 1900, dest: bgmGain });
     }
   } else if (song.style === 'ending') {
     // ★凱歌（112BPM）。明るいまま「重く」する＝ブラス風の厚い主旋律＋行進のスネア＋祝祭のベル。
