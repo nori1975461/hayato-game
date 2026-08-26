@@ -2,75 +2,125 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>真マオウレクス 軌道神核 C-4改</title>
+<title>真マオウレクス 軌道神核 ― 実装完了</title>
 <style>
   :root { color-scheme: dark; }
-  body { margin: 0; padding: 28px 20px 60px; background: #0a0a12; color: #e8e8f2;
-         font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif; line-height: 1.7; }
-  .wrap { max-width: 1180px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .04em; }
-  .sub { color: #9b9bb5; font-size: 13px; margin: 0 0 26px; }
+  body { margin: 0; padding: 28px 20px 70px; background: #0a0a12; color: #e8e8f2;
+         font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif; line-height: 1.75; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 4px; letter-spacing: .04em; }
+  .sub { color: #9b9bb5; font-size: 13px; margin: 0 0 8px; }
+  .ver { display: inline-block; font-family: Consolas, monospace; font-size: 12px;
+         background: #241a3d; color: #d9b8ff; border: 1px solid #4a3b7d;
+         border-radius: 4px; padding: 2px 9px; margin-bottom: 26px; }
   img { display: block; width: 100%; height: auto; image-rendering: pixelated;
         border: 1px solid #2a2a44; border-radius: 6px; background: #05050c; }
-  .half { max-width: 640px; }
-  .full { margin-bottom: 34px; }
-  .cap { color: #8c8caa; font-size: 12px; margin: 8px 2px 0; }
-  section { margin: 0 0 40px; padding: 22px; background: #10101c;
+  section { margin: 0 0 34px; padding: 22px; background: #10101c;
             border: 1px solid #3a2f5e; border-radius: 10px; }
-  section h2 { font-size: 19px; margin: 0 0 12px; color: #c98cff; }
+  section h2 { font-size: 19px; margin: 0 0 14px; color: #c98cff; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  figure { margin: 0; }
+  figcaption { color: #a8a8c6; font-size: 12.5px; margin-top: 7px; }
+  figcaption b { color: #ffd98a; }
   ul { margin: 0; padding-left: 22px; }
-  li { margin-bottom: 9px; }
+  li { margin-bottom: 10px; }
   li b { color: #ffd98a; }
-  .note { border-left: 3px solid #4a4a7a; padding: 2px 0 2px 14px; color: #b9b9d8;
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #33335a; padding: 7px 11px; text-align: left; }
+  th { background: #1a1a30; color: #c0aef5; font-weight: 600; }
+  td.n { font-family: Consolas, monospace; color: #9ee8c8; }
+  .bug { border-left: 3px solid #e05a5a; background: #1c1218; padding: 14px 18px;
+         border-radius: 0 6px 6px 0; margin-bottom: 16px; }
+  .bug h3 { margin: 0 0 6px; font-size: 15px; color: #ff9a9a; }
+  .bug p { margin: 0; font-size: 14px; color: #d6c6cc; }
+  .note { border-left: 3px solid #4a4a7a; padding: 4px 0 4px 15px; color: #b9b9d8;
           font-size: 14px; margin-top: 18px; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<h1>真マオウレクス「軌道神核」C-4改</h1>
-<p class="sub">C-4（3つの環が球を貫く）を基盤に、一段上のビジュアルへ作り込んだ版。
-左＝実プレイの画面そのもの（480×360・足元が主人公）／右＝拡大。</p>
-
-<div class="full">
-  <img src="maou-trueC-final.png" alt="C-4改 全体">
-</div>
+<h1>真マオウレクス「軌道神核」― 実装完了</h1>
+<p class="sub">承認された C-4改 のビジュアルを本編へ実装しました。すべて Phaser の実描画（実プレイの画面そのもの）です。</p>
+<div class="ver">v20260827-3 ／ タイトル画面の左下がこの番号なら届いています</div>
 
 <section>
-  <h2>C-4から足したもの</h2>
-  <ul>
-    <li><b>光背（コロナ）</b> ― 球の背後から放射する黒鉄の尖塔＋金の縁。共通の台座（襟）で1つの冠に繋いだ。
-      最終ボスに要るのは「シルエットの格」。球と環だけだと土星で止まる</li>
-    <li><b>金と深紅の導入</b> ― 神々しさ＝金（窓枠・聖句・光背の縁）、悪魔性＝深紅（装甲の亀裂から漏れる内部の火）。
-      紫一色だった前版は「冷たい機械」で止まっていた</li>
-    <li><b>球面シェーディング＋市松ディザ</b> ― 明暗は法線×光源から計算し、段の境目を市松で混ぜる。
-      べた塗りの「石膏」が磨いた金属に変わる</li>
-    <li><b>装甲の亀裂</b> ― 影側（右）に1px幅の稲妻。太くすると「赤い口」になるので、ときどき明滅する程度に抑えた。
-      転生（旧体が砕けて出現する）と地続きの「中身が火」の演出</li>
-    <li><b>ベルトの落ち影</b> ― 手前を通る水平環の真下に影を焼き込み、前後関係を一目で分かるように</li>
-    <li><b>祠モジュール×3</b> ― 各環に1つ付いた菱形の社。攻撃「聖句解放」の発射元として意味を持たせた</li>
-    <li><b>視線の序列</b> ― 眼（最前面）＞球＞手前の環＞奥の環（装飾を持たず一段暗い）＞光背。
-      全部を同じ密度で描くと交差で画面が団子になる</li>
-  </ul>
+  <h2>① 転生 ― 亀裂 → 粉砕 → 出現</h2>
+  <div class="grid">
+    <figure><img src="shots-true/02-crack.png" alt="亀裂">
+      <figcaption><b>亀裂（1.0秒）</b>／メタリックパープルの体に稲妻状の亀裂が走り、内部の火が漏れる。この間は動かない</figcaption></figure>
+    <figure><img src="shots-true/03-shatter.png" alt="粉砕">
+      <figcaption><b>粉砕（1.0秒）</b>／9つのパーツが四方へ吹き飛ぶ。中心に光の核が残る</figcaption></figure>
+    <figure><img src="shots-true/04-rise.png" alt="出現">
+      <figcaption><b>出現（2.0秒）</b>／真の姿がせり上がる。HPバーの名前も「しん・マオウレクス」に変わる</figcaption></figure>
+    <figure><img src="shots-true/05c-center.png" alt="真の姿">
+      <figcaption><b>軌道神核</b>／装甲球の窓から血走った単眼が覗き、傾きの違う3つの環が球を貫いて公転する</figcaption></figure>
+  </div>
+  <p class="note">転生の瞬間だけ音楽を止めています。「終わったと思った」ところに沈黙を置いてから、真の姿が立ち上がった瞬間に鳴らし直します。</p>
 </section>
 
 <section>
-  <h2>球と眼（拡大）</h2>
-  <div class="half"><img src="maou-trueC-orb.png" alt="球と眼の拡大"></div>
-  <p class="cap">金属の眼窩 → 白熱の強膜（血走り付き）→ 金の輪 → 紫の虹彩（放射の筋）→ 縦裂の瞳。
-  瞳の奥は深紅→橙→金の炎。</p>
+  <h2>② 攻撃3種 ― 予告は文字ではなく「形」で読ませる</h2>
+  <div class="grid3">
+    <figure><img src="shots-true/07-align-fire.png" alt="整列レーザー">
+      <figcaption><b>整列レーザー</b>／3つの環が主人公の方向へ一直線に揃う。揃った面がそのまま射線。ダメージ84＝作中最大（満タンからは一撃死しない）</figcaption></figure>
+    <figure><img src="shots-true/08-verse-fire.png" alt="聖句解放">
+      <figcaption><b>聖句解放</b>／環に刻まれた聖句が1文字ずつ剥がれて弾になる。3つの環が同じ角度から同時に剥がれるので、弾は環の形のまま散る</figcaption></figure>
+    <figure><img src="shots-true/10-shell-hold.png" alt="殻閉じ">
+      <figcaption><b>殻閉じ</b>／環が核へ閉じて球になり無敵＋全方位衝撃波。閉じきる前に眼へ2発当てれば割れて、大きな隙になる</figcaption></figure>
+  </div>
+  <p class="note">攻撃を3種に絞ったのは、20秒台の戦いに5種を積むと1種あたり1回も回ってこないからです（R34で踏んだ「再生される前に終わる」と同じ失敗を避けるため）。実測では3種とも各2回以上出ています。</p>
 </section>
 
 <section>
-  <h2>ゲーム中はここが動く（実装予定）</h2>
+  <h2>③ 実測（headless・3回）</h2>
+  <table>
+    <tr><th>測ったもの</th><th>結果</th><th>ねらい</th></tr>
+    <tr><td>真の姿の戦闘の長さ</td><td class="n">21.7 / 22.9 / 21.6 秒</td><td>指定の20〜25秒</td></tr>
+    <tr><td>整列レーザーの発射</td><td class="n">2回</td><td>各2回以上</td></tr>
+    <tr><td>聖句解放の発射</td><td class="n">2回</td><td>各2回以上</td></tr>
+    <tr><td>殻閉じ</td><td class="n">成立1回 ／ 割られた2回</td><td>どちらも起きる＝遊びとして機能している</td></tr>
+    <tr><td>実行時エラー</td><td class="n">0件</td><td>—</td></tr>
+    <tr><td>恒久ガード</td><td class="n">582 → 619件（+37）</td><td>今回踏んだ罠を全部固定</td></tr>
+  </table>
+  <p class="note">HPは推測ではなく実測から決めました。同じ設定でも ±10% ぶれる（最後の1手に入れるかで ±2秒動く）ので、秒数ではなく実DPSの平均 3550/秒 から 75000 を引いています。</p>
+</section>
+
+<section>
+  <h2>④ 作りながら見つかった不具合（直しました）</h2>
+
+  <div class="bug">
+    <h3>転生カットシーンが、分離／再合体に横取りされて丸ごと消えていた</h3>
+    <p>転生に入ると内部のHPを1に落とすので、同じフレームで「HP50%で分離」「33%で再合体」の判定が両方成立し、分離の演出が転生の演出を上書きしていました。実測すると「転生した：NO ／ 転生処理は走っている ／ でも通常戦闘に戻っている」という状態。実プレイでも、HP33%超から一撃で0にすれば同じことが起きます。</p>
+  </div>
+
+  <div class="bug">
+    <h3>描き下ろした眼が、弱点コアのUIに覆われて一度も画面に出ていなかった</h3>
+    <p>弱点の記号（半径34pxの金色のベタ塗り）が眼の中心を完全に塗りつぶしていました。第3形態は「装甲が開いて露出した炉心」＝そこに絵が無いので塗りが正しかったのですが、真の姿は眼そのものが絵です。弱点が絵のときは輪と照準だけにしました。</p>
+  </div>
+
+  <div class="bug">
+    <h3>「粉々に飛び散る」が0.45秒しかなく、瞬きの間に終わっていた</h3>
+    <p>撮影しようとして初めて気づきました。1.0秒へ伸ばしています。</p>
+  </div>
+
+  <div class="bug">
+    <h3>設計プレビューは画面を480×360と見込んでいたが、実際は640×360だった</h3>
+    <p>そのままの縮尺（9.4）で撮ると、球も環も光背も画面外へ出て<b>眼の周りしか映りません</b>でした。7.4へ下げて全身が入るようにしています。設計プレビューは自作の描画で作った別物なので、良く見えても本編で同じには見えない、という教訓でもあります。</p>
+  </div>
+
+  <p class="note">どれも「構文は通る・既存テストも通る・でも画面には何も出ない」形の壊れ方でした。同じことが起きないよう、37件の恒久ガードにしています。</p>
+</section>
+
+<section>
+  <h2>⑤ 遊びに行くには</h2>
   <ul>
-    <li>3つの環が別々の速さで公転（帯のハイライトが流れる）。攻撃「整列」で一直線に揃う</li>
-    <li>眼が瞬きし、瞳が主人公を追う。怒り時は虹彩が深紅に反転</li>
-    <li>亀裂の明滅（HPが減るほど速く・明るく）</li>
-    <li>光背の尖塔が脈動し、必殺の予告で全点灯</li>
+    <li>公開URL <b>https://nori1975461.github.io/hayato-game/vortex/</b> ／ タイトル画面の左下が <b>v20260827-3</b> なら新しいものが届いています</li>
+    <li>すぐ見たいときは、タイトルで <b>T</b> → <b>4</b>（れんしゅうじょう「マオウレクスとたたかう」）。通常どおり倒しきると転生します</li>
+    <li>本編では360秒でマオウレクスが出現します</li>
   </ul>
-  <p class="note">これで良ければ、亀裂→粉砕→出現のカットシーンと攻撃3種（整列レーザー／聖句解放／殻閉じ）の実装に進みます。
-  直したい箇所があれば場所と方向を教えてください。</p>
+  <p class="note">見てみて直したいところ（大きさ・色・攻撃の激しさ・尺）があれば、場所と方向を教えてください。</p>
 </section>
 
 </div>
