@@ -50,6 +50,13 @@ const AT = (G, cx, cy, rx, ry, a, ch, rot = 0) => {
   const t = a * Math.PI / 180, ex = Math.cos(t) * rx, ey = Math.sin(t) * ry;
   P(G, cx + ex * cr - ey * sr, cy + ex * sr + ey * cr, ch);
 };
+const DISC = (G, cx, cy, r, ch) => {
+  for (let y = Math.ceil(cy - r); y <= cy + r; y++) {
+    for (let x = Math.ceil(cx - r); x <= cx + r; x++) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) P(G, x, y, ch);
+    }
+  }
+};
 const R = (G) => G.map((r) => r.join(''));
 
 // =====================================================================
@@ -379,87 +386,186 @@ export const CAND_B = {
 //   環は攻撃で割れ、割れ目から核を狙う / 核は瞬きする眼
 // =====================================================================
 const PAL_C = {
-  k: '#03030a', j: '#0b0b18', m: '#17172b', f: '#3a3a63', s: '#7d7db5',
-  n: '#c2c2ea',                                  // 環の稜線
-  c: '#ffffff', C: '#e8f2ff',
-  a: '#ff2f6a', b: '#2f8cff', G: '#2fffb0', v: '#c98cff', y: '#ffd23f',
-  // 環ごとの地色（外＝紫 / 中＝青 / 内＝緑）。同じ色にすると3枚が1つの渦に融合する
-  Q: '#33285c', P: '#6f58bc', N: '#b8a4f2',
-  E: '#1e3560', D: '#3f6dc0', M: '#9dc0f5',
-  I: '#1b4a42', H: '#2f9f80', L: '#8fe6c8',
+  k: '#04040c', j: '#141426', m: '#262640', f: '#454570', s: '#8a8ac2',
+  n: '#cdcdf0',                                  // 金属の稜線
+  c: '#ffffff', C: '#cfe0ff',
+  a: '#ff2f6a', v: '#c98cff', y: '#ffd23f',
+  // 環ごとの4段（深＝溝の底 / 暗 / 地 / 明＝稜線）。同じ色にすると3枚が1つの渦に融合する。
+  // ⚠️ 最暗段は背景 #0a0a1e よりはっきり明るくすること。溶けると形が消えて黒い塊になる
+  q: '#2a1e52', Q: '#4a3b7d', P: '#7c66c9', N: '#c0aef5',   // 紫
+  e: '#1a2b4d', E: '#2f4f85', D: '#4d7ccc', M: '#a6c6f7',   // 青
+  i: '#163f36', I: '#276b5c', H: '#3aa98a', L: '#96e9cd',   // 緑
 };
 
-// 環。厚み3の楕円＋刻まれた聖句（2px）＋欠け。rot で傾ける。
-function ringSprite(w, h, rx, ry, rot, glyphCol, gaps, glyphEvery, dark, mid, lit) {
+// 環。1本の線ではなく「厚みのある装甲の帯」として焼く。
+//   ・帯の断面を連続で塗り、外縁→内縁で 黒→深→暗→地→明→暗→黒 の階調をつける
+//     （「半径1本＝1色」で積むと1pxずつの縞になって、金属ではなく縞模様に見える）
+//   ・等間隔に黒い溝（パネルライン）を通す＝装甲板の集合に見える。ただし数は絞る。
+//     溝を増やすと板の「面」が消えて色片の集まりになり、かえって安っぽくなる
+//   ・外縁と内縁は必ず黒で締める。締めないと背景に溶けて「ペラペラの線」になる
+//   ・上側にだけ点のハイライトを置く＝光源が上にあると分かって初めて立体に見える
+// マオウレクス本体の質感（大きな面＋黒い溝＋面の中の明度差）と同じ作りにしてある。
+function ringSprite(w, h, rx, ry, rot, gaps, seamEvery, t, deep, dark, mid, lit, a0 = 0, a1 = 360) {
   const G = g(w, h);
   const cx = (w - 1) / 2, cy = (h - 1) / 2;
-  ARC(G, cx, cy, rx, ry, 0, 360, dark, gaps, rot);
-  ARC(G, cx, cy, rx - 1.1, ry - 1.1, 0, 360, mid, gaps, rot);   // 中を明るく＝等倍で環だと分かる
-  ARC(G, cx, cy, rx - 2.1, ry - 2.1, 0, 360, dark, gaps, rot);
-  ARC(G, cx, cy, rx - 1.1, ry - 1.1, 0, 34, lit, [], rot);       // 進む側だけ光る＝回転の向き
-  ARC(G, cx, cy, rx - 1.1, ry - 1.1, 180, 214, lit, [], rot);
-  for (let a = 0; a < 360; a += glyphEvery) {                     // 刻まれた聖句（2px＝等倍で読める）
-    if (gaps.some(([s, e]) => a >= s && a <= e)) continue;
-    AT(G, cx, cy, rx - 1.1, ry - 1.1, a, glyphCol, rot);
-    AT(G, cx, cy, rx - 1.1, ry - 1.1, a + 3, glyphCol, rot);
+  const rs = Math.max(0.6, ry / rx);                 // 縦方向の厚み（傾いた輪なので横より薄い）
+  for (let d = -t; d <= t + 1e-9; d += 0.3) {
+    const u = (d + t) / (2 * t);                     // 0=内縁 … 1=外縁
+    const ch = u < 0.08 ? 'k' : u < 0.24 ? deep : u < 0.42 ? dark
+      : u < 0.62 ? lit : u < 0.80 ? mid : u < 0.92 ? dark : 'k';
+    ARC(G, cx, cy, rx + d, ry + d * rs, a0, a1, ch, gaps, rot);
   }
-  for (const [s, e] of gaps) {                                    // 割れ口の断面
-    AT(G, cx, cy, rx - 1.1, ry - 1.1, s - 1, 'c', rot);
-    AT(G, cx, cy, rx - 1.1, ry - 1.1, e + 1, 'c', rot);
+  // パネルライン＝装甲板の継ぎ目
+  for (let ang = Math.ceil(a0 / seamEvery) * seamEvery; ang < a1; ang += seamEvery) {
+    if (gaps.some(([s0, e0]) => ang >= s0 - 5 && ang <= e0 + 5)) continue;
+    for (let d = -t * 0.86; d <= t * 0.86; d += 0.3) AT(G, cx, cy, rx + d, ry + d * rs, ang, 'k', rot);
+  }
+  // 板ごとに刻まれた聖句（板の中央に1点だけ。散らすとノイズになる）
+  for (let ang = Math.ceil((a0 - seamEvery / 2) / seamEvery) * seamEvery + seamEvery / 2; ang < a1; ang += seamEvery) {
+    if (ang < a0 || gaps.some(([s0, e0]) => ang >= s0 - 7 && ang <= e0 + 7)) continue;
+    AT(G, cx, cy, rx + t * 0.1, ry + t * 0.1 * rs, ang, 'c', rot);
+  }
+  // 上側の照り（点のハイライト）
+  for (let ang = a0 + 20; ang <= a1 - 20; ang += 40) {
+    if (gaps.some(([s0, e0]) => ang >= s0 && ang <= e0)) continue;
+    AT(G, cx, cy, rx - t * 0.22, ry - t * 0.22 * rs, ang, 'c', rot);
+  }
+  // 割れ口＝断面がむき出しになっている縁
+  for (const [s0, e0] of gaps) {
+    for (const ang of [s0 - 1, e0 + 1]) {
+      if (ang < a0 || ang > a1) continue;
+      for (let d = -t * 0.86; d <= t * 0.86; d += 0.3) AT(G, cx, cy, rx + d, ry + d * rs, ang, 'n', rot);
+    }
   }
   return R(G);
 }
 
-const C_RING_OUT = ringSprite(40, 24, 19, 8.6, 0, 'N', [[62, 98]], 40, 'Q', 'P', 'c');
-const C_RING_MID = ringSprite(34, 30, 15.5, 7.0, -37, 'M', [[238, 272]], 45, 'E', 'D', 'c');
-const C_RING_IN = ringSprite(26, 24, 11.5, 5.4, 46, 'L', [[140, 176]], 50, 'I', 'H', 'c');
+// ★同心（半径違い）はやめた。同じ半径で傾きだけ違う3つの軌道にしてある。
+//   半径を変えて厚みを足すと帯どうしが重なって1枚の塊になる（実際そうなった）。
+//   同半径・傾き違いなら交点でしか重ならず、3枚が独立して読めて立体にも見える。
+// 環は「1枚の絵」ではなく前半分と後半分に割る。全部を球の手前に置くと帯が球を横切って
+// せっかくの面を潰し、全部を奥に置くと平面的になる。土星の環と同じ割り方にする。
+// パラメータ角 a は、傾けた円の正射影では奥行き z ∝ sin(a) にあたるので、
+// a=0..180 が手前（画面では下側を通る）、a=180..360 が奥（上側を通る）。
+const RA = [50, 31, 23, 8.5, 24, [[64, 96]], 44, 3.4, 'q', 'Q', 'P', 'N'];
+const RB = [50, 31, 23, 8.5, -18, [[238, 270]], 44, 3.4, 'e', 'E', 'D', 'M'];
+const RC = [48, 19, 21, 6.4, 0, [[142, 174]], 50, 2.6, 'i', 'I', 'H', 'L'];
+const C_RING_AB = ringSprite(...RA, 180, 360), C_RING_AF = ringSprite(...RA, 0, 180);
+const C_RING_BB = ringSprite(...RB, 180, 360), C_RING_BF = ringSprite(...RB, 0, 180);
+const C_RING_CB = ringSprite(...RC, 180, 360), C_RING_CF = ringSprite(...RC, 0, 180);
 
-// 核を包んでいた装甲が4片に割れて浮いている 24×24。片ごとに外へずれている。
-const C_SHARDS = (() => {
-  const G = g(17, 17);
-  const cx = 8, cy = 8;
-  for (const [a0, a1] of [[196, 252], [278, 334], [22, 74], [104, 158]]) {
-    const mid = (a0 + a1) / 2 * Math.PI / 180;
-    const dx = Math.cos(mid) * 1.5, dy = Math.sin(mid) * 1.5;
-    ARC(G, cx + dx, cy + dy, 6.4, 6.4, a0, a1, 'f');
-    ARC(G, cx + dx, cy + dy, 5.4, 5.4, a0, a1, 'n');
-    ARC(G, cx + dx, cy + dy, 4.4, 4.4, a0, a1, 'f');
-    AT(G, cx + dx, cy + dy, 5.4, 5.4, a0, 'c'); AT(G, cx + dx, cy + dy, 5.4, 5.4, a1, 'c');
+// 神核の本体＝装甲に覆われた球 31×31。ここが質感の主役。
+//   ・環だけの構成では「大きな面」が取れず、どれだけ描き込んでも細い帯にしかならなかった。
+//     球なら面が取れて、マオウレクス本体と同じ作り（大きな面＋黒い溝＋面の中の明度差）が成立する
+//   ・明度は本物の球面シェーディング（法線と光源の内積）を6段に量子化して出す。
+//     手で階調を置くと必ず「同心円の縞」になるので、法線から計算する
+//   ・⚠️ 窓を大きく取ると球の面が細いリングになり、黒い塊にしか見えなくなる（実際そうなった）。
+//     面の幅は窓の半径と同じくらい残す
+//   ・⚠️ 最暗段は背景より明るい色にする。0 から始めると暗部が背景に溶けて輪郭が消える
+const C_ORB = (() => {
+  const G = g(33, 33);
+  const c = 16, Rr = 16.0;
+  const ramp = ['q', 'Q', 'P', 'N'];                       // 暗→明（最暗でも背景より明るい）
+  const LX = -0.46, LY = -0.54, LZ = 0.70;                 // 光源は左上・手前
+  const inSphere = (x, y) => (x - c) ** 2 + (y - c) ** 2 <= Rr * Rr - 1;
+  for (let y = 0; y < 33; y++) {
+    for (let x = 0; x < 33; x++) {
+      const nx = (x - c) / Rr, ny = (y - c) / Rr;
+      const d2 = nx * nx + ny * ny;
+      if (d2 > 1) continue;
+      const nz = Math.sqrt(Math.max(0, 1 - d2));
+      const lam = Math.pow(Math.max(0, nx * LX + ny * LY + nz * LZ), 1.05);
+      let k = Math.min(ramp.length - 1, Math.floor(lam * ramp.length));
+      if (d2 > 0.86) k = Math.max(k, 1);                   // リムライト＝縁が回り込んで見える
+      P(G, x, y, d2 > 0.955 ? 'k' : ramp[k]);              // 輪郭は球面の内側で締める
+      if (lam > 0.93 && d2 < 0.6) P(G, x, y, 'n');         // 照りは狭く。広いと石膏に見える
+    }
   }
+  // 経線の溝。マオウレクス本体と同じで、質感の主役は階調ではなく「太い黒い溝による面の分割」。
+  // 溝の片側に明るいエッジ、反対側に影を添えると、彫り込まれた装甲板に見える
+  const put = (x, y, ch) => { if (inSphere(x, y)) P(G, x, y, ch); };
+  for (const lon of [-0.42, 0.42]) {
+    for (let u = -1; u <= 1; u += 0.01) {
+      const lat = u * Math.PI / 2;
+      const X = c + Math.sin(lon * Math.PI) * Math.cos(lat) * Rr;
+      const Y = c + Math.sin(lat) * Rr;
+      put(X - 1, Y, 'k'); put(X, Y, 'k'); put(X + 1, Y, 'n');
+    }
+  }
+  // 緯線の溝（楕円＝少し上から見た球）
+  for (const u of [-0.45, 0.45]) {
+    const lat = u * Math.PI / 2, rr = Math.cos(lat) * Rr, yy = c + Math.sin(lat) * Rr;
+    for (const [dy, ch] of [[-1, 'n'], [0, 'k'], [1, 'k']]) {
+      for (let ang = 0; ang < 360; ang += 0.4) {
+        const X = c + Math.cos(ang * Math.PI / 180) * rr;
+        const Y = yy + Math.sin(ang * Math.PI / 180) * rr * 0.26 + dy;
+        put(X, Y, ch);
+      }
+    }
+  }
+  // 窓枠は多段にして厚みを出す（1段だと紙を切り抜いた穴に見える）
+  DISC(G, c, c, 9.6, 'k');                                 // 前面が開いている
+  DISC(G, c, c, 9.1, 'f');
+  DISC(G, c, c, 8.6, 'n');                                 // 枠の稜線
+  DISC(G, c, c, 8.0, 'f');
+  DISC(G, c, c, 7.4, 'k');                                 // 穴（ここに眼が乗る）
+  for (const ang of [206, 240, 274, 308, 26, 60, 94, 128]) AT(G, c, c, 8.6, 8.6, ang, 'c');
   return R(G);
 })();
 
-// 核＝瞬きする眼 9×9。虹彩は白熱、瞳は虚無の黒。
-const C_EYE = [
-  '..ccc..',
-  '.cCCCc.',
-  'cCCkCCc',
-  'cCkkkCc',
-  'cCCkCCc',
-  '.cCCCc.',
-  '..ccc..',
-];
+// 核＝真マオウレクスの眼 15×15。ここがこのボスの顔なので、いちばん手を掛ける。
+//   ・眼窩は装甲（黒で締めた金属リング）／強膜は白熱／虹彩は紫の同心＋放射の筋
+//   ・瞳は縦に裂けたスリット＝悪魔の眼。その奥に赤い炎が灯っている
+//   ・左上に1点だけ白のハイライト＝球体だと分かる
+const C_EYE = (() => {
+  const G = g(15, 15);
+  const c = 7;
+  DISC(G, c, c, 7.3, 'k');           // 眼窩の外縁（黒で締める）
+  DISC(G, c, c, 6.7, 'j');
+  DISC(G, c, c, 6.1, 'f');           // 眼窩の装甲
+  DISC(G, c, c, 5.5, 'n');           // 装甲の稜線
+  DISC(G, c, c, 4.9, 'k');           // 装甲と眼球のあいだの溝
+  DISC(G, c, c, 4.6, 'c');           // 強膜＝白熱
+  DISC(G, c, c, 3.9, 'C');
+  DISC(G, c, c, 3.4, 'Q');           // 虹彩（外が暗く内が明るい＝奥行き）
+  DISC(G, c, c, 2.6, 'P');
+  DISC(G, c, c, 1.7, 'N');
+  for (const a of [18, 62, 108, 152, 198, 242, 288, 332]) {   // 虹彩の放射の筋
+    const t = a * Math.PI / 180;
+    LN(G, c + Math.cos(t) * 1.6, c + Math.sin(t) * 1.6, c + Math.cos(t) * 3.3, c + Math.sin(t) * 3.3, 'v');
+  }
+  for (let y = c - 4; y <= c + 4; y++) P(G, c, y, 'k');       // 縦に裂けた瞳
+  for (let y = c - 3; y <= c + 3; y++) { P(G, c - 1, y, 'k'); P(G, c + 1, y, 'k'); }
+  for (let y = c - 2; y <= c + 2; y++) P(G, c, y, 'a');       // 瞳の奥の炎
+  P(G, c, c, 'y');
+  P(G, c - 3, c - 3, 'c'); P(G, c - 2, c - 4, 'c'); P(G, c - 4, c - 2, 'c');   // ハイライト
+  return R(G);
+})();
 
 export const CAND_C = {
   id: 'maouTrueC',
   name: '真マオウレクス／軌道神核',
-  concept: '本体は核だけ。装甲は体に触れず、傾きの違う3つの環として別々の速さで公転する。環に機械の聖句が'
-    + '刻まれ、環が一直線に揃った瞬間に攻撃が来る（予告が「形」で分かる）。環は攻撃で割れ、割れ目から核を狙う。',
+  concept: '本体は装甲に覆われた球（神核）で、前面が開いた窓から眼だけが覗く。装甲には触れずに、'
+    + '傾きの違う3つの環が別々の速さで公転する。環に機械の聖句が刻まれ、環が一直線に揃った瞬間に'
+    + '攻撃が来る（予告が「形」で分かる）。環は攻撃で割れ、割れ目から核を狙う。',
   sprites: {
-    ringOut: { rows: C_RING_OUT, palette: PAL_C },
-    ringMid: { rows: C_RING_MID, palette: PAL_C },
-    ringIn: { rows: C_RING_IN, palette: PAL_C },
-    shards: { rows: C_SHARDS, palette: PAL_C },
+    ringAb: { rows: C_RING_AB, palette: PAL_C }, ringAf: { rows: C_RING_AF, palette: PAL_C },
+    ringBb: { rows: C_RING_BB, palette: PAL_C }, ringBf: { rows: C_RING_BF, palette: PAL_C },
+    ringCb: { rows: C_RING_CB, palette: PAL_C }, ringCf: { rows: C_RING_CF, palette: PAL_C },
+    orb: { rows: C_ORB, palette: PAL_C },
     eye: { rows: C_EYE, palette: PAL_C },
   },
+  // ⚠️ 手前を通す環は1枚だけ。3枚とも手前に置くと帯が球の面を覆って質感が全部消える。
+  // 奥の3枚は球の左右・上へはみ出して「取り巻いている」ことを見せ、
+  // 手前の1枚（球の赤道を通るベルト）だけが球の下側を横切って前後関係を証明する。
   rig: [
-    { role: 'wingR', tex: 'ringOut', ox: 0, oy: 0 },
-    { role: 'body', tex: 'shards', ox: 0, oy: 0 },
-    { role: 'dome', tex: 'ringMid', ox: 0, oy: 0 },
-    { role: 'rack', tex: 'ringIn', ox: 0, oy: 0 },
+    { role: 'wingR', tex: 'ringAb', ox: 0, oy: 0, origin: [0.5, 0.5] },
+    { role: 'wingL', tex: 'ringBb', ox: 0, oy: 0, origin: [0.5, 0.5] },
+    { role: 'legR', tex: 'ringCb', ox: 0, oy: 0, origin: [0.5, 0.5] },
+    { role: 'body', tex: 'orb', ox: 0, oy: 0 },
     { role: 'core', tex: 'eye', ox: 0, oy: 0 },
   ],
-  tier: { spriteScale: 10.4, glowScale: 12.6, glowOuter: '#c98cff', glowInner: '#ffffff' },
+  tier: { spriteScale: 9.4, glowScale: 13.4, glowOuter: '#c98cff', glowInner: '#ffffff' },
 };
 
 export const CANDIDATES = [CAND_A, CAND_B, CAND_C];
