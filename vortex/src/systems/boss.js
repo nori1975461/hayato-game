@@ -1355,9 +1355,13 @@ export function createBoss(run) {
           // R29: 命中の瞬間を「殴られた」音にする（hit の軽い音では 64 ダメージの重さに合わない）
           // R31: 「主人公にあたったときの音や衝撃も」＝音だけでなく**衝撃**を足す。
           //   rocketPunchHit（より低く長い金属爆発）＋強シェイク＋白フラッシュ＋ヒットストップ＋衝撃波。
+          // R35: 「もっとガツンという激しい音に。極端すぎるくらいでちょうど良い」。
+          //   音だけ大きくしても「ガツン」にはならない。**画面が止まる時間**が体で感じる衝撃を作るので、
+          //   ヒットストップ 0.11→0.17秒（+55%）、シェイク 460/14→560/22 まで引き上げる。
+          //   音側は sound.js で二段構え＋本物の歪み＋BGMダックへ作り直してある。
           Sound.sfx('rocketPunchHit');
-          run.shake(460, 14); whiteFlash(0.42);
-          if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.11);
+          run.shake(560, 22); whiteFlash(0.48);
+          if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.17);
           if (run.billiard && run.billiard.shockRing) {
             run.billiard.shockRing(arm.fx, arm.fy, 120, 0xffffff);
             run.billiard.shockRing(arm.fx, arm.fy, 76, int(cfg.bulletTint));
@@ -1730,7 +1734,9 @@ export function createBoss(run) {
   // ============ ボス弾（プレイヤーへ当たる・kind別に挙動） ============
   function spawnBullet2(x, y, vx, vy, opts) {
     opts = opts || {};
-    const kind = opts.kind || 'orb';
+    // R35: kind 未指定の弾は、そのボスの既定形（cfg.bulletKind）に従う。
+    //   マオウレクスだけ 'comet'＝専用の彗星弾になり、他のボスは従来どおり 'orb'（boss_bolt）。
+    const kind = opts.kind || (cfg && cfg.bulletKind) || 'orb';
     const tint = opts.tint != null ? opts.tint : int(cfg.bulletTint);
     const d = pool.pop() || {
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD),
@@ -1742,16 +1748,18 @@ export function createBoss(run) {
     //   「+Xが進行方向」の向きで焼いてあるので、進行方向へ向けて発射する（tomahawkと同じ考え方・オフセットなし）。
     const isTom = kind === 'tomahawk';
     const isBomb = kind === 'bomb';
+    const isComet = kind === 'comet';                                // R35: マオウレクス専用
     const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
-      : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : 'boss_bolt';
+      : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : isComet ? 'boss_comet' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
     // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
-    const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isOrb ? r * 4.0 : r * 3.0;
-    const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isOrb ? r * 2.5 : r * 3.0;
+    // R35: 彗星は30×16比率（r=8のとき30.4×16）。ボルトより横も縦も大きい＝巨体から出る弾の質量。
+    const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isComet ? r * 3.8 : isOrb ? r * 4.0 : r * 3.0;
+    const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isComet ? r * 2.0 : isOrb ? r * 2.5 : r * 3.0;
     const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
-      : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルトは+Xが先端＝オフセットなし
+      : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルト／彗星は+Xが先端＝オフセットなし
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
       .setDisplaySize(dispW, dispH).setPosition(x, y).setRotation(rot0);
     // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
@@ -1760,12 +1768,17 @@ export function createBoss(run) {
     if (isTom) {
       d.glow.setVisible(true).setDepth(10).setTint(0xffa030)
         .setRotation(ta).setDisplaySize(r * 9.0, r * 4.0).setPosition(x, y);
+    } else if (isComet) {
+      // R35: 彗星は後ろへ長く伸びる白熱グロウ。尾が長いほど同じ速度でも速く見える
+      //   （モーションブラーと同じ原理）。ボルトの 4.6×2.6 に対して 8.4×3.2 と一段大きい。
+      d.glow.setVisible(true).setDepth(10).setTint(0xff6a1f).setAlpha(0.9)
+        .setRotation(ta).setDisplaySize(r * 8.4, r * 3.2).setPosition(x, y);
     } else {
-      d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f)
+      d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f).setAlpha(1)
         .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
     }
     bullets.push({
-      active: true, x, y, vx, vy, kind,
+      active: true, x, y, vx, vy, kind, r,
       spin: opts.spin || 0, returns: !!opts.returns,
       maxTurn: opts.maxTurn || 0, spd: Math.hypot(vx, vy) || 1, cruise: opts.speed || 0,
       blast: opts.blast || 0, age: 0, trailT: 0,
@@ -1790,6 +1803,10 @@ export function createBoss(run) {
     if (tomahawkFlyT > 0) tomahawkFlyT -= dt;
     let nearestMissile = -1;      // 主人公にいちばん近いミサイルまでの距離（飛来音の音程に使う）
     let nearestTomahawk = -1;     // R34W2: 同上（トマホーク＝ナックルウェーブの弾）
+    // R35: 彗星弾の火の粉は**1フレーム合計3個まで**。ノヴァは1回で70発飛ぶので、
+    //   1発ずつ尾を出すと毎秒数千個のスプライトになって確実に処理落ちする。
+    //   予算制にすると「近くの弾から順に少しだけ散る」＝見た目は保ったまま上限が固定される。
+    let trailBudget = 3;
     for (const b of bullets) {
       if (!b.active) continue;
       if (b.kind === 'missile') {
@@ -1814,6 +1831,17 @@ export function createBoss(run) {
           b.trailT = 0.035;
           run.spawnParticles(b.x - b.vx * 0.02, b.y - b.vy * 0.02, 0xffb020, 3);
           run.spawnParticles(b.x - b.vx * 0.045, b.y - b.vy * 0.045, 0xffe24a, 2);
+        }
+      } else if (b.kind === 'comet') {
+        // R35: 直進（回転は発射時に進行方向へ固定済み）。芯を脈打たせて「生きている火の玉」にする。
+        //   ⚠️ 脈動はグロウの alpha だけで作る＝オブジェクトを1つも増やさない。
+        //      弾が70発同時に飛ぶ攻撃があるので、1発ごとの追加描画は許容できない。
+        b.age += dt;
+        b.glow.setAlpha(0.62 + Math.sin(b.age * 22) * 0.30);
+        b.trailT -= dt;
+        if (b.trailT <= 0 && trailBudget > 0) {
+          b.trailT = 0.10; trailBudget--;
+          run.spawnParticles(b.x - b.vx * 0.03, b.y - b.vy * 0.03, 0xff8a2a, 1);
         }
       } else if (b.kind === 'bomb') {
         // 転がりながら減速して止まる。回転させて「転がっている」ことを見せる（導火線口が回る）。
@@ -1855,7 +1883,9 @@ export function createBoss(run) {
       } else if (b.noHit) {
         // 転がる爆弾は触れても爆ぜない（時間で爆発する）＝踏んでも即死しない安心を残す
       } else {
-        const rr = run.player.radius + (b.kind === 'orb' ? 4 : 6);
+        // R35: 彗星弾は見た目が30×16と大きいが、当たり判定は**白熱の芯**に合わせて5pxに留める。
+        //   外形（炎）の大きさで当てると「かすってもいないのに当たった」になる＝絵と判定は別物。
+        const rr = run.player.radius + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : 6);
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
           run.hitPlayer(b.dmg, b.x, b.y); b.active = false;

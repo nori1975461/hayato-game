@@ -49,6 +49,10 @@ export class BootScene extends Phaser.Scene {
     // R20 Gate2: ボス汎用弾（machinegun/vulcan/ring/nova/shockwave）を丸い点からプラズマ・ボルトへ。
     //   +Xが進行方向の鏃形＝dart/shellと同じ「左が後ろ・右が先端」の向き。設計意図はscratchpad/render-foe-bolt.mjsのNOTES参照。
     this.makeFoeBolt('boss_bolt', 16, 10);
+    // R35: マオウレクスの弾だけ専用。実プレイFB「小さな破砕片のような弾が全くイケてない」。
+    //   ボス本体は radius 82 なのに弾は 16×10px しかなく、**巨体から砂粒が出ている**構図だった。
+    //   30×16 の彗星型（後ろへ長く尾を引き、先端に白熱の芯）にして、最終ボスの一撃に見合う質量を出す。
+    this.makeFoeComet('boss_comet', 30, 16);
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
@@ -219,6 +223,35 @@ export class BootScene extends Phaser.Scene {
 
   // R18b: 砲台の榴弾シェル。鈍頭の弾頭キャップ＋弾帯のリング＋胴より背の高い尾フィン。
   //   ダートと逆に「鈍く・太く」焼くことで、同じ単色でも重い弾として読める。
+  // R35: マオウレクス専用の彗星弾（30×16・+Xが進行方向＝dart/shell/boltと同じ向き）。
+  //   「破砕片」に見えていた原因は形ではなく**大きさと構造**だった。boss_bolt は鏃形の小片で、
+  //   ①面積が小さい ②後ろへ引くものが無い ③白熱の芯が1本の線しかない、の3つで質量が出ない。
+  //   彗星型は後端が尖って先端が丸い＝進行方向が一目で分かり、尾が長いぶん速く見える
+  //   （同じ速度でも尾を引く物体のほうが速く感じる＝モーションブラーと同じ原理）。
+  makeFoeComet(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      // ① 外炎＝全形。後端(x=0)が尖り、先端(x=30)が丸い涙滴。上下に火の粉のギザを付ける。
+      [[0, 8, 7, 3.4, 12, 4.2, 17, 1.2, 22, 3.0, 27, 5.0, 30, 8,
+        27, 11.0, 22, 13.0, 17, 14.8, 12, 11.8, 7, 12.6], 0.30],
+      // ② 中炎＝胴。外炎より一回り小さい菱形で、密度の段差を作る。
+      [[5, 8, 11, 4.6, 18, 3.6, 24, 5.4, 27.5, 8, 24, 10.6, 18, 12.4, 11, 11.4], 0.46],
+      // ③ 芯＝白熱の塊。先端寄りに置くと「頭から突っ込んでくる」に見える。
+      [[14, 8, 19, 5.2, 24, 5.6, 27, 8, 24, 10.4, 19, 10.8], 1.0],
+      // ④ 切っ先のきらめき（1px幅の白）。等倍でも点が立つ。
+      [[26, 7.2, 30, 8, 26, 8.8], 1.0],
+      // ⑤ 尾の芯＝後ろへ細く伸びる線。これが無いと「止まって見える」。
+      [[0, 7.4, 13, 7.0, 13, 9.0, 0, 8.6], 0.55],
+    ];
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
   makeFoeShell(key, w, h) {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     const P = (arr) => this.toPoints(arr);

@@ -1154,8 +1154,19 @@ export const BALANCE = {
         missile: { telegraphSec: 0.55, count: 7, launchSpeed: 480, homingRate: 2.4, maxTurnDeg: 88,
                    speed: 480, radius: 6, damage: 24, blastDamage: 18, lifeSec: 2.4 },
         // 特別攻撃③：重力弾幕ノヴァ（予告付き・全方位弾を波ごとに spinDeg 回して螺旋状に連続で放つ）
+        // ★R35 実プレイFB「マオウレクスから放たれる、小さな破砕片のような弾が全くイケてない。
+        //   弾のスピードも遅い」。実測したら**指摘どおりどころか逆転していた**：
+        //     主人公の移動 148px/秒 ＞ ノヴァ弾 116px/秒 ＝ 歩いて追い抜ける
+        //     序盤の雑魚スナイパー 330px/秒 の**約3分の1**＝最終ボスがいちばん遅い
+        //   116→265（主人公の1.79倍）。見た目も radius 4（16×10px）では、radius 82 の巨体から
+        //   砂粒が出ている構図だったので 8（30×16px の彗星）へ。
+        //   ⚠️ 理不尽にしない根拠：14発の全方位なので隣接弾の角度差は 25.7°＝距離200pxで隙間89px、
+        //      主人公(半径7)＋弾の芯(5)＝12px あれば通れるので**まだ余裕で抜けられる**。
+        //      むしろ速くすると波の間隔が 18.6px→42px に広がって縫いやすくなる。
+        //      予告1.1秒は据え置き。damage は 20→18 に下げる（速さは"避けた"回数を増やす方向に使う）。
+        //      lifeSec は 4.0→2.6（射程 464px→689px でほぼ同等・画面外を延々飛ばさない）。
         nova: { telegraphSec: 1.1, waves: 5, waveInterval: 0.16, perWave: 14,
-                bulletSpeed: 116, bulletRadius: 4, damage: 20, lifeSec: 4.0, spinDeg: 13 },
+                bulletSpeed: 265, bulletRadius: 8, damage: 18, lifeSec: 2.6, spinDeg: 13 },
         // 最強武器①ナックルウェーブ（maou 専用）：両腕を胸前で叩き合わせ、トマホーク型の巨大ミサイルを
         // 扇状（spreadDeg 分の広がり）に count 本一斉発射する。丸い衝撃波(armslam)の刷新版＝派手さ優先。
         // ミサイルは直進弾（避けられる）＝威力はやや高めでも理不尽にしない。clapSec は叩き合わせのモーション尺。
@@ -1183,11 +1194,20 @@ export const BALANCE = {
         //      （緊張感は被弾量ではなく"避けた回数"で作る）。ダメージ64は据え置き。
         wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.3, maxLen: 360,
                    extendSpeed: 1450, fistRadius: 28, damage: 64, turnDeg: 54 },
-        vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
-                  bulletRadius: 4, damage: 16, lifeSec: 3.2 },
+        // ★R35 同上。バルカン砲は「速射」の武器なのに 150px/秒＝主人公(148)とほぼ同速で、
+        //   撃たれても並んで歩けてしまった。150→340（雑魚スナイパー330と同格・主人公の2.30倍）。
+        //   0.05秒間隔の9連射×3バーストで扇状に薙ぐので、速いほど「弾幕を薙いだ」線が見える。
+        //   damage 16→14／lifeSec 3.2→1.8（射程 480px→612px）。
+        vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 340,
+                  bulletRadius: 7, damage: 14, lifeSec: 1.8 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },
-        ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 150,
-                bulletRadius: 4, damage: 18, lifeSec: 3.8 },
+        // ★R35 同上（150→240）。リングは輪で囲う攻撃なので、ノヴァより少し遅くして
+        //   「輪が迫ってくる」時間を残す。lifeSec 3.8→2.4（射程 570px）。
+        ring: { telegraphSec: 0.5, count: 11, count2: 14, bulletSpeed: 240,
+                bulletRadius: 7, damage: 18, lifeSec: 2.4 },
+        // ★R35: マオウレクスの汎用弾（nova/vulcan/ring）だけ専用の彗星テクスチャを使う。
+        //   kind を明示しない弾の既定値になる（missile/tomahawk など個別指定はそのまま）。
+        bulletKind: 'comet',
         summon: { count: 8, enemyId: 'chibit', ringRadius: 70 },
         // R34: 尺が伸びたぶんを「待ち時間」ではなく「手数」で埋める（-20%）。硬いだけにしないため。
         idleSec: { afterSpawn: 2.2, betweenAttacks: [1.8, 1.9, 2.1, 1.6, 2.1] },
