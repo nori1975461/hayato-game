@@ -73,6 +73,16 @@ export function createBoss(run) {
   //      HPバーも撃破処理も既存のまま1体ぶんで足りる。
   let split = false;
   let phase3 = false;
+  // ★真マオウレクス「軌道神核」＝第4形態。メタリックパープルのHPが0になった瞬間を
+  //   撃破ではなく**変身**へ差し替える（onBossKilled の先頭で横取りする）。
+  //   trueForm が立っている間は HP/半径/弱点/攻撃表がすべて cfg.trueForm 側に切り替わる。
+  let trueForm = false;
+  let awakening = false;      // 転生カットシーン中（多重発火と二重撃破を防ぐ）
+  let trueCrack = null;       // 旧体に走る亀裂の描画（graphics・カットシーン終了で必ず破棄）
+  let ringSpin = [0, 0, 0];   // 3つの環の公転角（別々の速さで回る）
+  let alignAng = 0;           // 整列レーザーの射線（環が揃う向き＝そのまま射線）
+  let shellDmg = 0;           // 殻閉じを「閉じきる前に割る」ための蓄積ダメージ
+  let lastHp = 0;             // 前フレームのHP（差分から被ダメージ量を取る）
   let merging = false;        // 再合体カットシーンに入った印（多重発火を防ぐ）
   let camHeld = false;        // カットシーン中にカメラを主人公から預かっている印
   let lower = null;             // 下半身のエンティティ（run.enemies に載せる・被弾は弾く）
@@ -123,6 +133,11 @@ export function createBoss(run) {
   function ensureTextures() {
     for (const d of BOSSES) {
       for (const [k, s] of Object.entries(d.sprites)) makeSprite(`boss_${d.id}_${k}`, s);
+      // ★真の姿（第4形態）のパーツ。BOSSES には別エントリとして足さない＝ステージの並びに影響させない。
+      //   キーは `boss_maou_T<tex>` と接頭辞で分ける（通常パーツと名前が衝突しない）。
+      if (d.trueSprites) {
+        for (const [k, s] of Object.entries(d.trueSprites)) makeSprite(`boss_${d.id}_T${k}`, s);
+      }
     }
     makeMissile('boss_missile', 7, 11);
     makeSaw('boss_cutter', 16);
@@ -315,6 +330,7 @@ export function createBoss(run) {
     def = bossMap[cfg.bossId];
     phase2 = false;
     split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
+    trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0];
     killing = false;
     resetAttackVars();
 
@@ -383,13 +399,21 @@ export function createBoss(run) {
 
   // ★R30 段階ごとの攻撃表。分離中は上半身の技だけ（ミサイルは下半身が撃つ）、
   //   再合体後は胸部レーザーを軸にする。長さが違ってよいよう待ち時間は剰余で引く。
+  // ★真の姿の設定（第4形態中だけ有効）。cfg そのものは BALANCE の参照なので**書き換えない**。
+  //   段ごとに値が違うものは全部この関数を通して引く＝差し替え漏れを1か所に集める。
+  function TF() { return (trueForm && cfg && cfg.trueForm) ? cfg.trueForm : null; }
+  function weakCfg() { const t = TF(); return (t && t.weak) || (cfg && cfg.weak) || null; }
+
   function attackList() {
+    const t = TF();
+    if (t) return t.attacks;
     if (phase3 && cfg.attacksP3) return cfg.attacksP3;
     if (split && cfg.attacksSplit) return cfg.attacksSplit;
     return cfg.attacks;
   }
   function idleFor(i) {
-    const arr = cfg.idleSec.betweenAttacks;
+    const t = TF();
+    const arr = t ? t.idleSec : cfg.idleSec.betweenAttacks;
     return arr[i % arr.length];
   }
 
@@ -422,6 +446,16 @@ export function createBoss(run) {
       case 'wirearm':    state = 'wireTele';    stateT = cfg.wirearm.teleSec;
                          introText('ワイヤーアームはっしゃ', '#46e6ff', 156, 18, 1); break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
+      // ★真マオウレクス（第4形態）の3種。予告はどれも**形**で読める（文字より先に姿が変わる）。
+      case 'aligned':    state = 'alignTele';  stateT = TF().aligned.alignSec;
+                         Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.8);
+                         introText('せいれつ―― かんつうこう', '#ffedb0', 156, 18, 1); break;
+      case 'verse':      state = 'verseTele';  stateT = TF().verse.teleSec; shotAcc = 0; shotIdx = 0;
+                         Sound.sfx('specialCharge', 0.8, 1.35);
+                         introText('せいく かいほう', '#ffd23f', 156, 18, 1); break;
+      case 'shell':      state = 'shellTele';  stateT = TF().shell.teleSec; shellDmg = 0;
+                         Sound.sfx('warning', 0.8, 0.6);
+                         introText('から とじ', '#c98cff', 156, 18, 1); break;
       case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
       // ★R29 署名攻撃（通常ボス5体に1種類ずつ）。どれも「飛んでくる弾を避ける」以外の遊びを1つ足す。
       case 'rollbomb':   state = 'rollTele';   stateT = cfg.rollbomb.telegraphSec; break;
@@ -514,7 +548,9 @@ export function createBoss(run) {
 
       case 'chase': {
         // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
-        const cs = cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
+        const tfc = TF();
+        const cs = tfc ? tfc.chaseSpeed
+          : cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
         moveBoss(nx * cs, ny * cs, dt);
         if (stateT <= 0) beginAttack();
         break;
@@ -631,6 +667,87 @@ export function createBoss(run) {
         if (stateT <= 0) finishMerge();
         break;
       }
+
+      // ★★ 転生カットシーン（亀裂→粉砕→真の姿の出現）。この間は無敵＝演出の途中で倒せない
+      //    （R34で踏んだ「合体の瞬間に到達する前にHPが0になっていた」を繰り返さない）。
+      case 'awakenCine': {
+        const tf = cfg.trueForm;
+        const it = (tf.crackSec + tf.riseSec) - stateT;
+        trackCine();
+        drawCrack(it);
+        if (cineStage < 1 && it >= tf.shatterAt) { cineStage = 1; shatterOldBody(); }
+        if (cineStage < 2 && it >= tf.crackSec) { cineStage = 2; applyTrueLook(); }
+        if (stateT <= 0) finishAwaken();
+        break;
+      }
+
+      // ①整列レーザー：3つの環が主人公の方向へ一直線に揃う＝**射線が形で読める**予告。
+      case 'alignTele': {
+        const ak = TF().aligned;
+        alignAng = aim;                                   // 揃いきるまで狙い続ける（発射で固定）
+        const prog = clamp01(1 - stateT / ak.alignSec);
+        if (Math.floor(run.elapsed * 14) % 2 === 0 && prog > 0.4) {
+          run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 2);
+        }
+        if (stateT <= 0) fireAligned();
+        break;
+      }
+      case 'alignFire':
+        if (stateT <= 0) afterAttack();
+        break;
+
+      // ②聖句解放：環に刻まれた聖句が1文字ずつ剥がれて弾になる。3環が同じ角度から同時に剥がれるので
+      //   弾は「環の形」のまま散る＝どこが空くかが形で読める。
+      case 'verseTele':
+        if (stateT <= 0) {
+          state = 'verseFire'; stateT = TF().verse.fireSec; shotAcc = 0; shotIdx = 0;
+          Sound.sfx('ringwave', 0.8, 1.2);
+        }
+        break;
+      case 'verseFire': {
+        const vk = TF().verse;
+        const total = vk.perRing * 3;
+        const interval = vk.fireSec / total;
+        shotAcc += dt;
+        while (shotAcc >= interval && shotIdx < total) { shotAcc -= interval; fireVerse(shotIdx++, vk); }
+        if (stateT <= 0) afterAttack();
+        break;
+      }
+
+      // ③殻閉じ：装甲片（3つの環）が核へ戻って球に閉じ、無敵になって全方位へ衝撃波を吐く。
+      //   ⚠️ 閉じ**きる前**（shellClose）はまだ眼が出ている＝ここへ当てれば閉じられない。
+      //      「無敵で待たされる」を「割りにいく」へ裏返すための窓。
+      case 'shellTele':
+        if (stateT <= 0) {
+          state = 'shellClose'; stateT = TF().shell.closeSec; shellDmg = 0;
+          introText('いまなら とめられる！', '#ffd23f', 186, 17, 2);
+          Sound.sfx('metalSlam', 0.8, 1.3);
+        }
+        break;
+      case 'shellClose': {
+        const sk = TF().shell;
+        if (shellDmg >= boss.maxHp * sk.interruptRatio) { shellInterrupt(); break; }
+        if (stateT <= 0) {
+          state = 'shellHold'; stateT = sk.holdSec; shotIdx = 0;
+          whiteFlash(0.34); run.shake(320, 8);
+          Sound.sfx('metalSlam'); Sound.sfx('bigBoom', 0.7, 0.7);
+        }
+        break;
+      }
+      case 'shellHold': {
+        const sk = TF().shell;
+        while (shotIdx < sk.waves && (sk.holdSec - stateT) >= shotIdx * sk.waveInterval) {
+          fireShellWave(shotIdx++, sk);
+        }
+        if (stateT <= 0) { state = 'shellOpen'; stateT = sk.openSec; Sound.sfx('metalSlam', 0.8, 1.5); }
+        break;
+      }
+      case 'shellOpen':
+        if (stateT <= 0) afterAttack();
+        break;
+      case 'shellBreak':
+        if (stateT <= 0) afterAttack();
+        break;
 
       case 'chestTele': {
         // 溜めの「ド派手」は光が**胸のコアへ集まる**ことで作る（撃つ前から場所が分かる＝避けられる）
@@ -964,6 +1081,225 @@ export function createBoss(run) {
     endAttackChase();
     attackIdx = 0;
     if (run.withAudio) Sound.startBgm('maou');
+  }
+
+  // ============ ★★ 真マオウレクス「軌道神核」＝第4形態への転生 ============
+  // 実プレイFB「現在のメタリックパープルのマオウレクスを倒したら、そのマオウレクスのボディが亀裂を
+  // 生じて、粉々に飛び散る。そして真のマオウレクスが出現する」。
+  // ⚠️ 新しいボスを湧かせるのではなく、**同じエンティティを作り替える**。HPバー・報酬・撃破処理・
+  //    弱点コアの経路が全部そのまま使えるので、真の姿だけで壊れる/湧く箇所を作らない。
+
+  // HPが0になった瞬間に横取りする入口。旧体はここで止まり、無敵のカットシーンへ入る。
+  function startAwaken() {
+    const tf = cfg.trueForm;
+    awakening = true;
+    boss.active = true;              // killEnemy が落とした active を戻す（撃破ではなく変身）
+    boss.hp = 1;                     // 0のままだと同じフレームで再び撃破判定に拾われる
+    clearBullets();
+    clearStrikes();
+    destroyWire();
+    removeLower();
+    resetAttackVars();
+    if (beamImg) { beamImg.setVisible(false); }
+    beam = null;
+    // 旧体は砕けて無くなるので、分離／再合体の状態も一緒に畳む。残すと updateLower が
+    // 居ない下半身を触りにいくし、legTransform も真の姿には無い脚を探しにいく。
+    split = false; merging = false;
+    cineStage = 0;
+    state = 'awakenCine';
+    stateT = tf.crackSec + tf.riseSec;
+    spawnIntroDim();
+    setBossDepthLift(INTRO_LIFT);
+    if (!run.cinematic) { run.slowT = Math.max(run.slowT || 0, tf.crackSec * 0.8); run.slowMul = 0.38; }
+    // 転生の瞬間は音楽を止める＝「終わったと思った」ところに沈黙を置いてから、真の姿で鳴らし直す
+    if (run.withAudio) Sound.stopBgm();
+    Sound.sfx('crush', 3);
+    Sound.sfx('metalSlam', 1, 0.5);
+    run.shake(460, 10);
+    introText(tf.text, '#ff7a7a', 128, 22, 3);
+  }
+
+  // 旧体に走る亀裂。カットシーンの経過秒に応じて伸び、粉砕の瞬間に消える。
+  function drawCrack(it) {
+    const tf = cfg.trueForm;
+    if (it >= tf.shatterAt) { if (trueCrack) { trueCrack.clear(); } return; }
+    if (!trueCrack) trueCrack = run.add.graphics().setDepth(14 + INTRO_LIFT);
+    const p = clamp01(it / tf.shatterAt);
+    const R = boss.radius * 1.05;
+    trueCrack.clear();
+    // 中心から外へ枝分かれする稲妻を6本。太さより「伸びる速さ」で割れていく感じを作る
+    for (let i = 0; i < 6; i++) {
+      const base = i * (Math.PI * 2 / 6) + 0.4;
+      const seg = 5;
+      let x = boss.x, y = boss.y, a = base;
+      trueCrack.lineStyle(2.4 + Math.sin(run.elapsed * 40 + i) * 0.8,
+        i % 2 === 0 ? 0xff3b2f : 0xffd23f, 0.55 + 0.45 * p);
+      trueCrack.beginPath();
+      trueCrack.moveTo(x, y);
+      for (let k = 1; k <= seg; k++) {
+        const t = (k / seg) * p;
+        a = base + Math.sin(i * 2.3 + k * 1.7) * 0.42;
+        x = boss.x + Math.cos(a) * R * t;
+        y = boss.y + Math.sin(a) * R * t;
+        trueCrack.lineTo(x, y);
+      }
+      trueCrack.strokePath();
+    }
+    if (Math.floor(it * 24) % 3 === 0) {
+      run.spawnParticles(boss.x + run.rng.range(-R, R), boss.y + run.rng.range(-R, R), 0xff6a1f, 3);
+    }
+  }
+
+  // 粉砕：旧体の9パーツを外へ吹き飛ばす。破片は tween に任せ、applyTrueLook で必ず destroy する。
+  function shatterOldBody() {
+    if (trueCrack) { trueCrack.clear(); }
+    whiteFlash(0.55);
+    run.shake(620, 14);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.14);
+    Sound.sfx('bigBoom');
+    Sound.sfx('crush', 3);
+    Sound.sfx('metalSlam', 1, 0.9);
+    const tf = cfg.trueForm;
+    const ms = Math.max(120, (tf.crackSec - tf.shatterAt) * 1000);
+    if (disp) {
+      for (const p of disp.parts) {
+        const a = run.rng.range(0, Math.PI * 2);
+        const d = run.rng.range(120, 320);
+        run.tweens.add({
+          targets: p.img, x: p.img.x + Math.cos(a) * d, y: p.img.y + Math.sin(a) * d,
+          angle: run.rng.range(-540, 540), alpha: 0, scaleX: p.img.scaleX * 0.5, scaleY: p.img.scaleY * 0.5,
+          duration: ms, ease: 'Cubic.out',
+        });
+      }
+    }
+    for (let i = 0; i < 10; i++) {
+      run.spawnParticles(
+        boss.x + run.rng.range(-70, 70), boss.y + run.rng.range(-70, 70),
+        run.rng.pick([0xff3b2f, 0xffd23f, 0xc98cff, 0xffffff]), 16);
+    }
+  }
+
+  // 旧体を捨てて真の姿のリグへ組み替える。HP/半径/弱点/攻撃表もここで一斉に切り替わる。
+  function applyTrueLook() {
+    const tf = cfg.trueForm;
+    const s = tf.spriteScale;
+    if (disp) {
+      for (const p of disp.parts) { run.tweens.killTweensOf(p.img); p.img.destroy(); }
+      // ring/back は描画ループが役割を引くための印。role から推理させると、あとで rig を触った
+      // ときに静かにズレる（環が1つだけ回らない、が起きても気づけない）ので明示的に持たせる。
+      const RING_OF = { ringAb: [0, 1], ringAf: [0, 0], ringBb: [1, 1], ringBf: [1, 0],
+        ringCb: [2, 1], ringCf: [2, 0] };
+      const parts = def.trueRig.map((r) => {
+        const img = run.add.image(boss.x, boss.y, `boss_${def.id}_T${r.tex}`);
+        const origin = r.origin || PART_ORIGIN[r.role] || [0.5, 0.5];
+        const depth = PART_DEPTH[r.role] || 9;
+        img.setDepth(depth + INTRO_LIFT).setOrigin(origin[0], origin[1])
+          .setScale(r.mirror ? -s : s, s).setAlpha(0);
+        const rg = RING_OF[r.tex];
+        return { img, role: r.role, tex: r.tex, ox: r.ox, oy: r.oy, mirror: !!r.mirror, depth,
+          ring: rg ? rg[0] : -1, back: !!(rg && rg[1]) };
+      });
+      disp.parts = parts;
+      disp.spriteScale = s;
+      disp.glowP.setTint(int(tf.glowOuter));
+      disp.glowM.setTint(int(tf.glowInner));
+      boss.spr = parts[0].img;
+    }
+    destroyWeak();                      // 弱点表示は色が変わるので作り直す（tint は生成時に焼かれる）
+    // HPバーの見出しも作り替える（hud は ent.def.name を読む）。def そのものは書き換えない＝
+    // 次の周回で「最初からしん・マオウレクス」になってしまわないように浅いコピーを持たせる。
+    if (tf.name) boss.def = Object.assign({}, def, { name: tf.name });
+    trueForm = true;
+    awakening = false;
+    boss.hp = tf.hp; boss.maxHp = tf.hp;
+    boss.radius = tf.radius;
+    boss.damage = tf.bodyDamage;
+    boss.gaugeSegments = tf.gaugeSegments || 1;
+    lastHp = tf.hp;
+    attackIdx = 0;
+    ringSpin = [0, 2.1, 4.2];
+    whiteFlash(0.5);
+    run.shake(520, 12);
+    Sound.sfx('thunder');
+    Sound.sfx('elite');
+    run.spawnParticles(boss.x, boss.y, int(tf.glowInner), 40);
+    introText(tf.text2, '#ffedb0', 162, 20, 4);
+  }
+
+  function finishAwaken() {
+    releaseCamera();
+    clearIntroDim();
+    setBossDepthLift(0);
+    if (trueCrack) { trueCrack.destroy(); trueCrack = null; }
+    endAttackChase();
+    attackIdx = 0;
+    // 沈黙のあとで鳴らし直す＝「同じ曲」でも別の場面として耳に入る
+    if (run.withAudio) Sound.startBgm('maou');
+  }
+
+  // ============ 真の姿の攻撃3種 ============
+  // ①整列レーザー。環が揃った向きがそのまま射線になる（予告が文字でなく形）。
+  function fireAligned() {
+    const ak = TF().aligned, half = ak.sweepDeg * 0.5 * D2R;
+    startBeam(alignAng - half, alignAng + half, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec);
+    whiteFlash(0.5);
+    run.shake(520, 12);
+    Sound.sfx('bigBoom');
+    Sound.sfx('thunder');
+    Sound.sfx('fireBlast', 0.8);
+    recoil(alignAng);
+    run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 34);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.10);
+    state = 'alignFire'; stateT = ak.activeSec;
+  }
+
+  // 環の楕円（スプライトと同じ形）。弾の湧く場所を絵と一致させるための表＝
+  // [rx, ry, 傾き°]。ここがズレると「環から出ていない弾」になって嘘になる。
+  const TRUE_RING_GEO = [[23, 8.5, 24], [23, 8.5, -24], [21, 6.4, 0]];
+
+  // ②聖句解放。3つの環が同じ角度から同時に1文字ずつ剥がれ、環の形のまま外へ散る。
+  function fireVerse(i, vk) {
+    const ri = i % 3, step = Math.floor(i / 3);
+    const s = disp ? disp.spriteScale : 9.4;
+    const G = TRUE_RING_GEO[ri];
+    const a = (step / vk.perRing) * Math.PI * 2 + ringSpin[ri];
+    const rot = G[2] * D2R, cr = Math.cos(rot), sr = Math.sin(rot);
+    const ex = Math.cos(a) * G[0] * s, ey = Math.sin(a) * G[1] * s;
+    const px = boss.x + ex * cr - ey * sr, py = boss.y + ex * sr + ey * cr;
+    const out = Math.atan2(py - boss.y, px - boss.x);
+    spawnBullet2(px, py, Math.cos(out) * vk.bulletSpeed, Math.sin(out) * vk.bulletSpeed,
+      { radius: vk.bulletRadius, damage: vk.damage, life: vk.lifeSec, tint: 0xffd23f });
+    run.spawnParticles(px, py, 0xffd23f, 2);
+    // 音は1発ずつ鳴らすと潰れるので3発に1回。音程を1周ぶん上げていく＝「読み上げている」線になる
+    if (i % 3 === 0) Sound.sfx('tick', 0.5, 1.1 + (step / vk.perRing) * 0.9);
+  }
+
+  // ③殻閉じ。閉じきったあとの全方位衝撃波（波ごとに半分ずらして網目にする）。
+  function fireShellWave(w, sk) {
+    const off = (w % 2) * (Math.PI / sk.perWave);
+    for (let i = 0; i < sk.perWave; i++) {
+      const a = off + (i / sk.perWave) * Math.PI * 2;
+      spawnBullet2(boss.x + Math.cos(a) * boss.radius * 0.8, boss.y + Math.sin(a) * boss.radius * 0.8,
+        Math.cos(a) * sk.bulletSpeed, Math.sin(a) * sk.bulletSpeed,
+        { radius: sk.bulletRadius, damage: sk.damage, life: sk.lifeSec });
+    }
+    run.shake(260, 7);
+    Sound.sfx('ringwave', 0.9, 0.9 + w * 0.15);
+    if (w === 0) Sound.sfx('bigBoom', 0.7, 1.2);
+  }
+
+  // 閉じきる前に眼へ規定量を当てられた＝閉じられない。大きな隙（追撃の窓）に化ける。
+  function shellInterrupt() {
+    const sk = TF().shell;
+    state = 'shellBreak'; stateT = sk.breakSec;
+    bossStagT = sk.breakSec;
+    shellDmg = 0;
+    whiteFlash(0.3);
+    run.shake(380, 9);
+    Sound.sfx('crush', 3);
+    Sound.sfx('metalSlam', 1, 0.8);
+    run.spawnParticles(boss.x, boss.y, 0xffd23f, 30);
+    introText('から とじを こわした！', '#ffd23f', 156, 20, 2);
   }
 
   // ★胸部レーザー（再合体後だけ・作中最大ダメージ）。既存のビーム経路に乗せて、
@@ -1471,9 +1807,12 @@ export function createBoss(run) {
   function weakPoint(ent) {
     if (!boss || !boss.active || !cfg || !cfg.weak) return null;
     if (ent && ent.isLowerHalf) return null;
-    const w = cfg.weak;
+    const w = weakCfg();
+    // ★真の姿：殻を閉じているあいだは眼そのものが装甲の内側に隠れる＝狙う場所が消える。
+    //   （weakGate が弾くだけだと「見えているのに通らない」になり、R31 で直したのと同じ形になる）
+    if (trueForm && (state === 'shellHold' || state === 'shellOpen')) return null;
     const sec = phase2 ? w.phase2SwaySec : w.swaySec;
-    const sx = Math.sin((run.elapsed * Math.PI * 2) / sec) * w.swayX;
+    const sx = w.swayX ? Math.sin((run.elapsed * Math.PI * 2) / sec) * w.swayX : 0;
     return { x: boss.x + sx, y: boss.y + boss.radius * w.offY, r: w.radius };
   }
   // at = { x, y, r, hitR } … r>0 は爆風（範囲攻撃・コア倍率なし）。at 省略＝座標を持たない近接。
@@ -1493,16 +1832,20 @@ export function createBoss(run) {
     //   変わる瞬間（contactAt=0.62＝1.49秒目）に一度も到達していなかった。実プレイFB
     //   「再合体した際に体の色がメタリックパープルへ変化するはずだが。それもなかった」の正体はこれ。
     //   演出の途中で倒せてしまう限り、演出をどれだけ豪華にしても**原理的に見えない**。
-    if (state === 'maouIntro' || state === 'splitCine' || state === 'mergeCine') {
+    if (state === 'maouIntro' || state === 'splitCine' || state === 'mergeCine'
+      || state === 'awakenCine' || awakening) {
       return { pass: false, mul: 0 };
     }
     if (ent && ent.isLowerHalf) return { pass: false, mul: 0 };
+    // ★真の姿の殻閉じ：閉じきったあいだは何を当てても通らない（眼が装甲の内側）。
+    //   閉じている**途中**（shellClose）は通る＝そこが「割りにいく」窓になる。
+    if (trueForm && (state === 'shellHold' || state === 'shellOpen')) return { pass: false, mul: 0 };
     const w = weakPoint(ent);
     if (!w) return { pass: true, mul: 1 };
     if (!at || at.x == null) return { pass: false, mul: 0 };
     const dx = at.x - w.x, dy = at.y - w.y;
     const rr = w.r + (at.r || at.hitR || 0);
-    if (dx * dx + dy * dy <= rr * rr) return { pass: true, mul: at.r ? 1 : cfg.weak.mul, core: !at.r };
+    if (dx * dx + dy * dy <= rr * rr) return { pass: true, mul: at.r ? 1 : weakCfg().mul, core: !at.r };
     return { pass: false, mul: 0 };
   }
   // 弾かれた（＝コアを外した）ときの反応。多発するので音と文字は間引く。
@@ -1528,11 +1871,11 @@ export function createBoss(run) {
     Sound.sfx('crush', 3);
     Sound.sfx('metalSlam', 0.6, 1.25);
     run.shake(180, 6);
-    run.spawnParticles(cx, cy, int(cfg.weak.tint), 18);
+    run.spawnParticles(cx, cy, int(weakCfg().tint), 18);
     run.spawnParticles(cx, cy, 0xffffff, 10);
     if (run.elapsed - coreTextT >= 0.5) {
       coreTextT = run.elapsed;
-      run.floatText(cx, cy - 22, cfg.weak.label, '#fff2a8');
+      run.floatText(cx, cy - 22, weakCfg().label, '#fff2a8');
     }
   }
   // コアの見た目（毎フレーム再描画）。露出した炉心＝赤いハロー＋白熱した芯＋脈打つ照準リング。
@@ -1541,23 +1884,30 @@ export function createBoss(run) {
     if (!w) { if (weakEls) hideWeak(); return; }
     if (!weakEls) {
       weakEls = {
-        halo: run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(12).setTint(int(cfg.weak.tint)),
+        halo: run.add.image(0, 0, 'glow').setBlendMode(ADD).setDepth(12).setTint(int(weakCfg().tint)),
         g: run.add.graphics().setDepth(13),
       };
     }
     const pulse = 0.5 + 0.5 * Math.sin(run.elapsed * 7);
+    const haloMul = weakCfg().ringOnly ? 0.45 : 1;   // 眼が自分で光るぶんハローは控える
     weakEls.halo.setVisible(true).setPosition(w.x, w.y)
-      .setDisplaySize(w.r * 4.4, w.r * 4.4).setAlpha(0.34 + 0.2 * pulse);
+      .setDisplaySize(w.r * 4.4, w.r * 4.4).setAlpha((0.34 + 0.2 * pulse) * haloMul);
     const g = weakEls.g;
     g.clear();
-    g.fillStyle(int(cfg.weak.tint), 0.95);
-    g.fillCircle(w.x, w.y, w.r * 0.72);
-    g.fillStyle(int(cfg.weak.coreTint), 0.95);
-    g.fillCircle(w.x, w.y, w.r * (0.30 + 0.10 * pulse));   // 白熱した芯が脈打つ
+    // ★ringOnly＝弱点そのものが「絵」のとき（真の姿の単眼）は塗りつぶさない。
+    //   実測でこれが起きていた：weak.radius 48 の72%＝半径34pxの金色ベタが眼の中心を覆い、
+    //   描き下ろした眼（強膜・金の輪・虹彩・縦裂の瞳）が**画面に一度も出ていなかった**。
+    //   第3形態は「装甲が開いて露出した炉心」＝そこに絵が無いので塗りが正しかった。
+    if (!weakCfg().ringOnly) {
+      g.fillStyle(int(weakCfg().tint), 0.95);
+      g.fillCircle(w.x, w.y, w.r * 0.72);
+      g.fillStyle(int(weakCfg().coreTint), 0.95);
+      g.fillCircle(w.x, w.y, w.r * (0.30 + 0.10 * pulse));   // 白熱した芯が脈打つ
+    }
     // 照準リング（外へ広がって消える2重の輪）＝「ここを狙え」の記号
     g.lineStyle(2.4, 0xffffff, 0.85);
     g.strokeCircle(w.x, w.y, w.r);
-    g.lineStyle(1.6, int(cfg.weak.coreTint), 0.55 + 0.35 * pulse);
+    g.lineStyle(1.6, int(weakCfg().coreTint), 0.55 + 0.35 * pulse);
     g.strokeCircle(w.x, w.y, w.r * (1.15 + 0.35 * pulse));
     for (let i = 0; i < 4; i++) {           // 十字の照準マーク
       const a = (Math.PI / 2) * i + Math.PI / 4;
@@ -1950,7 +2300,113 @@ export function createBoss(run) {
     return null;
   }
 
+  // 角度の短経路補間（±πを跨ぐときに逆回りしないように）
+  function angLerp(a, b, t) {
+    let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    return a + d * t;
+  }
+  // 環に焼き込まれている傾き（スプライト側の rot）。整列で「真横」を作るとき、この分を引く。
+  const TRUE_RING_BAKED = [24 * D2R, -24 * D2R, 0];
+
+  // ★★ 真マオウレクス「軌道神核」の描画。腕・脚・砲身という既存の概念が1つも無いので経路を分ける。
+  //    動かすのは4つだけ：①3つの環の公転 ②眼の視線追従と瞬き ③光背の脈動 ④攻撃ごとの形の変化。
+  //    ④が主役＝**予告を文字ではなく形で読ませる**（環が揃えばレーザー、環が閉じれば無敵）。
+  function updateTrueDisp(dt) {
+    const tf = cfg.trueForm;
+    const s = disp.spriteScale;
+    const cx = boss.x, cy = boss.y;
+    const bob = Math.sin(run.elapsed * 1.6) * 2.2;
+
+    // 出現：下から浮かび上がりながら実体化する（riseSec ぶん）
+    let rise = 1, riseDrop = 0;
+    if (state === 'awakenCine') {
+      const t = clamp01(((tf.crackSec + tf.riseSec) - stateT - tf.crackSec) / tf.riseSec);
+      const e = t * t * (3 - 2 * t);
+      rise = e; riseDrop = (1 - e) * 52;
+    }
+
+    // ①公転。3つの環を別々の速さ・別々の向きで回す＝「軌道」に見せる。
+    //   環は静止画なので、回転そのものではなく**見込み角（縦の潰れ）**を周期で変える。
+    //   これが土星の環がゆっくり傾いて見える現象と同じで、回っていることが等倍でも読める。
+    const spinSpd = [0.90, -0.72, 1.25];
+    for (let i = 0; i < 3; i++) ringSpin[i] += spinSpd[i] * dt;
+
+    // ④攻撃ごとの形。alignT=1 で3環が射線方向へ一直線、shellT=1 で環が核へ閉じきる。
+    let alignT = 0, shellT = 0;
+    if (state === 'alignTele') alignT = clamp01(1 - stateT / tf.aligned.alignSec);
+    else if (state === 'alignFire') alignT = 1;
+    else if (state === 'shellTele') shellT = clamp01(1 - stateT / tf.shell.teleSec) * 0.20;
+    else if (state === 'shellClose') shellT = 0.20 + clamp01(1 - stateT / tf.shell.closeSec) * 0.80;
+    else if (state === 'shellHold') shellT = 1;
+    else if (state === 'shellOpen') shellT = clamp01(stateT / tf.shell.openSec);
+    const alignE = alignT * alignT * (3 - 2 * alignT);
+    const shellE = shellT * shellT * (3 - 2 * shellT);
+    const ringShrink = 1 - shellE * 0.70;
+
+    // ②瞬き。3.4秒に1回、0.11秒だけ瞼が落ちる（生き物であることの合図）
+    const blink = (run.elapsed % 3.4) < 0.11 ? 0.12 : 1;
+
+    for (const p of disp.parts) {
+      let px = cx + p.ox * s, py = cy + p.oy * s + bob + riseDrop;
+      let rot = 0, sx = s, sy = s, alpha = rise;
+
+      if (p.ring >= 0) {
+        const i = p.ring;
+        const seen = 0.84 + 0.16 * (0.5 + 0.5 * Math.cos(ringSpin[i]));   // 見込み角
+        rot = Math.sin(ringSpin[i] * 0.5) * 0.06;
+        sy = s * seen;
+        if (alignE > 0) {
+          // 整列：長軸を射線へ向け、縦を潰して「真横から見た環」＝一直線にする
+          rot = angLerp(rot, alignAng - TRUE_RING_BAKED[i], alignE);
+          sy = lerp(sy, s * 0.20, alignE);
+        }
+        sx = s * ringShrink; sy *= ringShrink;
+        // 奥半分は殻閉じで先に隠れる（前後関係が閉じる順で伝わる）
+        if (p.back) alpha *= 1 - shellE * 0.85;
+      } else if (p.role === 'body') {
+        // 球：殻を閉じるあいだ、装甲片を受け止めて少し膨らむ
+        const g = 1 + shellE * 0.13;
+        sx = s * g; sy = s * g;
+        rot = Math.sin(run.elapsed * 0.8) * 0.02;
+      } else if (p.role === 'core') {
+        // ②視線追従。閉じているあいだは眼そのものが装甲の内側へ沈む
+        const look = 11 * (1 - shellE);
+        px += Math.cos(aim) * look; py += Math.sin(aim) * look * 0.62;
+        sy = s * blink * (1 - shellE);
+        sx = s * (1 - shellE * 0.5);
+        alpha *= 1 - shellE;
+      } else if (p.role === 'thruster') {
+        // ③光背の脈動。予告中は大きく張り出す＝「何か来る」が背面のシルエットで分かる
+        const tel = isTelegraph(state) ? 0.10 : 0;
+        const g = 1 + Math.sin(run.elapsed * 3) * 0.03 + tel;
+        sx = s * g; sy = s * g;
+      }
+
+      p.img.setPosition(px, py).setRotation(rot)
+        .setScale((p.mirror ? -1 : 1) * sx, sy).setAlpha(alpha);
+    }
+
+    const pulse = 1 + Math.sin(run.elapsed * 4) * 0.12;
+    disp.glowP.setPosition(cx, cy).setScale(tf.glowScale * 1.6 * pulse * (1 - shellE * 0.3))
+      .setAlpha(rise);
+    disp.glowM.setPosition(cx, cy).setScale(tf.glowScale * 0.9 * pulse * (1 + shellE * 0.4))
+      .setAlpha(rise);
+    disp.muzzle.setVisible(false);
+
+    // 記号は既存と同じ順番で読ませる（被弾フラッシュ＞割られた隙＞予告点滅）
+    boss.flashT -= dt;
+    let tint = null;
+    if (boss.flashT > 0) tint = 0xffffff;
+    else if (bossStagT > 0) tint = BALANCE.stagger.tint;
+    else if (isTelegraph(state)) tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
+    else if (state === 'shellHold') tint = 0xc8c8e6;   // 閉じているあいだは冷えた鋼＝通らないことの合図
+    for (const p of disp.parts) { if (tint == null) p.img.clearTint(); else p.img.setTint(tint); }
+  }
+
   function updateDisp(dt) {
+    if (trueForm) { updateTrueDisp(dt); return; }
+    // 粉砕中は位置を tween に任せる（毎フレーム setPosition で上書きすると破片が飛ばない）
+    if (awakening && cineStage >= 1) return;
     const s = disp.spriteScale;
     const cx = boss.x, cy = boss.y;
     const bob = Math.sin(run.elapsed * 2) * 1.5;         // 全体の浮遊
@@ -2141,6 +2597,9 @@ export function createBoss(run) {
   // ============ 撃破シネマティック ============
   function onBossKilled(e) {
     if (killing || !boss || e !== boss) return;
+    // ★★ 真マオウレクス：メタリックパープルのHPが0になっても、そこは終わりではなく**転生**。
+    //    撃破処理より前に横取りして、亀裂→粉砕→出現のカットシーンへ渡す。
+    if (cfg && cfg.final && cfg.trueForm && !trueForm && !awakening) { startAwaken(); return; }
     killing = true;
     boss.active = false;
     const x = boss.x, y = boss.y;
@@ -2155,7 +2614,8 @@ export function createBoss(run) {
   // 最終ボス撃破＝フルbossVictory＋クリア
   function finishFinal(x, y) {
     allDone = !run.practiceMode;
-    run.floatText(x, y - 46, def.name + ' を たおした！', '#ff6ec7');
+    const nm = (boss && boss.def && boss.def.name) || def.name;
+    run.floatText(x, y - 46, nm + ' を たおした！', '#ff6ec7');
     const finish = () => {
       run.cinematic = false;
       destroyDisp();
@@ -2213,6 +2673,7 @@ export function createBoss(run) {
     destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
     destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
     destroyWeak();       // 弱点コアの表示を確実に破棄（リーク防止）
+    if (trueCrack) { trueCrack.destroy(); trueCrack = null; }   // 転生カットシーンの亀裂
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();
@@ -2231,6 +2692,7 @@ export function createBoss(run) {
     state = 'idle';
     phase2 = false;
     split = false; phase3 = false; merging = false; mergeFrom = null;
+    trueForm = false; awakening = false; shellDmg = 0;
     killing = false;
     ti++;
   }
@@ -2294,10 +2756,25 @@ export function createBoss(run) {
       updateAI(dt);
       updateDisp(dt);
       drawWeak();          // R29 弱点コア（持たないボスでは何もしない）
-      if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
-      // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
-      if (split && !phase3 && !merging && cfg.merge && boss.hp <= cfg.hp * cfg.merge.hpRatio) startMerge();
-      if (camHeld && state !== 'splitCine' && state !== 'mergeCine') releaseCamera();
+      // ★★ 実バグだった：転生（awakenCine）に入ると boss.hp を 1 に落とすので、同じフレームで
+      //    「HP50%で分離」「33%で再合体」の判定が**両方とも**成立し、startSplit() が
+      //    state='awakenCine' を上書きして**転生カットシーンが丸ごと消えていた**（実測：
+      //    awakening=true のまま state=chase・partCount=9・trueForm=false）。
+      //    実プレイでも、HP33%超から一撃で0にすれば同じことが起きる（R34 の実測でコアへの
+      //    渾身の一投は最大HPの23%＝十分あり得る）。転生中と真の姿では段の判定を止める。
+      //    真の姿は maxHp そのものが別物なので、cfg.hp 基準の比較はどのみち意味を持たない。
+      if (!awakening && !trueForm) {
+        if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
+        // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
+        if (split && !phase3 && !merging && cfg.merge && boss.hp <= cfg.hp * cfg.merge.hpRatio) startMerge();
+      }
+      // ★真の姿：殻閉じを「閉じきる前に割る」ための被ダメージ量。HPの差分で取る＝
+      //   どの武器・どの経路から入ったダメージでも同じように数えられる（数え漏れを作らない）。
+      if (trueForm) {
+        if (state === 'shellClose' && boss.hp < lastHp) shellDmg += lastHp - boss.hp;
+        lastHp = boss.hp;
+      }
+      if (camHeld && state !== 'splitCine' && state !== 'mergeCine' && state !== 'awakenCine') releaseCamera();
       if (split && state !== 'mergeCine') updateLower(dt);
       if (lowerGlow && lower && lower.active && state !== 'mergeCine') {
         lowerGlow.setPosition(lower.x, lower.y)
@@ -2305,11 +2782,12 @@ export function createBoss(run) {
       }
       // 突進中/フライパス通過中は体当たりのダメージが上がる（速い＝重い、が体で分かる）
       const dmg = (state === 'dash') ? cfg.dash.damage
-        : (state === 'flypass') ? cfg.flypass.bodyDamage : cfg.bodyDamage;
+        : (state === 'flypass') ? cfg.flypass.bodyDamage
+        : trueForm ? boss.damage : cfg.bodyDamage;
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
       // カットシーン中は体当たりで削らない。見せている最中に理不尽に減るのが一番しらける
-      const cine = state === 'splitCine' || state === 'mergeCine';
+      const cine = state === 'splitCine' || state === 'mergeCine' || state === 'awakenCine';
       if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
     }
 
@@ -2356,6 +2834,9 @@ export function createBoss(run) {
     // R30 検証用：分離／再合体の観測（本体は書き換えない）
     get split() { return split; },
     get phase3() { return phase3; },
+    // ★真の姿（第4形態）の観測。転生が起きたか／今どちらの姿かを外から測れるようにする
+    get trueForm() { return trueForm; },
+    get awakening() { return awakening; },
     get lowerPos() { return lower && lower.active ? { x: lower.x, y: lower.y, r: lower.radius } : null; },
     get bossTint() { return disp && disp.parts[0] ? disp.parts[0].img.tintTopLeft : null; },
   };
