@@ -100,9 +100,22 @@ async function main() {
   })()`);
   console.log('主人公:', JSON.stringify(lv));
 
+  // R36W2: BGM切替のスパイ（転生後に maouTrue が鳴るか）。ES モジュールは同一インスタンスが
+  // 返るので、Sound.startBgm を包めばゲーム側の切替も全部記録される（R35と同じ手法）。
+  await evalJs(`(async function(){
+    var mod = await import('/vortex/src/audio/sound.js');
+    var S = mod.Sound;
+    window.__B = [];
+    var ob = S.startBgm.bind(S);
+    S.startBgm = function(nm){ window.__B.push(nm || 'battle'); return ob(nm); };
+    return true;
+  })()`);
   await evalJs(`(function(){
     var r = window.__run;
     r.practiceMode = true;
+    // autotest は withAudio=false で startBgm 自体が呼ばれない＝切替の列が測れない。
+    // true にしても sound.js は ctx null ガードで安全（音は鳴らず、呼び出しだけ記録される）。
+    r.withAudio = true;
     window.__god = setInterval(function(){ if (r.player) r.player.hp = r.player.maxHp; }, 40);
     window.__D = { seq: [], last: null, t0: null, tTrue: null, tKill: null,
       count: {}, awakened: false, shellBreak: 0, maxParts: 0, hpAtTrue: 0, name: '' };
@@ -120,6 +133,16 @@ async function main() {
         if (st === 'verseFire') D.count.verse = (D.count.verse || 0) + 1;
         if (st === 'shellHold') D.count.shell = (D.count.shell || 0) + 1;
         if (st === 'shellBreak') D.shellBreak++;
+        if (st === 'laserFire') D.count.laser = (D.count.laser || 0) + 1;   // R36W2 じゃがんレーザー（分離中）
+        // R36W2 再合体後：紫テクスチャ（P接頭辞）に差し替わった枚数を数える
+        if (r.boss.phase3 && !D.purple) {
+          var pc = 0;
+          r.children.list.forEach(function(o){
+            var k2 = o.texture && o.texture.key;
+            if (k2 && k2.indexOf('boss_maou_P') === 0) pc++;
+          });
+          if (pc > 0) D.purple = pc;
+        }
         D.last = st;
       }
       if (!D.awakened && r.boss.trueForm) {
@@ -172,6 +195,8 @@ async function main() {
     clearInterval(window.__bot); clearInterval(window.__watch); clearInterval(window.__god);
     return window.__D;
   })()`);
+  const BGM = await evalJs(`window.__B || []`);
+  console.log('BGM切替の列: ' + JSON.stringify(BGM));
 
   console.log('');
   if (!D) { console.log('計測に失敗（__D が取れない）'); }
@@ -181,12 +206,14 @@ async function main() {
     console.log('HPバーの見出し:      ' + D.name);
     console.log('転生までの秒数:      ' + (D.tTrue != null ? D.tTrue.toFixed(1) + '秒' : '—'));
     console.log('真の姿のHP:          ' + D.hpAtTrue);
-    console.log('真の姿の戦闘長:      ' + (trueSec != null ? trueSec + '秒' : '—') + '  （目標20〜25秒）');
+    console.log('真の姿の戦闘長:      ' + (trueSec != null ? trueSec + '秒' : '—') + '  （目標35秒前後・R36W2）');
     console.log('全体の戦闘長:        ' + (D.tKill != null ? D.tKill.toFixed(1) + '秒' : '—'));
     console.log('整列レーザー 発射:   ' + (D.count.aligned || 0) + '回');
     console.log('聖句解放     発射:   ' + (D.count.verse || 0) + '回');
     console.log('殻閉じ       成立:   ' + (D.count.shell || 0) + '回');
     console.log('殻閉じ       割れた: ' + D.shellBreak + '回');
+    console.log('じゃがんレーザー発射: ' + (D.count.laser || 0) + '回（分離中のみ・R36W2）');
+    console.log('紫テクスチャ枚数:    ' + (D.purple || 0) + '（再合体後・9で全パーツ）');
     console.log('パーツ最大数:        ' + D.maxParts + '（真の姿は9）');
     console.log('');
     console.log('状態の推移（真の姿ぶんだけ）:');

@@ -134,11 +134,20 @@ async function main() {
   })()`);
   await waitState(['chase'], 20000);
 
-  console.log('--- 第3形態（メタリックパープル） ---');
-  // 見比べのため、まず旧体をそのまま1枚。合体後の色にしてから撮る
+  console.log('--- 分離 → じゃがんレーザー（R36W2・紫） ---');
   await evalJs(`(function(){
     var r = window.__run, b = r.boss.entity;
-    b.hp = b.maxHp * 0.30;   // 再合体の節目を越えさせる（メタリックパープルへ）
+    b.hp = b.maxHp * 0.45;   // 分離の節目（50%）を越えさせる。合体の節目（33%）はまだ
+    return true;
+  })()`);
+  await waitState(['splitCine'], 12000);
+  // attacksSplit の先頭が laser ＝分離が終わればすぐ予告が来る
+  if (await waitState('laserFire', 20000)) { await sleep(300); await shot('00-jagan-laser'); }
+
+  console.log('--- 第3形態（メタリックパープル） ---');
+  await evalJs(`(function(){
+    var r = window.__run, b = r.boss.entity;
+    b.hp = b.maxHp * 0.32;   // 再合体の節目を越えさせる（メタリックパープルへ）
     return true;
   })()`);
   await waitState(['mergeCine'], 12000);
@@ -149,8 +158,11 @@ async function main() {
   await sleep(400);
   console.log('  phase3=' + await evalJs('window.__run.boss.phase3')
     + ' split=' + await evalJs('window.__run.boss.split')
-    + ' tint=0x' + ((await evalJs('window.__run.boss.bossTint')) || 0).toString(16));
+    + ' 紫パーツ=' + await evalJs(`(function(){var c=0;window.__run.children.list.forEach(function(o){
+        var k=o.texture&&o.texture.key;if(k&&k.indexOf('boss_maou_P')===0)c++;});return c;})()`));
   await shot('01-phase3-purple');
+  // 再合体後の1手目は chestLaser＝じゃしんレーザー（紫）も撮っておく
+  if (await waitState('chestFire', 20000)) { await sleep(300); await shot('01b-jashin-laser'); }
 
   console.log('--- 転生カットシーン ---');
   await evalJs(`(function(){
@@ -166,7 +178,7 @@ async function main() {
     //    無傷の旧体を「粉砕」として撮っていた。粉砕 tween は alpha を 1→0 にするので、そこを見る。
     const d = await evalJs(`(function(){var r=window.__run;var m=1;
       r.children.list.forEach(function(o){var k=o.texture&&o.texture.key;
-      if(!/^boss_maou_(body|core|arm|leg|cannon|pauldron|cellpod)$/.test(k||''))return;
+      if(!/^boss_maou_P?(body|core|arm|leg|cannon|pauldron|cellpod)$/.test(k||''))return;   // R36W2 合体後は P 接頭辞
       m=Math.min(m,o.alpha);});return +m.toFixed(2);})()`);
     if (d < 0.6) { console.log('  粉砕を検出（旧パーツのα ' + d + '）'); break; }
     await sleep(50);
