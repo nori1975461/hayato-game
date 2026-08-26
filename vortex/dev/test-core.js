@@ -1720,17 +1720,113 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(tf.shell.holdSec > 0 && tf.shell.breakSec > tf.shell.holdSec * 1.1,
     `true: 割ったときの隙(${tf.shell.breakSec}s)が、閉じられたときの無敵(${tf.shell.holdSec}s)より長い＝止めにいく得がある`);
 
-  // --- 尺：ユーザー指定「20〜25秒（短く強烈）」。実測DPS 3550/秒 から逆算する ---
+  // --- 尺：R36W2 実プレイFB「もう少し長く楽しみたい。最適な時間はまかせる」→ 35秒前後へ。
+  //     根拠は balance.js の trueForm コメント（専用BGM1.6周・攻撃3種が各3〜4回・2倍にはしない）。---
   {
-    const sec = tf.hp / 3550 + tf.shell.holdSec;
-    assert(sec >= 19 && sec <= 26,
-      `true: 真の姿の戦闘が20〜25秒の設計（HP${tf.hp} ÷ 実測DPS3550 + 無敵${tf.shell.holdSec}s = ${sec.toFixed(1)}秒）`);
+    const sec = tf.hp / 3550 + tf.shell.holdSec * 2;
+    assert(sec >= 30 && sec <= 40,
+      `true: 真の姿の戦闘が35秒前後の設計（HP${tf.hp} ÷ 実測DPS3550 + 無敵${tf.shell.holdSec}s×2 = ${sec.toFixed(1)}秒）`);
+    assert(tf.gaugeSegments === 3,
+      `true: 35秒をゲージ3本で数えられる（${tf.gaugeSegments}本・1本≒12秒）`);
   }
   // HPが0になった瞬間を、撃破処理より**前**に横取りしていること（順序が逆だと1回で終わる）
   assert(/function onBossKilled\(e\) \{[\s\S]{0,400}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
     'true: HP0 は「撃破」より先に「転生」を見る（順序が逆だと真の姿が出ないまま終わる）');
   assert(tf.name && tf.name !== MAOU.name,
     `true: 真の姿は名前も変わる（${MAOU.name} → ${tf.name}）＝HPバーで別物だと分かる`);
+}
+
+// ============ ★★ R36W2 実プレイFB 6件（レーザー再編・紫の実体・深紅・専用BGM）============
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const snd = read('audio/sound.js');
+  const prac = read('systems/practice.js');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const hex = (h) => ({ r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16), b: parseInt(h.slice(5, 7), 16) });
+
+  // --- ① レーザーの配置換え（FB「出現時に不要。分離したときに照射」）---
+  assert(!maou.attacks.includes('laser'),
+    `R36W2: 出現時（分離前）の表にレーザーが無い（${maou.attacks.join('/')}）`);
+  assert(maou.attacksSplit.includes('laser'),
+    `R36W2: 分離中の表にレーザーがある（${maou.attacksSplit.join('/')}）`);
+  assert(maou.attacksSplit[0] === 'laser',
+    'R36W2: 分離した直後の1手目がレーザー＝「分かれたら撃ってくる」が最初の1回で伝わる');
+  assert(maou.attacks.includes('vulcan'),
+    'R36W2: laser を抜いた枠に vulcan を昇格（コンボ専用のままだと一度も撃たなくなる）');
+
+  // --- ② 改名（FB「きょうぶレーザーはダサすぎる」）---
+  assert(maou.laser.name === 'じゃがんレーザー' && maou.chestLaser.name === 'じゃしんレーザー',
+    `R36W2: 改名済み（${maou.laser.name} / ${maou.chestLaser.name}）`);
+  assert(!/introText\('きょうぶ/.test(boss),
+    'R36W2: 旧名「きょうぶレーザー」が画面に出る箇所が残っていない');
+  assert(/introText\(cfg\.laser\.name/.test(boss) && /introText\(cfg\.chestLaser\.name/.test(boss),
+    'R36W2: レーザーの表示名は balance の name を読む（名前の二重管理をしない）');
+
+  // --- ③ 光線の色（FB「光線の色は紫」「整列は深みのある赤」）。B>R＝紫、R>B＝赤 を数で縛る ---
+  for (const [who, tint] of [['laser', maou.laser.beamTint], ['chestLaser', maou.chestLaser.beamTint]]) {
+    const c = hex(tint);
+    assert(c.b > c.r, `R36W2: ${who} のビームが紫（${tint}＝B ${c.b} > R ${c.r}）`);
+  }
+  {
+    const ak = maou.trueForm.aligned;
+    const c = hex(ak.beamTint);
+    assert(c.r > c.b * 2, `R36W2: 整列レーザーが赤（${ak.beamTint}＝R ${c.r} > B×2）`);
+    assert(!!ak.coreTint, 'R36W2: 整列レーザーに白熱の芯がある＝「深みのある」は縁と芯の2層で出す');
+  }
+  assert(/function startBeam\(angFrom, angTo, len, width, dmg, activeSec, opts = \{\}\)/.test(boss)
+    && /opts\.tint != null \? int\(opts\.tint\) : int\(cfg\.glowInner\)/.test(boss),
+    'R36W2: startBeam が攻撃ごとの色を受け取る（従来は全ビーム1色固定）');
+  assert(/let beamCore = null;/.test(boss)
+    && /beamCore\.setVisible\(!!opts\.core\)/.test(boss),
+    'R36W2: ビームが2層（縁＋白熱の芯）になっている');
+  assert((boss.match(/if \(beamCore\) \{ beamCore\.destroy\(\); beamCore = null; \}/g) || []).length >= 2,
+    'R36W2: 芯の破棄が beamImg と同じ経路に入っている（リーク防止）');
+
+  // --- ④ 発射音と被弾の実感（FB「照射時に効果音」「受けてしまった実感」）---
+  for (const k of ['darkLaser', 'godLaser', 'beamHit']) {
+    // includes で見る（RegExp コンストラクタはエスケープの二重管理になりやすい）
+    assert(snd.includes(`  ${k}() {`), `R36W2: 効果音 ${k} が実在する`);
+  }
+  assert(/Sound\.sfx\('darkLaser'\)/.test(boss) && /Sound\.sfx\('godLaser'\)/.test(boss),
+    'R36W2: レーザー発射が専用音を鳴らしている（darkLaser=紫 / godLaser=整列）');
+  assert(/beam\.heavy[\s\S]{0,800}?Sound\.sfx\('beamHit'\)[\s\S]{0,500}?hitPlayer\(beam\.dmg, run\.player\.x - dirX \* 40/.test(boss),
+    'R36W2: レーザー被弾が 専用音＋ビーム方向への吹き飛ばし を持つ（受けた実感）');
+
+  // --- ⑤ メタリックパープルの実体（FB「一部のみ変わっただけに見える」）---
+  assert(!!MAOU.palette3, 'R36W2: 紫パレット（palette3）が実在する');
+  {
+    const a = Object.keys(MAOU.sprites.body.palette).sort().join('');
+    const b = Object.keys(MAOU.palette3).sort().join('');
+    assert(a === b, `R36W2: 紫パレットのキー集合が元と完全一致（欠けると装甲に穴が開く）＝[${b}]`);
+    // 赤ファミリーが本当に紫になっている（B>R）。元は赤（R>B）であることも同時に確認
+    for (const k of ['m', 'r', 'd', 'S']) {
+      const o = hex(MAOU.sprites.body.palette[k]), q = hex(MAOU.palette3[k]);
+      assert(o.r > o.b && q.b > q.r,
+        `R36W2: 赤${k}（${MAOU.sprites.body.palette[k]}）→ 紫（${MAOU.palette3[k]}）`);
+    }
+  }
+  assert(/makeSprite\(`boss_\$\{d\.id\}_P\$\{k\}`, \{ palette: d\.palette3, rows: s\.rows \}\)/.test(boss),
+    'R36W2: 紫版テクスチャ（P接頭辞）を焼いている');
+  assert(/applyMergeLook[\s\S]{0,700}?setTexture\(`boss_\$\{def\.id\}_P\$\{p\.tex\}`\)/.test(boss),
+    'R36W2: 再合体の瞬間にテクスチャごと紫へ差し替えている（tint の乗算では赤は紫にならない）');
+  assert(/tex: r\.tex,/.test(boss), 'R36W2: パーツが自分の tex 名を持つ（差し替え先キーを組むため）');
+  assert(/mixHex\(0xffffff, int\(cfg\.merge\.glowInner\)/.test(boss),
+    'R36W2: metalPurple は白基準の艶になった（紫はテクスチャが担い、tint は光沢だけ）');
+
+  // --- ⑥ 専用BGM（FB「軌道神核用のBGMを。神々しさのアレンジ」「ギターでいこう」）---
+  assert(/^  maouTrue:\s*\{ bpm:/m.test(snd) && /variant: 'true'/.test(snd),
+    'R36W2: 軌道神核の専用曲 maouTrue が SONGS に実在する');
+  assert(/const GT = V === 'guitar' \|\| V === 'true';/.test(snd),
+    'R36W2: 専用曲は採用されたギター編成が土台（別の曲にしない＝「同じ戦いの別の段」）');
+  for (const w of ['カリヨン', '光背ドローン', '天使の声']) {
+    assert(new RegExp(w).test(snd), `R36W2: 神々しさの声部「${w}」がある`);
+  }
+  assert(/Sound\.startBgm\('maouTrue'\)/.test(boss),
+    'R36W2: 転生の沈黙のあとに専用曲で鳴らし直している');
+  assert(/name: 'maouTrue'/.test(prac) && /さいよう/.test(prac),
+    'R36W2: れんしゅうじょうの聞き比べに④神核曲があり、①に採用の印がある');
 }
 
 // --- 結果 ---
