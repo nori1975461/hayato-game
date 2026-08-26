@@ -1159,8 +1159,14 @@ export const BALANCE = {
         // 最強武器①ナックルウェーブ（maou 専用）：両腕を胸前で叩き合わせ、トマホーク型の巨大ミサイルを
         // 扇状（spreadDeg 分の広がり）に count 本一斉発射する。丸い衝撃波(armslam)の刷新版＝派手さ優先。
         // ミサイルは直進弾（避けられる）＝威力はやや高めでも理不尽にしない。clapSec は叩き合わせのモーション尺。
+        // R34W2: 実プレイFB「ナックルウェーブの速度も変わっていない」。実測すると**指摘のとおり**で、
+        //   ここだけ R29 の初期値 178 のまま一度も触っていなかった。主人公の移動が 148px/秒なので
+        //   **1.20倍＝ほぼ並走**、通常ミサイル 480（3.2倍）と比べても明らかに遅い。178→320（2.16倍）。
+        //   ⚠️ 理不尽にはしない根拠：7本を150°扇状に撒くので隣接弾の角度差は25°＝距離200pxで隙間86px、
+        //      主人公は 320px/秒の弾が200px飛ぶ0.63秒で93px動ける＝**まだ抜けられる**。
+        //      弾は直進（ホーミングなし）でダメージも22据え置き＝速さは"避けた"の回数を増やす方向に働く。
         knuckle: { telegraphSec: 1.0, clapSec: 0.4, count: 7, spreadDeg: 150,
-                   bulletSpeed: 178, radius: 8, damage: 22, lifeSec: 3.4 },
+                   bulletSpeed: 320, radius: 9, damage: 22, lifeSec: 3.4 },
         // 最強武器②ワイヤーアーム（maou 専用）：両拳をワイヤーで主人公方向へ射出し、最大長 maxLen まで伸ばして
         // 殴り、手繰り戻す（飛ばしっぱなしにしない）。extendSpeed で伸長、turnDeg/秒 のマイルド追尾（横移動で振り切れる）。
         // damage は現状最強クラス(dash 52)超えの大ダメージだが、プレイヤー maxHp 100 未満＝満タンから一撃死しない値。
@@ -1169,8 +1175,14 @@ export const BALANCE = {
         //   クリア意欲を刺激しない」。射程 210→330（+57%・投げの間合いに届く）／伸長 640→1080（+69%）／
         //   拳の半径 16→28（+75%）。追尾は 55→64°/秒に留める（横へ切れば振り切れる余地は残す）。
         //   ダメージ 64 は据え置き（プレイヤーHP140 の46%＝満タンから一撃死しない上限）。
-        wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.3, maxLen: 330,
-                   extendSpeed: 1080, fistRadius: 28, damage: 64, turnDeg: 64 },
+        // R34W2: 同じく「ワイヤーアームの速度も変わっていない」。音は R31 で作り直してあるが
+        //   （rocketPunchFire / rocketPunchFly / rocketPunchHit）、速度は R29 のまま据え置きだった。
+        //   さらに R34 で判明したとおり、R31〜R33 は**予告を割られて射出そのものが0回**だったので
+        //   新しい音は一度も鳴っていない。ここで速さも上げる：伸長 1080→1450（+34%）／射程 330→360。
+        //   ⚠️ 速くするぶん追尾を 64→54°/秒に緩める。速い＝避けられない、にはしない
+        //      （緊張感は被弾量ではなく"避けた回数"で作る）。ダメージ64は据え置き。
+        wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.3, maxLen: 360,
+                   extendSpeed: 1450, fistRadius: 28, damage: 64, turnDeg: 54 },
         vulcan: { telegraphSec: 0.4, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 150,
                   bulletRadius: 4, damage: 16, lifeSec: 3.2 },
         dash: { telegraphSec: 0.8, speed: 400, durationSec: 0.85, damage: 52 },
@@ -1185,7 +1197,10 @@ export const BALANCE = {
         // ⚠️ HPは1本のまま（下半身は装甲＝コアを持たない）。三分の一で必ず合体するので、
         //    「どちらを先に倒すか」という別のゲームは作らない＝狙う場所は最後までコア1つ。
         attacksSplit: ['wirearm', 'knuckle', 'nova', 'wirearm', 'vulcan'],   // 上半身＝腕の技が主役
-        attacksP3:    ['chestLaser', 'wirearm', 'nova', 'chestLaser', 'missile'],
+        // R34W2: 再合体後の表に knuckle を入れた（nova と入れ替え）。ナックルウェーブは
+        //   本体の表で4番目・分離中の表で2番目にしか居らず、実測55秒で**発射は1回だけ**だった。
+        //   音と速度を作り直しても、出番が1回では聞き分けられない（R34で踏んだのと同じ失敗）。
+        attacksP3:    ['chestLaser', 'wirearm', 'knuckle', 'chestLaser', 'missile'],
         split: {
           hpRatio: 0.50,        // ここで分離（＝phase2 と同じ節目にまとめる。節目は少ないほど伝わる）
           cineSec: 1.5,         // 分離の見せ場（この間は攻撃も体当たりもしない）
