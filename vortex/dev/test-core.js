@@ -1047,8 +1047,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   assert(/gaugeSegments/.test(hud), 'R34: HUD が段つきゲージを描いている');
 
-  // ①BGM：ファンファーレの声部（R34で新設・R34W3でも残す）
-  assert(/FANFARE_AT/.test(snd), 'R34: マオウレクス曲にファンファーレの声部がある');
+  // ①BGM：段の変わり目が耳で分かること
+  // ⚠️ R35 で **FANFARE_AT（凱歌のファンファーレ）は撤回した**。段の頭に和音を積む声部で、
+  //    「音符を増やせば迫力が出る」という R34W4 の誤りの一部だった（＝旋律を埋め殺す側に働いていた）。
+  //    ただし「段が変わったことを一撃で知らせる」という**意図は正しい**ので、
+  //    クラッシュシンバル（段の頭）とフィルイン（段の変わり目）で守り直している（下にガードあり）。
   assert(/パイプオルガン/.test(snd) && /教会の鐘/.test(snd),
     'R34: 荘厳さの材料（オルガン・鐘）を消していない');
 
@@ -1248,14 +1251,18 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- 迫力：ツーバス／パワーコード／ディストーション風リード ---
   assert(/const kickOn =/.test(snd), 'R34W4: キックの踏み方が編曲ごとに分かれている（ツーバス）');
-  assert(/V === 'blast'/.test(snd) && /V === 'heavy'/.test(snd),
-    'R34W4: 編曲3種（rock/blast/heavy）でドラムの重さが変わる');
+  // ⚠️ R35 で編曲の3種を rock/blast/heavy（テンポとドラムの重さ違い）から
+  //    guitar/orch/synth（**編成そのものが別**）へ差し替えた。テンポ違いの3つは3つとも
+  //    「違う」と言われた＝テンポは軸ではなかった、という実測にもとづく撤回。
+  assert(/V === 'orch'/.test(snd) && /V === 'synth'/.test(snd),
+    'R35: 編曲3種（guitar/orch/synth）で編成そのものが変わる');
   assert(/パワーコードのバッキング/.test(snd),
     'R34W4: パワーコードの刻みがある（和音が動くたびに手応えが変わる＝ロックの迫力）');
-  assert(/for \(const det of \[-14, 0, 14\]\)/.test(snd),
-    'R34W4: リードがデチューン3枚重ね（単音のsawtoothでは細い）');
-  assert(/3倍音／|3倍音＝歪みの芯/.test(snd) && /5倍音/.test(snd),
-    'R34W4: リードに奇数倍音を足している（歪みの正体は奇数倍音）');
+  assert(/for \(const det of \[-12, 0, 12\]\)/.test(snd),
+    'R35: ギターのリードがデチューン3枚重ね（単音のsawtoothでは細い）');
+  // ⚠️ R35 で「3倍音・5倍音を足して歪みを近似する」は**撤回**した。足し算では入力の大きさで
+  //    倍音比が変わらないので、歪んだ音には決してならない（歪み＝非線形＝波形を折ること）。
+  //    代わりに WaveShaperNode による本物の波形クリップを土台に入れてある（下のR35ブロックで検証）。
   assert(/クラッシュシンバル/.test(snd), 'R34W4: 段の頭にクラッシュシンバルがある');
   assert(/ドラムのフィルイン/.test(snd), 'R34W4: 段の変わり目にフィルインがある');
 
@@ -1265,13 +1272,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 
   // --- 聞き比べ：3つの編曲が実在し、れんしゅうじょうから切り替えられること ---
-  for (const n of ['maou', 'maouFast', 'maouHeavy']) {
+  for (const n of ['maou', 'maouOrch', 'maouSynth']) {
     assert(new RegExp(`^\\s*${n}:\\s*\\{ bpm:`, 'm').test(snd),
-      `R34W4: 曲「${n}」が SONGS に実在する`);
+      `R35: 曲「${n}」が SONGS に実在する`);
   }
   assert(/const MAOU_BGM = \[/.test(prac), 'R34W4: れんしゅうじょうに聞き比べの一覧がある');
-  for (const n of ['maou', 'maouFast', 'maouHeavy']) {
-    assert(new RegExp(`name: '${n}'`).test(prac), `R34W4: 切り替え先に ${n} が入っている`);
+  for (const n of ['maou', 'maouOrch', 'maouSynth']) {
+    assert(new RegExp(`name: '${n}'`).test(prac), `R35: 切り替え先に ${n} が入っている`);
   }
   assert(/keydown-B/.test(prac), 'R34W4: B キーで BGM を切り替えられる');
   assert(/B=BGMきりかえ/.test(prac), 'R34W4: 画面のヒントに B キーが出ている（隠し操作にしない）');
@@ -1316,6 +1323,193 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R34W3: ロケットの点火は薄めて重ねる（全開で2つ重ねると潰れて逆に小さく聞こえる）');
   assert(/rocketPunchFire\(power\)/.test(snd),
     'R34W3: rocketPunchFire が音量引数を受け取る（薄められる）');
+}
+
+// --- R35: 音づくりの土台／主題の作り直し／マオウレクスの弾 ---
+// 実プレイFB「曲はどれも違う。つくりなおして」「ワイヤーアーム直撃の効果音をもっとガツンという
+// 激しい音に。鈍器で頭を思いっきりなぐったような音。極端すぎるくらいでちょうど良い」
+// 「マオウレクスから放たれる、小さな破砕片のような弾が全くイケてない。弾のスピードも遅い」。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const snd = read('audio/sound.js');
+  const boss = read('systems/boss.js');
+  const boot = read('scenes/Boot.js');
+  const bal = read('data/balance.js');
+  const prac = read('systems/practice.js');
+  const NLC = String.fromCharCode(10);
+
+  // ================= ① 音づくりの土台（これまで一度も持っていなかった2つ） =================
+  // 3回作り直して3回とも不採用。テンポ（168/184/208）も和音（32個・七の連鎖・転調）も
+  // 変えて届かなかった＝残っているのは音色。歪みと残響は「あるかないか」で音が別物になる。
+  assert(/createWaveShaper/.test(snd),
+    'R35: WaveShaperNode による**本物の歪み**がある（倍音の足し算は歪みにならない）');
+  assert(/function makeDistCurve/.test(snd), 'R35: 非線形カーブを自前で作っている');
+  {
+    // カーブが本当に非線形か＝式を取り出して数値で確かめる（コメントだけの「歪み」を防ぐ）。
+    const m = /c\[i\] = \(\(1 \+ k\) \* x\) \/ \(1 \+ k \* Math\.abs\(x\)\);/.test(snd);
+    assert(m, 'R35: arctan型ソフトクリップの式そのものが書かれている');
+    const f = (x, k) => ((1 + k) * x) / (1 + k * Math.abs(x));
+    // 実際にコードで使っている drive/k/out をそのまま取り出して数値で検証する
+    // （コメントに「歪ませた」と書いてあるだけ、を防ぐ＝計測器は実装と同じ値を見る）。
+    const mks = [...snd.matchAll(/mk\((\d+(?:\.\d+)?), (\d+), \d+, (\d+(?:\.\d+)?), \w+\)/g)]
+      .map((m) => ({ drive: Number(m[1]), k: Number(m[2]), out: Number(m[3]) }));
+    assert(mks.length === 2, `R35: 歪みバスが2本（BGM用とSFX用）ある（${mks.length}）`);
+    for (const { drive, k, out } of mks) {
+      // 非線形の定義：入力を2倍にしても出力は2倍にならない（小さい音ほど伸び、大きい音は潰れる）
+      assert(f(0.10, k) / f(0.05, k) < 1.9,
+        `R35: k=${k} で入力2倍→出力${(f(0.10, k) / f(0.05, k)).toFixed(2)}倍＝本当に潰れている`);
+      assert(f(1, k) <= 1.0001 && f(0.9, k) > 0.85,
+        `R35: k=${k} は大入力で頭打ち（クリップ）だが中位はまだ伸びる`);
+      assert(out * 1.0 <= 0.6,
+        `R35: 歪みバスの出口が0.6以下（${out}）＝潰した音でミックスを支配しない`);
+    }
+    // ★BGM側は「常時フルクリップ＝ただのブザー」になっていないこと。
+    //   WebAudio のカーブは入力±1の外を端の値へ丸めるので、いつも1を超えていると
+    //   出力が定数に張り付いて強弱も音程感も消える。同時に鳴る声部の合計は概ね 0.2〜0.37。
+    assert(mks[0].drive * 0.2 < 1.0 && mks[0].drive * 0.37 <= 1.6,
+      `R35: BGMの歪みは普段0.2×${mks[0].drive}=${(mks[0].drive * 0.2).toFixed(2)}＝1未満`
+      + '（山でだけ潰れる）。常時1超えだと音程感の無いブザーになる');
+  }
+  assert(/verbBus/.test(snd) && /createDelay/.test(snd),
+    'R35: フィードバック・ディレイの残響がある（「荘厳」は残響が作る。今までは完全にドライだった）');
+  assert(/verb = 0,/.test(snd) && /verb > 0 && verbBus/.test(snd),
+    'R35: tone() が残響へ送れる（引数を足しただけで配線し忘れる、が起きないように両方見る）');
+  assert(/dest: distBus \|\| bgmGain|const GTR = distBus \|\| bgmGain/.test(snd),
+    'R35: WaveShaper 非対応環境では BGM バスへ落ちる（null のまま渡すと BGM が SFX バスへ迷子になる）');
+
+  // ================= ② 主題：音符を減らして「歌」にする =================
+  // ★R34W4 の最大の誤り＝「アップテンポで迫力」に対して音符を2倍（99.6音符/秒）に増やしたこと。
+  //   8分音符で全枡を埋めると、それは旋律ではなく分散和音の壁になる。
+  {
+    const melBlock = (snd.match(/const MELODY_MAOU = \[[\s\S]*?^\];/m) || [''])[0];
+    assert(melBlock.length > 0, 'R35: MELODY_MAOU を読める');
+    assert(/^const H = -99;$/m.test(snd),
+      'R35: タイ（音を伸ばす記号）がある＝音符に長さの違いがある');
+    const rows = melBlock.split(NLC).filter((l) => /^\s*\[/.test(l));
+    assert(rows.length === 16, `R35: 主題が16小節ある（${rows.length}）`);
+    // 実際に鳴る音の数を数える。全枡を埋めていたら 16×8=128。
+    let notes = 0, ties = 0;
+    for (const r of rows) {
+      notes += (r.match(/NOTE\./g) || []).length;
+      ties += (r.match(/(?:^|[ [])H(?=[,\]])/g) || []).length;
+    }
+    assert(notes <= 90,
+      `R35: 主題の音数が128枡中${notes}個以下に絞られている（R34W4は全枡128個＝壁だった）`);
+    assert(ties >= 25,
+      `R35: 伸ばす音が25個以上ある（${ties}個）＝長い音があるから歌える`);
+    assert(/hold\+\+/.test(snd) && /stepSec \* 2 \* hold/.test(snd),
+      'R35: 再生側もタイを数えて実際の音価を出している（データだけ足しても長さは変わらない）');
+  }
+
+  // ================= ③ 和音：参考曲の作法5つを全部使い切る =================
+  {
+    const chordsBlock = (snd.match(/const CHORDS_MAOU = \[[\s\S]*?^\];/m) || [''])[0];
+    assert(/F#dim7/.test(chordsBlock),
+      'R35: ディミニッシュのパッシング（F#dim7）がある＝R34W4 で使えていなかった作法その1');
+    assert(/G7\(onB\)/.test(chordsBlock),
+      'R35: 転回形でベースが半音で動く（G7(onB) → Cm）＝同その2');
+    assert(/★転回形でベースが半音で動く/.test(chordsBlock),
+      'R35: なぜその和音なのかが書き残してある');
+    // 転回形は「ベースが和音の根音と違う」こと。データ上でそうなっているかを見る。
+    const inv = /\{ arp: \[NOTE\.B3[^}]*bass: NOTE\.B2 \}/.test(chordsBlock);
+    assert(inv, 'R35: G7(onB) のベースが B（＝根音Gではない）＝本当に転回形になっている');
+  }
+
+  // ================= ④ 聞き比べ：編成そのものが違う3つ =================
+  for (const v of ['guitar', 'orch', 'synth']) {
+    assert(new RegExp(`variant: '${v}'`).test(snd), `R35: 編成 ${v} が SONGS にある`);
+  }
+  assert(/ブラス/.test(snd) && /弦のトレモロ/.test(snd) && /アルペジオ/.test(snd),
+    'R35: 3つの編成が別々の楽器を鳴らしている（テンポ違いではない）');
+  assert(/オーケストラ/.test(prac) && /シンセ/.test(prac),
+    'R35: れんしゅうじょうの表示も編成名になっている（何を聞き比べているか分かる）');
+
+  // ================= ⑤ 命中音：「ガツン」の3要素 =================
+  {
+    const hit = (snd.match(/rocketPunchHit\(\) \{[\s\S]*?^  \},/m) || [''])[0];
+    assert(hit.length > 0, 'R35: rocketPunchHit を読める');
+    assert(/duckBgm\(/.test(hit),
+      'R35: 命中の瞬間にBGMを沈める（周りが引くと同じ音量でも一撃が重くなる）');
+    assert(/function duckBgm/.test(snd) && /linearRampToValueAtTime\(base,/.test(snd),
+      'R35: ダックが必ず元の音量へ戻る（戻し忘れるとBGMが小さいままになる）');
+    assert(/dest: D/.test(hit) && /const D = sfxDistBus/.test(hit),
+      'R35: 命中音が本物の歪みを通っている');
+    // 二段構え＝0ms の「ガッ」と、十数ms 遅れた「ツン」。同時に重ねると硬さが出ない。
+    const starts = [...hit.matchAll(/start: (0\.0[0-9]+)/g)].map((m) => Number(m[1]));
+    assert(starts.some((v) => v >= 0.012 && v <= 0.03),
+      'R35: 低域の塊が12〜30ms 遅れて入る（二段構え＝重さは「2つの音の間」が作る）');
+    // 非整数倍音＝金属を叩いた音。整数倍だと「楽器」に聞こえてしまう
+    assert(/1187/.test(hit) && /2322/.test(hit),
+      'R35: 金属の非整数倍音（1 : 2.76 : 5.40）がある');
+    // ⚠️ R34W4 の回帰防止（豆鉄砲＝空気が抜ける音）はそのまま守る
+    const sweeps = [...hit.matchAll(/freq: (\d+(?:\.\d+)?), freqEnd: (\d+(?:\.\d+)?), dur: (\d+(?:\.\d+)?)/g)];
+    assert(sweeps.filter((m) => Number(m[3]) >= 0.35 && Number(m[1]) / Number(m[2]) >= 4).length === 0,
+      'R35: 激しくしても長い下降スイープは足していない（＝豆鉄砲へ逆戻りしない）');
+    assert([...hit.matchAll(/noiseHit\(\{[^}]*dur: (\d+(?:\.\d+)?)[^}]*\}\)/g)]
+      .filter((m) => Number(m[1]) >= 0.30).length === 0,
+      'R35: 0.3秒以上のノイズ尾も足していない');
+    // 前より本当に大きいこと（「激しくした」と書いてゲインが同じ、を防ぐ）
+    const peak = Math.max(...[...hit.matchAll(/gain: (\d+(?:\.\d+)?)/g)].map((m) => Number(m[1])));
+    assert(peak >= 0.8, `R35: 最大ゲインが0.8以上（${peak}）＝R34W4の0.52より確かに大きい`);
+  }
+  // 画面側も「止まる時間」で衝撃を作る。音だけ大きくしても「ガツン」にはならない。
+  {
+    const wireHit = (boss.match(/Sound\.sfx\('rocketPunchHit'\);[\s\S]{0,400}/) || [''])[0];
+    const fz = /run\.freezeT = Math\.max\(run\.freezeT, (0\.\d+)\)/.exec(wireHit);
+    assert(fz && Number(fz[1]) >= 0.15,
+      `R35: ヒットストップが0.15秒以上（${fz ? fz[1] : 'なし'}）＝R31の0.11から引き上げ`);
+    const sh = /run\.shake\((\d+), (\d+)\)/.exec(wireHit);
+    assert(sh && Number(sh[2]) >= 20,
+      `R35: シェイクの振幅が20以上（${sh ? sh[2] : 'なし'}）`);
+  }
+
+  // ================= ⑥ マオウレクスの弾：速度と見た目 =================
+  {
+    // ★実測で分かった逆転：主人公の移動(148) より最終ボスの弾のほうが遅かった。
+    const player = /speed: (\d+), invulnSec/.exec(bal);
+    assert(!!player, 'R35: 主人公の移動速度を読める');
+    const pSpd = Number(player[1]);
+    // maou の tier ブロックだけを切り出す（通常ボスの vulcan/ring と混ざらないように）
+    const maouBlock = (bal.match(/hp: 120000,[\s\S]*?bulletKind: 'comet',/) || [''])[0];
+    assert(maouBlock.length > 0, 'R35: マオウレクスの設定ブロックを読める');
+    for (const [name, min] of [['nova', 1.6], ['vulcan', 2.0], ['ring', 1.5]]) {
+      const m = new RegExp(`${name}: \\{[^}]*bulletSpeed: (\\d+)`).exec(maouBlock);
+      assert(!!m, `R35: ${name} の弾速を読める`);
+      const spd = Number(m[1]);
+      assert(spd >= pSpd * min,
+        `R35: ${name} の弾が主人公(${pSpd})の${min}倍以上ある（${spd}／${Math.round(pSpd * min)}）`
+        + '＝歩いて追い抜ける弾を最終ボスに撃たせない');
+    }
+    // 序盤の雑魚より遅い、という逆転も二度と起こさない
+    const zako = Math.max(...[...read('data/enemies.js').matchAll(/bulletSpeed: (\d+)/g)]
+      .map((m) => Number(m[1])));
+    const novaSpd = Number(/nova: \{[^}]*bulletSpeed: (\d+)/.exec(maouBlock)[1]);
+    const vulSpd = Number(/vulcan: \{[^}]*bulletSpeed: (\d+)/.exec(maouBlock)[1]);
+    assert(Math.max(novaSpd, vulSpd) >= zako,
+      `R35: 最終ボスの弾が序盤の雑魚の最速(${zako})以上ある（${Math.max(novaSpd, vulSpd)}）`);
+    // 見た目：radius 4（16×10px）では radius 82 の巨体から砂粒が出ている構図だった
+    for (const name of ['nova', 'vulcan', 'ring']) {
+      const m = new RegExp(`${name}: \\{[^}]*bulletRadius: (\\d+)`).exec(maouBlock);
+      assert(m && Number(m[1]) >= 7,
+        `R35: ${name} の弾の半径が7以上（${m ? m[1] : 'なし'}）＝「破砕片」に見えない大きさ`);
+    }
+    // 速くしたぶん理不尽にしていないこと（緊張感は被弾量ではなく"避けた"回数で作る）
+    const novaDmg = Number(/nova: \{[^}]*damage: (\d+)/.exec(maouBlock)[1]);
+    const vulDmg = Number(/vulcan: \{[^}]*damage: (\d+)/.exec(maouBlock)[1]);
+    assert(novaDmg <= 18 && vulDmg <= 14,
+      `R35: 速くしたぶんダメージは上げていない（nova ${novaDmg}<=18 / vulcan ${vulDmg}<=14）`);
+  }
+  assert(/makeFoeComet\(/.test(boot) && /this\.makeFoeComet\('boss_comet', 30, 16\)/.test(boot),
+    'R35: 専用の彗星テクスチャ（30×16）がある＝boss_bolt(16×10)の流用ではない');
+  assert(/isComet/.test(boss) && /'boss_comet'/.test(boss),
+    'R35: マオウレクスの弾が彗星テクスチャを使っている');
+  assert(/cfg && cfg\.bulletKind/.test(boss),
+    'R35: 既定の弾種をボスごとに差し替えられる（他のボスは従来のボルトのまま）');
+  assert(/let trailBudget = 3/.test(boss),
+    'R35: 火の粉が1フレーム3個までの予算制（ノヴァは1回で70発飛ぶので青天井にできない）');
+  assert(/b\.kind === 'comet' \? 5 :/.test(boss),
+    'R35: 彗星の当たり判定は**白熱の芯**に合わせた5px（絵の外形で当てない）');
 }
 
 // --- 結果 ---
