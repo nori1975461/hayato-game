@@ -1300,10 +1300,14 @@ export function createBoss(run) {
     // R31: 実プレイFB「攻撃音をもっと派手に。マジンガーゼットを参考にして」。
     //   マジンガーZ のロケットパンチは①肘から先が分離 ②光子力ロケットで点火 ③マッハ2で飛ぶ、の3段。
     //   旧実装には①の分離音と③の超音速が無かったので、rocketPunchFire（3段を1音にまとめた新SFX）へ。
-    Sound.sfx('rocketPunchFire');
-    Sound.sfx('wireShot', 0.55);          // 従来の金属スイープは薄く残す（拳＝機械の質感）
+    // R34W3: 実プレイFB「射出音をもっと派手にして。戦車の砲撃音を参考に」。
+    //   砲撃音(wireCannon)を頭に据え、ロケットの点火(rocketPunchFire)は薄く後ろへ回す。
+    //   両方を全開で重ねると潰れて「一発の破裂」になり、かえって小さく聞こえる。
+    Sound.sfx('wireCannon');
+    Sound.sfx('rocketPunchFire', 0.45);   // 点火とマッハ2のスイープは残す（拳＝ロケットなので）
+    Sound.sfx('wireShot', 0.35);          // 従来の金属スイープはさらに薄く（拳＝機械の質感）
     punchFlyT = 0.12;
-    run.shake(340, 11); whiteFlash(0.38);
+    run.shake(430, 14); whiteFlash(0.44);
     if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.05);
     for (const arm of wire.arms) {
       run.spawnParticles(arm.sx, arm.sy, 0xffb020, 14);   // 肘から噴く光子力ロケットの炎
