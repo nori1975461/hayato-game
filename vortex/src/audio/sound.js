@@ -1036,6 +1036,64 @@ const SFX = {
     noiseHit({ start: 0.03, dur: 0.14, gain: 0.13, hpFreq: 3400, lpFreq: 15000 });      // 破片
   },
 
+  // ============ R34W2 ナックルウェーブ：トマホーク斉射の3点セット ============
+  // 実プレイFB「ナックルウェーブやワイヤーアームも攻撃音や発射音がなにもかわっていない」。
+  // 実測したところ**指摘のとおり**で、ナックルウェーブは R29 の knuckle＋missileFly＋shoot を
+  // 鳴らしたきり一度も作り直していなかった（飛来音も着弾音も無く、飛んでいる間は無音）。
+  // R31 で作った SAM の3点セットは missile 側にしか繋いでいない。
+  //
+  // ⚠️ ここは SAM の流用にしない。実物の BGM-109 トマホークは**亜音速の巡航ミサイル**で、
+  //    ブースターで撃ち出したあと翼を開いてターボファンで飛ぶ。SAM の「超音速のクラック」ではなく
+  //    **低いジェットのうなり**が主役になる＝同じ「ミサイル」でも音の性格が違う。
+  //    （音色そのものの録音資料は確認できていないので、ここは機構からの再構成＝推測を含む）
+
+  // 発射：①両拳の巨大な金属クラッシュ ②発射管が開く ③7本が**1本ずつずれて**点火する
+  //   ③をずらすのが要点。同時に鳴らすと1発の爆発に聞こえて「7本撃った」が数えられない。
+  knuckleWave() {
+    // ① 両拳を叩き合わせる衝撃（旧 knuckle より低く・長く。ここが"ため"になる）
+    tone({ type: 'sine', freq: 300, freqEnd: 26, dur: 0.52, gain: 0.36, attack: 0.001 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 20, dur: 0.46, gain: 0.18, attack: 0.001 });
+    noiseHit({ dur: 0.05, gain: 0.20, hpFreq: 180, lpFreq: 9000 });
+    noiseHit({ start: 0.02, dur: 0.30, gain: 0.15, hpFreq: 300, lpFreq: 4200 });
+    // ② 発射管が開く金属スライド（「シャコンッ」＝これから撃つ、の合図）
+    tone({ type: 'square', freq: 380, freqEnd: 1250, dur: 0.11, start: 0.06, gain: 0.10 });
+    noiseHit({ start: 0.06, dur: 0.09, gain: 0.09, hpFreq: 2200, lpFreq: 12000 });
+    // ③ 7本の一斉点火。0.035秒ずつずらして「ドドドドドドッ」と数えられるようにする
+    for (let i = 0; i < 7; i++) {
+      const t = 0.15 + i * 0.035;
+      const p = 1 + (i - 3) * 0.04;                 // 扇状に散るので1本ずつ高さを変える
+      tone({ start: t, type: 'sine', freq: 210 * p, freqEnd: 52 * p, dur: 0.11,
+             gain: 0.17, attack: 0.001 });
+      noiseHit({ start: t, dur: 0.05, gain: 0.10, hpFreq: 120, lpFreq: 2600 });
+      noiseHit({ start: t + 0.02, dur: 0.20, gain: 0.055, hpFreq: 400, lpFreq: 5000 });
+    }
+    // ④ 扇に散っていく噴射の尾
+    noiseHit({ start: 0.22, dur: 0.55, gain: 0.075, hpFreq: 260, lpFreq: 3600 });
+    tone({ type: 'sawtooth', freq: 90, freqEnd: 240, dur: 0.55, start: 0.22,
+           gain: 0.075, attack: 0.02 });
+  },
+
+  // 巡航中：ターボファンの低いうなり＋翼が切る風。samFly の超音速クラックは**入れない**。
+  tomahawkFly(power, pitch) {
+    const p = pitch == null ? 1 : pitch;
+    const g = power == null ? 1 : power;
+    tone({ type: 'sawtooth', freq: 128 * p, freqEnd: 172 * p, dur: 0.50, gain: 0.10 * g, attack: 0.06 });
+    tone({ type: 'square', freq: 64 * p, freqEnd: 86 * p, dur: 0.50, gain: 0.05 * g,
+           attack: 0.06, detune: 12 });
+    tone({ type: 'triangle', freq: 512 * p, freqEnd: 688 * p, dur: 0.44, gain: 0.035 * g, attack: 0.09 });
+    noiseHit({ dur: 0.50, gain: 0.075 * g, hpFreq: 380, lpFreq: 3000 });     // 翼が切る風
+  },
+
+  // 着弾：巡航ミサイルは重い弾頭を運ぶので、SAM より**低く・遅く・長い**爆発にする
+  tomahawkBoom(power) {
+    const g = power == null ? 1 : power;
+    tone({ type: 'sine', freq: 200, freqEnd: 14, dur: 0.78, gain: 0.42 * g, attack: 0.002 });
+    tone({ type: 'triangle', freq: 96, freqEnd: 13, dur: 0.70, gain: 0.22 * g, attack: 0.002 });
+    noiseHit({ dur: 0.055, gain: 0.26 * g, hpFreq: 160, lpFreq: 10000 });
+    noiseHit({ start: 0.03, dur: 0.60, gain: 0.17 * g, hpFreq: 110, lpFreq: 2400 });
+    noiseHit({ start: 0.04, dur: 0.20, gain: 0.10 * g, hpFreq: 3600, lpFreq: 15000 });
+  },
+
   // ================= R34 エンディング専用 =================
   // 実プレイFB「エンディングがしょぼすぎる。もっと派手な演出や音にして」。
   // ここまでの音は全部「戦いの音」なので、祝祭の語彙（打ち上げ花火・シャンパンの泡・

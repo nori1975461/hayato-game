@@ -95,6 +95,9 @@ export function createBoss(run) {
   let missileFlyT = 0;
   // R31: 着弾爆発音の間引き。7発斉射が同時に爆ぜると音が潰れて1発ぶんに聞こえる（＝派手さが消える）。
   let missileBoomT = 0;
+  // R34W2: トマホーク（ナックルウェーブ）の巡航音。ミサイルとは別枠で持つ
+  //   （同じタイマーにすると音の性格が違う2種が互いを間引いてしまう）。
+  let tomahawkFlyT = 0;
   // R31: ロケットパンチの飛来音。拳が近づくほど音程を上げて鳴らす（マッハ2で迫る恐怖）。
   let punchFlyT = 0;
   let wire = null;                  // ワイヤーアーム（両拳＋ワイヤー）の表示状態。攻撃終了/撃破で必ず destroy
@@ -1044,7 +1047,7 @@ export function createBoss(run) {
   // R31 ミサイルの着弾爆発（実プレイFB「主人公に当たった先の爆発や爆発音もつけて」）。
   // 旧実装は `Sound.sfx('hit')` と粒子8個だけで、当たっても爆発が起きていなかった。
   // big = 主人公に直撃した1発（＝いちばん見せたい爆発）。false は寿命切れの自爆。
-  function missileBoom(x, y, big) {
+  function missileBoom(x, y, big, snd) {
     const tint = int(cfg.bulletTint);
     run.spawnParticles(x, y, 0xfff0a0, big ? 18 : 8);   // 閃光の芯（白〜黄）
     run.spawnParticles(x, y, 0xff8a2b, big ? 22 : 10);  // 火の玉（橙）
@@ -1055,7 +1058,7 @@ export function createBoss(run) {
     }
     // 音は間引く（7発が同時に爆ぜると潰れて1発ぶんに聞こえ、かえって地味になる）
     if (missileBoomT <= 0) {
-      Sound.sfx('samBoom', big ? 1 : 0.6);
+      Sound.sfx(snd || 'samBoom', big ? 1 : 0.6);
       missileBoomT = big ? 0.16 : 0.09;
     }
     // ⚠️ 揺れは「主人公に起きたこと」だけに使う。Phaser の shake は実行中だと後から来た
@@ -1254,8 +1257,12 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * kk.bulletSpeed, Math.sin(a) * kk.bulletSpeed,
         { radius: kk.radius, damage: kk.damage, life: kk.lifeSec, kind: 'tomahawk', tint: 0xffffff });
     }
-    whiteFlash(0.34); Sound.sfx('knuckle'); Sound.sfx('missileFly'); Sound.sfx('shoot');
-    run.shake(240, 6); recoil(aim);
+    // R34W2: 実プレイFB「ナックルウェーブの攻撃音や発射音がなにもかわっていない」。
+    //   旧実装は R29 の knuckle＋missileFly＋shoot の重ね（＝汎用ミサイル音の流用）だった。
+    //   knuckleWave は「両拳のクラッシュ → 発射管が開く → 7本が1本ずつずれて点火」の専用音。
+    //   ずらすのが要点＝同時だと1発の爆発に聞こえて「7本撃った」が数えられない。
+    whiteFlash(0.34); Sound.sfx('knuckleWave');
+    run.shake(300, 8); recoil(aim);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 20);
   }
 
@@ -1776,7 +1783,9 @@ export function createBoss(run) {
     // R31: 飛来音／爆発音のタイマーを進める（実プレイFB「ミサイルの飛来する音」「爆発音もつけて」）。
     if (missileFlyT > 0) missileFlyT -= dt;
     if (missileBoomT > 0) missileBoomT -= dt;
+    if (tomahawkFlyT > 0) tomahawkFlyT -= dt;
     let nearestMissile = -1;      // 主人公にいちばん近いミサイルまでの距離（飛来音の音程に使う）
+    let nearestTomahawk = -1;     // R34W2: 同上（トマホーク＝ナックルウェーブの弾）
     for (const b of bullets) {
       if (!b.active) continue;
       if (b.kind === 'missile') {
@@ -1794,6 +1803,8 @@ export function createBoss(run) {
         if (b.trailT <= 0) { b.trailT = 0.09; run.spawnParticles(b.x, b.y, int(cfg.bulletTint), 2); }
       } else if (b.kind === 'tomahawk') {
         // 直進（回転は発射時に進行方向へ固定済み）。明るい噴射炎の尾を長く曳いて雑魚より目立たせる。
+        const td = Math.hypot(b.x - px, b.y - py);
+        if (nearestTomahawk < 0 || td < nearestTomahawk) nearestTomahawk = td;
         b.trailT -= dt;
         if (b.trailT <= 0) {
           b.trailT = 0.035;
@@ -1846,6 +1857,8 @@ export function createBoss(run) {
           run.hitPlayer(b.dmg, b.x, b.y); b.active = false;
           // R31: 直撃こそがユーザーの言う「主人公に当たった先の爆発」。ここが `hit` の軽い音だった。
           if (b.kind === 'missile') missileBoom(b.x, b.y, true);
+          // R34W2: トマホークは直撃しても無音だった（爆発も起きていない）
+          else if (b.kind === 'tomahawk') missileBoom(b.x, b.y, true, 'tomahawkBoom');
         }
       }
       if (!b.active) recycleBullet(b);
@@ -1857,6 +1870,13 @@ export function createBoss(run) {
       const near = clamp01(1 - nearestMissile / 520);        // 0(遠い)→1(目の前)
       Sound.sfx('samFly', 0.5 + near * 0.55, 0.86 + near * 0.42);
       missileFlyT = 0.30 - near * 0.10;                      // 近いほど間隔も詰める
+    }
+    // R34W2: トマホークは飛んでいるあいだ**完全に無音**だった（実プレイFB）。
+    //   亜音速の巡航ミサイルなので、SAM の風切りではなく低いジェットのうなりを鳴らす。
+    if (nearestTomahawk >= 0 && tomahawkFlyT <= 0) {
+      const near = clamp01(1 - nearestTomahawk / 520);
+      Sound.sfx('tomahawkFly', 0.45 + near * 0.5, 0.84 + near * 0.36);
+      tomahawkFlyT = 0.34 - near * 0.12;
     }
     for (let i = bullets.length - 1; i >= 0; i--) {
       if (!bullets[i].active) bullets.splice(i, 1);
