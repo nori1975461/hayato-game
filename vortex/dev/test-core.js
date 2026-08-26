@@ -484,9 +484,13 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(missing.length === 0,
     `R31: boss.js が鳴らす効果音${called.size}種すべてが sound.js に実在する`
       + (missing.length ? `（欠落: ${missing.join(',')}）` : ''));
-  for (const n of ['samLaunch', 'samFly', 'samBoom', 'rocketPunchFire', 'rocketPunchFly', 'rocketPunchHit']) {
+  for (const n of ['samLaunch', 'samFly', 'rocketPunchFire', 'rocketPunchFly', 'rocketPunchHit']) {
     assert(called.has(n), `R31: 新SFX ${n} が boss.js から実際に呼ばれている`);
   }
+  // R34W2: samBoom は `Sound.sfx(snd || 'samBoom', ...)` の既定値になった（トマホークは別の
+  //   爆発音を渡す）ので、呼び出し名の抽出では拾えない。文字列の存在で確かめる。
+  assert(/\|\| *'samBoom'/.test(boss),
+    'R31: 新SFX samBoom が boss.js から実際に呼ばれている（既定値経由）');
   // 飛来音は「発射時に1回」ではなく飛んでいるあいだ鳴らし続ける（速くしたので1回では鳴り終わる前に着弾する）
   assert(/missileFlyT/.test(boss) && /punchFlyT/.test(boss),
     'R31: ミサイルとロケットパンチの飛来音が飛行中に繰り返し鳴る');
@@ -1102,6 +1106,97 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   for (const [ch, who] of WHO) {
     assert(flat.indexOf(ch) >= 0, `R34: イラストに ${who} が描かれている`);
   }
+}
+
+// --- R34W2: ナックルウェーブ／ワイヤーアームと、キャッシュ破りの恒久ガード ---
+// 実プレイFB「音楽が全然変わってない。ナックルウェーブやワイヤーアームも攻撃音や発射音が
+// なにもかわっていない。速度も変わっていない。私が見てるURLが違うのか？」への調査でわかったこと:
+//   ・URLもpushも正しく、サーバ上のコードは新しかった（＝キャッシュを疑うべき作りになっていた）
+//   ・ナックルウェーブは音も速度も**一度も変えていなかった**（指摘のとおり）
+//   ・ワイヤーアームは音は R31 で変えたが速度は R29 のまま。しかも R31〜R33 は
+//     予告を割られて射出が0回だったので、新しい音は一度も鳴っていなかった
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const sound = read('audio/sound.js');
+  const title = read('scenes/Title.js');
+  const html = fs.readFileSync(path.resolve(SRC, '../index.html'), 'utf8');
+  const version = read('data/version.js');
+  const mk = BALANCE.boss.tiers.find((t) => t.final).knuckle;
+  const wk = BALANCE.boss.tiers.find((t) => t.final).wirearm;
+
+  // --- 音：ナックルウェーブ専用の3点セットが存在し、実際に鳴らされていること ---
+  for (const n of ['knuckleWave', 'tomahawkFly', 'tomahawkBoom']) {
+    assert(new RegExp('^\\s*' + n + '\\s*\\(', 'm').test(sound),
+      `R34W2: 新SFX ${n} が sound.js に実在する`);
+  }
+  assert(/sfx\('knuckleWave'\)/.test(boss), 'R34W2: ナックルウェーブが専用の発射音を鳴らす');
+  assert(/sfx\('tomahawkFly'/.test(boss), 'R34W2: トマホークが飛んでいるあいだ音を鳴らす（旧実装は無音）');
+  assert(/'tomahawkBoom'/.test(boss), 'R34W2: トマホークの直撃に着弾音がある（旧実装は無音）');
+  assert(/tomahawkFlyT/.test(boss),
+    'R34W2: トマホークの巡航音は専用タイマーを持つ（ミサイルと間引きを共有しない）');
+  // 回帰防止：汎用ミサイル音の重ねに戻していないこと
+  assert(!/sfx\('knuckle'\); Sound\.sfx\('missileFly'\)/.test(boss),
+    'R34W2: ナックルウェーブが R29 の汎用音（knuckle＋missileFly＋shoot）へ戻っていない');
+  // 7本を「数えられる」ようにずらして点火していること（同時に鳴らすと1発の爆発に聞こえる）
+  assert(/knuckleWave\(\)[\s\S]{0,1400}?for \(let i = 0; i < 7; i\+\+\)/.test(sound),
+    'R34W2: 発射音は7本を1本ずつずらして点火する（斉射が数えられる）');
+  // トマホークは SAM の流用ではない（亜音速の巡航ミサイル＝超音速クラックを入れない）
+  assert(!/tomahawkFly\([\s\S]{0,600}?15000/.test(sound),
+    'R34W2: トマホークの巡航音に超音速のクラックル（SAM流用）を入れていない');
+
+  // --- 速度：設定値が実際に上がっていること ---
+  const pspd = BALANCE.player.speed;
+  assert(mk.bulletSpeed >= pspd * 2,
+    `R34W2: トマホークが主人公の2倍以上の速さ（${mk.bulletSpeed} >= ${pspd * 2}）`);
+  assert(mk.bulletSpeed > 178, 'R34W2: トマホークが R29 初期値(178)より速い');
+  // 速くしても「避けられる」こと：隣接弾の隙間 > 主人公が弾の到達までに動ける距離
+  {
+    const D = 200;                                   // 想定の交戦距離
+    const gapDeg = mk.spreadDeg / (mk.count - 1);
+    const gap = 2 * D * Math.sin((gapDeg / 2) * Math.PI / 180) - mk.radius * 2;
+    const move = pspd * (D / mk.bulletSpeed);
+    assert(move > gap,
+      `R34W2: 扇の隙間を主人公が抜けられる（移動 ${move.toFixed(0)}px > 隙間 ${gap.toFixed(0)}px）`);
+  }
+  assert(wk.extendSpeed > 1080, 'R34W2: ワイヤーアームが R29 値(1080)より速い');
+  assert(wk.maxLen > 330, 'R34W2: ワイヤーアームの射程が R29 値(330)より長い');
+  assert(wk.turnDeg <= 64,
+    'R34W2: 速くしたぶん追尾は緩めてある（速い＝避けられない、にはしない）');
+  assert(wk.damage <= 64 && wk.damage < BALANCE.player.hp,
+    'R34W2: ワイヤーアームのダメージは据え置き（緊張感は被弾量では作らない）');
+  assert(BALANCE.boss.tiers.find((t) => t.final).attacksP3.includes('knuckle'),
+    'R34W2: 再合体後の表にもナックルウェーブが居る（出番が1回では聞き分けられない）');
+
+  // --- キャッシュ破り：全モジュールに ?v= が付いていること ---
+  const build = /BUILD\s*=\s*'([^']+)'/.exec(version);
+  assert(!!build, 'R34W2: version.js が BUILD を公開している');
+  assert(/<script type="importmap">/.test(html),
+    'R34W2: index.html に importmap がある（main.js だけのキャッシュ破りでは足りない）');
+  {
+    // src 配下の .js を数え、importmap のエントリ数と一致することを確かめる
+    const files = [];
+    (function walk(dir) {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p2 = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p2);
+        else if (e.name.endsWith('.js')) files.push(p2);
+      }
+    })(SRC);
+    const map = /<script type="importmap">([\s\S]*?)<\/script>/.exec(html);
+    const json = JSON.parse(map[1]);
+    const keys = Object.keys(json.imports);
+    assert(keys.length === files.length,
+      `R34W2: importmap が src 配下の全モジュールを網羅（${keys.length}/${files.length}）`);
+    const bad = keys.filter((k) => json.imports[k] !== k + '?v=' + build[1]);
+    assert(bad.length === 0,
+      `R34W2: importmap の全エントリが現在の BUILD を指す` + (bad.length ? `（ずれ: ${bad[0]}）` : ''));
+    assert(new RegExp('src/main\\.js\\?v=' + build[1]).test(html),
+      'R34W2: index.html の main.js も同じ BUILD（importmap は <script src> に効かない）');
+  }
+  assert(/BUILD/.test(title) && /version\.js/.test(title),
+    'R34W2: タイトルが版番号を表示する（ユーザーが自分でキャッシュを判別できる）');
 }
 
 // --- 結果 ---
