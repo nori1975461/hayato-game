@@ -126,6 +126,7 @@ export function createBoss(run) {
   const pool = [];
   let beam = null;              // 波動砲/レーザーの薙ぎビーム（同時1本）
   let beamImg = null;
+  let beamCore = null;          // R36W2 ビームの白熱の芯（「深みのある」は縁と芯の2層でしか出ない）
 
   ensureTextures();
 
@@ -137,6 +138,14 @@ export function createBoss(run) {
       //   キーは `boss_maou_T<tex>` と接頭辞で分ける（通常パーツと名前が衝突しない）。
       if (d.trueSprites) {
         for (const [k, s] of Object.entries(d.trueSprites)) makeSprite(`boss_${d.id}_T${k}`, s);
+      }
+      // ★R36W2 再合体後のメタリックパープルの実体（P 接頭辞）。tint の乗算では赤は紫にならない
+      //   （#e5202c×#a86bff=#970d2c＝赤のまま）ので、紫パレットで同じ rows を焼き直した
+      //   別テクスチャを持ち、applyMergeLook で差し替える。
+      if (d.palette3) {
+        for (const [k, s] of Object.entries(d.sprites)) {
+          makeSprite(`boss_${d.id}_P${k}`, { palette: d.palette3, rows: s.rows });
+        }
       }
     }
     makeMissile('boss_missile', 7, 11);
@@ -351,7 +360,7 @@ export function createBoss(run) {
       const depth = PART_DEPTH[r.role] || 9;
       img.setDepth(depth).setOrigin(origin[0], origin[1])
         .setScale(r.mirror ? -s : s, s);
-      return { img, role: r.role, ox: r.ox, oy: r.oy, mirror: !!r.mirror, depth };
+      return { img, role: r.role, tex: r.tex, ox: r.ox, oy: r.oy, mirror: !!r.mirror, depth };
     });
     const muzzle = run.add.image(x, y, 'boss_muzzle').setBlendMode(ADD).setDepth(11)
       .setTint(int(cfg.glowInner)).setVisible(false).setScale(s * 0.4);
@@ -434,11 +443,14 @@ export function createBoss(run) {
       case 'vulcan':     state = 'vulcanTele';  stateT = cfg.vulcan.telegraphSec; break;
       case 'wavecannon': state = 'waveTele';    stateT = cfg.wavecannon.chargeSec; Sound.sfx('specialCharge'); break;
       case 'missile':    state = 'missileTele'; stateT = cfg.missile.telegraphSec; break;
-      case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge'); break;
+      case 'laser':      state = 'laserTele';   stateT = cfg.laser.chargeSec; Sound.sfx('specialCharge');
+                         // R36W2 じゃがんレーザー（分離中の技になった・名前は balance が持つ）
+                         if (cfg.laser.name) introText(cfg.laser.name, '#d9a0ff', 156, 18, 1); break;
       // ★R30 再合体後だけの胸部レーザー。溜めのあいだ胸のコアへ光が収束する（updateDisp が描く）
       case 'chestLaser': state = 'chestTele';   stateT = cfg.chestLaser.chargeSec;
                          Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.7);
-                         introText('きょうぶレーザー ちょくげき', '#e0a0ff', 156, 18, 1); break;
+                         // R36W2 改名（きょうぶレーザー→じゃしんレーザー・実プレイFB「ダサすぎる」）
+                         introText(cfg.chestLaser.name + ' ちょくげき', '#e0a0ff', 156, 18, 1); break;
       case 'nova':       state = 'novaTele';    stateT = cfg.nova.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'armslam':    state = 'slamTele';    stateT = cfg.armslam.telegraphSec; break;
       case 'knuckle':    state = 'knuckleTele'; stateT = cfg.knuckle.telegraphSec; knuckleFired = false;
@@ -494,6 +506,7 @@ export function createBoss(run) {
     }
     destroyWire();
     if (beamImg) { beamImg.destroy(); beamImg = null; }
+    if (beamCore) { beamCore.destroy(); beamCore = null; }
     resetAttackVars();
     recoil(aim);
     endAttackChase();                       // 通常の攻撃終了と同じ経路（後始末の漏れを作らない）
@@ -687,7 +700,9 @@ export function createBoss(run) {
         alignAng = aim;                                   // 揃いきるまで狙い続ける（発射で固定）
         const prog = clamp01(1 - stateT / ak.alignSec);
         if (Math.floor(run.elapsed * 14) % 2 === 0 && prog > 0.4) {
-          run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 2);
+          // 溜めの後半は赤を混ぜる＝「深紅のレーザーが来る」を色でも予告する（R36W2）
+          run.spawnParticles(boss.x, boss.y,
+            Math.floor(run.elapsed * 7) % 2 === 0 ? 0xff3040 : int(TF().glowInner), 2);
         }
         if (stateT <= 0) fireAligned();
         break;
@@ -1045,9 +1060,14 @@ export function createBoss(run) {
 
   // ★R34 メタリックパープルの光沢。tint 単色だと「塗った」ではなく「暗くなった」に見えるので、
   //   本体色(#a86bff)と内側グロウ(#e0a0ff)のあいだをゆっくり往復させて金属の照り返しを作る。
+  // ★R36W2 役割が変わった。旧実装は tint の乗算だけで「紫にする」を担っていたが、乗算では赤は
+  //   紫にならない（実プレイFB「一部のみ変わっただけに見える」の正体）。紫そのものはテクスチャの
+  //   差し替え（applyMergeLook）が担い、ここは**金属光沢**だけを担う：白（無変化）とラベンダーの
+  //   間をゆっくり往復させ、ハイライトが表面を舐める。tint の乗算は暗くする方向にしか働かないので、
+  //   「明 ⇄ やや暗」の往復＝艶に見える。
   function metalPurple() {
     const t = (Math.sin(run.elapsed * 2.6) + 1) / 2;
-    return mixHex(int(cfg.merge.tint), int(cfg.merge.glowInner), 0.20 + t * 0.45);
+    return mixHex(0xffffff, int(cfg.merge.glowInner), 0.10 + t * 0.30);
   }
 
   // 合体の瞬間。色が変わるところを必ず1フレームの白フラッシュ越しに見せる。
@@ -1055,6 +1075,12 @@ export function createBoss(run) {
     removeLower();
     split = false;
     phase3 = true;
+    // ★R36W2 実プレイFB「いまは一部のみ変わっただけに見える。赤部分をメタリックパープルに」。
+    //   tint（乗算）では赤は紫にならないので、紫パレットで焼いた別テクスチャへ**丸ごと差し替える**
+    //   （詳細は enemies.js の MAOU_PAL_P コメント）。白フラッシュの裏で替わるので継ぎ目は見えない。
+    if (def.palette3) {
+      for (const p of disp.parts) { if (p.tex) p.img.setTexture(`boss_${def.id}_P${p.tex}`); }
+    }
     disp.glowP.setTint(int(cfg.merge.glowOuter));
     disp.glowM.setTint(int(cfg.merge.glowInner));
     whiteFlash(0.48);
@@ -1101,6 +1127,7 @@ export function createBoss(run) {
     removeLower();
     resetAttackVars();
     if (beamImg) { beamImg.setVisible(false); }
+    if (beamCore) { beamCore.setVisible(false); }
     beam = null;
     // 旧体は砕けて無くなるので、分離／再合体の状態も一緒に畳む。残すと updateLower が
     // 居ない下半身を触りにいくし、legTransform も真の姿には無い脚を探しにいく。
@@ -1233,23 +1260,29 @@ export function createBoss(run) {
     if (trueCrack) { trueCrack.destroy(); trueCrack = null; }
     endAttackChase();
     attackIdx = 0;
-    // 沈黙のあとで鳴らし直す＝「同じ曲」でも別の場面として耳に入る
-    if (run.withAudio) Sound.startBgm('maou');
+    // ★R36W2 沈黙のあとは**専用曲**で鳴らし直す（実プレイFB「軌道神核用のBGMを用意して。
+    //   マオウレクスのBGMを基に、神々しさのアレンジを」）。同じ作曲のまま編成が昇格するので、
+    //   「同じ戦いの、別の段」だと耳で分かる。
+    if (run.withAudio) Sound.startBgm('maouTrue');
   }
 
   // ============ 真の姿の攻撃3種 ============
   // ①整列レーザー。環が揃った向きがそのまま射線になる（予告が文字でなく形）。
   function fireAligned() {
     const ak = TF().aligned, half = ak.sweepDeg * 0.5 * D2R;
-    startBeam(alignAng - half, alignAng + half, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec);
-    whiteFlash(0.5);
-    run.shake(520, 12);
-    Sound.sfx('bigBoom');
+    // ★R36W2 実プレイFB「深みのある赤に。発射音や演出をできるだけ派手に」。
+    //   深みは 暗い深紅の縁（beamTint）＋白熱の芯（coreTint）の2層で出す。音は専用の godLaser
+    //   （sound.js・BGMを沈めて撃つ）。撃つ瞬間は 白フラッシュ0.55＋揺れ700/15＋ヒットストップ。
+    startBeam(alignAng - half, alignAng + half, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec,
+      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true });
+    whiteFlash(0.55);
+    run.shake(700, 15);
+    Sound.sfx('godLaser');
     Sound.sfx('thunder');
-    Sound.sfx('fireBlast', 0.8);
     recoil(alignAng);
-    run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 34);
-    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.10);
+    run.spawnParticles(boss.x, boss.y, 0xff3040, 30);
+    run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 22);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.14);
     state = 'alignFire'; stateT = ak.activeSec;
   }
 
@@ -1306,13 +1339,14 @@ export function createBoss(run) {
   //   派手さは「溜めの収束光＋発射の白フラッシュ＋長い薙ぎ＋落雷音」で作る。
   function fireChestLaser() {
     const ck = cfg.chestLaser;
+    // R36W2 紫の2層ビーム（光線の色は紫・実プレイFB）＋専用発射音＋受けた実感（heavy）
     startBeam(aim + ck.sweepFromDeg * D2R, aim + ck.sweepToDeg * D2R,
-      ck.beamLength, ck.beamWidth, ck.damage, ck.activeSec);
+      ck.beamLength, ck.beamWidth, ck.damage, ck.activeSec,
+      { tint: ck.beamTint, core: '#f6eaff', spark: 0xb44dff, heavy: true });
     whiteFlash(0.49);
     run.shake(600, 14);
-    Sound.sfx('bigBoom');
+    Sound.sfx('darkLaser');
     Sound.sfx('thunder');
-    Sound.sfx('fireBlast', 0.8);
     recoil(aim);
     run.spawnParticles(boss.x, boss.y, int(cfg.merge.glowInner), 40);
     if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.10);
@@ -1413,11 +1447,16 @@ export function createBoss(run) {
     state = 'waveFire'; stateT = wc.activeSec;
   }
 
-  // 亜空間レーザー：極太貫通ビームを sweepFrom→sweepTo へゆっくり回転薙ぎ
+  // じゃがんレーザー（R36W2 改名・分離した上半身の単眼バイザーから撃つ）：極太貫通ビームを
+  // sweepFrom→sweepTo へゆっくり回転薙ぎ。紫の縁＋白熱の芯の2層＋専用発射音＋受けた実感（heavy）。
   function fireLaser() {
     const lk = cfg.laser;
-    startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth, lk.damage, lk.activeSec);
-    whiteFlash(0.45); Sound.sfx('bigBoom'); recoil(aim);
+    startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth,
+      lk.damage, lk.activeSec,
+      { tint: lk.beamTint, core: '#f2e2ff', spark: 0xc470ff, heavy: true });
+    whiteFlash(0.45); Sound.sfx('darkLaser'); recoil(aim);
+    run.shake(420, 10);
+    run.spawnParticles(boss.x, boss.y, 0xc470ff, 24);
     state = 'laserFire'; stateT = lk.activeSec;
   }
 
@@ -2055,30 +2094,75 @@ export function createBoss(run) {
   }
 
   // ============ ビーム（プレイヤー1点判定・波動砲/レーザー共用） ============
-  function startBeam(angFrom, angTo, len, width, dmg, activeSec) {
+  // ★R36W2 opts を追加。実プレイFB「光線の色は紫」「整列レーザーは深みのある赤に」へ応えるため、
+  //   ビームの色を攻撃ごとに変えられるようにした（従来は全ビームが cfg.glowInner の1色固定）。
+  //     opts.tint  … ビーム本体（縁）の色
+  //     opts.core  … 白熱の芯の色。指定すると幅38%の第2層を重ねる。「深みのある赤」は
+  //                  暗い縁＋白熱の芯の**2層**でしか出ない（1色のベタは薄っぺらいまま）
+  //     opts.spark … 照射中に線に沿って散る火花の色（1フレーム最大2個の予算制＝R35の教訓）
+  //     opts.heavy … 主人公が受けたときの手応えを重くする（専用SFX＋ビーム方向へ吹き飛ばす）
+  function startBeam(angFrom, angTo, len, width, dmg, activeSec, opts = {}) {
     if (!beamImg) {
       beamImg = run.add.image(0, 0, 'boss_beam').setOrigin(0, 0.5).setBlendMode(ADD).setDepth(10);
     }
-    beam = { angFrom, angTo, len, width, dmg, life: activeSec, maxLife: activeSec, dmgT: 0 };
-    beamImg.setVisible(true).setTint(int(cfg.glowInner));
+    if (!beamCore) {
+      beamCore = run.add.image(0, 0, 'boss_beam').setOrigin(0, 0.5).setBlendMode(ADD).setDepth(10);
+    }
+    beam = { angFrom, angTo, len, width, dmg, life: activeSec, maxLife: activeSec, dmgT: 0,
+      spark: opts.spark || 0, heavy: !!opts.heavy, hasCore: !!opts.core };
+    beamImg.setVisible(true).setTint(opts.tint != null ? int(opts.tint) : int(cfg.glowInner));
+    beamCore.setVisible(!!opts.core);
+    if (opts.core) beamCore.setTint(int(opts.core));
   }
   function updateBeam(dt) {
     beam.life -= dt;
-    if (beam.life <= 0) { if (beamImg) beamImg.setVisible(false); beam = null; return; }
+    if (beam.life <= 0) {
+      if (beamImg) beamImg.setVisible(false);
+      if (beamCore) beamCore.setVisible(false);
+      beam = null; return;
+    }
     const t = 1 - beam.life / beam.maxLife;
     const ang = beam.angFrom + (beam.angTo - beam.angFrom) * t;
     const x = boss ? boss.x : 0, y = boss ? boss.y : 0;
     beamImg.setPosition(x, y).setRotation(ang).setDisplaySize(beam.len, beam.width)
       .setAlpha(0.65 + 0.25 * Math.sin(run.elapsed * 30));
+    if (beam.hasCore) {
+      // 芯は縁より少し速く明滅させる（2層の位相がずれると「うねって」見える＝生きた光になる）
+      beamCore.setPosition(x, y).setRotation(ang).setDisplaySize(beam.len, beam.width * 0.38)
+        .setAlpha(0.75 + 0.25 * Math.sin(run.elapsed * 41));
+    }
     // 点(プレイヤー)と線分[本体, 本体+dir*len]の距離
     const dirX = Math.cos(ang), dirY = Math.sin(ang);
+    // 火花：線に沿って散らす（決定的な位置＋rngの散らし・1フレーム2個まで）
+    if (beam.spark) {
+      for (let i = 0; i < 2; i++) {
+        const st = ((run.elapsed * (5.1 + i * 2.3)) % 1) * beam.len;
+        run.spawnParticles(x + dirX * st + run.rng.range(-8, 8),
+          y + dirY * st + run.rng.range(-8, 8), beam.spark, 1);
+      }
+    }
     const rx = run.player.x - x, ry = run.player.y - y;
     let tt = rx * dirX + ry * dirY; tt = Math.max(0, Math.min(beam.len, tt));
     const cx = x + dirX * tt, cy = y + dirY * tt;
     const ddx = run.player.x - cx, ddy = run.player.y - cy;
     const half = beam.width / 2 + run.player.radius;
     beam.dmgT -= dt;
-    if (ddx * ddx + ddy * ddy <= half * half && beam.dmgT <= 0) { run.hitPlayer(beam.dmg, cx, cy); beam.dmgT = 0.25; }
+    if (ddx * ddx + ddy * ddy <= half * half && beam.dmgT <= 0) {
+      if (beam.heavy) {
+        // ★R36W2 実プレイFB「レーザーを受けた主人公が、攻撃を受けてしまった実感がでるように」。
+        //   ①専用の被弾音（焼かれる音） ②ビームの進行方向へ吹き飛ばす（hitPlayer の押し返しは
+        //     発生源から放射状。線分の最近点はほぼ主人公自身の座標なので向きが出ない＝源を
+        //     ビーム後方へ置き直して「光に押し流される」向きにする） ③揺れとヒットストップを上乗せ
+        Sound.sfx('beamHit');
+        run.shake(340, 10);
+        if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.10);
+        run.spawnParticles(run.player.x, run.player.y, 0xffe0c0, 10);
+        run.hitPlayer(beam.dmg, run.player.x - dirX * 40, run.player.y - dirY * 40);
+      } else {
+        run.hitPlayer(beam.dmg, cx, cy);
+      }
+      beam.dmgT = 0.25;
+    }
   }
 
   // ============ ボス弾（プレイヤーへ当たる・kind別に挙動） ============
@@ -2271,7 +2355,7 @@ export function createBoss(run) {
     for (const b of bullets) { if (b.active) { b.active = false; recycleBullet(b); } }
     bullets.length = 0;
     clearStrikes();   // 撃破の瞬間に予告中だった着弾も消す（勝利演出の最中に爆発させない）
-    if (beam) { beam = null; if (beamImg) beamImg.setVisible(false); }
+    if (beam) { beam = null; if (beamImg) beamImg.setVisible(false); if (beamCore) beamCore.setVisible(false); }
   }
 
   // ============ 表示（本体そのものが動く） ============
@@ -2561,10 +2645,9 @@ export function createBoss(run) {
     // 変わらず「今だけ大きい」が伝わっていなかった。よろけと同じ青白で塗って記号を揃える。
     else if (bossStagT > 0) tint = BALANCE.stagger.tint;
     else if (isTelegraph(state)) {
-      // R34: 再合体後は予告の"消灯側"も紫のままにする。null に落とすと素の赤へ戻ってしまい、
-      //      せっかく変えた体色が予告のたびに剥がれて見えた（予告は白の点灯側だけで十分伝わる）。
-      const off = phase3 && cfg.merge ? metalPurple() : null;
-      tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : off;
+      // R34→R36W2: かつては消灯側も紫 tint で塗っていた（素に戻すと赤へ剥がれたため）。
+      //   いまは**テクスチャそのものが紫**なので、素（null）に戻しても紫のまま＝白の点滅だけで足りる。
+      tint = (Math.floor(run.elapsed * 16) % 2 === 0) ? 0xffffff : null;
     }
     // ★R30 再合体後はメタリックパープル（ユーザー指示）。予告の点滅より下・被弾フラッシュより下に
     //   置くので、「今は何をしているか」の記号は今までどおり読める。
@@ -2680,6 +2763,7 @@ export function createBoss(run) {
     if (disp.glowM) disp.glowM.destroy();
     if (disp.muzzle) disp.muzzle.destroy();
     if (beamImg) { beamImg.destroy(); beamImg = null; }
+    if (beamCore) { beamCore.destroy(); beamCore = null; }
     disp = null;
   }
 
