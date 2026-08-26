@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createRng } from '../src/core/rng.js';
 import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS } from '../src/data/monsters.js';
-import { ENEMIES, BOSS } from '../src/data/enemies.js';
+import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
 
 let failures = 0;
@@ -389,19 +389,29 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
       assert(sp.cineSec >= 1.0 && mg.cineSec >= 1.5,
         `balance: 分離/再合体のカットシーンに尺がある（${sp.cineSec}s / ${mg.cineSec}s）`);
       assert(mg.contactAt > 0 && mg.contactAt < 1, 'balance: 色が変わる瞬間がカットシーンの途中にある');
-      // 「破壊力も作中最大ダメージに」＝全ボスの全攻撃で最大であること
+      // 「破壊力も作中最大ダメージに」＝全ボスの全攻撃で最大であること。
+      // ★真の姿（第4形態）だけは例外として上を許す＝最後に出てくるものが最強でないと格が逆転するため。
+      //   その代わり「真の姿の整列レーザーが作中の単独最大」を別の assert で必ず縛る。
+      const tfx = maou.trueForm;
+      const ak = tfx && tfx.aligned;
       let maxOther = 0, maxWho = '';
       const scan = (obj, who) => {
         for (const k of Object.keys(obj)) {
           const v = obj[k];
           if (typeof v === 'number' && /amage$/i.test(k)) {
-            if (obj !== ck && v > maxOther) { maxOther = v; maxWho = who + '.' + k; }
+            if (obj !== ck && obj !== ak && v > maxOther) { maxOther = v; maxWho = who + '.' + k; }
           } else if (v && typeof v === 'object' && !Array.isArray(v)) scan(v, who + '.' + k);
         }
       };
       for (const t of tiers) scan(t, t.bossId);
       assert(ck.damage > maxOther,
-        `balance: 胸部レーザーが作中最大ダメージ（${ck.damage} > 次点 ${maxOther} = ${maxWho}）`);
+        `balance: 胸部レーザーが第3形態までの最大ダメージ（${ck.damage} > 次点 ${maxOther} = ${maxWho}）`);
+      if (ak) {
+        assert(ak.damage > ck.damage,
+          `balance: 真の姿の整列レーザーが作中最大ダメージ（${ak.damage} > 胸部レーザー ${ck.damage}）`);
+        assert(ak.damage < BALANCE.player.hp,
+          `balance: 整列レーザーでも満タンから一撃死しない（${ak.damage} < ${BALANCE.player.hp}）`);
+      }
       assert(ck.damage < BALANCE.player.hp,
         `balance: 胸部レーザーでも満タンから一撃死しない（${ck.damage} < ${BALANCE.player.hp}）`);
       assert(ck.chargeSec >= 1.0, `balance: 胸部レーザーには避けられる溜めがある（${ck.chargeSec}s）`);
@@ -458,7 +468,7 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(manualBossHits.length >= 3 && manualBossHits.every((s) => /hitR/.test(s)),
     `R31: 座標つきの手動命中${manualBossHits.length}か所すべてが hitR を渡している`);
   // 範囲攻撃(必殺)の r は別物＝コア倍率を落とす側。hitR と混ぜていないこと
-  assert(/mul: at\.r \? 1 : cfg\.weak\.mul/.test(boss),
+  assert(/mul: at\.r \? 1 : weakCfg\(\)\.mul/.test(boss),
     'R31: 範囲攻撃(at.r)はコア倍率なしのまま＝hitR と役割が混ざっていない');
   // ★R30 の下半身は倒せない砲台。玉を食べると「全力の投げが0表示で消える」ので、
   //   上半身の装甲と同じく「カキン！を返して弾は通す」でなければならない。
@@ -1608,6 +1618,119 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   const levels = new Set([...a].filter((v) => v > 0).map((v) => Math.round(v * 20)));
   assert(levels.size >= 4, `R35b: 明るさの段が4段以上ある（${levels.size}段）`);
   assert(/render-boss-comet\.mjs/.test(boot) || true, 'R35b: （形式確認用）');
+}
+
+// ============ ★★ 真マオウレクス「軌道神核」＝第4形態（転生）============
+// ⚠️ ここに並ぶのは、実装中に**実際に踏んだ**罠をそのまま固定したガード。どれも
+//    「構文は通る・既存テストも通る・でも画面には何も出ない」形で壊れるので目視では気づけない。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const tf = maou.trueForm;
+
+  // --- データ：スプライトとリグ ---
+  assert(!!tf, 'true: 最終ボスに真の姿(trueForm)の設定がある');
+  assert(!!MAOU.trueSprites && !!MAOU.trueRig, 'true: MAOU に trueSprites / trueRig がある');
+  {
+    const names = Object.keys(MAOU.trueSprites);
+    assert(names.length === 9, `true: 真の姿のパーツが9個ある（${names.length}）`);
+    let badRow = '', badPal = '';
+    for (const [k, sp] of Object.entries(MAOU.trueSprites)) {
+      if (!sp.rows.every((r) => r.length === sp.rows[0].length)) badRow = k;
+      for (const r of sp.rows) for (const c of r) if (c !== '.' && !sp.palette[c]) badPal = k + ':' + c;
+    }
+    assert(!badRow, `true: 全パーツの行長が揃っている（${badRow || 'OK'}）`);
+    assert(!badPal, `true: パレットに無い文字を使っていない（${badPal || 'OK'}）`);
+    const missing = MAOU.trueRig.filter((r) => !MAOU.trueSprites[r.tex]).map((r) => r.tex);
+    assert(missing.length === 0, `true: trueRig の tex が全部 trueSprites にある（${missing.join(',') || 'OK'}）`);
+    // ★role は depth の順序付けにしか使っていない。origin を role から推理させると
+    //   PART_ORIGIN の cannon[0.15,0.5] / legR[0.5,0.1] を拾って環が大きくズレる。必ず明示すること。
+    const noOrigin = MAOU.trueRig.filter((r) => !r.origin && r.role !== 'body' && r.role !== 'core');
+    assert(noOrigin.length === 0,
+      `true: body/core 以外の全パーツが origin を明示している（${noOrigin.map((r) => r.role).join(',') || 'OK'}）`);
+  }
+  // ★真の姿は BOSSES に別エントリとして足さない＝ステージの並び（難易度帯シャッフル）に影響させない
+  assert(BOSSES.length === 6, `true: ボスは6体のまま（真の姿を別ボスとして足していない・${BOSSES.length}）`);
+  assert(/boss_\$\{d\.id\}_T\$\{?k\}?|boss_\$\{d\.id\}_T\$\{k\}/.test(boss)
+    || /`boss_\$\{d\.id\}_T\$\{k\}`/.test(boss),
+    'true: 真の姿のテクスチャは T 接頭辞で作る＝通常パーツとキーが衝突しない');
+
+  // --- ★実バグ①：転生カットシーンが分離／再合体に横取りされて消えていた ---
+  //   startAwaken が boss.hp を 1 に落とすので、同じフレームで「HP50%で分離」「33%で再合体」が
+  //   両方成立し、startSplit() が state='awakenCine' を上書きしていた（実測：awakening=true の
+  //   まま state=chase・trueForm=false＝転生が丸ごと起きない）。
+  assert(/if \(!awakening && !trueForm\) \{[\s\S]{0,400}?enterPhase2\(\);[\s\S]{0,300}?startMerge\(\);/.test(boss),
+    'true: 転生中と真の姿では phase2/分離/再合体の判定を止めている（カットシーンの横取り防止）');
+
+  // --- ★実バグ②：弱点コアのUIが、描き下ろした眼を完全に覆っていた ---
+  //   weak.radius の72%＝半径34pxの金色ベタが眼の中心を塗りつぶし、眼が一度も画面に出ていなかった。
+  assert(/if \(!weakCfg\(\)\.ringOnly\) \{/.test(boss),
+    'true: 弱点そのものが「絵」のとき(ringOnly)は塗りつぶさない＝描いた眼が隠れない');
+  assert(tf.weak.ringOnly === true, 'true: 真の姿の弱点は ringOnly（眼を塗りつぶさない）');
+  // 判定円は絵と一致させる＝[[feedback_one_hit_one_circle]]。眼は15px×spriteScale。
+  {
+    const seen = 15 * tf.spriteScale / 2;
+    const ratio = tf.weak.radius / seen;
+    assert(ratio >= 0.85 && ratio <= 1.05,
+      `true: 弱点の判定円が眼の見た目と一致（判定${tf.weak.radius} / 見た目${Math.round(seen)}px = ${ratio.toFixed(2)}倍）`);
+  }
+  assert(tf.weak.swayX === 0, 'true: 真の姿の眼は中央固定（短期決戦なので「探す」遊びは置かない）');
+
+  // --- ★実バグ③：見せ場が瞬きの間に終わっていた ---
+  //   crackSec-shatterAt が 0.45秒しかなく、「粉々に飛び散る」が撮影しても写らなかった。
+  assert(tf.crackSec - tf.shatterAt >= 0.8,
+    `true: 粉砕の尺が0.8秒以上ある（${(tf.crackSec - tf.shatterAt).toFixed(2)}秒）＝飛び散るところが見える`);
+  assert(tf.riseSec >= 1.5, `true: 出現の尺が1.5秒以上ある（${tf.riseSec}秒）`);
+  // カットシーン中に倒せてしまうと、演出をどれだけ豪華にしても原理的に見えない（R34の教訓）
+  assert(/state === 'awakenCine'[\s\S]{0,80}?\|\| awakening/.test(boss)
+    || /awakenCine'\s*\|\|\s*awakening/.test(boss),
+    'true: 転生カットシーン中はダメージが一切通らない（演出の途中で倒せない）');
+
+  // --- ★縮尺：設計プレビューの前提（480×360）が実際（640×360）と違っていた ---
+  //   9.4 で撮ると球も環も光背も画面外へ出て、眼とその周りしか映らなかった。
+  {
+    const ringW = 51 * tf.spriteScale, ringH = 35 * tf.spriteScale;
+    assert(ringW <= 420 && ringH <= 300,
+      `true: 真の姿が画面(640×360)で破綻しない大きさ（環 ${Math.round(ringW)}×${Math.round(ringH)}px）`);
+    assert(ringW >= 18 * 9.6, `true: 第3形態(173px)より明らかに大きい（${Math.round(ringW)}px）＝最後に出るものが小さくならない`);
+  }
+
+  // --- 攻撃3種：表と実装が食い違っていないこと ---
+  assert(Array.isArray(tf.attacks) && tf.attacks.length === 3,
+    `true: 真の姿の攻撃は3種（${(tf.attacks || []).join('/')}）＝20秒台の戦いで各2回以上まわる`);
+  for (const a of tf.attacks) {
+    assert(new RegExp(`case '${a}':`).test(boss), `true: 攻撃「${a}」が startAttackByName に実装されている`);
+    assert(!!tf[a === 'shell' ? 'shell' : a === 'aligned' ? 'aligned' : 'verse'],
+      `true: 攻撃「${a}」の数値設定がある`);
+  }
+  assert(tf.idleSec.length === tf.attacks.length,
+    `true: 攻撃の数と待ち時間の数が一致（${tf.attacks.length} / ${tf.idleSec.length}）`);
+  // R35 の教訓＝歩いて追い抜ける弾を最終ボスに撃たせない（主人公の移動は148px/秒）
+  for (const [k, v] of [['聖句解放', tf.verse.bulletSpeed], ['殻閉じの衝撃波', tf.shell.bulletSpeed]]) {
+    assert(v >= 148 * 1.5, `true: ${k}の弾が主人公(148)の1.5倍以上（${v}）`);
+  }
+  // ★殻閉じは「1発当てれば必ず止まる」にしない＝それでは殻閉じが存在しないのと同じ
+  //   （実測：閾値0.04では渾身の一投1発が0.09秒で超え、2回とも成立しなかった）
+  assert(tf.shell.interruptRatio >= 0.10,
+    `true: 殻閉じは一投では割れない（閾値 ${(tf.shell.interruptRatio * 100).toFixed(0)}% ≧ 10%）`);
+  assert(tf.shell.closeSec >= 1.2,
+    `true: 殻閉じを割りにいく窓が1.2秒以上ある（${tf.shell.closeSec}秒）`);
+  assert(tf.shell.holdSec > 0 && tf.shell.breakSec > tf.shell.holdSec * 1.1,
+    `true: 割ったときの隙(${tf.shell.breakSec}s)が、閉じられたときの無敵(${tf.shell.holdSec}s)より長い＝止めにいく得がある`);
+
+  // --- 尺：ユーザー指定「20〜25秒（短く強烈）」。実測DPS 3550/秒 から逆算する ---
+  {
+    const sec = tf.hp / 3550 + tf.shell.holdSec;
+    assert(sec >= 19 && sec <= 26,
+      `true: 真の姿の戦闘が20〜25秒の設計（HP${tf.hp} ÷ 実測DPS3550 + 無敵${tf.shell.holdSec}s = ${sec.toFixed(1)}秒）`);
+  }
+  // HPが0になった瞬間を、撃破処理より**前**に横取りしていること（順序が逆だと1回で終わる）
+  assert(/function onBossKilled\(e\) \{[\s\S]{0,400}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
+    'true: HP0 は「撃破」より先に「転生」を見る（順序が逆だと真の姿が出ないまま終わる）');
+  assert(tf.name && tf.name !== MAOU.name,
+    `true: 真の姿は名前も変わる（${MAOU.name} → ${tf.name}）＝HPバーで別物だと分かる`);
 }
 
 // --- 結果 ---
