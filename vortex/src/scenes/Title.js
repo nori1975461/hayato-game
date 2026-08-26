@@ -1,5 +1,6 @@
 // scenes/Title.js — ロゴと開始待ち。最初の入力で Sound.init して Run へ（PROTOTYPE_SPEC §5.2）。
 import { Sound } from '../audio/sound.js';
+import { BUILD } from '../data/version.js';
 
 const Phaser = window.Phaser;
 
@@ -45,6 +46,12 @@ export class TitleScene extends Phaser.Scene {
     this.add.text(W / 2, 336, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#7fffcf',
     }).setOrigin(0.5);
+
+    // 版番号。実プレイFB「私が見てるURLが違うのか？」への恒久対策。
+    // ここの数字が src/data/version.js の BUILD と違えば、それは間違いなくブラウザのキャッシュ。
+    this.add.text(6, H - 5, 'v' + BUILD, {
+      fontFamily: 'monospace', fontSize: '10px', color: '#40506a',
+    }).setOrigin(0, 1);
 
     const prompt = this.add.text(W / 2, 306, 'SPACE か クリックで スタート', {
       fontFamily: 'monospace', fontSize: '15px', color: '#ffffff',
