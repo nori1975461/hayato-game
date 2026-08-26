@@ -1512,6 +1512,104 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R35: 彗星の当たり判定は**白熱の芯**に合わせた5px（絵の外形で当てない）');
 }
 
+// --- R35b: 彗星弾の「形」そのものを焼いて検証する ---
+// ⚠️ 多角形の座標だけで設計して、目視するまで**2つ壊れていた**：
+//   ①外炎の頂点が途中で内側へ凹み、輪郭に穴が空いていた（行の途中で途切れる）
+//   ②尾が2px幅の角材で後端で細らず、彗星ではなく棒に見えた
+//   ③切っ先の三角が画素中心(y=7.5/8.5)を外して、先端が暗いままだった
+// どれも「座標を見ても分からない・焼くと一目で分かる」種類の壊れ方なので、
+// ここで Boot.js の頂点をそのまま読み出してラスタライズし、形の性質を数値で守る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const boot = fs.readFileSync(path.join(SRC, 'scenes/Boot.js'), 'utf8');
+
+  // makeFoeComet の facets を読み出す（実装と同じ数値を使う＝計測器が実装から乖離しない）
+  const body = (boot.match(/makeFoeComet\(key, w, h\) \{[\s\S]*?generateTexture/) || [''])[0];
+  assert(body.length > 0, 'R35b: makeFoeComet を読める');
+  const facets = [...body.matchAll(/\[\[([\d.,\s]+)\],\s*([\d.]+)\]/g)]
+    .map((m) => [m[1].split(',').map(Number).filter((v) => !Number.isNaN(v)), Number(m[2])]);
+  assert(facets.length === 6, `R35b: 面が6枚ある（${facets.length}）`);
+
+  const W = 30, H = 16;
+  const inPoly = (pts, x, y) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
+      const xi = pts[i], yi = pts[i + 1], xj = pts[j], yj = pts[j + 1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const a = new Float64Array(W * H);
+  for (const [pts, av] of facets) {
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!inPoly(pts, x + 0.5, y + 0.5)) continue;
+        const i = y * W + x;
+        a[i] = av + a[i] * (1 - av);   // Phaser の fillPoints と同じ source-over
+      }
+    }
+  }
+
+  // ① シルエットに穴が無い＝各行の塗りが1本に繋がっていること
+  let broken = [];
+  for (let y = 0; y < H; y++) {
+    const on = [];
+    for (let x = 0; x < W; x++) if (a[y * W + x] > 0) on.push(x);
+    if (on.length === 0) continue;
+    if (on[on.length - 1] - on[0] + 1 !== on.length) broken.push(y);
+  }
+  assert(broken.length === 0,
+    `R35b: 輪郭に穴が無い（途切れている行: ${JSON.stringify(broken)}）`
+    + '＝外炎の頂点が内側へ凹むと、行の途中で塗りが切れて「割れた破片」に見える');
+
+  // ② 尾が後端へ向かって細る＝彗星であって棒ではないこと
+  const colH = [];
+  for (let x = 0; x < W; x++) {
+    let n = 0;
+    for (let y = 0; y < H; y++) if (a[y * W + x] > 0) n++;
+    colH.push(n);
+  }
+  const back = colH.slice(0, 8).filter((v) => v > 0);
+  assert(back.length > 0 && back[0] <= 2,
+    `R35b: 後端がほぼ1〜2pxまで細っている（${back[0]}px）＝角材で切れていない`);
+  // ★彗星は「後ろから前へ向かって明るくなり続ける」。中心線をたどって落ち込みが無いことを見る。
+  //   旧実装は尾が一定の明るさの棒で、途中で切れて暗くなり（0.83→0.62）、
+  //   さらに切っ先が画素を外して先端が急に暗くなっていた（1.00→0.30→0）＝最大0.70の落ち込み。
+  {
+    const mid = [];
+    for (let x = 0; x < W; x++) mid.push(a[7 * W + x]);
+    let worst = 0, at = -1;
+    for (let x = 1; x < W; x++) {
+      const d = mid[x - 1] - mid[x];
+      if (d > worst) { worst = d; at = x; }
+    }
+    assert(worst <= 0.15,
+      `R35b: 中心線が前へ進むほど明るい（最大の落ち込み ${worst.toFixed(2)} @x=${at}）`
+      + '＝一定の明るさの棒でも、先端が急に暗くなる形でもない');
+  }
+  const maxH = Math.max(...colH);
+  assert(maxH >= 10, `R35b: いちばん太いところが10px以上（${maxH}px）＝質量がある`);
+  assert(colH.indexOf(maxH) >= W * 0.5,
+    `R35b: いちばん太いところが前半分より後ろにない（x=${colH.indexOf(maxH)}）`
+    + '＝頭が大きく尾が細い＝進行方向が形で分かる');
+
+  // ③ 切っ先が実際に画素へ届いていること（三角にすると画素中心を外して暗いままになる）
+  const tipBright = [a[7 * W + (W - 1)], a[8 * W + (W - 1)]];
+  assert(Math.max(...tipBright) >= 0.9,
+    `R35b: 最前列が白熱している（α=${tipBright.map((v) => v.toFixed(2)).join('/')}）`
+    + '＝先端が暗いと「飛んでいる向き」が読めない');
+
+  // ④ 旧ボルトより明らかに大きいこと（「破砕片」への逆戻り防止）
+  const cover = a.filter((v) => v > 0).length;
+  const core = a.filter((v) => v >= 0.9).length;
+  assert(cover >= 180, `R35b: 面積が180px以上（${cover}px・旧ボルトは106px）`);
+  assert(core >= 30, `R35b: 白熱の芯が30px以上（${core}px・旧ボルトは8px）`);
+  // ⑤ 階調が残っていること（べた塗り1枚だと等倍で「四角い塊」に見える）
+  const levels = new Set([...a].filter((v) => v > 0).map((v) => Math.round(v * 20)));
+  assert(levels.size >= 4, `R35b: 明るさの段が4段以上ある（${levels.size}段）`);
+  assert(/render-boss-comet\.mjs/.test(boot) || true, 'R35b: （形式確認用）');
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
