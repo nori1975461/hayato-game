@@ -100,7 +100,7 @@ async function measure(modPath, label) {
   // 8小節ぶん（16step×8）を回す。ctx.currentTime も一緒に進める
   const ctxRef = log; // ctx は閉じているので、時刻はスケジューラのms合計で追う
   let tSec = 0, steps = 0;
-  while (q.length && steps < 16 * 8) {
+  while (q.length && steps < 16 * 32) {   // R34W3 で16小節になったので上限を広げる
     const job = q.shift();
     tSec += job.ms / 1000;
     // sound.js 内の ctx.currentTime を進める術がないので、記録側は step 番号で持つ
@@ -121,11 +121,13 @@ function summarize(r, bpm) {
   for (const t of tones) byType[t.type] = (byType[t.type] || 0) + 1;
   const freqs = tones.map((t) => t.f).filter((f) => f > 0);
   const bars = [];
-  for (let b = 0; b < 8; b++) {
+  const nBar = Math.max(...tones.map((t) => Math.floor(t.step / 16))) + 1;
+  for (let b = 0; b < nBar; b++) {
     const inBar = tones.filter((t) => Math.floor(t.step / 16) === b && t.f > 0);
     bars.push(inBar.length ? +Math.min(...inBar.map((t) => t.f)).toFixed(1) : 0);
   }
   return {
+    小節数: bars.length,
     小節ごとの最低音Hz: bars,
     音符の総数: tones.length,
     ノイズ打の総数: noises.length,

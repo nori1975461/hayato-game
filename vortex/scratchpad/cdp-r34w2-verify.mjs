@@ -213,6 +213,7 @@ async function main() {
   say('   tomahawkBoom（新・着弾）: ' + (S.tomahawkBoom || 0));
   say('   旧 knuckle / missileFly / shoot: '
     + (S.knuckle || 0) + ' / ' + (S.missileFly || 0) + ' / ' + (S.shoot || 0));
+  say('   ワイヤーアーム wireCannon（新・戦車砲）: ' + (S.wireCannon || 0));
   say('   ワイヤーアーム rocketPunchFire/Fly/Hit: '
     + (S.rocketPunchFire || 0) + ' / ' + (S.rocketPunchFly || 0) + ' / ' + (S.rocketPunchHit || 0));
   say('   戦闘の長さ: ' + m.計測.end + '秒 / 分離 ' + m.計測.split + '秒 / 再合体 ' + m.計測.merge + '秒');
