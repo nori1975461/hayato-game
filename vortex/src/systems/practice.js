@@ -14,6 +14,16 @@
 //   ④ マオウレクス     … 最終ボスだけを名指しで出す。Z/X で分離・再合体の節目へ即ジャンプ
 import { BALANCE } from '../data/balance.js';
 import { ENEMIES } from '../data/enemies.js';
+import { Sound } from '../audio/sound.js';
+
+// ★R34W4「マオウレクスのBGMがよくない」への手当て。CLAUDE.md の方針どおり、
+//   音の好みは文章で議論せず**ゲーム内で切り替えて選んでもらう**。
+//   作曲（和音・主題）は3つとも共通で、違うのは編曲＝**速さとドラムの重さ**だけ。
+const MAOU_BGM = [
+  { name: 'maou',      label: '① ロック 184' },
+  { name: 'maouFast',  label: '② ちょうこうそく 208' },
+  { name: 'maouHeavy', label: '③ じゅうこう 168' },
+];
 
 const COURSES = [
   { key: 'crush', title: '① いっきに たおす おと',
@@ -25,13 +35,14 @@ const COURSES = [
   // ★R30W2「マオウレクスとたたかうれんしゅうじょうをつくって」。
   //   弾（そうこうへん）は本編どおりボスの予告を突きで割って出す＝本番と同じ手順を練習する。
   { key: 'maou',  title: '④ マオウレクスと たたかう',
-    hint: 'よこくを つきで わる → そうこうへんを なげる／Z=ぶんりつ X=がったい C=かいふく' },
+    hint: 'B=BGMきりかえ／よこくを つきで わる → そうこうへん／Z=ぶんりつ X=がったい C=かいふく' },
 ];
 
 export function createPractice(run) {
   const byId = (id) => ENEMIES.find((d) => d.id === id);
   const st = {
     course: 0,
+    bgm: 0,             // ④で聞き比べているBGMの番号（MAOU_BGM の添字）
     tgt: null,          // ②③の主役（1体だけ）
     cluster: [],        // ①の的
     respawnT: 0,
@@ -103,8 +114,21 @@ export function createPractice(run) {
   kb.on('keydown-Z', () => jumpHp(0.49));
   kb.on('keydown-X', () => jumpHp(0.32));
   kb.on('keydown-C', () => jumpHp(1));
+  kb.on('keydown-B', () => cycleBgm());
   kb.on('keydown-N', () => setup());
   kb.on('keydown-Q', () => run.scene.start('Title'));
+
+  // BGMの聞き比べ。④のときだけ効く（ほかのコースはボス戦の曲を鳴らしていないため）。
+  function cycleBgm() {
+    if (COURSES[st.course].key !== 'maou') return;
+    st.bgm = (st.bgm + 1) % MAOU_BGM.length;
+    applyBgm();
+  }
+  function applyBgm() {
+    const m = MAOU_BGM[st.bgm];
+    if (run.withAudio) Sound.startBgm(m.name);
+    if (run.fx) run.fx.announce('BGM ' + m.label, '#ffd23f');
+  }
 
   function setCourse(i) {
     if (st.course === i) { setup(); return; }
@@ -181,6 +205,8 @@ export function createPractice(run) {
       //   実測：既定の位置だと出た瞬間から画面外で、名札もカットシーンも見えなかった。
       const be = run.boss.entity;
       if (be) { be.x = px + 250; be.y = py; }
+      // spawnFight が既定の maou を鳴らすので、選んでいた編曲へ戻す（出し直すたびに①に戻らない）
+      applyBgm();
       st.tgt = null;
       st.prevSplit = false; st.prevPhase3 = false; st.prevState = '';
       st.prev = { throe: false, active: true };
