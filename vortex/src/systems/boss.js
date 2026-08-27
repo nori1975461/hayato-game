@@ -80,6 +80,8 @@ export function createBoss(run) {
   let awakening = false;      // 転生カットシーン中（多重発火と二重撃破を防ぐ）
   let trueCrack = null;       // 旧体に走る亀裂の描画（graphics・カットシーン終了で必ず破棄）
   let ringSpin = [0, 0, 0];   // 3つの環の公転角（別々の速さで回る）
+  let tfTier = 0;             // R37 激化の段（ゲージ1本割るごとに+1・trueForm.rage の添字）
+  let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
   let alignAng = 0;           // 整列レーザーの射線（環が揃う向き＝そのまま射線）
   let shellDmg = 0;           // 殻閉じを「閉じきる前に割る」ための蓄積ダメージ
   let lastHp = 0;             // 前フレームのHP（差分から被ダメージ量を取る）
@@ -339,7 +341,7 @@ export function createBoss(run) {
     def = bossMap[cfg.bossId];
     phase2 = false;
     split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
-    trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0];
+    trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0]; tfTier = 0;
     killing = false;
     resetAttackVars();
 
@@ -413,6 +415,32 @@ export function createBoss(run) {
   function TF() { return (trueForm && cfg && cfg.trueForm) ? cfg.trueForm : null; }
   function weakCfg() { const t = TF(); return (t && t.weak) || (cfg && cfg.weak) || null; }
 
+  // ★R37 激化の係数（trueForm.rage・段ごとの配列）。段で値が変わるものは全部ここを通す＝
+  //   差し替え漏れを1か所に集める（TF() と同じ思想）。rage が無いボスは既定値のまま。
+  function rageArr(key, dflt) {
+    const t = TF();
+    const a = t && t.rage && t.rage[key];
+    return a ? a[Math.min(tfTier, a.length - 1)] : dflt;
+  }
+  // 整列レーザーの実効予告秒。予告の開始(startAttackByName)・進行(alignTele)・
+  //   環の整列描画(updateTrueDisp)の3か所が同じ値を見ないと、環が揃いきる前に撃つ嘘になる。
+  function tfAlignSec() { return TF().aligned.alignSec * rageArr('alignSecMul', 1); }
+  // 段の再計算。ゲージ1本割るごとに1段（gaugeSegments と同数）。上がった瞬間に宣言する＝
+  //   数値の変化を「届く」形にする（[[feedback_change_must_reach_the_player]]）。
+  function updateRageTier() {
+    const t = TF();
+    if (!t || !t.rage || !boss) return;
+    const seg = t.gaugeSegments || 1;
+    const tier = Math.min(seg - 1, Math.floor((1 - boss.hp / boss.maxHp) * seg));
+    if (tier > tfTier) {
+      tfTier = tier;
+      const msg = t.rage.texts && t.rage.texts[Math.min(tier, t.rage.texts.length) - 1];
+      if (msg) introText(msg, '#ff9a3c', 156, 19, 2);
+      Sound.sfx('warning', 0.9, 1.0 + tier * 0.18);
+      run.spawnParticles(boss.x, boss.y, 0xff9a3c, 26);
+    }
+  }
+
   function attackList() {
     const t = TF();
     if (t) return t.attacks;
@@ -423,7 +451,8 @@ export function createBoss(run) {
   function idleFor(i) {
     const t = TF();
     const arr = t ? t.idleSec : cfg.idleSec.betweenAttacks;
-    return arr[i % arr.length];
+    // R37 激化：段が上がるほど間合いが詰まる（手数で密度を上げる・ダメージは上げない）
+    return arr[i % arr.length] * (t ? rageArr('idleMul', 1) : 1);
   }
 
   function beginAttack() {
@@ -459,7 +488,7 @@ export function createBoss(run) {
                          introText('ワイヤーアームはっしゃ', '#46e6ff', 156, 18, 1); break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
       // ★真マオウレクス（第4形態）の3種。予告はどれも**形**で読める（文字より先に姿が変わる）。
-      case 'aligned':    state = 'alignTele';  stateT = TF().aligned.alignSec;
+      case 'aligned':    state = 'alignTele';  stateT = tfAlignSec();
                          Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.8);
                          introText('せいれつ―― かんつうこう', '#ffedb0', 156, 18, 1); break;
       case 'verse':      state = 'verseTele';  stateT = TF().verse.teleSec; shotAcc = 0; shotIdx = 0;
@@ -528,6 +557,7 @@ export function createBoss(run) {
     aim = Math.atan2(dy, dx);
     stateT -= dt;
     if (bossStagT > 0) bossStagT -= dt;   // R21W2
+    updateRageTier();                     // R37 激化（trueForm 中だけ中身が動く）
 
     switch (state) {
       // 最終ボス登場イベント：移動/攻撃はせず、経過秒でセリフ→セリフ→テロップを1回ずつ出す。
@@ -696,9 +726,8 @@ export function createBoss(run) {
 
       // ①整列レーザー：3つの環が主人公の方向へ一直線に揃う＝**射線が形で読める**予告。
       case 'alignTele': {
-        const ak = TF().aligned;
         alignAng = aim;                                   // 揃いきるまで狙い続ける（発射で固定）
-        const prog = clamp01(1 - stateT / ak.alignSec);
+        const prog = clamp01(1 - stateT / tfAlignSec());
         if (Math.floor(run.elapsed * 14) % 2 === 0 && prog > 0.4) {
           // 溜めの後半は赤を混ぜる＝「深紅のレーザーが来る」を色でも予告する（R36W2）
           run.spawnParticles(boss.x, boss.y,
@@ -721,10 +750,12 @@ export function createBoss(run) {
         break;
       case 'verseFire': {
         const vk = TF().verse;
-        const total = vk.perRing * 3;
+        // R37 激化：1環あたりの聖句が増える（14→20発）。fireSec は据え置き＝読み上げが速くなる
+        const per = vk.perRing + rageArr('verseAdd', 0);
+        const total = per * 3;
         const interval = vk.fireSec / total;
         shotAcc += dt;
-        while (shotAcc >= interval && shotIdx < total) { shotAcc -= interval; fireVerse(shotIdx++, vk); }
+        while (shotAcc >= interval && shotIdx < total) { shotAcc -= interval; fireVerse(shotIdx++, vk, per); }
         if (stateT <= 0) afterAttack();
         break;
       }
@@ -751,7 +782,9 @@ export function createBoss(run) {
       }
       case 'shellHold': {
         const sk = TF().shell;
-        while (shotIdx < sk.waves && (sk.holdSec - stateT) >= shotIdx * sk.waveInterval) {
+        // R37 激化：衝撃波の波数が増える（3→4波・網目が1枚増える）
+        const waves = sk.waves + rageArr('wavesAdd', 0);
+        while (shotIdx < waves && (sk.holdSec - stateT) >= shotIdx * sk.waveInterval) {
           fireShellWave(shotIdx++, sk);
         }
         if (stateT <= 0) { state = 'shellOpen'; stateT = sk.openSec; Sound.sfx('metalSlam', 0.8, 1.5); }
@@ -962,6 +995,7 @@ export function createBoss(run) {
     clearBullets();
     destroyWire();
     resetAttackVars();
+    splitLaserDone = false;   // R37 じゃがんレーザーの保証（下の startMerge 条件を参照）
     cineStage = 0;
     state = 'splitCine';
     stateT = cfg.split.cineSec;
@@ -1007,8 +1041,13 @@ export function createBoss(run) {
     clearIntroDim();
     setBossDepthLift(0);
     if (lowerGlow) lowerGlow.setDepth(6);
-    endAttackChase();
+    // ★R37 分離の1手目（じゃがんレーザー）は間合いを取らず**即**撃ち始める。
+    //   転生前HPを68000へ削った結果、chase 1.8秒を挟むとコア投げ2〜3発（約13000/発）で
+    //   33%や0%を先に割り、「分かれたら撃ってくる」（R36W2で名指しの見せ場）が
+    //   0回に終わる回が実測で出た。カットシーン明け→溜め1.0秒→発射なら、
+    //   最速のコア2投（実測約1.3秒）より先に照射が始まる＝腕前に関係なく1回は見える。
     attackIdx = 0;
+    beginAttack();
   }
 
   // 下半身のAI。追いかけて、一定間隔でホーミングミサイルを斉射するだけ（覚えることを増やさない）。
@@ -1269,7 +1308,8 @@ export function createBoss(run) {
   // ============ 真の姿の攻撃3種 ============
   // ①整列レーザー。環が揃った向きがそのまま射線になる（予告が文字でなく形）。
   function fireAligned() {
-    const ak = TF().aligned, half = ak.sweepDeg * 0.5 * D2R;
+    // R37 激化：薙ぎ幅が段で広がる（14°→24°）。activeSec は据え置き＝横へ走れば抜けられる
+    const ak = TF().aligned, half = (ak.sweepDeg + rageArr('sweepDegAdd', 0)) * 0.5 * D2R;
     // ★R36W2 実プレイFB「深みのある赤に。発射音や演出をできるだけ派手に」。
     //   深みは 暗い深紅の縁（beamTint）＋白熱の芯（coreTint）の2層で出す。音は専用の godLaser
     //   （sound.js・BGMを沈めて撃つ）。撃つ瞬間は 白フラッシュ0.55＋揺れ700/15＋ヒットストップ。
@@ -1291,29 +1331,32 @@ export function createBoss(run) {
   const TRUE_RING_GEO = [[23, 8.5, 24], [23, 8.5, -24], [21, 6.4, 0]];
 
   // ②聖句解放。3つの環が同じ角度から同時に1文字ずつ剥がれ、環の形のまま外へ散る。
-  function fireVerse(i, vk) {
+  function fireVerse(i, vk, per) {
     const ri = i % 3, step = Math.floor(i / 3);
+    const n = per || vk.perRing;                          // R37 激化で1環の発数が変わる
+    const sp = vk.bulletSpeed * rageArr('bulletMul', 1);  // R37 激化で弾速が上がる（最大×1.25）
     const s = disp ? disp.spriteScale : 9.4;
     const G = TRUE_RING_GEO[ri];
-    const a = (step / vk.perRing) * Math.PI * 2 + ringSpin[ri];
+    const a = (step / n) * Math.PI * 2 + ringSpin[ri];
     const rot = G[2] * D2R, cr = Math.cos(rot), sr = Math.sin(rot);
     const ex = Math.cos(a) * G[0] * s, ey = Math.sin(a) * G[1] * s;
     const px = boss.x + ex * cr - ey * sr, py = boss.y + ex * sr + ey * cr;
     const out = Math.atan2(py - boss.y, px - boss.x);
-    spawnBullet2(px, py, Math.cos(out) * vk.bulletSpeed, Math.sin(out) * vk.bulletSpeed,
+    spawnBullet2(px, py, Math.cos(out) * sp, Math.sin(out) * sp,
       { radius: vk.bulletRadius, damage: vk.damage, life: vk.lifeSec, tint: 0xffd23f });
     run.spawnParticles(px, py, 0xffd23f, 2);
     // 音は1発ずつ鳴らすと潰れるので3発に1回。音程を1周ぶん上げていく＝「読み上げている」線になる
-    if (i % 3 === 0) Sound.sfx('tick', 0.5, 1.1 + (step / vk.perRing) * 0.9);
+    if (i % 3 === 0) Sound.sfx('tick', 0.5, 1.1 + (step / n) * 0.9);
   }
 
   // ③殻閉じ。閉じきったあとの全方位衝撃波（波ごとに半分ずらして網目にする）。
   function fireShellWave(w, sk) {
     const off = (w % 2) * (Math.PI / sk.perWave);
+    const sp = sk.bulletSpeed * rageArr('bulletMul', 1);  // R37 激化で弾速が上がる（最大×1.25）
     for (let i = 0; i < sk.perWave; i++) {
       const a = off + (i / sk.perWave) * Math.PI * 2;
       spawnBullet2(boss.x + Math.cos(a) * boss.radius * 0.8, boss.y + Math.sin(a) * boss.radius * 0.8,
-        Math.cos(a) * sk.bulletSpeed, Math.sin(a) * sk.bulletSpeed,
+        Math.cos(a) * sp, Math.sin(a) * sp,
         { radius: sk.bulletRadius, damage: sk.damage, life: sk.lifeSec });
     }
     run.shake(260, 7);
@@ -1450,6 +1493,7 @@ export function createBoss(run) {
   // じゃがんレーザー（R36W2 改名・分離した上半身の単眼バイザーから撃つ）：極太貫通ビームを
   // sweepFrom→sweepTo へゆっくり回転薙ぎ。紫の縁＋白熱の芯の2層＋専用発射音＋受けた実感（heavy）。
   function fireLaser() {
+    if (split) splitLaserDone = true;   // R37 「分かれたら撃ってくる」が今回も1回見えた
     const lk = cfg.laser;
     startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth,
       lk.damage, lk.activeSec,
@@ -2413,11 +2457,13 @@ export function createBoss(run) {
     //   環は静止画なので、回転そのものではなく**見込み角（縦の潰れ）**を周期で変える。
     //   これが土星の環がゆっくり傾いて見える現象と同じで、回っていることが等倍でも読める。
     const spinSpd = [0.90, -0.72, 1.25];
-    for (let i = 0; i < 3; i++) ringSpin[i] += spinSpd[i] * dt;
+    // R37 激化：環の公転が段で速くなる（×1.0→×1.95）＝激化がひと目で分かる「形」の変化
+    const sm = rageArr('spinMul', 1);
+    for (let i = 0; i < 3; i++) ringSpin[i] += spinSpd[i] * sm * dt;
 
     // ④攻撃ごとの形。alignT=1 で3環が射線方向へ一直線、shellT=1 で環が核へ閉じきる。
     let alignT = 0, shellT = 0;
-    if (state === 'alignTele') alignT = clamp01(1 - stateT / tf.aligned.alignSec);
+    if (state === 'alignTele') alignT = clamp01(1 - stateT / tfAlignSec());
     else if (state === 'alignFire') alignT = 1;
     else if (state === 'shellTele') shellT = clamp01(1 - stateT / tf.shell.teleSec) * 0.20;
     else if (state === 'shellClose') shellT = 0.20 + clamp01(1 - stateT / tf.shell.closeSec) * 0.80;
@@ -2680,6 +2726,16 @@ export function createBoss(run) {
   // ============ 撃破シネマティック ============
   function onBossKilled(e) {
     if (killing || !boss || e !== boss) return;
+    // ★R37 じゃがんレーザーの構造的な保証。分離カットシーン中に放たれた玉が明けた瞬間に
+    //   連続着弾し、溜め1.0秒を追い越してHP0→転生する回が実測で残った（即時発射＋合体待ちを
+    //   入れてもなお）。分離の1手目を撃ちきるまでは**HP1で耐える**＝腕前に関係なく
+    //   「分かれたら撃ってくる」が必ず1回見える。耐えるのは最長でも溜め1.0秒＋照射0.7秒。
+    //   ⚠️ 「発射まで」の保証では足りなかった：発射と同じフレームでHP0/33%を割ると、
+    //   照射が40ms未満で転生/合体に断ち切られて実質見えない（実測run8）。**照射中も**耐える。
+    if (split && (!splitLaserDone || state === 'laserFire')
+        && cfg && (cfg.attacksSplit || []).includes('laser')) {
+      boss.hp = 1; return;
+    }
     // ★★ 真マオウレクス：メタリックパープルのHPが0になっても、そこは終わりではなく**転生**。
     //    撃破処理より前に横取りして、亀裂→粉砕→出現のカットシーンへ渡す。
     if (cfg && cfg.final && cfg.trueForm && !trueForm && !awakening) { startAwaken(); return; }
@@ -2776,7 +2832,7 @@ export function createBoss(run) {
     state = 'idle';
     phase2 = false;
     split = false; phase3 = false; merging = false; mergeFrom = null;
-    trueForm = false; awakening = false; shellDmg = 0;
+    trueForm = false; awakening = false; shellDmg = 0; tfTier = 0;
     killing = false;
     ti++;
   }
@@ -2850,7 +2906,15 @@ export function createBoss(run) {
       if (!awakening && !trueForm) {
         if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
         // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
-        if (split && !phase3 && !merging && cfg.merge && boss.hp <= cfg.hp * cfg.merge.hpRatio) startMerge();
+        // ★R37 じゃがんレーザーの保証。HPを削って分離帯（50%→33%＝幅約11000）がコアへの
+        //   渾身の一投1発（約13000）で貫通するようになり、**レーザーを撃つ前に再合体して
+        //   0回に終わる回が実測で出た**（R36W2 でユーザーが名指しした見せ場が消える）。
+        //   分離中の1手目はレーザー固定なので、撃ちきるまで数秒だけ合体を待つ＝見た目は自然。
+        //   HP0での転生（onBossKilled→startAwaken）はこの条件に縛られず従来どおり先に走る。
+        //   照射中（laserFire）の合体も同罪＝startMerge がビームを消して40ms未満で終わる。
+        if (split && !phase3 && !merging && cfg.merge && boss.hp <= cfg.hp * cfg.merge.hpRatio
+            && state !== 'laserTele' && state !== 'laserFire'
+            && (splitLaserDone || !(cfg.attacksSplit || []).includes('laser'))) startMerge();
       }
       // ★真の姿：殻閉じを「閉じきる前に割る」ための被ダメージ量。HPの差分で取る＝
       //   どの武器・どの経路から入ったダメージでも同じように数えられる（数え漏れを作らない）。
