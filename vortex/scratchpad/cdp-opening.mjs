@@ -200,7 +200,7 @@ async function main() {
   console.log('⑤Title到達:         ' + (title ? 'YES' : 'NO'));
   if (title) {
     const logo = title.txt.find((o) => o.t.indexOf('クルット') >= 0);
-    const sub = title.txt.find((o) => o.t.indexOf('KURUTTO') >= 0);
+    const sub = title.txt.find((o) => o.t.indexOf('なげかえせ') >= 0);   // R44W2でローマ字副題を廃止
     const pr = title.txt.find((o) => o.t.indexOf('スタート') >= 0);
     console.log(`   ロゴy=${logo && logo.y}（112が正） サブy=${sub && sub.y}（156が正）`
       + ` 自機y=${title.heroY} scale=${title.heroScale}（236 / 3.2が正） プロンプトy=${pr && pr.y}（306が正）`);

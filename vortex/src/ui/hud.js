@@ -120,6 +120,87 @@ export function createHud(run) {
     fontFamily: 'monospace', fontSize: '12px', color: '#ff8fb3', fontStyle: 'bold',
   }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 3).setVisible(false);
 
+  // ★R44W2 ボスの方向指示。実プレイFB「ボスとの戦闘中に**退避行動をとりたい**。
+  //   その際にボスがどこにいるか矢印でしめして」。
+  //   下がること自体は元からできる（主人公148px/s ＞ ボスの追跡60〜110px/s）。足りなかったのは
+  //   **下がった先で相手を見失う**こと＝カメラは主人公を追うので、離れるとボスが画面外へ消え、
+  //   どちらへ戻ればいいかも、どこから弾が来るかも分からなくなっていた。
+  //   なので「逃げる手段」ではなく「**逃げた先で読む手段**」を足す。あわせて**画面外で予告が
+  //   始まったら矢印を警告色で脈打たせる**＝見えない場所からの一撃を理不尽にしない
+  //   （[[feedback_tension_is_not_damage]]＝緊張感は被弾量ではなく避けられる回数で作る）。
+  const bossArrow = run.add.graphics().setScrollFactor(0).setDepth(D + 4);
+  const bossArrowText = run.add.text(0, 0, 'ボス', {
+    fontFamily: 'monospace', fontSize: '11px', color: '#ff8fb3', fontStyle: 'bold',
+  }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 5).setVisible(false);
+
+  // 三角形を ang の向きへ描く（矢印の頭）
+  function tri(g, x, y, ang, len, wid, color, alpha) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    g.fillStyle(color, alpha);
+    g.fillTriangle(
+      x + c * len, y + s * len,
+      x - c * len * 0.55 - s * wid, y - s * len * 0.55 + c * wid,
+      x - c * len * 0.55 + s * wid, y - s * len * 0.55 - c * wid);
+  }
+
+  // 検証用（CDPが読む読み取り専用の状態。本体の描画は書き換えない）
+  let arrowState = null;
+
+  // 画面外のボスを指す矢印を、HUDの帯を避けた矩形の縁へ置く。
+  function drawBossArrow(ent) {
+    bossArrow.clear();
+    bossArrowText.setVisible(false);
+    arrowState = null;
+    if (!ent) return;
+    const cam = run.cameras.main;
+    const VW = BALANCE.view.width, VH = BALANCE.view.height;
+    // 上は HPバー/ボスゲージ、下は成績表示があるので、その内側を「見える枠」とする
+    const MX = 24, MT = 68, MB = 26;
+    const sx = ent.x - cam.scrollX, sy = ent.y - cam.scrollY;
+    if (sx >= MX && sx <= VW - MX && sy >= MT && sy <= VH - MB) return;   // 画面内なら出さない
+
+    const ox = VW / 2, oy = (MT + (VH - MB)) / 2;
+    const hw = VW / 2 - MX, hh = (VH - MB - MT) / 2;
+    const ang = Math.atan2(sy - oy, sx - ox);
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    // 枠との交点（0除算を避けるため、成分が小さい軸は候補から外す）
+    const tx = Math.abs(ca) < 1e-4 ? Infinity : hw / Math.abs(ca);
+    const ty = Math.abs(sa) < 1e-4 ? Infinity : hh / Math.abs(sa);
+    const t = Math.min(tx, ty);
+    const ax = ox + ca * t, ay = oy + sa * t;
+
+    // 距離を矢印の大きさと濃さで表す（数字を読ませずに「どれだけ離れたか」を伝える）
+    const d = Math.hypot(ent.x - run.player.x, ent.y - run.player.y);
+    const near = Math.max(0, Math.min(1, 1 - (d - 220) / 620));
+    const warn = run.boss && run.boss.telegraphing;
+    // 予告中は 8Hz で白と赤を切り替える（elapsed 基準＝決定的に点滅する）
+    const blink = Math.floor(run.elapsed * 8) % 2 === 0;
+    const col = warn ? (blink ? 0xffffff : 0xff2222) : 0xff4d6d;
+    const alpha = warn ? 1 : 0.55 + near * 0.45;
+    const len = (warn ? 16 : 11 + near * 5) * (warn && blink ? 1.25 : 1);
+
+    // 後ろの淡い影＝小さな画面でも縁と喧嘩せず輪郭が立つ
+    tri(bossArrow, ax, ay, ang, len + 3, len * 0.72 + 3, 0x000000, 0.45);
+    tri(bossArrow, ax, ay, ang, len, len * 0.72, col, alpha);
+    if (warn) {                         // 予告中は縁そのものを光らせる＝どの方向から来るかを面で示す
+      bossArrow.lineStyle(2, col, blink ? 0.55 : 0.25);
+      bossArrow.strokeCircle(ax, ay, len + 7);
+    }
+
+    // ラベルは矢印の内側（画面中心寄り）へ置く。枠の外へはみ出さない。
+    bossArrowText.setText(warn ? 'ボス くる！' : 'ボス')
+      .setColor(warn ? '#ffffff' : '#ff8fb3')
+      .setPosition(ax - ca * 18, ay - sa * 18)
+      .setVisible(true);
+
+    // 矢印が「実際にボスの方を向いているか」を外から測れるようにする。
+    // 真の向き（画面中心→ボス）とのズレが0に近いことが、この機能の正しさそのもの。
+    arrowState = { x: Math.round(ax), y: Math.round(ay),
+      deg: Math.round(ang * 180 / Math.PI),
+      trueDeg: Math.round(Math.atan2(ent.y - run.player.y, ent.x - run.player.x) * 180 / Math.PI),
+      dist: Math.round(d), warn: !!warn, label: bossArrowText.text };
+  }
+
   let fps = 60;
   let fpsAcc = 0, fpsFrames = 0;
   let lastWLv = 0;      // FB#5: 直前の武器レベル（上昇検知用）
@@ -260,8 +341,11 @@ export function createHud(run) {
       bossBar.strokeRect(bx, by, bw, 8);
       if (ent && ent.def && ent.def.name) bossName.setText(ent.def.name);
       bossName.setVisible(true);
+      drawBossArrow(ent);
     } else {
       bossName.setVisible(false);
+      bossArrow.clear();
+      bossArrowText.setVisible(false);
     }
 
     // パーティ枠
@@ -298,5 +382,7 @@ export function createHud(run) {
     },
     setPause(on) { pauseText.setVisible(on); },
     setMute(on) { muteText.setVisible(on); },
+    // R44W2 検証用：いま出ている方向指示（出ていなければ null）
+    debugBossArrow() { return arrowState; },
   };
 }
