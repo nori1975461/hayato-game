@@ -1216,16 +1216,31 @@ const SFX = {
   // ★R42 巻き戻しウィンチ：backSec 0.3秒はこれまで完全に無音だった。ワイヤーは機械なので
   //   巻き取りのラチェット「カカカカッ」＋モーターのうなり＋収納の「ガチャン」で締める。
   //   攻撃の終わりが音で分かる＝次の行動へ移ってよい合図にもなる。
+  // ★R44 増強。実プレイFB「巻き戻しラチェット＋モーター＋収納のガチャンがはっきり確認
+  //   できなかった。もっとはっきり目立つように」。原因は音の有無ではなく**埋もれ**だった：
+  //     ①gain 0.06〜0.18 に対し、直前に鳴る被弾音は 0.70＝**7倍**の音量差
+  //     ②被弾音のリング（R42で足した鳴き）が0.72秒残る真上に重ねていた
+  //     ③ラチェットが 1350〜2100Hz ＝ 鉄床の鳴き(1435Hz)と同じ帯域で溶ける
+  //   対策は3つとも「分ける」：**音量を上げる**／**帯域を上へ逃がす**（4.2〜6.6kHzの硬い点音＝
+  //   打撃の鳴きより上）／**BGMを一段沈める**。さらにラチェットを6→10回・0.055秒間隔＝
+  //   0.55秒へ伸ばし、巻き戻りの尺（backSec）と絵の長さを合わせる。
   wireWinch() {
-    for (let i = 0; i < 6; i++) {
-      const t = i * 0.048;
-      tone({ start: t, type: 'square', freq: 1350 + i * 140, dur: 0.014, gain: 0.10, attack: 0.0005 });
-      tone({ start: t + 0.006, type: 'square', freq: 2100 + i * 180, dur: 0.010, gain: 0.06, attack: 0.0005 });
+    duckBgm(0.52, 0.16, 0.30);           // 周りを下げて通す（打撃ほど深くはしない）
+    for (let i = 0; i < 10; i++) {
+      const t = i * 0.055;
+      // 爪が歯を1つ送るクリック。上の帯域に置くと打撃の余韻と混ざらず「カカカ」が粒で聞こえる
+      tone({ start: t, type: 'square', freq: 4200 + i * 240, dur: 0.012, gain: 0.34, attack: 0.0004 });
+      tone({ start: t + 0.004, type: 'square', freq: 6600 + i * 180, dur: 0.008, gain: 0.20, attack: 0.0004 });
+      noiseHit({ start: t, dur: 0.010, gain: 0.26, hpFreq: 3800, lpFreq: 15000 });
     }
-    tone({ type: 'sawtooth', freq: 170, freqEnd: 265, dur: 0.30, gain: 0.085, attack: 0.02 });
-    tone({ type: 'sawtooth', freq: 172, freqEnd: 268, dur: 0.30, gain: 0.05, attack: 0.02, detune: 12 });
-    tone({ start: 0.28, type: 'square', freq: 520, dur: 0.05, gain: 0.16, attack: 0.001 });
-    noiseHit({ start: 0.28, dur: 0.03, gain: 0.18, hpFreq: 1200, lpFreq: 9000 });
+    // 巻き上げモーター（唸りが昇る＝張力が戻っていく）
+    tone({ type: 'sawtooth', freq: 190, freqEnd: 330, dur: 0.56, gain: 0.20, attack: 0.02 });
+    tone({ type: 'sawtooth', freq: 192, freqEnd: 334, dur: 0.56, gain: 0.12, attack: 0.02, detune: 12 });
+    // 収納の「ガチャン」＝拳が肩に収まって止まる。ここだけ低くして終止を作る
+    tone({ start: 0.56, type: 'square', freq: 520, dur: 0.07, gain: 0.42, attack: 0.0006 });
+    tone({ start: 0.56, type: 'sine', freq: 138, freqEnd: 96, dur: 0.12, gain: 0.34, attack: 0.001 });
+    tone({ start: 0.565, type: 'sine', freq: 1435, dur: 0.24, gain: 0.20, attack: 0.001, verb: 0.35 });
+    noiseHit({ start: 0.56, dur: 0.035, gain: 0.40, hpFreq: 1200, lpFreq: 12000 });
   },
 
   // ============ R36W2 マオウレクスのレーザー3点セット ============
@@ -1329,12 +1344,32 @@ const SFX = {
     tone({ type: 'sine', freq: 392, freqEnd: 784, dur: 0.80, gain: 0.08, attack: 0.10, verb: 0.45 });
     noiseHit({ start: 0.3, dur: 0.5, gain: 0.05, hpFreq: 6000, lpFreq: 14000 });
   },
-  // 聖句解放・読み上げの小鐘（3発に1回・pitch が1周ぶん昇る＝「読んでいる」線）
+  // ★R44 聖句解放・**発語**（旧「読み上げの小鐘」を作り直し）。
+  //   実プレイFB「せいくの2種類目の発射音を変更して。1種類目（詠唱＝verseCharge）は
+  //   意外性がある音でとてもいい」。旧実装は 1560Hz の「チーン」＝どこにでもある小鐘で、
+  //   詠唱の意外性に対して**釣り合っていなかった**。
+  //   この攻撃は「環に刻まれた聖句が1文字ずつ**剥がれて弾になる**」。ならば鳴るべきは鐘ではなく
+  //   **その文字が発される声**。母音のフォルマント（F1/F2＝口の中の共鳴）を置くと、合成音でも
+  //   人が言葉を発したように聞こえる。文字ごとに母音を変える＝「読んでいる」が耳で分かる。
+  //     ア800/1200・イ300/2300・ウ350/800・エ500/1900・オ500/900（実測されている母音の共鳴）
+  //   ＋石が剥離する一瞬のきしみ＋弾になる瞬間の光。声→石→光の順で0.06秒に収める。
   versePeal(vol = 1, pitch = 1) {
-    const f = 1560 * pitch;
-    tone({ type: 'sine', freq: f, dur: 0.16, gain: 0.30 * vol, attack: 0.001, verb: 0.50 });
-    tone({ type: 'sine', freq: f * 2.76, dur: 0.10, gain: 0.12 * vol, attack: 0.002, verb: 0.45 });
-    noiseHit({ dur: 0.008, gain: 0.10 * vol, hpFreq: 5000, lpFreq: 15000 });
+    const VOW = [[800, 1200], [300, 2300], [350, 800], [500, 1900], [500, 900]];
+    const idx = Math.min(4, Math.max(0, Math.floor((pitch - 1) * 4.99)));
+    const [f1, f2] = VOW[idx];
+    const base = 174.6 * (1 + (pitch - 1) * 0.42);      // 喉の基音（低い詠唱の声）
+    // 喉：のこぎり波＝倍音が密＝声帯の代わり
+    tone({ type: 'sawtooth', freq: base, dur: 0.30, gain: 0.16 * vol, attack: 0.012, verb: 0.55 });
+    tone({ type: 'sawtooth', freq: base * 1.005, dur: 0.30, gain: 0.10 * vol, attack: 0.012, detune: 7 });
+    // 口の共鳴（フォルマント）＝ここが母音を決める。F1 を主役に、F2 を色づけに。
+    tone({ type: 'sine', freq: f1, dur: 0.26, gain: 0.30 * vol, attack: 0.016, verb: 0.50 });
+    tone({ type: 'sine', freq: f2, dur: 0.22, gain: 0.20 * vol, attack: 0.018, verb: 0.50 });
+    tone({ type: 'sine', freq: f2 * 1.5, dur: 0.16, gain: 0.07 * vol, attack: 0.02, verb: 0.45 });
+    // 石の剥離（文字が環から離れる一瞬のきしみ）
+    noiseHit({ dur: 0.018, gain: 0.22 * vol, hpFreq: 2400, lpFreq: 9000 });
+    // 弾になる瞬間の光（高いが短い＝声を邪魔しない）
+    tone({ start: 0.05, type: 'sine', freq: 2093 * (1 + (pitch - 1) * 0.3), dur: 0.10,
+           gain: 0.13 * vol, attack: 0.002, verb: 0.55 });
   },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {

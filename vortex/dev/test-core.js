@@ -2258,7 +2258,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   {
     const wb = (boss.match(/function startWireBack\(\) \{[\s\S]*?\n  \}/) || [''])[0];
     assert(wb.includes("Sound.sfx('wireWinch')"),
-      'R42: 巻き戻しウィンチが startWireBack にある（backSec 0.3秒の無音を埋める）');
+      'R42: 巻き戻しウィンチが startWireBack にある（かつて無音だった0.3秒を埋める）');
     assert(wb.indexOf("Sound.sfx('wireWinch')") < wb.indexOf('const anyHit'),
       'R42: ウィンチは anyHit 分岐の外＝命中でも空振りでも毎回鳴る機械の音');
   }
@@ -2362,6 +2362,50 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // 後片付け（プレビューが次の攻撃へ残ると「嘘の予告」になる）
   assert(/function clearLock\(\)/.test(boss) && (boss.match(/clearLock\(\)/g) || []).length >= 5,
     'R43: clearLock が発射・攻撃終了・リセットの各所から呼ばれる');
+}
+
+// ============ ★ R44 音が「鳴っている」ではなく「聞こえる」ことを数で縛る ============
+// 実プレイFB①「せいくの2種類目の発射音を変更して」②「巻き戻しのカカカ＋ガチャンが
+//   はっきり確認できなかった。もっと目立つように」。②の原因は音の有無ではなく**埋もれ**：
+//   直前の被弾音(gain 0.70・鳴きが0.72秒残る)と同じ帯域に gain 0.10 で置いていた。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const snd = read('audio/sound.js');
+  const grab = (name) => (snd.match(new RegExp(`^  ${name}\\([^)]*\\) \\{[\\s\\S]*?^  \\},`, 'm')) || [''])[0];
+  const maxGain = (blk) => Math.max(0, ...[...blk.matchAll(/gain: (\d+(?:\.\d+)?)/g)].map((m) => +m[1]));
+
+  // ① 聖句の発語：鐘ではなく母音のフォルマントで「読んでいる」を作る
+  {
+    const vp = grab('versePeal');
+    assert(vp.length > 0, 'R44: versePeal を読める');
+    assert(/VOW/.test(vp) && /800, 1200/.test(vp) && /300, 2300/.test(vp),
+      'R44: 聖句の発射音は母音のフォルマント（文字ごとに母音が変わる＝読んでいる）');
+    assert(!/freq: 1560/.test(vp),
+      'R44: 旧「1560Hzの小鐘」に戻していない（詠唱の意外性と釣り合わない）');
+    assert(/sawtooth/.test(vp),
+      'R44: 喉の基音（のこぎり波＝倍音が密）がある＝声に聞こえる土台');
+  }
+  // ② 巻き戻しは打撃音から「音量・帯域」の両方で分離する
+  {
+    const ww = grab('wireWinch');
+    const hit = grab('rocketPunchHit');
+    assert(ww.length > 0 && hit.length > 0, 'R44: wireWinch と rocketPunchHit を読める');
+    assert(maxGain(ww) >= 0.30,
+      `R44: ウィンチの最大gainが0.30以上（${maxGain(ww)}）＝打撃音0.70の隣で埋もれない`);
+    assert(/duckBgm\(/.test(ww),
+      'R44: ウィンチもBGMを沈める（周りが引かないと細かい音は通らない）');
+    // ラチェットは打撃の鳴き（520/1435/2808Hz）より上の帯域へ逃がす
+    const clicks = [...ww.matchAll(/freq: (\d{4,})/g)].map((m) => +m[1]).filter((f) => f >= 3800);
+    assert(clicks.length >= 2,
+      `R44: ラチェットが3800Hz以上の帯域にある（${clicks.length}本）＝鉄床の鳴き1435Hzと混ざらない`);
+    // 音の長さと「巻き戻っている絵」の長さが一致していること
+    const starts = [...ww.matchAll(/start: (\d+(?:\.\d+)?)/g)].map((m) => +m[1]);
+    const last = Math.max(0, ...starts);
+    const wk = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').wirearm;
+    assert(wk.backSec >= last,
+      `R44: 巻き戻りの尺(${wk.backSec}秒) ≧ 音の最後の要素(${last}秒)＝拳が収まった後に音だけ残らない`);
+  }
 }
 
 // --- 結果 ---
