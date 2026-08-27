@@ -1176,8 +1176,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(wk.maxLen > 330, 'R34W2: ワイヤーアームの射程が R29 値(330)より長い');
   assert(wk.turnDeg <= 64,
     'R34W2: 速くしたぶん追尾は緩めてある（速い＝避けられない、にはしない）');
-  assert(wk.damage <= 64 && wk.damage < BALANCE.player.hp,
-    'R34W2: ワイヤーアームのダメージは据え置き（緊張感は被弾量では作らない）');
+  // ★R38W2 検証の結果、ワイヤーアームは中〜遠距離で構造的に回避不能（飛行0.248秒の旋回
+  //   13.4° ＞ 回避に必要な10.4°）。避けられない攻撃は「読める」レーザー系（42〜84）より
+  //   下に置く。28未満＝最大の攻撃の格が消える／42超＝laser と逆転して理不尽へ逆戻り。
+  assert(wk.damage >= 28 && wk.damage <= 42 && wk.damage < BALANCE.player.hp,
+    `R38W2: ワイヤーアームのダメージが28〜42（${wk.damage}）＝回避不能な攻撃をレーザー未満に置く`);
   assert(BALANCE.boss.tiers.find((t) => t.final).attacksP3.includes('knuckle'),
     'R34W2: 再合体後の表にもナックルウェーブが居る（出番が1回では聞き分けられない）');
 
@@ -1966,6 +1969,26 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R38: GDIM が壁とリードの両方に掛かっている');
     assert(/gain: g \* 0\.55,/.test(snd), 'R38: 天使の声がギターの刃と同格（0.30→0.55）');
     assert(/ch\.pad\[0\]\) \* 4/.test(snd), 'R38: オルガンの4フィート管（2オクターブ上の輝き）が足された');
+  }
+
+  // --- ③ R38W2 ワイヤーアーム被弾音「ボン→ガツン」：主役交代を式で縛る ---
+  //     「ボン」の正体＝低域の塊（gain 0.94）が主役で金属（0.15以下）が脇役だったこと。
+  //     回帰防止＝**低域の最大gainが金属の最大gainを上回ったら落ちる**。
+  {
+    const hit = (snd.match(/rocketPunchHit\(\) \{[\s\S]*?^  \},/m) || [''])[0];
+    assert(hit.length > 0, 'R38W2: rocketPunchHit を読める');
+    for (const f of ['520', '1435', '2808']) {
+      assert(new RegExp(`freq: ${f},`).test(hit),
+        `R38W2: 鉄床スタック（非整数比 1:2.76:5.40）の ${f}Hz がある＝「ガツン」の正体`);
+    }
+    const rows = [...hit.matchAll(/tone\(\{[^}]*freq: (\d+)(?:, freqEnd: \d+)?,[^}]*gain: (\d+(?:\.\d+)?)/g)]
+      .map((m) => ({ f: +m[1], g: +m[2] }));
+    const lowMax = Math.max(...rows.filter((r) => r.f < 130).map((r) => r.g), 0);
+    const metalMax = Math.max(...rows.filter((r) => r.f >= 400).map((r) => r.g), 0);
+    assert(metalMax > lowMax,
+      `R38W2: 金属の最大gain（${metalMax}）＞ 低域の最大gain（${lowMax}）＝低域が主役だと「ボン」に戻る`);
+    assert(/duckBgm\(0\.3[0-9]/.test(hit),
+      'R38W2: BGMダックが0.30以上＝最大の攻撃の自覚（周りが深く引くほど一撃が重い）');
   }
 }
 
