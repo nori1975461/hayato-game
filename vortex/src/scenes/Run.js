@@ -123,6 +123,11 @@ export class RunScene extends Phaser.Scene {
     // 拳スプライト自体にも腕は描かれているが、突き出すと体との間に隙間ができて切り離される。
     this.playerArmImg = this.add.image(0, 0, 'white')
       .setOrigin(0, 0.5).setDepth(11).setVisible(false);
+    // ★R43 伸縮アームの節。腕が判定射程（最大78px）まで伸びるようになったので、
+    //   1本のっぺりした帯だと「棒が生えた」に見える。等間隔の節を入れると**伸縮する機械の腕**に
+    //   読める（蛇腹＝伸びるロボットアームの記号）。伸びていないときは隠す。
+    this.playerArmSegs = [0, 1, 2].map(() => this.add.image(0, 0, 'white')
+      .setOrigin(0.5, 0.5).setDepth(11).setVisible(false));
     // 拳の間合いを示す熱のリング。ヒートで色と明るさが上がる。
     // 星形（旧 w_star2）だと「どこまで届くか」が読めず、間合いを詰める判断ができなかったので輪にした。
     this.playerAura = this.add.image(0, 0, 'w_ring').setBlendMode(ADD)
@@ -131,6 +136,7 @@ export class RunScene extends Phaser.Scene {
     this._heat = 0;         // 連撃ヒート（0..melee.heatMax）。殴ると増え、離れると冷める
     this._punchT = 0;       // 踏み込みモーションの残り秒
     this._punchAng = 0;     // 踏み込み方向（直近に殴った敵の方向）
+    this._punchReach = 0;   // R43 その一撃の判定射程（腕をここまで実際に伸ばす）
     this._knockX = 0; this._knockY = 0; this._knockT = 0;   // 被弾ノックバック（押し返される）
     this._lowHp = false;    // 体力が危険域か（周縁の赤い警告の on/off）
 
@@ -579,7 +585,10 @@ export class RunScene extends Phaser.Scene {
     // 少年の画素が完全に同一なので、変化するのは腕の列だけになる。大きくなるのは腕であって
     // 少年ではない、という正典§22の一点をここで守っている（当たり判定 radius 7 も不変）。
     // R12: 主武器の拳も同じ段で大型化（小型ガントレット→パワーアーム→巨大破砕アーム）。
-    this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.4);
+    // ★R43 グラップクロー化でテクスチャ自体が 12×10 / 16×12 / 20×14 へ大きくなったので、
+    //   倍率の伸びは +0.4/段 → +0.2/段 に抑える（体に対する面積比 31% / 46% / 65%）。
+    //   旧値のままだと Stage3 が体の83%になり、画面がクローで埋まる。
+    this.playerFistImg.setTexture('hero_fist' + stage).setScale(2.6 + (stage - 1) * 0.2);
     // R19: Stage2 は 0x9fe0ff（仲間スターパピー #7fd8ff と ΔE 7.6＝ほぼ同色）だったのでペリウィンクルへ。
     //   コバルト→ペリウィンクル→金の三段が、そのまま「昇っていく」順に見える。
     const glowColor = stage >= 3 ? 0xffd23f : stage === 2 ? 0xb9c4ff : 0x4f8cff;
@@ -1203,6 +1212,7 @@ export class RunScene extends Phaser.Scene {
     // 踏み込みモーション＋打点のインパクト＋打撃音（ヒートで派手さと音程が上がる）
     this._punchAng = bestAng;
     this._punchT = M.punchSec;
+    this._punchReach = R;          // R43 自動アームも判定半径（46〜58px）まで実際に伸ばす
     const heatNow = this._heat / M.heatMax;
     if (this.fx && this.fx.heroImpact) {
       this.fx.heroImpact(px + Math.cos(bestAng) * R * 0.55, py + Math.sin(bestAng) * R * 0.55,
@@ -1234,14 +1244,18 @@ export class RunScene extends Phaser.Scene {
     const punching = this._punchT > 0;
     const p = punching ? 1 - Math.max(0, this._punchT / M.punchSec) : 0;   // 0→1 の進行度
     // 突き出し量。構え(0.45)を底にして、殴る瞬間だけ 1 まで伸びて戻る＝待機と打撃が別物に見える。
-    const ext = punching ? Math.max(0.45, p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7) : 0.45;
+    // R43 下限 0.45→0.60：クローが大きくなった（12×10〜20×14）ので、旧下限だと戻りぎわに
+    //   爪の手前側が体の輪郭へ潜り込む。伸び切りは変えないので打撃の見え方は同じ。
+    const ext = punching ? Math.max(0.60, p < 0.3 ? p / 0.3 : 1 - (p - 0.3) / 0.7) : 0.60;
     // 構え中は狙い角へ（＝敵の方へ拳を向けて構える）。殴る瞬間は殴った相手の方向で固定。
     const ang = punching ? this._punchAng : this._weaponAim;
     // R21W2: 踏み込み突進の最中は拳を伸ばし切ったまま前へ出す（＝加速して殴っている絵）。
     if (this._lungeT > 0) {
       const S = BALANCE.hero.strike;
       const k = Math.max(0, this._lungeT / S.lungeSec);
-      const r = 22 + (this.playerStage - 1) * 7 + 16 * k;
+      // R43 突進中は腕を伸ばし切って突っ込む（判定 reach と一致）。旧式は最大38pxで、
+      //   78px先まで届く判定と絵が合っていなかった。k は着地に向けてわずかに縮む余韻。
+      const r = S.reach - 10 * (1 - k);
       this.playerFistImg
         .setPosition(this.player.x + Math.cos(this._punchAng) * r,
                      this.player.y + Math.sin(this._punchAng) * r)
@@ -1259,13 +1273,21 @@ export class RunScene extends Phaser.Scene {
     if (this.billiard && this.billiard.st.mode === 1 && !punching) {
       this.playerFistImg.setVisible(false);
       this.playerArmImg.setVisible(false);
+      if (this.playerArmSegs) for (const s of this.playerArmSegs) s.setVisible(false);
       return;
     }
     // R12b/c: 構え(ext0.45)でも拳が体の輪郭より外に出る下限を守る（埋もれると見えない）。
     // R15b: スプライト幅が段で 48→60→72px に広がる（腕のせり出し）ので、ベースも
     // 16 + 7/段 で外へ押し出す（Stage1=16 / 2=23 / 3=30 ＝ 各段の体半幅 24/30/36px の内側すれすれ
     // から突き出す）。これを忘れると構えの拳が描いた腕の中に沈む。
-    const reach = 16 + (this.playerStage - 1) * 7 + (15 + (this.playerStage - 1) * 6) * ext;
+    // ★R43 グラップアーム：**腕が判定射程まで実際に伸びる**。
+    //   旧式は「16 + 7/段 + (15 + 6/段)×ext」＝最大31px。突きの判定は78pxあるので、
+    //   絵と判定が2.5倍ずれていた（＝拳は体の横に貼り付いたまま、遠くの敵が吹き飛ぶ）。
+    //   構えの位置（base）は体の輪郭の外に置き、殴る瞬間に _punchReach（＝そのときの判定射程）
+    //   まで伸ばす。ext は 0.45→1 なので、伸びきりで判定と一致する。
+    const base = 26 + (this.playerStage - 1) * 7;
+    const full = this._punchReach || (46 + (this.playerStage - 1) * 6);
+    const reach = punching ? base + (full - base) * ext : base;
     const heatN = this._heat / M.heatMax;
     // 素は白（スプライト本来のガンメタルの腕＋オレンジの拳を見せる）。熱いときだけ金へ寄せる。
     const tint = heatN > 0.6 ? 0xffd23f : heatN > 0.25 ? 0xffdcb0 : 0xffffff;
@@ -1287,14 +1309,33 @@ export class RunScene extends Phaser.Scene {
   drawArm(ang, reach, tint) {
     const sh = 5 + (this.playerStage - 1) * 1.5;           // 肩の位置（体の中心から前へ）
     const w = Math.max(0, reach - sh);
-    const th = 7 + (this.playerStage - 1) * 2;             // 腕の太さ
+    // R43 太さ 7→10：腕が78pxまで伸びるようになったので、7pxだと縦横比11:1の「細い棒」に見える。
+    //   10pxなら 7.8:1＝伸縮アームの見え方になる（クローの高さ26pxとも釣り合う）。
+    const th = 10 + (this.playerStage - 1) * 2;            // 腕の太さ
+    const vis = this.playerImg.visible && w > 1;
     this.playerArmImg
       .setPosition(this.player.x + Math.cos(ang) * sh, this.player.y + Math.sin(ang) * sh + 1)
       .setRotation(ang)
       .setDisplaySize(w, th)
       .setTint(tint === 0xffffff ? 0xc9d4e0 : tint)        // 素はガンメタル。熱いときは拳と同じ色へ
       .setAlpha(0.95)
-      .setVisible(this.playerImg.visible && w > 1);
+      .setVisible(vis);
+    // R43 節：肩と拳の間を4等分した位置に置く。伸びるほど節の間隔が開く＝蛇腹が伸びて見える。
+    //   短いとき（w < 26px）は節が団子になるので隠す。
+    const segs = this.playerArmSegs;
+    if (!segs) return;
+    const show = vis && w >= 26;
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      if (!show) { s.setVisible(false); continue; }
+      const d = sh + w * ((i + 1) / (segs.length + 1));
+      s.setPosition(this.player.x + Math.cos(ang) * d, this.player.y + Math.sin(ang) * d + 1)
+        .setRotation(ang)
+        .setDisplaySize(3, th + 3)
+        .setTint(tint === 0xffffff ? 0xe6edf5 : tint)
+        .setAlpha(0.95)
+        .setVisible(true);
+    }
   }
 
   // ============ 敵 ============

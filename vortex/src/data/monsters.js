@@ -647,47 +647,72 @@ export const PLAYER_SPRITE = PLAYER_SPRITES[0];
 // R16: 本体と同じブレイブギア配色へ刷新＝白装甲(w)の角拳＋金の打撃面(v)。
 // 白はヒート時の金tint（0xffd23f 乗算）で素直に金へ振れる＝旧配色の青灰よりヒート表現が濁らない。
 // 王道ロボ文法：丸い弾頭ではなく**角ばったナックルブロック**。d は指の継ぎ目（内側のみ）。
+// ★R43 実プレイFB「敵を捕獲するための武器がパンチ？なのだが、身体に生えてるようにみえる
+//   不自然な小さな拳になっている。あまりに不自然だしださすぎる。パンチにこだわらなくてもよい」。
+//   ★指摘は3つの実測値に裏付けられていた：
+//     ①**小さい**：Stage1 は 8×6px×2.6＝20.8×15.6px。主人公は 48×54px なので**面積比12.5%**。
+//     ②**生えて見える**：構えの reach は 22.75px。拳の半幅10.4pxを引くと手前側は 12.3px＝
+//       体半幅24pxの**内側**。つまり拳は常に体に半分めり込んだ位置にあった。
+//     ③**絵と判定が合っていない**：突きの判定は 78px 先まであるのに、腕は最大31pxしか伸びない。
+//       78px先の敵が「届いていない拳」で吹き飛ぶ＝不自然さの本体はここ。
+//   → 拳（殴る記号）をやめ、**グラップクロー＝上下に開いた捕獲用の爪**へ作り直す。
+//     この作品の動詞は「つかむ→ためる→なげる」なので、**開いた爪**こそが正しい記号。
+//     サイズも 12×10 / 16×12 / 20×14 へ拡大（Stage1で面積比31%）。
+//     全て右向き＝爪先(v)が +X 側。Run.js が狙い角へ setRotation する。
+//     配色はブレイブギア（青装甲b・金の縁c・白w・金の爪v・継ぎ目d・熱核h）を踏襲。
 export const HERO_FISTS = [
-  // Stage1: 小型ガントレット。8×6。
-  {
-    palette: { b: '#2f6fe4', w: '#f2f4f8', v: '#ffd23f', d: '#232c3d' },
-    rows: [
-      '.bwwwwv.',
-      'bbwwwwvv',
-      'bbwwdwvv',
-      'bbwwdwvv',
-      'bbwwwwvv',
-      '.bwwwwv.',
-    ],
-  },
-  // Stage2: パワーアーム（手首に金のパワーリング(c)・打撃面が広がる）。12×8。
+  // Stage1: グラップクロー。12×10。中央が空く＝「掴む口」が等倍でも読める形。
   {
     palette: { b: '#2f6fe4', c: '#ffb43a', w: '#f2f4f8', v: '#ffd23f', d: '#232c3d' },
     rows: [
-      '.bbwwwwwwvv.',
-      'bbbcwwwwwvvv',
-      'bbbcwwdwwvvv',
-      'bbbcwwdwwvvv',
-      'bbbcwwdwwvvv',
-      'bbbcwwdwwvvv',
-      'bbbcwwwwwvvv',
-      '.bbwwwwwwvv.',
+      '.....wwvvv..',
+      '..bbwwwvvvv.',
+      'bbbcwwwvvv..',
+      'bbbcwwd.....',
+      'bbbcwww.....',
+      'bbbcwww.....',
+      'bbbcwwd.....',
+      'bbbcwwwvvv..',
+      '..bbwwwvvvv.',
+      '.....wwvvv..',
     ],
   },
-  // Stage3: 巨大破砕アーム（パワーリング＋中心にアンバー熱核(h)・打撃面が最大）。16×10。
+  // Stage2: パワークロー（手首に金のパワーリング・爪が伸びて熱核が灯る）。16×12。
   {
     palette: { b: '#2f6fe4', c: '#ffb43a', w: '#f2f4f8', h: '#ff8a1f', v: '#ffd23f', d: '#232c3d' },
     rows: [
-      '..bbwwwwwwwvv...',
-      '.bbbcwwwwwwvvvv.',
-      'bbbbcwwwdwwvvvvv',
-      'bbbbcwhhdwwvvvvv',
-      'bbbbcwhhdwwvvvvv',
-      'bbbbcwhhdwwvvvvv',
-      'bbbbcwhhdwwvvvvv',
-      'bbbbcwwwdwwvvvvv',
-      '.bbbcwwwwwwvvvv.',
-      '..bbwwwwwwwvv...',
+      '......wwwvvvv...',
+      '...bbwwwwvvvvvv.',
+      '.bbbcwwwwvvvvv..',
+      'bbbbcwwwwvvv....',
+      'bbbbcwwhd.......',
+      'bbbbcwwhd.......',
+      'bbbbcwwhd.......',
+      'bbbbcwwhd.......',
+      'bbbbcwwwwvvv....',
+      '.bbbcwwwwvvvvv..',
+      '...bbwwwwvvvvvv.',
+      '......wwwvvvv...',
+    ],
+  },
+  // Stage3: 破砕クロー（三重の爪＋熱核が縦に伸びる＝掴んだものを砕く握力）。20×14。
+  {
+    palette: { b: '#2f6fe4', c: '#ffb43a', w: '#f2f4f8', h: '#ff8a1f', v: '#ffd23f', d: '#232c3d' },
+    rows: [
+      '.......wwwwvvvvv....',
+      '....bbwwwwwvvvvvvv..',
+      '..bbbcwwwwwvvvvvvvvv',
+      'bbbbbcwwwwwvvvvvvv..',
+      'bbbbbcwwwwwvvvvv....',
+      'bbbbbcwwhhd.........',
+      'bbbbbcwwhhd.........',
+      'bbbbbcwwhhd.........',
+      'bbbbbcwwhhd.........',
+      'bbbbbcwwwwwvvvvv....',
+      'bbbbbcwwwwwvvvvvvv..',
+      '..bbbcwwwwwvvvvvvvvv',
+      '....bbwwwwwvvvvvvv..',
+      '.......wwwwvvvvv....',
     ],
   },
 ];

@@ -2264,6 +2264,54 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 }
 
+// ============ ★ R43 捕獲アーム（クラッシュアーム→グラップクロー）============
+// 実プレイFB「敵を捕獲するための武器がパンチ？なのだが、身体に生えてるようにみえる
+//   不自然な小さな拳になっている。あまりに不自然だしださすぎる」。
+//   実測で裏が取れた欠陥は3つ：①面積比12.5% ②構えの拳が体の内側 ③**絵と判定が2.5倍ずれ**
+//   （突きの判定78pxに対し腕は最大31pxしか伸びない）。ここを数で縛る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const run = read('scenes/Run.js');
+  const bil = read('systems/billiard.js');
+  const mon = read('data/monsters.js');
+
+  // ① スプライトが十分に大きい（体は 16×18〜24×18 のテクスチャ×scale3.0）
+  {
+    const blk = (mon.match(/export const HERO_FISTS = \[[\s\S]*?\n\];/) || [''])[0];
+    assert(blk.length > 0, 'R43: HERO_FISTS を読める');
+    const sets = [...blk.matchAll(/rows: \[([\s\S]*?)\]/g)]
+      .map((m) => (m[1].match(/'[^']*'/g) || []).map((s) => s.slice(1, -1)));
+    assert(sets.length === 3, `R43: クローが3段ぶんある（${sets.length}）`);
+    // 行長が全部そろっている（makeGrid は rows[0].length を幅にするので、ズレると絵が欠ける）
+    sets.forEach((rows, i) => {
+      const w = rows[0].length;
+      assert(rows.every((r) => r.length === w),
+        `R43: Stage${i + 1} クローの行長が全行そろっている（幅${w}・${rows.length}行）`);
+    });
+    // 面積比：体テクスチャ 16×18（Stage1）×scale3.0 に対し、クロー×scale2.6 が20%以上
+    const [w1, h1] = [sets[0][0].length, sets[0].length];
+    const ratio = (w1 * 2.6 * h1 * 2.6) / (16 * 3.0 * 18 * 3.0);
+    assert(ratio >= 0.20,
+      `R43: Stage1 クローが主人公の面積比20%以上（${(ratio * 100).toFixed(0)}%）＝旧12.5%は小さすぎた`);
+    // 「掴む口」＝中央の行に爪(v)が無い＝開いている（拳＝塞がった四角に戻さないための形の保証）
+    const mid = sets[0][Math.floor(sets[0].length / 2)];
+    assert(!mid.includes('v'),
+      'R43: クローは中央が開いている（掴む口）＝塞がった拳のブロックに戻していない');
+  }
+
+  // ② 腕が判定射程まで実際に伸びる（絵と判定の一致）
+  assert(/_punchReach/.test(run) && /run\._punchReach = J\.reach/.test(bil),
+    'R43: 突きは判定射程（jab.reach）を腕の伸び先として渡す＝届いていない拳で敵が飛ばない');
+  assert(/const full = this\._punchReach/.test(run) && /base \+ \(full - base\) \* ext/.test(run),
+    'R43: 腕の描画が _punchReach まで伸びる（旧式の 16+7/段+…＝最大31px を廃止）');
+  // ③ 蛇腹の節（伸びる腕の記号）が定義され、隠す経路も両方ある
+  assert(/playerArmSegs/.test(run) && /playerArmSegs/.test(bil),
+    'R43: 伸縮アームの節が Run と billiard の両方で管理される（消し忘れると節だけ残る）');
+  assert((run.match(/playerArmSegs/g) || []).length >= 3,
+    'R43: 節は「生成・描画・非表示」の3か所以上で扱われる');
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);

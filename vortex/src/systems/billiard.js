@@ -1638,6 +1638,10 @@ export function createBilliard(run) {
     run._weaponAim = ang;
     run._punchAng = ang;
     run._punchT = BALANCE.hero.melee.punchSec;
+    // ★R43 腕が実際に届く先を渡す＝**判定と同じ 78px まで伸びる**。
+    //   旧実装は判定78pxに対し腕が最大31pxしか伸びず、「届いていない拳」で遠くの敵が
+    //   吹き飛んでいた（実プレイFB「身体に生えてるようにみえる不自然な小さな拳」の本体）。
+    run._punchReach = J.reach;
     const px = run.player.x, py = run.player.y;
     const half = Phaser.Math.DegToRad(J.arcDeg) * 0.5;
     const dmg = J.damage + (run.playerStage - 1) * J.damagePerStage;
@@ -1819,6 +1823,7 @@ export function createBilliard(run) {
     run._moveMul = 1;
     if (run.playerFistImg) run.playerFistImg.setVisible(false);
     if (run.playerArmImg) run.playerArmImg.setVisible(false);
+    if (run.playerArmSegs) for (const s of run.playerArmSegs) s.setVisible(false);   // R43 蛇腹の節
   }
 
   function updatePitch(dt) {
