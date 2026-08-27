@@ -1694,9 +1694,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- ★実バグ③：見せ場が瞬きの間に終わっていた ---
   //   crackSec-shatterAt が 0.45秒しかなく、「粉々に飛び散る」が撮影しても写らなかった。
-  assert(tf.crackSec - tf.shatterAt >= 0.8,
-    `true: 粉砕の尺が0.8秒以上ある（${(tf.crackSec - tf.shatterAt).toFixed(2)}秒）＝飛び散るところが見える`);
-  assert(tf.riseSec >= 1.5, `true: 出現の尺が1.5秒以上ある（${tf.riseSec}秒）`);
+  // R43: 粉砕の尺は crackSec - burstAt（間に「溜め」が入ったので shatterAt からではない）
+  const burstAt = tf.burstAt || tf.shatterAt;
+  assert(tf.crackSec - burstAt >= 1.4,
+    `true: 粉砕の尺が1.4秒以上ある（${(tf.crackSec - burstAt).toFixed(2)}秒）＝ゆっくり飛び散るところが見える`);
+  assert(burstAt - tf.shatterAt >= 0.3,
+    `R43: 亀裂の限界から粉砕までの「溜め」が0.3秒以上（${(burstAt - tf.shatterAt).toFixed(2)}秒）＝重さは止まる時間が作る`);
+  assert(tf.riseSec >= 3.0, `R43: 出現の尺が3.0秒以上ある（${tf.riseSec}秒）＝軌道神核はゆっくり登場する`);
+  assert((tf.shardsPerPart || 0) >= 2,
+    `R43: 粉砕の小片が1パーツあたり2片以上（${tf.shardsPerPart}）＝9パーツだけでは「粉々」に見えない`);
+  // 小片は tween で飛ぶ実体なので、作りっぱなしにすると次の周回まで残る
+  assert(/function clearShards\(\)/.test(boss)
+    && (boss.match(/clearShards\(\)/g) || []).length >= 3,
+    'R43: 小片の後片付け（clearShards）が定義され、applyTrueLook と destroy の両方から呼ばれる');
+  assert(/function braceOldBody\(\)/.test(boss) && /braceOldBody\(\);/.test(boss),
+    'R43: 溜め（braceOldBody）が定義され awakenCine から呼ばれる');
   // カットシーン中に倒せてしまうと、演出をどれだけ豪華にしても原理的に見えない（R34の教訓）
   assert(/state === 'awakenCine'[\s\S]{0,80}?\|\| awakening/.test(boss)
     || /awakenCine'\s*\|\|\s*awakening/.test(boss),
