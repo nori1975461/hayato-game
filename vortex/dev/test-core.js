@@ -1913,6 +1913,16 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R37: じゃがんレーザーの発射前も照射中もHP1で耐える（onBossKilled の転生よりさらに前）');
   assert(/state !== 'laserTele' && state !== 'laserFire'\s*\n\s*&& \(splitLaserDone/.test(boss),
     'R37: レーザー照射中は再合体も待つ（発射と同フレームの33%割れで照射が40ms未満に断ち切られた）');
+
+  // --- れんしゅうじょうの V＝軌道神核へ即ジャンプ（転生も本編と同じ経路で見せる）---
+  {
+    const prac = read('systems/practice.js');
+    assert(/function practiceAwaken\(\)/.test(boss) && /practiceSpawn, practiceClear, practiceAwaken,/.test(boss),
+      'R37: boss に practiceAwaken の専用口がある（jumpHp はHPを1未満にしない設計のため）');
+    assert(/keydown-V/.test(prac) && /practiceAwaken\(\)/.test(prac),
+      'R37: れんしゅうじょうの V キーが軌道神核へ即ジャンプする');
+    assert(/V=しんかく/.test(prac), 'R37: ④の操作ヒントに V が書いてある（書かないと存在しない機能）');
+  }
   assert(/attackIdx = 0;\s*\n\s*beginAttack\(\);\s*\n\s*\}/.test(boss.slice(boss.indexOf('function finishSplit'), boss.indexOf('function finishSplit') + 1200)),
     'R37: 分離カットシーン明けは間合いを取らず即1手目（じゃがんレーザー）を撃ち始める');
 }
