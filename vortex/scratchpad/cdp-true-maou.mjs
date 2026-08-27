@@ -186,7 +186,7 @@ async function main() {
   })()`);
 
   let dead = false;
-  for (let i = 0; i < 260 && !dead; i++) {
+  for (let i = 0; i < 340 && !dead; i++) {   // R37 尺65秒＋転生前30秒でも撃破まで見届ける
     dead = await evalJs(`(function(){ return window.__D.tKill != null; })()`);
     if (!dead) await sleep(500);
   }
@@ -206,7 +206,7 @@ async function main() {
     console.log('HPバーの見出し:      ' + D.name);
     console.log('転生までの秒数:      ' + (D.tTrue != null ? D.tTrue.toFixed(1) + '秒' : '—'));
     console.log('真の姿のHP:          ' + D.hpAtTrue);
-    console.log('真の姿の戦闘長:      ' + (trueSec != null ? trueSec + '秒' : '—') + '  （目標35秒前後・R36W2）');
+    console.log('真の姿の戦闘長:      ' + (trueSec != null ? trueSec + '秒' : '—') + '  （目標65秒前後・R37）');
     console.log('全体の戦闘長:        ' + (D.tKill != null ? D.tKill.toFixed(1) + '秒' : '—'));
     console.log('整列レーザー 発射:   ' + (D.count.aligned || 0) + '回');
     console.log('聖句解放     発射:   ' + (D.count.verse || 0) + '回');

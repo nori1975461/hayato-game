@@ -365,7 +365,7 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(!!maou, 'balance: 最終ボス maou の tier が存在');
   if (maou) {
     // R34: 24000 では実測 12.8〜17.6秒でボスが攻撃を1回も完遂できずに終わっていた
-    assert(maou.hp === 120000, `balance: マオウレクスのHP（R34で24000→120000・実測 ${maou.hp}）`);
+    assert(maou.hp === 68000, `balance: マオウレクスのHP（R34で120000→R37で68000＝転生前28秒・実測 ${maou.hp}）`);
     const sp = maou.split, mg = maou.merge, ck = maou.chestLaser;
     assert(!!sp && !!mg && !!ck, 'balance: maou に split / merge / chestLaser が定義されている');
     if (sp && mg && ck) {
@@ -1013,8 +1013,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   assert(!!maou, 'R34: 最終ボス maou の tier が存在');
   if (maou) {
-    // ④尺。1発が最大HPの23%だったので、HPを上げないと演出が全部間に合わない
-    assert(maou.hp >= 90000, `R34: マオウレクスのHPが90000以上（実測 ${maou.hp}）`);
+    // ④尺。1発が最大HPの23%だったので、HPを上げないと演出が全部間に合わない。
+    //   R37 で 120000→68000 へ削った（実プレイFB「マオウレクスの闘い時間を削っていい」）が、
+    //   下限は残す：60000 を割ると渾身の一投（実測5558）が最大HPの9%を超え、R34 の
+    //   「攻撃が完遂される前に終わる」へ逆戻りする。上限 90000 は「削った」ことのガード。
+    assert(maou.hp >= 60000 && maou.hp <= 90000,
+      `R37: マオウレクスのHPが60000〜90000（実測 ${maou.hp}）＝転生前28秒前後`);
     // 硬いだけにしないための3点セット
     assert(maou.gaugeSegments >= 2,
       'R34: HPゲージが複数段（1本ぶち抜いたことが数えられる＝硬いだけにしない手当て）');
@@ -1481,7 +1485,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!!player, 'R35: 主人公の移動速度を読める');
     const pSpd = Number(player[1]);
     // maou の tier ブロックだけを切り出す（通常ボスの vulcan/ring と混ざらないように）
-    const maouBlock = (bal.match(/hp: 120000,[\s\S]*?bulletKind: 'comet',/) || [''])[0];
+    // R37: アンカーをHP値にしない（尺の調整でHPが変わるたびにここが空振りする）
+    const maouBlock = (bal.match(/tier: 'final',[\s\S]*?bulletKind: 'comet',/) || [''])[0];
     assert(maouBlock.length > 0, 'R35: マオウレクスの設定ブロックを読める');
     for (const [name, min] of [['nova', 1.6], ['vulcan', 2.0], ['ring', 1.5]]) {
       const m = new RegExp(`${name}: \\{[^}]*bulletSpeed: (\\d+)`).exec(maouBlock);
@@ -1661,7 +1666,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //   startAwaken が boss.hp を 1 に落とすので、同じフレームで「HP50%で分離」「33%で再合体」が
   //   両方成立し、startSplit() が state='awakenCine' を上書きしていた（実測：awakening=true の
   //   まま state=chase・trueForm=false＝転生が丸ごと起きない）。
-  assert(/if \(!awakening && !trueForm\) \{[\s\S]{0,400}?enterPhase2\(\);[\s\S]{0,300}?startMerge\(\);/.test(boss),
+  assert(/if \(!awakening && !trueForm\) \{[\s\S]{0,400}?enterPhase2\(\);[\s\S]{0,900}?startMerge\(\);/.test(boss),
     'true: 転生中と真の姿では phase2/分離/再合体の判定を止めている（カットシーンの横取り防止）');
 
   // --- ★実バグ②：弱点コアのUIが、描き下ろした眼を完全に覆っていた ---
@@ -1711,26 +1716,31 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   for (const [k, v] of [['聖句解放', tf.verse.bulletSpeed], ['殻閉じの衝撃波', tf.shell.bulletSpeed]]) {
     assert(v >= 148 * 1.5, `true: ${k}の弾が主人公(148)の1.5倍以上（${v}）`);
   }
-  // ★殻閉じは「1発当てれば必ず止まる」にしない＝それでは殻閉じが存在しないのと同じ
-  //   （実測：閾値0.04では渾身の一投1発が0.09秒で超え、2回とも成立しなかった）
-  assert(tf.shell.interruptRatio >= 0.10,
-    `true: 殻閉じは一投では割れない（閾値 ${(tf.shell.interruptRatio * 100).toFixed(0)}% ≧ 10%）`);
+  // ★殻閉じの閾値は比率ではなく**絶対値**で縛る（R37 の教訓：HPを2倍にしたら比率0.10の
+  //   ままで閾値が20000へ倍増し、6回とも割れなかった＝割る遊びがまた消えた）。
+  //   「成立も割れも起きる」を実測した絶対値は 10000（渾身のコア一投≒13000 が窓に1回入るか）。
+  //   8000未満＝薄すぎて毎回割れる／14000超＝一投+αでも届かず全成立、のどちらも遊びが消える。
+  {
+    const abs = tf.hp * tf.shell.interruptRatio;
+    assert(abs >= 8000 && abs <= 14000,
+      `true: 殻閉じの閾値が8000〜14000（HP${tf.hp}×${tf.shell.interruptRatio}＝${abs.toFixed(0)}）＝成立と割れが両立する実測帯`);
+  }
   assert(tf.shell.closeSec >= 1.2,
     `true: 殻閉じを割りにいく窓が1.2秒以上ある（${tf.shell.closeSec}秒）`);
   assert(tf.shell.holdSec > 0 && tf.shell.breakSec > tf.shell.holdSec * 1.1,
     `true: 割ったときの隙(${tf.shell.breakSec}s)が、閉じられたときの無敵(${tf.shell.holdSec}s)より長い＝止めにいく得がある`);
 
-  // --- 尺：R36W2 実プレイFB「もう少し長く楽しみたい。最適な時間はまかせる」→ 35秒前後へ。
-  //     根拠は balance.js の trueForm コメント（専用BGM1.6周・攻撃3種が各3〜4回・2倍にはしない）。---
+  // --- 尺：R37 実プレイFB「60秒以内では戦闘短すぎないか。適度に延長して」→ 65秒前後へ。
+  //     根拠は balance.js の trueForm コメント（60秒超・攻撃1周10.8秒×約6周・BGM3周）。---
   {
-    const sec = tf.hp / 3550 + tf.shell.holdSec * 2;
-    assert(sec >= 30 && sec <= 40,
-      `true: 真の姿の戦闘が35秒前後の設計（HP${tf.hp} ÷ 実測DPS3550 + 無敵${tf.shell.holdSec}s×2 = ${sec.toFixed(1)}秒）`);
-    assert(tf.gaugeSegments === 3,
-      `true: 35秒をゲージ3本で数えられる（${tf.gaugeSegments}本・1本≒12秒）`);
+    const sec = tf.hp / 3780 + tf.shell.holdSec * 6;
+    assert(sec >= 58 && sec <= 74,
+      `true: 真の姿の戦闘が65秒前後の設計（HP${tf.hp} ÷ 実測DPS3780 + 殻無敵${tf.shell.holdSec}s×6 = ${sec.toFixed(1)}秒）`);
+    assert(tf.gaugeSegments === 4,
+      `true: 65秒をゲージ4本で数えられる（${tf.gaugeSegments}本・1本≒16秒＝激化の段と同数）`);
   }
   // HPが0になった瞬間を、撃破処理より**前**に横取りしていること（順序が逆だと1回で終わる）
-  assert(/function onBossKilled\(e\) \{[\s\S]{0,400}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
+  assert(/function onBossKilled\(e\) \{[\s\S]{0,1200}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
     'true: HP0 は「撃破」より先に「転生」を見る（順序が逆だと真の姿が出ないまま終わる）');
   assert(tf.name && tf.name !== MAOU.name,
     `true: 真の姿は名前も変わる（${MAOU.name} → ${tf.name}）＝HPバーで別物だと分かる`);
@@ -1827,6 +1837,84 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R36W2: 転生の沈黙のあとに専用曲で鳴らし直している');
   assert(/name: 'maouTrue'/.test(prac) && /さいよう/.test(prac),
     'R36W2: れんしゅうじょうの聞き比べに④神核曲があり、①に採用の印がある');
+}
+
+// ============ ★★ R37 実プレイFB（軌道神核65秒へ延長・マオウレクス28秒へ短縮・激化）============
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const tf = maou.trueForm;
+  const rg = tf.rage;
+
+  // --- 激化の器：ゲージ1本＝1段。配列がゲージ本数とズレると終盤の段が無言で欠ける ---
+  assert(!!rg, 'R37: trueForm.rage が存在（65秒を同じ3種の繰り返しだけで埋めない）');
+  for (const k of ['idleMul', 'alignSecMul', 'sweepDegAdd', 'verseAdd', 'bulletMul', 'wavesAdd', 'spinMul']) {
+    assert(Array.isArray(rg[k]) && rg[k].length === tf.gaugeSegments,
+      `R37: rage.${k} の長さがゲージ本数（${tf.gaugeSegments}）と一致`);
+  }
+  assert(Array.isArray(rg.texts) && rg.texts.length === tf.gaugeSegments - 1,
+    'R37: 段が上がる回数（ゲージ本数-1）だけ宣言の文がある＝数値の変化を画面に届ける');
+
+  // --- 単調性：段が上がって「ゆるくなる」項目が混ざったら激化の嘘になる ---
+  const up = (a) => a.every((v, i) => i === 0 || v >= a[i - 1]);
+  const down = (a) => a.every((v, i) => i === 0 || v <= a[i - 1]);
+  assert(down(rg.idleMul) && down(rg.alignSecMul), 'R37: 間合いと予告は段で縮む一方');
+  assert(up(rg.bulletMul) && up(rg.verseAdd) && up(rg.sweepDegAdd) && up(rg.wavesAdd) && up(rg.spinMul),
+    'R37: 弾速・密度・薙ぎ・波数・公転は段で増える一方');
+
+  // --- 理不尽ガード（数で縛る）。緊張感は被弾量ではなく「避けた回数」で作る ---
+  assert(tf.verse.bulletSpeed * Math.max(...rg.bulletMul) <= 360,
+    `R37: 聖句の最終弾速が360以下（${(tf.verse.bulletSpeed * Math.max(...rg.bulletMul)).toFixed(0)}）＝雑魚スナイパー級を超えない`);
+  assert(360 / (tf.verse.perRing + Math.max(...rg.verseAdd)) >= 17,
+    `R37: 聖句の隙間は最終段でも17°以上（${(360 / (tf.verse.perRing + Math.max(...rg.verseAdd))).toFixed(1)}°）＝縫って抜けられる`);
+  assert(tf.aligned.sweepDeg + Math.max(...rg.sweepDegAdd) <= 26,
+    'R37: 整列レーザーの薙ぎは最終段でも26°以下＝横へ走れば抜けられる');
+  assert(Math.min(...rg.idleMul) >= 0.6 && Math.min(...rg.alignSecMul) >= 0.7,
+    'R37: 間合いと予告の短縮に下限がある（読む時間を最後まで奪わない）');
+  assert(Math.max(...rg.wavesAdd) <= 1, 'R37: 殻の波数の追加は最大+1');
+  assert(!Object.keys(rg).some((k) => /damage|dmg/i.test(k)),
+    'R37: 激化に damage 系のキーが無い（[[feedback_tension_is_not_damage]]）');
+
+  // --- boss.js 側の結線。係数は rageArr に集約＝差し替え漏れを1か所に集める ---
+  assert(/function rageArr\(/.test(boss), 'R37: 係数の集約点 rageArr がある');
+  assert(/updateRageTier\(\);/.test(boss), 'R37: updateAI が毎フレーム段を見ている');
+  assert(boss.includes("rageArr('idleMul', 1)"), 'R37: 間合いに idleMul が効く');
+  assert(boss.includes("rageArr('sweepDegAdd', 0)"), 'R37: 薙ぎ幅に sweepDegAdd が効く');
+  assert(boss.includes("rageArr('verseAdd', 0)"), 'R37: 聖句の発数に verseAdd が効く');
+  assert((boss.match(/rageArr\('bulletMul', 1\)/g) || []).length >= 2,
+    'R37: 聖句と殻の両方の弾速に bulletMul が効く');
+  assert(boss.includes("rageArr('wavesAdd', 0)"), 'R37: 殻の波数に wavesAdd が効く');
+  assert(boss.includes("rageArr('spinMul', 1)"), 'R37: 環の公転に spinMul が効く＝激化が形で見える');
+  // 整列の予告秒は 開始(startAttackByName)・進行(alignTele)・環の描画(updateTrueDisp) の
+  // 3か所が同じ実効値を見る。1か所でも素の alignSec を読むと「揃いきる前に撃つ」嘘になる
+  assert((boss.match(/tfAlignSec\(\)/g) || []).length >= 4,
+    'R37: 整列の実効予告秒 tfAlignSec を開始・進行・描画が共有している');
+  assert(/aligned\.alignSec \* rageArr/.test(boss),
+    'R37: tfAlignSec が alignSecMul を掛けている');
+  assert((boss.match(/tfTier = 0/g) || []).length >= 2,
+    'R37: 撃破と破棄の両方で段がリセットされる（次の周回に持ち越さない）');
+
+  // --- じゃがんレーザーの保証。HPを削ったら分離帯（幅約11000）がコア一投（約13000）で
+  //     貫通し、レーザー0回のまま再合体する回が実測で出た（見せ場が無言で消える形）---
+  assert(/splitLaserDone = false;/.test(boss) && /if \(split\) splitLaserDone = true;/.test(boss),
+    'R37: 分離ごとに「じゃがんレーザーを撃った」印を付け直している');
+  assert(/cfg\.merge\.hpRatio[\s\S]{0,140}?&& \(splitLaserDone \|\| !\(cfg\.attacksSplit \|\| \[\]\)\.includes\('laser'\)\)/.test(boss),
+    'R37: レーザーを撃ちきるまで再合体しない（laser を持たない分離ボスは従来どおり）');
+  {
+    const band = maou.hp * (maou.split.hpRatio - maou.merge.hpRatio);
+    assert(band < 13500,
+      `R37: 分離帯（${band.toFixed(0)}）はコア一投（約13000）で貫通し得る＝保証が実際に要る前提の確認`);
+  }
+  // 合体待ちと即時発射だけでは足りなかった：分離カットシーン中に放たれた玉が明けた瞬間に
+  // 連続着弾し、溜め1.0秒を追い越してHP0→転生した（実測run6）。最後の砦＝HP1で耐える。
+  assert(/if \(split && \(!splitLaserDone \|\| state === 'laserFire'\)\s*\n\s*&& cfg && \(cfg\.attacksSplit \|\| \[\]\)\.includes\('laser'\)\) \{\s*\n\s*boss\.hp = 1; return;/.test(boss),
+    'R37: じゃがんレーザーの発射前も照射中もHP1で耐える（onBossKilled の転生よりさらに前）');
+  assert(/state !== 'laserTele' && state !== 'laserFire'\s*\n\s*&& \(splitLaserDone/.test(boss),
+    'R37: レーザー照射中は再合体も待つ（発射と同フレームの33%割れで照射が40ms未満に断ち切られた）');
+  assert(/attackIdx = 0;\s*\n\s*beginAttack\(\);\s*\n\s*\}/.test(boss.slice(boss.indexOf('function finishSplit'), boss.indexOf('function finishSplit') + 1200)),
+    'R37: 分離カットシーン明けは間合いを取らず即1手目（じゃがんレーザー）を撃ち始める');
 }
 
 // --- 結果 ---
