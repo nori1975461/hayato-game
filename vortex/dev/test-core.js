@@ -1927,6 +1927,48 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R37: 分離カットシーン明けは間合いを取らず即1手目（じゃがんレーザー）を撃ち始める');
 }
 
+// ============ ★★ R38 実プレイFB「maouTrue の違いをほぼ感じない。神々しさをはっきり」============
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+
+  // --- ① 専用イントロ「降臨」＝曲の0秒目で別の曲だと分かる（決戦！サルーインの構造）---
+  {
+    const m = /maouTrue:\s*\{[^}]*introSec: ([\d.]+)/.exec(snd);
+    assert(!!m, 'R38: maouTrue に introSec がある（専用イントロ）');
+    if (m) {
+      assert(+m[1] >= 4 && +m[1] <= 8,
+        `R38: イントロは4〜8秒（${m[1]}秒）＝長すぎると聞き比べや再突入がだるくなる`);
+    }
+    assert(/function playMaouTrueIntro\(\)/.test(snd), 'R38: イントロ関数 playMaouTrueIntro がある');
+    assert(/if \(song\.introSec\) \{\s*\n\s*playMaouTrueIntro\(\);\s*\n\s*bgmTimer = setTimeout\(scheduleBgm, song\.introSec \* 1000\);/.test(snd),
+      'R38: startBgm がイントロを鳴らし、その長さぶんループ開始を遅らせる');
+    // イントロの中身：Cm→C の同主長調跳躍（サルーインの核）・カリヨン下行・ティンパニロール
+    const intro = snd.slice(snd.indexOf('function playMaouTrueIntro'), snd.indexOf('function playBgmStep'));
+    assert(/NOTE\.Ds4/.test(intro) && /NOTE\.E4/.test(intro),
+      'R38: イントロに Eb（Cm）と E（C）の両方がある＝同主長調への跳躍で光が差す');
+    assert(/\[NOTE\.G6, NOTE\.E6, NOTE\.C6\]/.test(intro),
+      'R38: カリヨンが下行（G6→E6→C6）＝天から降る方向');
+    assert(/for \(let k = 0; k < 8; k\+\+\)/.test(intro) && /0\.05 \+ k \* 0\.016/.test(intro),
+      'R38: ティンパニロールがクレッシェンド＝疾走本体へ雪崩れ込む助走');
+  }
+
+  // --- ② 主役交代＝神々しさ×2・ギター×0.7（足しただけでは歪みの海にマスクされた実測への回答）---
+  {
+    const m1 = /const HOLY = V === 'true' \? ([\d.]+) : 1;/.exec(snd);
+    const m2 = /const GDIM = V === 'true' \? ([\d.]+) : 1;/.exec(snd);
+    assert(!!m1 && +m1[1] >= 1.6, `R38: 神々しさ声部の係数 HOLY ≧ 1.6（${m1 && m1[1]}）`);
+    assert(!!m2 && +m2[1] <= 0.8 && +m2[1] >= 0.5,
+      `R38: ギターを下げる係数 GDIM が 0.5〜0.8（${m2 && m2[1]}）＝消しはしない（同じ戦いの証）`);
+    assert((snd.match(/\* HOLY/g) || []).length >= 4,
+      'R38: HOLY がオルガン・聖歌隊の4か所以上に掛かっている');
+    assert((snd.match(/\* GDIM/g) || []).length >= 2,
+      'R38: GDIM が壁とリードの両方に掛かっている');
+    assert(/gain: g \* 0\.55,/.test(snd), 'R38: 天使の声がギターの刃と同格（0.30→0.55）');
+    assert(/ch\.pad\[0\]\) \* 4/.test(snd), 'R38: オルガンの4フィート管（2オクターブ上の輝き）が足された');
+  }
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
