@@ -1125,9 +1125,18 @@ const SFX = {
   //     ⓒ **BGMを0.1秒沈める**（サイドチェイン・ダック）。周りが引くと同じ音量でも一撃が重くなる。
   //        音量を上げるより効き、しかも子どもの耳に痛くならない。
   //   ⚠️ 「豆鉄砲」の回帰防止（長い下降スイープ禁止・0.3秒以上のノイズ尾禁止）はそのまま守っている。
+  // ★R42 再増強。FB「金属音がまだたりない」。R38W2 の主役交代（帯域）は正しかったが、
+  //   金属を金属に聞かせる証拠がまだ3つ欠けていた：
+  //     ⓐ **リング（余韻）**。金属は叩かれたあと0.5秒以上鳴き続ける。旧実装の最長は0.26秒＝
+  //        それは金属ではなく「硬い木」の減衰。ガツンの「ン」＝この鳴き。
+  //     ⓑ **うなり（ビート）**。実物の鉄は近接した振動モード対（例 520Hz と 537Hz）を持ち、
+  //        その干渉が「ウワンウワン」という揺れを作る。単独の正弦波はシンセにしか聞こえない。
+  //     ⓒ **鳴きは歪みバスに入れない**。5本の partial を同じ WaveShaper へ同時に入れると
+  //        相互変調で潰れ合い「ビャッ」というブザーに平坦化する。本物のクラングの構造は
+  //        「歪んだアタック＋**素通しで鳴り残る**非整数倍音＋残響」。役割を分ける。
   rocketPunchHit() {
     const D = sfxDistBus;                 // null なら tone 側で素の sfxGain に落ちる
-    duckBgm(0.34, 0.10, 0.34);            // ⓒ 周りを黙らせる（R38 最大の攻撃なので深く）
+    duckBgm(0.34, 0.12, 0.42);            // ⓒ 周りを黙らせる（R42 リングが聞こえるよう戻りを長く）
 
     // ① 「ガッ」＝インパクトの輪郭（1.5〜8ms）。ここが鋭いほど「殴った」に聞こえる
     noiseHit({ dur: 0.008, gain: 0.85, hpFreq: 400, lpFreq: 17000 });
@@ -1156,15 +1165,52 @@ const SFX = {
     tone({ start: 0.018, type: 'square', freq: 128, dur: 0.09, gain: 0.30, attack: 0.0004, dest: D });
     noiseHit({ start: 0.016, dur: 0.045, gain: 0.48, hpFreq: 70, lpFreq: 2200 });
 
-    // ④ 金属バットの鳴き＝非整数倍音（1 : 2.76 : 5.40）。R38 gain を3倍へ＝「カーン」の余韻
-    tone({ start: 0.026, type: 'sine', freq: 430, dur: 0.26, gain: 0.42, attack: 0.0008 });
-    tone({ start: 0.026, type: 'sine', freq: 1187, dur: 0.22, gain: 0.28, attack: 0.001 });
-    tone({ start: 0.026, type: 'sine', freq: 2322, dur: 0.16, gain: 0.16, attack: 0.001 });
+    // ④ ★R42 リング層＝鉄床と同じ非整数比の**鳴き**。歪みバスへは入れず素通し＋verb残響（ⓒ）。
+    //   ②'（歪み・短い）が「ガツ」、この層（クリーン・長い）が「ン〜」。同じ金属の2つの顔。
+    //   各基音に数%ずらした相方を並走させ、うなりを作る（ⓑ 520+537=17Hz / 1435+1481=46Hz）。
+    //   freqEnd の微小サグ（約-3%）は叩かれた金属の張力が緩む挙動＝ピッチが僅かに垂れる。
+    tone({ start: 0.022, type: 'sine', freq: 520, freqEnd: 506, dur: 0.72, gain: 0.46, attack: 0.0008, verb: 0.40 });
+    tone({ start: 0.022, type: 'sine', freq: 537, dur: 0.64, gain: 0.22, attack: 0.001, verb: 0.35 });
+    tone({ start: 0.024, type: 'sine', freq: 1435, freqEnd: 1394, dur: 0.55, gain: 0.30, attack: 0.001, verb: 0.35 });
+    tone({ start: 0.024, type: 'sine', freq: 1481, dur: 0.48, gain: 0.15, attack: 0.001 });
+    tone({ start: 0.026, type: 'sine', freq: 2808, freqEnd: 2726, dur: 0.40, gain: 0.18, attack: 0.001, verb: 0.30 });
+    tone({ start: 0.026, type: 'sine', freq: 4644, dur: 0.26, gain: 0.10, attack: 0.001 });
     noiseHit({ start: 0.010, dur: 0.11, gain: 0.30, hpFreq: 3200, lpFreq: 14000 });
 
     // ⑤ 尾：短く（noiseの尾0.3秒未満は R34W4 の回帰ガードどおり。低域の尾も短縮）
     tone({ start: 0.04, type: 'sine', freq: 46, freqEnd: 32, dur: 0.22, gain: 0.24, attack: 0.008 });
     noiseHit({ start: 0.05, dur: 0.16, gain: 0.13, hpFreq: 55, lpFreq: 760 });
+
+    // ⑤' ★R42 破片：一撃のあと細かい金属片が跳ねて散る「チン…チッ…」。
+    //   大きな鳴きの背後で小さな高音が時間差で鳴る＝「本当に何かが壊れた」の証拠音。
+    tone({ start: 0.16, type: 'sine', freq: 3520, freqEnd: 3350, dur: 0.07, gain: 0.11, attack: 0.001, verb: 0.30 });
+    tone({ start: 0.27, type: 'sine', freq: 5270, freqEnd: 5020, dur: 0.055, gain: 0.08, attack: 0.001, verb: 0.30 });
+    tone({ start: 0.36, type: 'sine', freq: 4180, dur: 0.045, gain: 0.05, attack: 0.001, verb: 0.25 });
+  },
+
+  // ★R42 空振りニアミス：拳が主人公のすぐ横を通り過ぎた「ヒュンッ！」。
+  //   緊張感は被弾量ではなく**避けた回数**で作る（恒久基準）。避けたことが音で数えられると
+  //   「今の避けた！」が体験になる。帯域ノイズ＋通過の瞬間に音程が落ちるドップラー。
+  wireWhoosh(vol = 1, pitch = 1) {
+    noiseHit({ dur: 0.10, gain: 0.30 * vol, hpFreq: 700 * pitch, lpFreq: 7000 * pitch });
+    noiseHit({ start: 0.05, dur: 0.10, gain: 0.16 * vol, hpFreq: 300 * pitch, lpFreq: 2600 * pitch });
+    tone({ type: 'sawtooth', freq: 620 * pitch, freqEnd: 210 * pitch, dur: 0.13, gain: 0.10 * vol, attack: 0.010 });
+    tone({ type: 'sine', freq: 340 * pitch, freqEnd: 150 * pitch, dur: 0.14, gain: 0.12 * vol, attack: 0.012 });
+  },
+
+  // ★R42 巻き戻しウィンチ：backSec 0.3秒はこれまで完全に無音だった。ワイヤーは機械なので
+  //   巻き取りのラチェット「カカカカッ」＋モーターのうなり＋収納の「ガチャン」で締める。
+  //   攻撃の終わりが音で分かる＝次の行動へ移ってよい合図にもなる。
+  wireWinch() {
+    for (let i = 0; i < 6; i++) {
+      const t = i * 0.048;
+      tone({ start: t, type: 'square', freq: 1350 + i * 140, dur: 0.014, gain: 0.10, attack: 0.0005 });
+      tone({ start: t + 0.006, type: 'square', freq: 2100 + i * 180, dur: 0.010, gain: 0.06, attack: 0.0005 });
+    }
+    tone({ type: 'sawtooth', freq: 170, freqEnd: 265, dur: 0.30, gain: 0.085, attack: 0.02 });
+    tone({ type: 'sawtooth', freq: 172, freqEnd: 268, dur: 0.30, gain: 0.05, attack: 0.02, detune: 12 });
+    tone({ start: 0.28, type: 'square', freq: 520, dur: 0.05, gain: 0.16, attack: 0.001 });
+    noiseHit({ start: 0.28, dur: 0.03, gain: 0.18, hpFreq: 1200, lpFreq: 9000 });
   },
 
   // ============ R36W2 マオウレクスのレーザー3点セット ============

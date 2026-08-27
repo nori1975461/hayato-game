@@ -1923,6 +1923,17 @@ export function createBoss(run) {
           run.spawnParticles(arm.fx, arm.fy, 0xffb020, 12);
         }
       }
+      // R42: 空振りニアミス。拳が最接近して**離れ始めた瞬間**に「ヒュンッ」（近いほど大きく鋭く）。
+      //   接近中に鳴らすと直後の命中音と重なるので、通過が確定してから。緊張感は避けた回数（恒久基準）。
+      if (!arm.hit && !arm.whooshed) {
+        const d = Math.hypot(arm.fx - run.player.x, arm.fy - run.player.y);
+        if (arm.minD == null || d < arm.minD) arm.minD = d;
+        else if (arm.minD < 74 && d > arm.minD + 2) {
+          arm.whooshed = true;
+          const near = clamp01(1 - (arm.minD - 35) / 39);
+          Sound.sfx('wireWhoosh', 0.5 + near * 0.5, 0.95 + near * 0.25);
+        }
+      }
     }
     drawWire();
     // 全拳が最大到達 or 命中 or 尺切れ → 大きな衝撃演出を挟んで収縮へ
@@ -1932,6 +1943,9 @@ export function createBoss(run) {
   function startWireBack() {
     state = 'wireBack'; stateT = cfg.wirearm.backSec;
     for (const arm of wire.arms) arm.backFrom = arm.len;
+    // R42: 巻き戻しウィンチ（backSec 0.3秒がこれまで無音だった）。命中/空振りに関係なく
+    //   機械の音として毎回鳴らす＝「攻撃が終わった」の合図。下の rocketHit とは帯域が違うので重ねてよい。
+    Sound.sfx('wireWinch');
     // 命中/最大到達の一撃感：大きな衝撃音＋強めシェイク＋whiteFlash(<0.5)＋一瞬のヒットストップ
     // R29: metalSlam → rocketHit（拉げる低音＋破断の高域）に差し替えて攻撃音を激しくする
     // R31: 命中していたら updateWire で rocketPunchHit を鳴らし切っているので、ここで重ねると
@@ -3164,7 +3178,12 @@ export function createBoss(run) {
     get strikeCount() { return strikes.length; },
     // R29 検証用：弾の実速度／ロケットパンチの到達長を外から測る（本体は書き換えない）
     debugBullets() { return bullets.map((b) => ({ kind: b.kind, x: b.x, y: b.y, vx: b.vx, vy: b.vy })); },
-    debugWire() { return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)) } : null; },
+    debugWire() {
+      // R42: ニアミス（最接近距離・発火済みか）も観測できるようにする（読み取り専用）
+      return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)),
+        arms: wire.arms.map((a) => ({ fx: a.fx, fy: a.fy, hit: !!a.hit,
+          minD: a.minD == null ? null : Math.round(a.minD), whooshed: !!a.whooshed })) } : null;
+    },
     get beamActive() { return !!beam; },
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
