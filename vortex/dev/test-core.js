@@ -2103,6 +2103,107 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 }
 
+// ============ ★★ R41 オープニングが「今のゲームの予告編」であることを縛る ============
+// 実プレイFB「聖典からかなり設定や雰囲気を変えているので、オープニングを作り直して」。
+// ⚠️ オープニングは autotest で丸ごとスキップされる＝smoke-test も既存CDPも一度も通らない。
+//    設定のズレ（存在しない固有名・出てこない動詞・Titleとの座標違い）は**誰も踏まずに残る**。
+//    だから「データと一致しているか」をここで数として縛る。実演の実測は
+//    scratchpad/cdp-opening.mjs（本物のブラウザで再生して幕ごとに数える）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const opRaw = fs.readFileSync(path.join(SRC, 'scenes/Opening.js'), 'utf8');
+  const title = fs.readFileSync(path.join(SRC, 'scenes/Title.js'), 'utf8');
+  // ⚠️ 検査対象は**実行されるコードだけ**。行頭・行末のコメントを落としてから見る。
+  //    （最初これを忘れて「旧版の失敗をコメントで説明している行」まで違反として拾い、
+  //      ガードが3件誤検出した＝[[feedback_instrument_must_match_impl]] の小型版）
+  //    文字列リテラルの中の // は残す（クォートの内外を数えながら切る）。
+  const op = opRaw.split('\n').map((line) => {
+    let q = null;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '\\') i++; else if (c === q) q = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+      if (c === '/' && line[i + 1] === '/') return line.slice(0, i);
+    }
+    return line;
+  }).join('\n');
+
+  // --- ① 存在しない固有名を名乗らない（旧版の「ヴォイド・マキナ」がまさにこれだった）---
+  assert(!/ヴォイド|マキナ/.test(op),
+    'R41: ゲーム内に存在しない固有名がオープニングに残っていない');
+  assert(/'マオウレクス'/.test(op) && MAOU.name === 'マオウレクス',
+    'R41: 名乗るのは実際の最終ボス（enemies.js の MAOU.name と一致）');
+
+  // --- ② 出てくる敵/仲間が実データの id と一致する（絵と本編が食い違わない）---
+  {
+    const mobs = (/const MOB_KEYS = \[([\s\S]*?)\];/.exec(op) || [, ''])[1]
+      .match(/'enemy_([a-z]+)'/g) || [];
+    assert(mobs.length >= 5, `R41: 幕2の軍団は5種以上（${mobs.length}）＝序盤の顔ぶれが見える`);
+    for (const m of mobs) {
+      const id = m.replace(/'|enemy_/g, '');
+      assert(ENEMIES.some((e) => e.id === id), `R41: 軍団の ${id} が ENEMIES に実在する`);
+    }
+    const buds = (/const BUDDY_KEYS = \[([\s\S]*?)\];/.exec(op) || [, ''])[1]
+      .match(/'mon_([a-z]+)'/g) || [];
+    assert(buds.length >= 3, `R41: 相棒は3種以上（${buds.length}）＝「なかまたち」の話だと絵で分かる`);
+    for (const b of buds) {
+      const id = b.replace(/'|mon_/g, '');
+      assert(MONSTERS.some((m) => m.id === id), `R41: 相棒の ${id} が MONSTERS に実在する`);
+    }
+  }
+
+  // --- ③ 看板の動詞（つかむ→ためる→なげる）を実演する ---
+  //     ここが抜けると「別のゲームの予告編」に戻る。旧版はこれが1つも無かった。
+  assert(/^\s*verbGrab\(\) \{/m.test(op) && /^\s*verbCharge\(\) \{/m.test(op)
+    && /^\s*verbThrow\(\) \{/m.test(op),
+    'R41: 動詞3段（つかむ/ためる/なげる）の実演が実装されている');
+  for (const w of ['つかむ', 'ためる', 'なげる']) {
+    assert(new RegExp(`'${w}`).test(op), `R41: 動詞「${w}」が画面に出る`);
+  }
+  assert(/billiardHit/.test(op) && /_killCount\+\+/.test(op),
+    'R41: 投げた玉が軍団を薙ぎ、薙いだ数を数える（快感は振幅ではなく数）');
+
+  // --- ④ 冒頭の命令とエンディングの回収が対になっている（物語の環）---
+  assert(/ひかりを けせ/.test(op), 'R41: 冒頭の命令は「ひかりを けせ」');
+  {
+    const end = fs.readFileSync(path.join(SRC, 'scenes/Ending.js'), 'utf8');
+    assert(/せかいに ひかりが もどった/.test(end),
+      'R41: エンディングの「ひかりが もどった」が対句として実在する（片方を消すと環が切れる）');
+  }
+
+  // --- ⑤ 最後に待つもの＝軌道神核の予兆を1カット見せる ---
+  assert(/beatCorePremonition/.test(op) && /coreRings/.test(op),
+    'R41: 軌道神核（球＋3つの環＋単眼）の予兆がある');
+
+  // --- ⑥ 収束先が Title と座標一致（旧版は自機 scale と プロンプトy がズレて一瞬跳ねていた）---
+  {
+    const tHero = /'player_1'\)\.setScale\(([\d.]+)\)/.exec(title);
+    const oHero = /targets: this\.hero, x: cx, y: 236, scale: ([\d.]+)/.exec(op);
+    assert(!!tHero && !!oHero && tHero[1] === oHero[1],
+      `R41: 収束の自機スケールが Title と一致（Title ${tHero && tHero[1]} / Opening ${oHero && oHero[1]}）`);
+    const tPr = /this\.add\.text\(W \/ 2, (\d+), 'SPACE か クリックで スタート'/.exec(title);
+    const oPr = /this\.add\.text\(cx, (\d+), 'SPACE か クリックで スタート'/.exec(op);
+    assert(!!tPr && !!oPr && tPr[1] === oPr[1],
+      `R41: プロンプトのy座標が Title と一致（Title ${tPr && tPr[1]} / Opening ${oPr && oPr[1]}）`);
+    for (const y of ['112', '156']) {
+      assert(new RegExp(`this\\.add\\.text\\(cx, ${y},`).test(op),
+        `R41: ロゴ/サブが Title と同じ y=${y} に結像する`);
+    }
+  }
+
+  // --- ⑦ 事故の再発防止（子ども安全と技術制約）---
+  {
+    const flashes = [...op.matchAll(/0xffffff, ([\d.]+)\)/g)].map((m) => +m[1]);
+    for (const a of flashes) {
+      assert(a <= 0.45, `R41: 全画面の白は alpha ≤ 0.45（${a}）＝目に刺さる白飛ばしを作らない`);
+    }
+    assert(!/Math\.random/.test(op), 'R41: Math.random を使わない（再現できない演出を作らない）');
+    assert(!/^import Phaser/m.test(op), 'R41: Phaser は window 参照（import 禁止）');
+    assert(/if \(V\.autotest\) \{ this\.scene\.start\('Title'\); return; \}/.test(op),
+      'R41: autotest はオープニングをスキップする（既存テストへ無影響）');
+  }
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
