@@ -1236,6 +1236,66 @@ const SFX = {
     noiseHit({ start: 0.012, dur: 0.18, gain: 0.26, hpFreq: 2800, lpFreq: 12000 });
   },
 
+  // ============ R40 軌道神核の儀式音6種 ============
+  // 実プレイFB「聖句解放も炸裂弾もしょぼい。最終ボスの攻撃という自覚を」＋「移動にひと工夫」。
+  // 神々しさの共通文法：**上の帯域＋残響（verb）**。邪悪は下へ落ち、神々しさは上へ昇る（R36W2）。
+
+  // 転移・消（座を畳む）：吸い込まれる上昇スイープ。終わりを断ち切る＝「消えた」が音で分かる
+  warpOut() {
+    tone({ type: 'sine', freq: 260, freqEnd: 1050, dur: 0.26, gain: 0.22, attack: 0.05, verb: 0.35 });
+    tone({ type: 'triangle', freq: 520, freqEnd: 2100, dur: 0.24, gain: 0.10, attack: 0.06, verb: 0.40 });
+    noiseHit({ dur: 0.22, gain: 0.10, hpFreq: 1800, lpFreq: 12000 });
+    tone({ type: 'sine', freq: 84, freqEnd: 46, dur: 0.24, gain: 0.30, attack: 0.02 });
+  },
+  // 転移・現（座に降り立つ）：鐘＋着地の震脚＋きらめき。「現れた」を鐘が宣言する
+  warpIn() {
+    const b = 1046.5;
+    tone({ type: 'sine', freq: b, dur: 0.55, gain: 0.20, attack: 0.002, verb: 0.60 });
+    tone({ type: 'sine', freq: b * 1.5, dur: 0.40, gain: 0.09, attack: 0.004, verb: 0.55 });
+    tone({ type: 'sine', freq: b * 2.67, dur: 0.28, gain: 0.05, attack: 0.006, verb: 0.50 });
+    tone({ type: 'sine', freq: 120, freqEnd: 44, dur: 0.20, gain: 0.50, attack: 0.001 });
+    noiseHit({ dur: 0.05, gain: 0.16, hpFreq: 200, lpFreq: 2400 });
+    noiseHit({ start: 0.02, dur: 0.30, gain: 0.07, hpFreq: 4200, lpFreq: 14000 });
+  },
+  // 聖句解放・詠唱（予告0.9秒ぶんのスウェル）：聖歌隊の和音＋オルガンの土台＋昇る光
+  verseCharge() {
+    const D = sfxDistBus;
+    [523.3, 659.3, 784.0].forEach((f, i) => {
+      tone({ type: 'triangle', freq: f, dur: 0.85, gain: 0.11 - i * 0.02, attack: 0.30, verb: 0.60 });
+      tone({ type: 'sine', freq: f * 2, dur: 0.75, gain: 0.05, attack: 0.34, verb: 0.55 });
+    });
+    tone({ type: 'sawtooth', freq: 130.8, dur: 0.85, gain: 0.10, attack: 0.25, verb: 0.30, dest: D });
+    tone({ type: 'sine', freq: 392, freqEnd: 784, dur: 0.80, gain: 0.08, attack: 0.10, verb: 0.45 });
+    noiseHit({ start: 0.3, dur: 0.5, gain: 0.05, hpFreq: 6000, lpFreq: 14000 });
+  },
+  // 聖句解放・読み上げの小鐘（3発に1回・pitch が1周ぶん昇る＝「読んでいる」線）
+  versePeal(vol = 1, pitch = 1) {
+    const f = 1560 * pitch;
+    tone({ type: 'sine', freq: f, dur: 0.16, gain: 0.30 * vol, attack: 0.001, verb: 0.50 });
+    tone({ type: 'sine', freq: f * 2.76, dur: 0.10, gain: 0.12 * vol, attack: 0.002, verb: 0.45 });
+    noiseHit({ dur: 0.008, gain: 0.10 * vol, hpFreq: 5000, lpFreq: 15000 });
+  },
+  // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
+  judgeWave(vol = 1, pitch = 1) {
+    const D = sfxDistBus;
+    tone({ type: 'sine', freq: 130, freqEnd: 38, dur: 0.35, gain: 0.75 * vol, attack: 0.001 });
+    noiseHit({ dur: 0.06, gain: 0.30 * vol, hpFreq: 120, lpFreq: 3000 });
+    tone({ type: 'sawtooth', freq: 1900 * pitch, freqEnd: 700 * pitch, dur: 0.28,
+           gain: 0.16 * vol, attack: 0.003, verb: 0.40, dest: D });
+    tone({ type: 'sine', freq: 1046.5 * pitch, dur: 0.30, gain: 0.10 * vol, attack: 0.004, verb: 0.50 });
+    noiseHit({ start: 0.02, dur: 0.20, gain: 0.10 * vol, hpFreq: 2600, lpFreq: 11000 });
+  },
+  // 整列レーザー二射目の再照準：「ガチッ＋二連ピッ＋昇圧」＝もう一度来る、が0.5秒で読める
+  relock() {
+    const D = sfxDistBus;
+    noiseHit({ dur: 0.018, gain: 0.30, hpFreq: 3000, lpFreq: 14000 });
+    tone({ type: 'square', freq: 780, freqEnd: 1560, dur: 0.09, gain: 0.16, attack: 0.001, dest: D });
+    tone({ start: 0.10, type: 'sine', freq: 1180, dur: 0.07, gain: 0.14, attack: 0.001 });
+    tone({ start: 0.22, type: 'sine', freq: 1180, dur: 0.07, gain: 0.14, attack: 0.001 });
+    tone({ start: 0.10, type: 'sawtooth', freq: 500, freqEnd: 1000, dur: 0.30, gain: 0.07,
+           attack: 0.02, dest: D });
+  },
+
   // ============ R34W2 ナックルウェーブ：トマホーク斉射の3点セット ============
   // 実プレイFB「ナックルウェーブやワイヤーアームも攻撃音や発射音がなにもかわっていない」。
   // 実測したところ**指摘のとおり**で、ナックルウェーブは R29 の knuckle＋missileFly＋shoot を

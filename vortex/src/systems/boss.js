@@ -83,6 +83,17 @@ export function createBoss(run) {
   let tfTier = 0;             // R37 激化の段（ゲージ1本割るごとに+1・trueForm.rage の添字）
   let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
   let alignAng = 0;           // 整列レーザーの射線（環が揃う向き＝そのまま射線）
+  // ★R40 軌道遊弋＋座の転移（trueForm の移動）。「フワフワ浮遊しているだけでは荘厳さを
+  //   感じれない」への回答＝**神は追いかけない**。主人公を中心にした軌道の上を滑り、
+  //   攻撃の前に光へ折りたたまれて軌道の先の「座」へ転移する（歩かず、座を移す）。
+  let tfOrbA = 0;             // 軌道角（主人公から見たボスの方位）
+  let tfOrbDir = 1;           // 公転の向き（転移ごとに反転＝同じ弧を描き続けない）
+  let tfWarpPhase = 0;        // 0=遊弋 1=消える(warpOut) 2=現れる(warpIn)
+  let tfWarpT = 0;            // 転移フェーズの残り秒
+  let tfWarped = false;       // この chase で転移を済ませた印
+  let tfWarpAlpha = 1;        // 表示の透明度（updateTrueDisp が読む）
+  let tfTrailT = 0;           // 遊弋の航跡パーティクルの間引き
+  const fxList = [];          // R40 環・光柱のワンショットFX（updateFx が寿命管理）
   let shellDmg = 0;           // 殻閉じを「閉じきる前に割る」ための蓄積ダメージ
   let lastHp = 0;             // 前フレームのHP（差分から被ダメージ量を取る）
   let merging = false;        // 再合体カットシーンに入った印（多重発火を防ぐ）
@@ -342,6 +353,8 @@ export function createBoss(run) {
     phase2 = false;
     split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
     trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0]; tfTier = 0;
+    tfWarpPhase = 0; tfWarped = false; tfWarpAlpha = 1;
+    clearFx();
     killing = false;
     resetAttackVars();
 
@@ -492,7 +505,13 @@ export function createBoss(run) {
                          Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.8);
                          introText('せいれつ―― かんつうこう', '#ffedb0', 156, 18, 1); break;
       case 'verse':      state = 'verseTele';  stateT = TF().verse.teleSec; shotAcc = 0; shotIdx = 0;
-                         Sound.sfx('specialCharge', 0.8, 1.35);
+                         // ★R40 予告を「魔法陣の展開」にする：外へ開く金環＋内へ閉じる白環＋詠唱の
+                         //   スウェル。文字が剥がれる前に**儀式の場**が組み上がる＝最終ボスの格。
+                         Sound.sfx('verseCharge');
+                         spawnRingFx(boss.x, boss.y, 0xffd23f, boss.radius * 0.5, boss.radius * 2.4,
+                           TF().verse.teleSec, 0.8);
+                         spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 2.8, boss.radius * 1.1,
+                           TF().verse.teleSec, 0.6);
                          introText('せいく かいほう', '#ffd23f', 156, 18, 1); break;
       case 'shell':      state = 'shellTele';  stateT = TF().shell.teleSec; shellDmg = 0;
                          Sound.sfx('warning', 0.8, 0.6);
@@ -590,8 +609,60 @@ export function createBoss(run) {
       }
 
       case 'chase': {
-        // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
         const tfc = TF();
+        // ★R40 軌道神核は追いかけない（「フワフワ浮遊しているだけでは荘厳さを感じれない」）。
+        //   ①遊弋＝主人公を中心にした軌道の上をゆっくり滑る（衛星の運行。名前のとおり「軌道」）
+        //   ②転移＝chase の最後に光へ折りたたまれ、軌道の先の「座」へ跳ぶ。次の攻撃に合った
+        //     間合い（motion.anchors）へ**自分の意思で座を移す**＝挙動そのものが儀式になる。
+        if (tfc && tfc.motion) {
+          const mo = tfc.motion;
+          const nextAtk = attackList()[attackIdx % attackList().length];
+          const R = (mo.anchors && mo.anchors[nextAtk]) || mo.orbitRadius;
+          const wTotal = mo.warpOutSec + mo.warpInSec;
+          if (stateT <= wTotal && !tfWarped) {
+            tfWarped = true; tfWarpPhase = 1; tfWarpT = mo.warpOutSec;
+            Sound.sfx('warpOut');
+            // 消える座に環がすぼまる＝「畳まれた」が形で残る
+            spawnRingFx(boss.x, boss.y, int(tfc.glowInner), boss.radius * 1.5, 8, mo.warpOutSec + 0.1);
+          }
+          if (tfWarpPhase === 1) {
+            tfWarpT -= dt;
+            tfWarpAlpha = Math.max(0, tfWarpT / mo.warpOutSec);
+            if (tfWarpT <= 0) {
+              tfOrbA += (mo.warpJumpDeg[0]
+                + run.rng.range(0, mo.warpJumpDeg[1] - mo.warpJumpDeg[0])) * D2R * tfOrbDir;
+              boss.x = run.player.x + Math.cos(tfOrbA) * R;
+              boss.y = run.player.y + Math.sin(tfOrbA) * R;
+              tfOrbDir *= -1;
+              tfWarpPhase = 2; tfWarpT = mo.warpInSec;
+              Sound.sfx('warpIn');
+              whiteFlash(0.14);
+              spawnRingFx(boss.x, boss.y, 0xffffff, 10, boss.radius * 2.1, mo.warpInSec + 0.25);
+              spawnPillarFx(boss.x, boss.y + boss.radius * 0.6, int(tfc.glowInner),
+                26, boss.radius * 3.2, mo.warpInSec + 0.30);
+              run.spawnParticles(boss.x, boss.y, int(tfc.glowInner), 14);
+            }
+          } else if (tfWarpPhase === 2) {
+            tfWarpT -= dt;
+            tfWarpAlpha = Math.min(1, 1 - tfWarpT / mo.warpInSec);
+            if (tfWarpT <= 0) { tfWarpPhase = 0; tfWarpAlpha = 1; }
+          } else {
+            tfWarpAlpha = 1;
+            tfOrbA += mo.orbitDegSec * D2R * tfOrbDir * dt;
+            const txp = run.player.x + Math.cos(tfOrbA) * R;
+            const typ = run.player.y + Math.sin(tfOrbA) * R;
+            boss.x += (txp - boss.x) * Math.min(1, mo.glideRate * dt);
+            boss.y += (typ - boss.y) * Math.min(1, mo.glideRate * dt);
+            tfTrailT -= dt;
+            if (tfTrailT <= 0) {   // 航跡：金の光が尾を引く（1発/0.07秒の予算制）
+              tfTrailT = 0.07;
+              run.spawnParticles(boss.x, boss.y + 6, int(tfc.glowInner), 1);
+            }
+          }
+          if (stateT <= 0 && tfWarpPhase === 0) { tfWarped = false; beginAttack(); }
+          break;
+        }
+        // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
         const cs = tfc ? tfc.chaseSpeed
           : cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
         moveBoss(nx * cs, ny * cs, dt);
@@ -737,6 +808,27 @@ export function createBoss(run) {
         break;
       }
       case 'alignFire':
+        if (stateT <= 0) {
+          // ★R40 実プレイFB「せいれつ―かんつうこうは素晴らしいが、よけやすいかも」。
+          //   一射目は今までどおり**避けられる**（読める公平さは崩さない）。そのかわり
+          //   二射目「再照準」が、避けた先の**新しい位置**へ短い予告で撃ち直す＝
+          //   1回横に避けて立ち止まる怠けを罰する。二射目も発射後は固定＝必ず避けられる。
+          if (TF() && TF().aligned2) {
+            state = 'align2Tele'; stateT = TF().aligned2.relockSec;
+            Sound.sfx('relock');
+            introText('さいしょうじゅん', '#ff9e9e', 156, 15, 1);
+          } else afterAttack();
+        }
+        break;
+      case 'align2Tele': {
+        alignAng = aim;                                   // 避けた先を追って狙い直す（発射で固定）
+        if (Math.floor(run.elapsed * 18) % 2 === 0) {
+          run.spawnParticles(boss.x, boss.y, 0xff3040, 2);
+        }
+        if (stateT <= 0) fireAligned2();
+        break;
+      }
+      case 'alignFire2':
         if (stateT <= 0) afterAttack();
         break;
 
@@ -756,7 +848,12 @@ export function createBoss(run) {
         const interval = vk.fireSec / total;
         shotAcc += dt;
         while (shotAcc >= interval && shotIdx < total) { shotAcc -= interval; fireVerse(shotIdx++, vk, per); }
-        if (stateT <= 0) afterAttack();
+        if (stateT <= 0) {
+          // R40 読み上げ終わり＝ハロー（光輪）がひとつ大きく開いて閉幕。区切りが音と形で分かる
+          spawnRingFx(boss.x, boss.y, 0xfff0b0, boss.radius * 0.8, boss.radius * 3.0, 0.5, 0.8);
+          Sound.sfx('ringwave', 0.8, 1.5);
+          afterAttack();
+        }
         break;
       }
 
@@ -1284,6 +1381,9 @@ export function createBoss(run) {
     lastHp = tf.hp;
     attackIdx = 0;
     ringSpin = [0, 2.1, 4.2];
+    // R40 軌道遊弋の初期化：いまの方位から軌道に乗る（転生の瞬間に瞬間移動しない）
+    tfOrbA = Math.atan2(boss.y - run.player.y, boss.x - run.player.x);
+    tfOrbDir = 1; tfWarpPhase = 0; tfWarped = false; tfWarpAlpha = 1;
     whiteFlash(0.5);
     run.shake(520, 12);
     Sound.sfx('thunder');
@@ -1326,6 +1426,21 @@ export function createBoss(run) {
     state = 'alignFire'; stateT = ak.activeSec;
   }
 
+  // ★R40 二射目「再照準」。細く・短く・軽く（84+52=136＜主人公HP140＝2連被弾でも即死しない）。
+  //   一射目と同じ2層ビームだが幅0.72倍＝「同じ裁きの、追いの一太刀」に見える。
+  function fireAligned2() {
+    const ak = TF().aligned, a2 = TF().aligned2;
+    const half = a2.sweepDeg * 0.5 * D2R;
+    startBeam(alignAng - half, alignAng + half, a2.beamLength, a2.beamWidth, a2.damage, a2.activeSec,
+      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true });
+    whiteFlash(0.35);
+    run.shake(420, 10);
+    Sound.sfx('godLaser', 0.7, 1.25);
+    recoil(alignAng);
+    run.spawnParticles(boss.x, boss.y, 0xff3040, 16);
+    state = 'alignFire2'; stateT = a2.activeSec;
+  }
+
   // 環の楕円（スプライトと同じ形）。弾の湧く場所を絵と一致させるための表＝
   // [rx, ry, 傾き°]。ここがズレると「環から出ていない弾」になって嘘になる。
   const TRUE_RING_GEO = [[23, 8.5, 24], [23, 8.5, -24], [21, 6.4, 0]];
@@ -1342,26 +1457,44 @@ export function createBoss(run) {
     const ex = Math.cos(a) * G[0] * s, ey = Math.sin(a) * G[1] * s;
     const px = boss.x + ex * cr - ey * sr, py = boss.y + ex * sr + ey * cr;
     const out = Math.atan2(py - boss.y, px - boss.x);
+    // ★R40 実プレイFB「せいくかいほうの攻撃ビジュアルがしょぼすぎる。最終ボスの攻撃ではない」。
+    //   弾を**聖句の文字そのもの**にする：専用ルーン弾（verse_glyph・回転しながら飛ぶ）＋
+    //   白金の輝き。剥がれる瞬間は環の位置に小さな輪が弾け、光の欠片が散る＝
+    //   「環から文字が剥がれた」が1発ずつ見える。
     spawnBullet2(px, py, Math.cos(out) * sp, Math.sin(out) * sp,
-      { radius: vk.bulletRadius, damage: vk.damage, life: vk.lifeSec, tint: 0xffd23f });
+      { radius: vk.bulletRadius, damage: vk.damage, life: vk.lifeSec,
+        kind: 'glyph', tint: 0xfff0b0, spin: 3.2 });
     run.spawnParticles(px, py, 0xffd23f, 2);
-    // 音は1発ずつ鳴らすと潰れるので3発に1回。音程を1周ぶん上げていく＝「読み上げている」線になる
-    if (i % 3 === 0) Sound.sfx('tick', 0.5, 1.1 + (step / n) * 0.9);
+    if (i % 3 === 0) {
+      spawnRingFx(px, py, 0xffd23f, 4, 22, 0.30, 0.7);
+      // 読み上げの鐘。tick（機械音）から versePeal（聖堂の小鐘）へ＝音程が1周ぶん昇る
+      Sound.sfx('versePeal', 0.6, 1.0 + (step / n) * 1.0);
+    }
   }
 
   // ③殻閉じ。閉じきったあとの全方位衝撃波（波ごとに半分ずらして網目にする）。
+  // ★R40 実プレイFB「青の炸裂弾？があるが、全くダメ」。正体＝弾が cfg.bulletTint（第3形態の
+  //   水色 #38e1ff）の彗星のままだった＝**神核の攻撃なのに前の姿の弾**が出ていた。
+  //   専用の「裁きの輪」弾（judge_orb・回転する光輪）＋波ごとに色が変わる（金→白金→紫）＋
+  //   弾と同じ速さで広がる環＋座から立つ光柱＋専用の轟音（judgeWave・波ごとに音程が昇る）。
+  const JUDGE_TINTS = [0xffd23f, 0xfff2a8, 0xc98cff, 0xff9a3c];
   function fireShellWave(w, sk) {
     const off = (w % 2) * (Math.PI / sk.perWave);
     const sp = sk.bulletSpeed * rageArr('bulletMul', 1);  // R37 激化で弾速が上がる（最大×1.25）
+    const tint = JUDGE_TINTS[w % JUDGE_TINTS.length];
     for (let i = 0; i < sk.perWave; i++) {
       const a = off + (i / sk.perWave) * Math.PI * 2;
       spawnBullet2(boss.x + Math.cos(a) * boss.radius * 0.8, boss.y + Math.sin(a) * boss.radius * 0.8,
         Math.cos(a) * sp, Math.sin(a) * sp,
-        { radius: sk.bulletRadius, damage: sk.damage, life: sk.lifeSec });
+        { radius: sk.bulletRadius, damage: sk.damage, life: sk.lifeSec,
+          kind: 'judge', tint, spin: 2.6 });
     }
-    run.shake(260, 7);
-    Sound.sfx('ringwave', 0.9, 0.9 + w * 0.15);
-    if (w === 0) Sound.sfx('bigBoom', 0.7, 1.2);
+    // 弾列と同じ速さで開く環＝「波」が1枚の形として見える（弾の点列だけでは輪郭が出ない）
+    spawnRingFx(boss.x, boss.y, tint, boss.radius * 0.8, boss.radius * 0.8 + sp * 0.5, 0.5, 0.75);
+    spawnPillarFx(boss.x, boss.y + boss.radius * 0.5, tint, 22, boss.radius * 2.6, 0.45);
+    run.shake(300, 8);
+    Sound.sfx('judgeWave', 0.9, 1.0 + w * 0.12);
+    if (w === 0) whiteFlash(0.16);
   }
 
   // 閉じきる前に眼へ規定量を当てられた＝閉じられない。大きな隙（追撃の窓）に化ける。
@@ -2057,6 +2190,39 @@ export function createBoss(run) {
     run.tweens.add({ targets: f, alpha: 0, duration: 260, onComplete: () => f.destroy() });
   }
 
+  // ============ R40 ワンショットFX（環・光柱） ============
+  // 転移の座・魔法陣・裁きの環の「広がる/すぼまる輪」と「立ち上る光柱」。
+  // tween ではなく fxList で寿命管理する＝ボス破棄時に確実に消せる（リークを作らない）。
+  function spawnRingFx(x, y, tint, r0, r1, sec, a0 = 0.85) {
+    const img = run.add.image(x, y, 'w_ring').setBlendMode(ADD).setDepth(12)
+      .setTint(tint).setDisplaySize(r0 * 2, r0 * 2).setAlpha(a0);
+    fxList.push({ img, t: 0, sec, r0, r1, a0, kind: 'ring' });
+  }
+  function spawnPillarFx(x, y, tint, w, h, sec, a0 = 0.75) {
+    const img = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(12)
+      .setTint(tint).setOrigin(0.5, 1).setDisplaySize(w, 8).setAlpha(a0);
+    fxList.push({ img, t: 0, sec, w, h, a0, kind: 'pillar' });
+  }
+  function updateFx(dt) {
+    for (let i = fxList.length - 1; i >= 0; i--) {
+      const f = fxList[i];
+      f.t += dt;
+      const p = Math.min(1, f.t / f.sec);
+      const e = 1 - (1 - p) * (1 - p);          // easeOut＝出だしが速く終わりが静か
+      if (f.kind === 'ring') {
+        const r = f.r0 + (f.r1 - f.r0) * e;
+        f.img.setDisplaySize(r * 2, r * 2).setAlpha(f.a0 * (1 - p));
+      } else {
+        f.img.setDisplaySize(f.w * (1 - p * 0.5), 8 + (f.h - 8) * e).setAlpha(f.a0 * (1 - p));
+      }
+      if (p >= 1) { f.img.destroy(); fxList.splice(i, 1); }
+    }
+  }
+  function clearFx() {
+    for (const f of fxList) f.img.destroy();
+    fxList.length = 0;
+  }
+
   // ============ 最終ボス登場イベント ============
   // セリフ/テロップ text を1つ生成。setScrollFactor(0) でカメラ固定＝ボス/プレイヤー位置に依らず
   // 常に画面内に出る。機械生命体らしくフェードイン→低速の明滅（flickerRepeat 回）→フェードアウトで自壊。
@@ -2227,15 +2393,21 @@ export function createBoss(run) {
     const isTom = kind === 'tomahawk';
     const isBomb = kind === 'bomb';
     const isComet = kind === 'comet';                                // R35: マオウレクス専用
-    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb;
+    const isGlyph = kind === 'glyph';                                // R40: 聖句の文字弾（軌道神核）
+    const isJudge = kind === 'judge';                                // R40: 裁きの輪弾（軌道神核）
+    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb && !isGlyph && !isJudge;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
-      : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : isComet ? 'boss_comet' : 'boss_bolt';
+      : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : isComet ? 'boss_comet'
+      : isGlyph ? 'verse_glyph' : isJudge ? 'judge_orb' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
     // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
     // R35: 彗星は30×16比率（r=8のとき30.4×16）。ボルトより横も縦も大きい＝巨体から出る弾の質量。
-    const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isComet ? r * 3.8 : isOrb ? r * 4.0 : r * 3.0;
-    const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isComet ? r * 2.0 : isOrb ? r * 2.5 : r * 3.0;
+    // R40: 文字弾/輪弾は正方形＝向きは進行方向ではなく spin（回転しながら飛ぶ）が担う
+    const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isComet ? r * 3.8
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isOrb ? r * 4.0 : r * 3.0;
+    const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isComet ? r * 2.0
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isOrb ? r * 2.5 : r * 3.0;
     const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
       : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルト／彗星は+Xが先端＝オフセットなし
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
@@ -2251,6 +2423,11 @@ export function createBoss(run) {
       //   （モーションブラーと同じ原理）。ボルトの 4.6×2.6 に対して 8.4×3.2 と一段大きい。
       d.glow.setVisible(true).setDepth(10).setTint(0xff6a1f).setAlpha(0.9)
         .setRotation(ta).setDisplaySize(r * 8.4, r * 3.2).setPosition(x, y);
+    } else if (isGlyph || isJudge) {
+      // R40: 神核の弾は光背（丸いハロー）を弾色でまとう＝金と紫の弾幕が「神の火」に見える。
+      //   熱の色（赤縁）ではなく光の色＝敵弾識別は大きさと形（回転する文字/輪）が担う。
+      d.glow.setVisible(true).setDepth(10).setTint(isGlyph ? 0xffc040 : tint).setAlpha(0.95)
+        .setRotation(0).setDisplaySize(r * 5.2, r * 5.2).setPosition(x, y);
     } else {
       d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f).setAlpha(1)
         .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
@@ -2464,7 +2641,9 @@ export function createBoss(run) {
     // ④攻撃ごとの形。alignT=1 で3環が射線方向へ一直線、shellT=1 で環が核へ閉じきる。
     let alignT = 0, shellT = 0;
     if (state === 'alignTele') alignT = clamp01(1 - stateT / tfAlignSec());
-    else if (state === 'alignFire') alignT = 1;
+    else if (state === 'alignFire' || state === 'alignFire2') alignT = 1;
+    // R40 二射目の再照準：整列は保ったまま新しい射線へ向き直る（避けた先を環が追う）
+    else if (state === 'align2Tele') alignT = 1;
     else if (state === 'shellTele') shellT = clamp01(1 - stateT / tf.shell.teleSec) * 0.20;
     else if (state === 'shellClose') shellT = 0.20 + clamp01(1 - stateT / tf.shell.closeSec) * 0.80;
     else if (state === 'shellHold') shellT = 1;
@@ -2478,7 +2657,7 @@ export function createBoss(run) {
 
     for (const p of disp.parts) {
       let px = cx + p.ox * s, py = cy + p.oy * s + bob + riseDrop;
-      let rot = 0, sx = s, sy = s, alpha = rise;
+      let rot = 0, sx = s, sy = s, alpha = rise * tfWarpAlpha;   // R40 転移中は光へ折りたたまれる
 
       if (p.ring >= 0) {
         const i = p.ring;
@@ -2518,9 +2697,9 @@ export function createBoss(run) {
 
     const pulse = 1 + Math.sin(run.elapsed * 4) * 0.12;
     disp.glowP.setPosition(cx, cy).setScale(tf.glowScale * 1.6 * pulse * (1 - shellE * 0.3))
-      .setAlpha(rise);
+      .setAlpha(rise * tfWarpAlpha);
     disp.glowM.setPosition(cx, cy).setScale(tf.glowScale * 0.9 * pulse * (1 + shellE * 0.4))
-      .setAlpha(rise);
+      .setAlpha(rise * tfWarpAlpha);
     disp.muzzle.setVisible(false);
 
     // 記号は既存と同じ順番で読ませる（被弾フラッシュ＞割られた隙＞予告点滅）
@@ -2951,12 +3130,14 @@ export function createBoss(run) {
     updateBullets(dt);
     updateStrikes(dt);      // R29: ボスが消えた後も残った着弾は最後まで爆発させる（bullets と同じ扱い）
     if (beam) updateBeam(dt);
+    updateFx(dt);           // R40: 環・光柱のワンショットFX（ボス撃破後も残りは最後まで消える）
   }
 
   function destroy() {
     releaseCamera();
     clearBullets();
     clearStrikes();
+    clearFx();              // R40: 環・光柱FXも確実に破棄（リーク防止）
     for (const d of pool) { if (d.spr) d.spr.destroy(); if (d.glow) d.glow.destroy(); }
     pool.length = 0;
     destroyDisp();

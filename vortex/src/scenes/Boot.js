@@ -53,6 +53,11 @@ export class BootScene extends Phaser.Scene {
     //   ボス本体は radius 82 なのに弾は 16×10px しかなく、**巨体から砂粒が出ている**構図だった。
     //   30×16 の彗星型（後ろへ長く尾を引き、先端に白熱の芯）にして、最終ボスの一撃に見合う質量を出す。
     this.makeFoeComet('boss_comet', 30, 16);
+    // R40: 軌道神核（第4形態）の専用弾2種。実プレイFB「せいくかいほうがしょぼい／青の炸裂弾は
+    //   全くダメ」＝神核の攻撃なのに弾が第3形態の水色彗星のままだった。
+    //   聖句＝文字（ルーン十字）・裁き＝光輪（スポーク付きの車輪）。どちらも回転しながら飛ぶ。
+    this.makeVerseGlyph('verse_glyph', 14);
+    this.makeJudgeOrb('judge_orb', 16);
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
     this.makeArrow('arrow', 12, 10);          // 画面外の敵/ボス方向インジケータ
@@ -375,6 +380,35 @@ export class BootScene extends Phaser.Scene {
   }
 
   // おんぷリングの輪（おもちゃ系）。中心は透明な円環。
+  // R40: 聖句の文字弾（軌道神核）。飾り十字のルーン＝縦軸＋横腕＋菱形の芯＋上下の横木。
+  //   「文字」に見えることが目的なので、弾丸（丸・鏃）の語彙をひとつも使わない。
+  makeVerseGlyph(key, size) {
+    const c = size / 2 - 0.5;
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (ax <= 1.1 && ay <= 5.6) return true;                    // 縦軸
+      if (ay <= 1.1 && ax <= 4.6) return true;                    // 横腕
+      if (ax + ay <= 3.2) return true;                            // 菱形の芯
+      if (Math.abs(ay - 4.2) <= 0.9 && ax <= 2.6) return true;    // 上下の横木（飾り）
+      return false;
+    });
+  }
+
+  // R40: 裁きの輪弾（軌道神核）。光輪＋4本スポーク＋芯＝「車輪」。全方位弾の1発1発が
+  //   輪の形をしている＝「裁きの環」という技の名と絵が一致する。
+  makeJudgeOrb(key, size) {
+    const c = size / 2 - 0.5;
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= 7.4 * 7.4 && d2 >= 5.9 * 5.9) return true;                    // 外輪
+      if ((Math.abs(dx) <= 1.0 || Math.abs(dy) <= 1.0) && d2 <= 6.4 * 6.4) return true; // スポーク
+      if (d2 <= 2.5 * 2.5) return true;                                        // 芯
+      return false;
+    });
+  }
+
   makeRing(key, size, thickness) {
     const c = size / 2;
     const outer = c - 0.5;
