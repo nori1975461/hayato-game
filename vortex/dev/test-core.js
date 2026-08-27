@@ -2312,6 +2312,58 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R43: 節は「生成・描画・非表示」の3か所以上で扱われる');
 }
 
+// ============ ★ R43 レーザーの「避けようがない」を式で縛る ============
+// 実プレイFB「マオウレクスの各種レーザーは避けようがない。さすがに理不尽」。
+// 調べたら実装の問題だった：4本とも薙ぎの中心を**発射の瞬間の主人公方向**に取っており
+// （予告中ずっと aim を代入）、予告1.0〜2.0秒は「来る」ことしか伝えていなかった。
+// 対策＝lockSec（予告の最後は照準を固定して射線を見せる）と片方向薙ぎ。ここを数で守る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const SPEED = BALANCE.player.speed;      // 148 px/s
+  const PR = BALANCE.player.radius;        // 7px
+
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  assert(!!maou && !!maou.trueForm, 'R43: マオウレクスの定義を引ける');
+  const tf = maou.trueForm;
+  const lasers = [
+    { name: 'じゃがん', k: maou.laser, tele: maou.laser.chargeSec },
+    { name: 'じゃしん', k: maou.chestLaser, tele: maou.chestLaser.chargeSec },
+    { name: '整列', k: tf.aligned, tele: tf.aligned.alignSec },
+    { name: '再照準', k: tf.aligned2, tele: tf.aligned2.relockSec },
+  ];
+  for (const L of lasers) {
+    const lock = L.k.lockSec;
+    assert(typeof lock === 'number' && lock > 0,
+      `R43: ${L.name}レーザーに lockSec がある＝射線を固定して見せる時間`);
+    assert(lock < L.tele + 1e-9,
+      `R43: ${L.name}の lockSec(${lock}) は予告(${L.tele})より短い＝追尾する時間も残っている`);
+    // ★核心：ロック後に走れば判定半幅の外へ出られるか（出られないなら理不尽のまま）
+    const halfW = L.k.beamWidth / 2 + PR;
+    const canRun = SPEED * lock;
+    assert(canRun > halfW,
+      `R43: ${L.name}はロック後に避けられる（${lock}秒で${Math.round(canRun)}px 走れる ＞ 判定半幅${Math.round(halfW)}px）`);
+  }
+  // 薙ぎが主人公を通過点にしない（じゃがん/じゃしんは薙ぎが主人公より速いので片方向必須）
+  for (const key of ['laser', 'chestLaser']) {
+    const k = maou[key];
+    const omega = Math.abs(k.sweepToDeg - k.sweepFromDeg) / k.activeSec;   // °/s
+    assert(k.sweepOneWay === true,
+      `R43: ${key} は片方向薙ぎ（${omega.toFixed(0)}°/s ＝ 主人公より速いので、両側に振ると必ず通過点になる）`);
+  }
+  // 実装の結線：ロックを通らず aim で直接撃つ経路が残っていないこと
+  assert(/function lockAim\(/.test(boss) && /function drawLockLine\(/.test(boss),
+    'R43: 照準ロックと射線プレビューが実装されている');
+  assert((boss.match(/lockAim\(/g) || []).length >= 5,
+    'R43: 4種のレーザー予告すべてが lockAim を通る（定義1＋呼び出し4）');
+  assert(!/startBeam\(aim \+/.test(boss),
+    'R43: 発射時に aim（＝その瞬間の主人公方向）から直接ビームを張る経路が残っていない');
+  // 後片付け（プレビューが次の攻撃へ残ると「嘘の予告」になる）
+  assert(/function clearLock\(\)/.test(boss) && (boss.match(/clearLock\(\)/g) || []).length >= 5,
+    'R43: clearLock が発射・攻撃終了・リセットの各所から呼ばれる');
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);

@@ -80,6 +80,11 @@ export function createBoss(run) {
   let awakening = false;      // 転生カットシーン中（多重発火と二重撃破を防ぐ）
   let trueCrack = null;       // 旧体に走る亀裂の描画（graphics・カットシーン終了で必ず破棄）
   const shardImgs = [];       // R43 粉砕の小片（tween で飛ぶ・applyTrueLook と destroy で必ず片付ける）
+  // ★R43 レーザーの照準ロック。予告の最後の lockSec は狙いを固定し、射線を見せる。
+  //   lockAng が null＝まだ追尾中。数値が入っている＝ロック済み（以後 aim で上書きしない）。
+  let lockAng = null;         // 確定した射線の角度
+  let lockDir = 1;            // 薙ぐ向き（+1/-1）。片方向薙ぎのときに使う
+  let lockGfx = null;         // 射線プレビューの描画
   let ringSpin = [0, 0, 0];   // 3つの環の公転角（別々の速さで回る）
   let tfTier = 0;             // R37 激化の段（ゲージ1本割るごとに+1・trueForm.rage の添字）
   let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
@@ -345,7 +350,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -530,6 +535,7 @@ export function createBoss(run) {
 
   // 攻撃1つが終わったとき。chainVulcan があれば vulcan へ、無ければ待機して次の攻撃へ。
   function afterAttack() {
+    clearLock();          // R43 射線プレビューを残さない（次の攻撃へ持ち越すと嘘の予告になる）
     if (chainVulcan) { chainVulcan = false; startAttackByName('vulcan'); return; }
     endAttackChase();
   }
@@ -568,6 +574,48 @@ export function createBoss(run) {
     state = 'chase';
     stateT = idleDur(idleFor(attackIdx)) * (phase3 && cfg.merge ? cfg.merge.idleMul : 1);
     attackIdx = (attackIdx + 1) % attackList().length;
+  }
+
+  // ★R43 照準ロック。予告 state の update から毎フレーム呼ぶ。
+  //   残り時間が lockSec を切ったら狙いを**その瞬間の方向で固定**し、射線を見せて音を鳴らす。
+  //   これが無いと、予告は「来る」ことしか伝えず「どこへ」を伝えない＝走っても発射時に
+  //   正面へ引き直されるので、避ける遊びが原理的に成立しない（実プレイFB「避けようがない」）。
+  //   戻り値＝いま狙っている角度（ロック済みならその固定値）。
+  function lockAim(lockSec, spanDeg, len) {
+    if (lockAng == null && stateT > (lockSec || 0)) return aim;      // まだ追尾中
+    if (lockAng == null) {
+      lockAng = aim;
+      lockDir = run.rng.chance(0.5) ? 1 : -1;
+      Sound.sfx('relock');
+    }
+    drawLockLine(lockAng, spanDeg || 0, len || 480);
+    return lockAng;
+  }
+
+  // 射線プレビュー：確定した射線を細い線で描き、薙ぐ側を扇で示す。
+  //   「どこへ来るか」と「どっちへ逃げればいいか」の2つを**形**で伝える（文字では読めない）。
+  function drawLockLine(ang, spanDeg, len) {
+    if (!lockGfx) lockGfx = run.add.graphics().setDepth(13 + INTRO_LIFT);
+    const pulse = 0.45 + 0.35 * (Math.sin(run.elapsed * 26) * 0.5 + 0.5);
+    lockGfx.clear();
+    // 薙ぐ範囲（片方向なら射線から lockDir 側だけ・両側なら左右対称）
+    if (spanDeg > 0) {
+      const a0 = ang, a1 = ang + lockDir * spanDeg * D2R;
+      lockGfx.fillStyle(0xff5a3c, 0.10);
+      lockGfx.slice(boss.x, boss.y, len, Math.min(a0, a1), Math.max(a0, a1), false);
+      lockGfx.fillPath();
+    }
+    // 確定した射線そのもの
+    lockGfx.lineStyle(2, 0xff9a6a, pulse);
+    lockGfx.beginPath();
+    lockGfx.moveTo(boss.x, boss.y);
+    lockGfx.lineTo(boss.x + Math.cos(ang) * len, boss.y + Math.sin(ang) * len);
+    lockGfx.strokePath();
+  }
+
+  function clearLock() {
+    lockAng = null;
+    if (lockGfx) { lockGfx.clear(); }
   }
 
   function updateAI(dt) {
@@ -738,9 +786,13 @@ export function createBoss(run) {
         if (stateT <= 0) { fireMissiles(); afterAttack(); }
         break;
 
-      case 'laserTele':
+      case 'laserTele': {
+        // R43 予告の後半で射線を固定し、薙ぐ側まで見せる（避ける情報を与える）
+        const lk = cfg.laser;
+        lockAim(lk.lockSec, lk.sweepToDeg - lk.sweepFromDeg, lk.beamLength);
         if (stateT <= 0) fireLaser();
         break;
+      }
       case 'laserFire':
         if (stateT <= 0) afterAttack();
         break;
@@ -800,7 +852,9 @@ export function createBoss(run) {
 
       // ①整列レーザー：3つの環が主人公の方向へ一直線に揃う＝**射線が形で読める**予告。
       case 'alignTele': {
-        alignAng = aim;                                   // 揃いきるまで狙い続ける（発射で固定）
+        // ★R43 揃いきる前に射線を固定する（旧実装は発射の瞬間まで追い続けていたので、
+        //   発射フレームで既にビーム内＝反応時間0の確定84ダメージだった）。
+        alignAng = lockAim(TF().aligned.lockSec, 0, TF().aligned.beamLength);
         const prog = clamp01(1 - stateT / tfAlignSec());
         if (Math.floor(run.elapsed * 14) % 2 === 0 && prog > 0.4) {
           // 溜めの後半は赤を混ぜる＝「深紅のレーザーが来る」を色でも予告する（R36W2）
@@ -824,7 +878,8 @@ export function createBoss(run) {
         }
         break;
       case 'align2Tele': {
-        alignAng = aim;                                   // 避けた先を追って狙い直す（発射で固定）
+        // R43 二射目も最後の lockSec で固定する（避けた先を追うのは lockSec より前まで）
+        alignAng = lockAim(TF().aligned2.lockSec, 0, TF().aligned2.beamLength);
         if (Math.floor(run.elapsed * 18) % 2 === 0) {
           run.spawnParticles(boss.x, boss.y, 0xff3040, 2);
         }
@@ -913,6 +968,7 @@ export function createBoss(run) {
           }
           if (prog > 0.6) run.shake(90, 2 + prog * 4);
         }
+        lockAim(ck.lockSec, ck.sweepToDeg - ck.sweepFromDeg, ck.beamLength);   // R43 射線を固定して見せる
         if (stateT <= 0) fireChestLaser();
         break;
       }
@@ -1477,6 +1533,7 @@ export function createBoss(run) {
     // ★R36W2 実プレイFB「深みのある赤に。発射音や演出をできるだけ派手に」。
     //   深みは 暗い深紅の縁（beamTint）＋白熱の芯（coreTint）の2層で出す。音は専用の godLaser
     //   （sound.js・BGMを沈めて撃つ）。撃つ瞬間は 白フラッシュ0.55＋揺れ700/15＋ヒットストップ。
+    clearLock();          // R43 一射目のロックを解く（二射目は改めて狙い直す）
     startBeam(alignAng - half, alignAng + half, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec,
       { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true });
     whiteFlash(0.55);
@@ -1495,6 +1552,7 @@ export function createBoss(run) {
   function fireAligned2() {
     const ak = TF().aligned, a2 = TF().aligned2;
     const half = a2.sweepDeg * 0.5 * D2R;
+    clearLock();          // R43 二射目のロックも解いてから撃つ
     startBeam(alignAng - half, alignAng + half, a2.beamLength, a2.beamWidth, a2.damage, a2.activeSec,
       { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true });
     whiteFlash(0.35);
@@ -1580,7 +1638,13 @@ export function createBoss(run) {
   function fireChestLaser() {
     const ck = cfg.chestLaser;
     // R36W2 紫の2層ビーム（光線の色は紫・実プレイFB）＋専用発射音＋受けた実感（heavy）
-    startBeam(aim + ck.sweepFromDeg * D2R, aim + ck.sweepToDeg * D2R,
+    // R43 ロックした射線から片方向へ薙ぐ（じゃがんと同じ理由＝主人公を通過点にしない）
+    const a0 = lockAng != null ? lockAng : aim;
+    const span = (ck.sweepToDeg - ck.sweepFromDeg) * D2R;
+    const cFrom = ck.sweepOneWay ? a0 : a0 + ck.sweepFromDeg * D2R;
+    const cTo = ck.sweepOneWay ? a0 + lockDir * span : a0 + ck.sweepToDeg * D2R;
+    clearLock();
+    startBeam(cFrom, cTo,
       ck.beamLength, ck.beamWidth, ck.damage, ck.activeSec,
       { tint: ck.beamTint, core: '#f6eaff', spark: 0xb44dff, heavy: true });
     whiteFlash(0.49);
@@ -1692,10 +1756,18 @@ export function createBoss(run) {
   function fireLaser() {
     if (split) splitLaserDone = true;   // R37 「分かれたら撃ってくる」が今回も1回見えた
     const lk = cfg.laser;
-    startBeam(aim + lk.sweepFromDeg * D2R, aim + lk.sweepToDeg * D2R, lk.beamLength, lk.beamWidth,
+    // ★R43 ロックした射線から撃つ（発射時に主人公の正面へ引き直さない）。
+    //   薙ぎは片方向＝主人公を薙ぎの**始点**に置く。両側へ振ると主人公は必ず通過点になり、
+    //   薙ぎ120°/s ＞ 主人公148px/s のため構造的に回避不能だった。
+    const a0 = lockAng != null ? lockAng : aim;
+    const span = (lk.sweepToDeg - lk.sweepFromDeg) * D2R;
+    const from = lk.sweepOneWay ? a0 : a0 + lk.sweepFromDeg * D2R;
+    const to = lk.sweepOneWay ? a0 + lockDir * span : a0 + lk.sweepToDeg * D2R;
+    clearLock();
+    startBeam(from, to, lk.beamLength, lk.beamWidth,
       lk.damage, lk.activeSec,
       { tint: lk.beamTint, core: '#f2e2ff', spark: 0xc470ff, heavy: true });
-    whiteFlash(0.45); Sound.sfx('darkLaser'); recoil(aim);
+    whiteFlash(0.45); Sound.sfx('darkLaser'); recoil(a0);
     run.shake(420, 10);
     run.spawnParticles(boss.x, boss.y, 0xc470ff, 24);
     state = 'laserFire'; stateT = lk.activeSec;
@@ -3083,6 +3155,8 @@ export function createBoss(run) {
     destroyWeak();       // 弱点コアの表示を確実に破棄（リーク防止）
     if (trueCrack) { trueCrack.destroy(); trueCrack = null; }   // 転生カットシーンの亀裂
     clearShards();                                              // R43 粉砕の小片
+    if (lockGfx) { lockGfx.destroy(); lockGfx = null; }         // R43 射線プレビュー
+    lockAng = null;
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();
@@ -3262,6 +3336,14 @@ export function createBoss(run) {
           minD: a.minD == null ? null : Math.round(a.minD), whooshed: !!a.whooshed })) } : null;
     },
     get beamActive() { return !!beam; },
+    // R43 検証用：いま張られているビームの向きと太さ（射線から主人公が何px離れているかを外から測る）
+    debugBeam() {
+      if (!beam) return null;
+      const t = 1 - beam.life / beam.maxLife;
+      return { ang: beam.angFrom + (beam.angTo - beam.angFrom) * t,
+        from: beam.angFrom, to: beam.angTo, width: beam.width, len: beam.len };
+    },
+    get locked() { return lockAng != null; },
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
     practiceSpawn, practiceClear, practiceAwaken,
