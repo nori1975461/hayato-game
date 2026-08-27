@@ -2857,6 +2857,15 @@ export function createBoss(run) {
     spawnFight(t);
     return true;
   }
+  // ★R37 れんしゅうじょう用：軌道神核（第4形態）へ即ジャンプ。HPを0に落とすのではなく
+  //   本編と同じ startAwaken を呼ぶ＝転生カットシーン込みで「本編で見えるものだけ」を見せる。
+  //   分離/合体の途中からでもよい（startAwaken 側が旧体の片付けを持っている）。
+  function practiceAwaken() {
+    if (!boss || !cfg || !cfg.trueForm || trueForm || awakening) return false;
+    splitLaserDone = true;   // 名指しのジャンプはレーザー保証より優先（練習用の割り込み）
+    startAwaken();
+    return true;
+  }
   // 出し直し・コース切替のための片付け。ごほうびも撃破演出も出さずに消す。
   function practiceClear() {
     if (!boss) return;
@@ -2978,7 +2987,7 @@ export function createBoss(run) {
     get beamActive() { return !!beam; },
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
-    practiceSpawn, practiceClear,
+    practiceSpawn, practiceClear, practiceAwaken,
     // R30 検証用：分離／再合体の観測（本体は書き換えない）
     get split() { return split; },
     get phase3() { return phase3; },

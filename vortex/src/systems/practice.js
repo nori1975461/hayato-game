@@ -11,7 +11,7 @@
 //   ① いっき撃破の音  … 動かない敵の壁へ投げ込む。0キーで 標準/全開/ひかえめ/切 を聴き比べ
 //   ② むらさきの わ    … よろけ＋断末魔を1体だけ用意。「つかめる／つかめない」を頭上に常時表示
 //   ③ ボンバの どうかせん … ボンバだけを用意。溜めると手の中で爆発することを体で確かめる
-//   ④ マオウレクス     … 最終ボスだけを名指しで出す。Z/X で分離・再合体の節目へ即ジャンプ
+//   ④ マオウレクス     … 最終ボスだけを名指しで出す。Z/X で分離・再合体、V で軌道神核へ即ジャンプ
 import { BALANCE } from '../data/balance.js';
 import { ENEMIES } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
@@ -41,7 +41,7 @@ const COURSES = [
   // ★R30W2「マオウレクスとたたかうれんしゅうじょうをつくって」。
   //   弾（そうこうへん）は本編どおりボスの予告を突きで割って出す＝本番と同じ手順を練習する。
   { key: 'maou',  title: '④ マオウレクスと たたかう',
-    hint: 'B=BGMきりかえ／よこくを つきで わる → そうこうへん／Z=ぶんりつ X=がったい C=かいふく' },
+    hint: 'B=BGMきりかえ／よこくを つきで わる → そうこうへん／Z=ぶんりつ X=がったい V=しんかく C=かいふく' },
 ];
 
 export function createPractice(run) {
@@ -119,6 +119,9 @@ export function createPractice(run) {
   // ④の節目ジャンプ。HPを直接動かすだけ＝分離／再合体の判定は本編の update がやる。
   kb.on('keydown-Z', () => jumpHp(0.49));
   kb.on('keydown-X', () => jumpHp(0.32));
+  // ★R37 V＝軌道神核（第4形態）へ即ジャンプ。jumpHp はHPを1未満にしない設計（撃破演出の
+  //   誤発火防止）なので、転生だけは boss 側の専用口から本編と同じ startAwaken を呼ぶ。
+  kb.on('keydown-V', () => { if (wantBoss()) run.boss.practiceAwaken(); });
   kb.on('keydown-C', () => jumpHp(1));
   kb.on('keydown-B', () => cycleBgm());
   kb.on('keydown-N', () => setup());
