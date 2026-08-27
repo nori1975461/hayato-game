@@ -2121,8 +2121,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 }
 
-// ============ ★★ R41 オープニングが「今のゲームの予告編」であることを縛る ============
-// 実プレイFB「聖典からかなり設定や雰囲気を変えているので、オープニングを作り直して」。
+// ============ ★★ R41/R44 オープニングが「今のゲームの予告編」であることを縛る ============
+// R41: 実プレイFB「聖典からかなり設定や雰囲気を変えているので、オープニングを作り直して」。
+// R44: 実プレイFB「かわいさをださなくていい／主人公とモビット中心／モビットは刈られるだけの
+//      脆弱な存在ではなく、ヴォイド・マキナと死力を尽くして戦っている戦闘的な種族」。
 // ⚠️ オープニングは autotest で丸ごとスキップされる＝smoke-test も既存CDPも一度も通らない。
 //    設定のズレ（存在しない固有名・出てこない動詞・Titleとの座標違い）は**誰も踏まずに残る**。
 //    だから「データと一致しているか」をここで数として縛る。実演の実測は
@@ -2146,9 +2148,18 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     return line;
   }).join('\n');
 
-  // --- ① 存在しない固有名を名乗らない（旧版の「ヴォイド・マキナ」がまさにこれだった）---
-  assert(!/ヴォイド|マキナ/.test(op),
-    'R41: ゲーム内に存在しない固有名がオープニングに残っていない');
+  // --- ① 名乗る固有名が**実データ側に実在する**（R41 では逆向きのガードだった）---
+  // ★R41 で私は「ヴォイド・マキナ＝どのデータにも無い固有名」と判断して消し、禁止ガードまで
+  //   入れたが、これは誤りだった。enemies.js の冒頭に「異空間ロボット軍団ヴォイド・マキナ」として
+  //   雑魚の総称が定義されている。ユーザーの用法（金属生命体の種族名）が正しい。
+  //   よってガードの向きを反転する：「使うな」ではなく「**データと同じ語を使え**」。
+  {
+    const enemiesRaw = fs.readFileSync(path.join(SRC, 'data/enemies.js'), 'utf8');
+    assert(/ヴォイド・マキナ/.test(enemiesRaw),
+      'R44: 種族名「ヴォイド・マキナ」が enemies.js 側に実在する（オープニングの出典）');
+    assert(/ヴォイド・マキナ/.test(op),
+      'R44: オープニングが種族名「ヴォイド・マキナ」を名乗る（R41で誤って消した語の復活）');
+  }
   assert(/'マオウレクス'/.test(op) && MAOU.name === 'マオウレクス',
     'R41: 名乗るのは実際の最終ボス（enemies.js の MAOU.name と一致）');
 
@@ -2156,19 +2167,48 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   {
     const mobs = (/const MOB_KEYS = \[([\s\S]*?)\];/.exec(op) || [, ''])[1]
       .match(/'enemy_([a-z]+)'/g) || [];
-    assert(mobs.length >= 5, `R41: 幕2の軍団は5種以上（${mobs.length}）＝序盤の顔ぶれが見える`);
+    assert(mobs.length >= 5, `R41: 幕1の軍団は5種以上（${mobs.length}）＝序盤の顔ぶれが見える`);
     for (const m of mobs) {
       const id = m.replace(/'|enemy_/g, '');
       assert(ENEMIES.some((e) => e.id === id), `R41: 軍団の ${id} が ENEMIES に実在する`);
     }
-    const buds = (/const BUDDY_KEYS = \[([\s\S]*?)\];/.exec(op) || [, ''])[1]
-      .match(/'mon_([a-z]+)'/g) || [];
-    assert(buds.length >= 3, `R41: 相棒は3種以上（${buds.length}）＝「なかまたち」の話だと絵で分かる`);
-    for (const b of buds) {
-      const id = b.replace(/'|mon_/g, '');
-      assert(MONSTERS.some((m) => m.id === id), `R41: 相棒の ${id} が MONSTERS に実在する`);
+    // ★R44: 相棒は「顔ぶれの列」ではなく **通常形態と進化形態の対**。
+    //   進化を幕3の転換点そのものに使うので、片方でも欠けると演出が成立しない。
+    const line = (/const MOBIT_LINE = \[([\s\S]*?)\n\];/.exec(op) || [, ''])[1];
+    const pairs = [...line.matchAll(/base: 'mon_([a-z]+)', evo: 'mon_([a-z]+)'/g)];
+    assert(pairs.length >= 4,
+      `R44: モビットは4種以上が名前つきで戦う（${pairs.length}）＝主役の一角として画面に立つ`);
+    for (const [, baseId, evoId] of pairs) {
+      const def = MONSTERS.find((m) => m.id === baseId);
+      assert(!!def, `R44: モビット ${baseId} が MONSTERS に実在する`);
+      assert(!!def && !!def.evo && def.evo.id === evoId,
+        `R44: ${baseId} の進化先が ${evoId}（monsters.js の evo.id と一致）`);
     }
   }
+
+  // --- ②' ★R44 の核心：モビットが「刈られる側」ではなく戦っている ---
+  //     幕2で正面からぶつかり倒れ、幕3で立ち上がって**進化**し、攻める側へ反転する。
+  //     この5つのビートのどれが欠けても「かわいい相棒が助けられる話」に戻る。
+  for (const [fn, why] of [
+    ['beatMobitLine', '隊列を組んで前へ出る'],
+    ['beatClash', 'ヴォイド・マキナと正面からぶつかる'],
+    ['beatFall', '押し返されて倒れる（死力を尽くしている証拠）'],
+    ['beatRise', '倒れた1体が自力で立ち上がる（激しい気性）'],
+    ['beatAwaken', '進化して本来の姿になる（システムを物語の転換点に使う）'],
+    ['beatCharge', '一斉突撃＝攻める側へ反転する'],
+  ]) {
+    assert(new RegExp(`^\\s*${fn}\\(\\) \\{`, 'm').test(op), `R44: 幕「${why}」が実装されている（${fn}）`);
+  }
+  assert(/setTexture\(m\.def\.evo\)/.test(op),
+    'R44: 進化は本物のテクスチャ差し替え（形が変わったことが画面で分かる）');
+  assert(/const MOB_DARK = /.test(opRaw) && /setTint\(MOB_DARK\)/.test(op),
+    'R44: 抗戦中のモビットは色を殺した逆光のシルエット（かわいさを画面から外す）');
+  assert(/clearTint\(\)/.test(op),
+    'R44: 進化で色が戻る＝力が戻った合図（殺した色を取り戻す対比）');
+  assert(/'モビットは、たたかう。'/.test(op),
+    'R44: 宣言は1行だけ（説明せず事実を置く）');
+  assert(/^\s*beatSilence\(\) \{/m.test(op) && /silenceWash/.test(op),
+    'R44: 激発の前に完全静止＋無音の溜めがある（次の一歩を最大にする）');
 
   // --- ③ 看板の動詞（つかむ→ためる→なげる）を実演する ---
   //     ここが抜けると「別のゲームの予告編」に戻る。旧版はこれが1つも無かった。
@@ -2182,7 +2222,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R41: 投げた玉が軍団を薙ぎ、薙いだ数を数える（快感は振幅ではなく数）');
 
   // --- ④ 冒頭の命令とエンディングの回収が対になっている（物語の環）---
-  assert(/ひかりを けせ/.test(op), 'R41: 冒頭の命令は「ひかりを けせ」');
+  // R44 では命令を1語ずつ置いて1行に組み上げるので、語の集合として縛る。
+  {
+    const words = (/const words = \[([^\]]*)\]/.exec(op) || [, ''])[1];
+    const got = (words.match(/'([^']+)'/g) || []).map((s) => s.replace(/'/g, '')).join(' ');
+    assert(got === 'セカイから ひかりを けせ。',
+      `R41: 冒頭の命令は「セカイから ひかりを けせ。」（実際: ${got}）`);
+  }
   {
     const end = fs.readFileSync(path.join(SRC, 'scenes/Ending.js'), 'utf8');
     assert(/せかいに ひかりが もどった/.test(end),
@@ -2207,6 +2253,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(new RegExp(`this\\.add\\.text\\(cx, ${y},`).test(op),
         `R41: ロゴ/サブが Title と同じ y=${y} に結像する`);
     }
+    // ★R44: モビットは最後に消えず、Title の公転配置へ収まる＝主人公と並んで立ったまま終わる。
+    //   Title の update は _a=0 から始まるので、フレーム1は base 角そのもの。値がズレると
+    //   Opening→Title の切り替わりで相棒だけが跳ぶ（R41 で自機が跳ねていたのと同じ事故）。
+    const orb = (/const TITLE_ORBIT = \{([^}]*)\}/.exec(op) || [, ''])[1];
+    const num = (k) => { const m = new RegExp(`${k}: ([\\d.]+)`).exec(orb); return m && m[1]; };
+    const tOrbN = (/for \(let i = 0; i < (\d+); i\+\+\) \{[\s\S]*?mon_starpuppy/.exec(title) || [])[1];
+    const tRx = (/Math\.cos\(ang\) \* (\d+)/.exec(title) || [])[1];
+    const tRy = (/Math\.sin\(ang\) \* (\d+)/.exec(title) || [])[1];
+    const tScale = (/'mon_starpuppy'\)\.setScale\(([\d.]+)\)/.exec(title) || [])[1];
+    const tCy = (/'player_1'\)\.setScale\([\d.]+\)/.test(title) ? '236' : null);
+    for (const [k, want, got] of [['n', tOrbN, num('n')], ['rx', tRx, num('rx')],
+      ['ry', tRy, num('ry')], ['scale', tScale, num('scale')], ['cy', tCy, num('cy')]]) {
+      assert(!!want && want === got,
+        `R44: 収束のモビット公転 ${k} が Title と一致（Title ${want} / Opening ${got}）`);
+    }
   }
 
   // --- ⑦ 事故の再発防止（子ども安全と技術制約）---
@@ -2215,6 +2276,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     for (const a of flashes) {
       assert(a <= 0.45, `R41: 全画面の白は alpha ≤ 0.45（${a}）＝目に刺さる白飛ばしを作らない`);
     }
+    // R44: フラッシュ/ウォッシュはヘルパ経由になったので、**式の側**で上限を縛る
+    // （引数に何を渡しても 0.45 を超えられない＝呼び出し側を1つずつ数えなくてよい）。
+    assert(/Math\.min\(0\.45, alpha\)/.test(op) && /Math\.min\(0\.45, peak\)/.test(op),
+      'R44: 全画面フラッシュ/ウォッシュは実装側で alpha ≤ 0.45 にクランプされている');
     assert(!/Math\.random/.test(op), 'R41: Math.random を使わない（再現できない演出を作らない）');
     assert(!/^import Phaser/m.test(op), 'R41: Phaser は window 参照（import 禁止）');
     assert(/if \(V\.autotest\) \{ this\.scene\.start\('Title'\); return; \}/.test(op),

@@ -121,24 +121,36 @@ async function main() {
   console.log('③解錠(SPACE):       ' + (begun ? 'YES' : 'NO'));
 
   // 幕ごとにサンプル（押下からの相対ms）
+  // ★R44 の6幕に合わせて採り直す。見たいのは「モビットが戦っているか」＝
+  //   隊列が出る→倒れる→立ち上がる→進化する→攻める、が数として現れるか。
   const SAMPLES = [
-    [1100, '幕1 名乗り'],
-    [3000, '幕1 命令'],
-    [4200, '幕1 整列'],
-    [5200, '幕2 軍団'],
-    [6600, '幕3 予兆'],
-    [7700, '幕4 でも'],
-    [8300, '幕4 反転'],
-    [9000, '幕4 仲間'],
-    [9700, '動詞 つかむ'],
-    [10300, '動詞 ためる'],
-    [10900, '動詞 なげる'],
-    [12200, '幕5 収束'],
+    [1200, '幕1 軍団'],
+    [2000, '幕1 種族名'],
+    [2900, '幕1 王'],
+    [3900, '幕1 命令'],
+    [4900, '幕2 隊列'],
+    [5700, '幕2 激突'],
+    [6700, '幕2 倒れる'],
+    [7300, '幕3 無音'],
+    [8100, '幕3 起立'],
+    [8900, '幕3 進化'],
+    [9600, '幕3 宣言'],
+    [10200, '幕3 突撃'],
+    [10800, '幕4 主人公'],
+    [11300, '動詞 つかむ'],
+    [11800, '動詞 ためる'],
+    [12500, '動詞 なげる'],
+    [13500, '幕5 予兆'],
+    [14800, '幕6 収束'],
   ];
   let prev = 0;
   const seen = {};
+  // ⚠️ sleep と eval の往復でドリフトが積もるので、**実経過**も一緒に出す。
+  //    これが無いと「幕5のサンプルに幕6が写っている」を演出のバグと読み違える。
+  const t0 = Date.now();
   for (const [ms, label] of SAMPLES) {
     await sleep(ms - prev); prev = ms;
+    const real = Date.now() - t0;
     const t = await evalJs(TEXTS);
     const info = await evalJs(`(function(){
       var s = window.__vortexGame.scene.getScene('Opening');
@@ -146,16 +158,29 @@ async function main() {
       var imgs = s.children.list.filter(function(o){ return o.type === 'Image' && o.visible; });
       var keys = {};
       imgs.forEach(function(o){ var k = o.texture && o.texture.key; if (k) keys[k] = (keys[k]||0)+1; });
+      var mob = (s.mobits||[]);
       return { imgKinds: Object.keys(keys).length, kill: s._killCount || 0,
         robots: (s.robots||[]).filter(function(r){return r.alive;}).length,
-        buddies: (s.buddies||[]).length, core: !!s._coreActive };
+        mobits: mob.filter(function(m){return m.spr && m.spr.active;}).length,
+        down: mob.filter(function(m){return m.down;}).length,
+        evolved: mob.filter(function(m){return m.evolved;}).length,
+        hero: !!(s.hero && s.hero.active), core: !!s._coreActive };
     })()`);
-    if (info) { seen.kill = Math.max(seen.kill || 0, info.kill); seen.buddies = Math.max(seen.buddies || 0, info.buddies); }
-    console.log(`  ${String(ms).padStart(5)}ms ${label.padEnd(12)} 文字=${JSON.stringify(t)}`
-      + (info ? ` 画像種=${info.imgKinds} 生存=${info.robots} 相棒=${info.buddies} 予兆=${info.core} 薙いだ数=${info.kill}` : ''));
+    if (info) {
+      seen.kill = Math.max(seen.kill || 0, info.kill);
+      seen.down = Math.max(seen.down || 0, info.down);
+      seen.evolved = Math.max(seen.evolved || 0, info.evolved);
+      seen.core = seen.core || info.core;
+    }
+    console.log(`  実${String(real).padStart(5)}ms ${label.padEnd(11)} 文字=${JSON.stringify(t)}`
+      + (info ? ` 画像種=${info.imgKinds} 軍団=${info.robots} モビット=${info.mobits}`
+        + `(倒${info.down}/進${info.evolved}) 主人公=${info.hero ? 'Y' : 'N'}`
+        + ` 予兆=${info.core ? 'Y' : 'N'} 薙=${info.kill}` : ''));
   }
 
-  console.log('④ビリヤードで薙いだ数: ' + (seen.kill || 0) + '（0なら演出が死んでいる／5で満点）');
+  console.log('④モビットが倒れた数:   ' + (seen.down || 0) + '（0なら「戦って押された」が写っていない／3が設計値）');
+  console.log('④進化した数:          ' + (seen.evolved || 0) + '（5で満点＝全員が立ち上がった）');
+  console.log('④ビリヤードで薙いだ数: ' + (seen.kill || 0) + '（0なら演出が死んでいる）');
 
   // Title へ到達したか＋座標一致
   for (let i = 0; i < 40; i++) {
