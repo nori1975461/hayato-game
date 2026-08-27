@@ -1540,6 +1540,37 @@ const MELODY_MAOU = [
   [NOTE.G5, NOTE.F5, NOTE.Ds5, NOTE.D5, NOTE.C5, H, NOTE.D5, NOTE.F5], // 元調へ駆け下り、そのまま振り出しへ
 ];
 
+// ★R39 軌道神核だけの第2旋律「神核の主題」（オルガンの独立声部）。
+//   実プレイFB「オルガンをもう少し目立たせて」＋「軌道神核のBGM自体の個性を」。
+//   R38 までの maouTrue は**旋律も和音もマオウレクスと同一**で、違いはミックス（音量比）と
+//   イントロだけだった＝「個性」の材料が編曲にしか無かった。個性は旋律で出す（R35 の教訓：
+//   軸は旋律と音色）。ただし土台（和音・ベース・ドラム・ギターの主題）は全部残す＝
+//   「マオウレクスの流れを汲む」はこの土台が保証する。
+//   構造は4段の**対話**：
+//     段1: オルガン沈黙（ギターがマオウレクスの主題を名乗る＝同じ戦いの証を先に立てる）
+//     段2: 光の接近（全音符の上行。速い戦場の上を、テンポと無関係な歩幅でゆっくり歩く——
+//          「神は急がない」。周りが16分で疾走しているほど長い音は神々しく聞こえる）
+//     段3: 神核の主題（ここだけの旋律。ギターは伴奏へ退き、オルガンが主役に立つ）
+//     段4: 対位法の頂点（半音上がったギターの主題の上に、長い光の音が架かる）
+const MELODY_TRUE = [
+  [-1, -1, -1, -1, -1, -1, -1, -1],                              // 段1 沈黙
+  [-1, -1, -1, -1, -1, -1, -1, -1],
+  [-1, -1, -1, -1, -1, -1, -1, -1],
+  [-1, -1, -1, -1, -1, -1, -1, -1],
+  [NOTE.D5, H, H, H, H, H, H, H],                                // 段2 光の接近：D（Bb7の3度→Cm7の9度）
+  [NOTE.Ds5, H, H, H, H, H, H, H],                               // Eb へ半音（聖歌の係留）
+  [NOTE.C5, H, H, H, NOTE.D5, H, H, H],                          // 一度沈んでまた昇る
+  [NOTE.Ds5, H, H, H, NOTE.D5, H, H, H],                         // G7 の5度へ寄せて主題への扉を開く
+  [NOTE.G5, H, H, H, NOTE.A5, H, H, H],                          // 段3 神核の主題：ソ→ラ（昇る）
+  [NOTE.As5, H, H, H, NOTE.G5, H, H, H],                         // シ♭で頂点→ソへ置く
+  [NOTE.C6, H, H, H, NOTE.B5, H, H, H],                          // ド（Abの3度）→シ＝半音の解決（G7(onB)）
+  [NOTE.C6, H, H, H, NOTE.G5, H, NOTE.F5, H],                    // ドに着地して降り、G7の7度で次段へ
+  [NOTE.Gs5, H, H, H, H, H, H, H],                               // 段4 長い光：C#m の5度
+  [NOTE.B5, H, H, H, H, H, H, H],                                // G#m の3度（Eの5度と兼帯）
+  [NOTE.Cs6, H, H, H, NOTE.C6, H, H, H],                         // ★最高音 C#6 → 半音で滑り G#7 の3度へ
+  [NOTE.B5, H, NOTE.G5, H, -1, -1, -1, -1],                      // G7 の上で閉じ、末尾は休符＝フィルインに場所を譲る
+];
+
 // --- 曲3: リザルト result（Cメジャー・96BPM・4小節・C-G-Am-F・やさしいバラード）---
 const CHORDS_RESULT = [
   { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 }, // C
@@ -1606,8 +1637,14 @@ const SONGS = {
   //     **曲の0秒目で別の曲だと分かる**＝「はっきりわかる」の最短経路。
   //   ②本体は**主役交代**＝神々しさ声部（オルガン・聖歌隊・天使の声・鐘・ドローン・カリヨン）を
   //     約2倍へ、ギターの壁とリードを約3割下げる。ベースとドラムは据え置き＝「同じ戦い」の証。
-  maouTrue:  { bpm: 178, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
-               variant: 'true', introSec: 5.4, label: '④ きどうしんかく（かみ）' },
+  // ★R39 実プレイFB「オルガンをもう少し目立たせて」＋「軌道神核のBGM自体の個性をもっと。
+  //   マオウレクスの流れを汲みながら最終決戦だとはっきりわからせる曲に」。
+  //   R38 までの違いはミックス（音量比）とイントロだけ＝個性の材料が編曲にしか無かった。
+  //   今回は**旋律**で個性を出す：melody2（MELODY_TRUE＝神核の主題）をオルガンの独立声部として
+  //   重ね、段3ではギターが伴奏へ退いて主役交代が「曲の中で」起きる。和音・ベース・ドラム・
+  //   ギターの主題は全部残す＝「流れを汲む」はこの土台が保証する。
+  maouTrue:  { bpm: 178, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, melody2: MELODY_TRUE,
+               style: 'maou', variant: 'true', introSec: 5.4, label: '④ きどうしんかく（かみ）' },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
@@ -1845,6 +1882,10 @@ function playBgmStep(step) {
     //   ベースとドラムは据え置き＝疾走の背骨は同じ＝「同じ戦いの別の段」は保つ。
     const HOLY = V === 'true' ? 2.0 : 1;        // 神々しさ声部（オルガン/聖歌隊/鐘/ドローン/天使の声）
     const GDIM = V === 'true' ? 0.70 : 1;       // ギターの壁とリードを下げる係数
+    // ★R39 段3＝神核の主題（melody2）の間だけギターのリードが伴奏へ退く。
+    //   gain を半分以下にするのではなく 0.45＝「消える」のではなく「一歩下がる」。
+    //   主役交代が**曲の中で**起きること自体が軌道神核の個性（マオウレクスでは起きない）。
+    const LEAD_DUCK = V === 'true' ? [1, 1, 0.45, 1][sec] : 1;
 
     // ===== ① 低音：疾走の土台 =====
     {
@@ -1952,10 +1993,28 @@ function playBgmStep(step) {
       tone({ type: 'sine', freq: noteFreq(ch.bass) / 2, dur: stepSec * 15.4,
              gain: 0.12, dest: bgmGain, attack: 0.04 });
       // R38 軌道神核：オルガンの4フィート管（2オクターブ上の輝き）＝上に積むほど神々しい
+      // ★R39 「オルガンをもう少し目立たせて」：gain 0.022→0.032 に加えて、
+      //   2 2/3フィートのクイント管（×3＝12度上）を足す。整数倍でない响きの混ざった
+      //   ミクスチャーこそ「パイプオルガンの指紋」＝音量ではなく音色で目立たせる。
       if (V === 'true') {
         tone({ type: 'square', freq: noteFreq(ch.pad[0]) * 4, dur: stepSec * 14.5,
-               gain: 0.022, dest: bgmGain, attack: 0.12, verb: 0.45 });
+               gain: 0.032, dest: bgmGain, attack: 0.12, verb: 0.45 });
+        tone({ type: 'sine', freq: noteFreq(ch.pad[0]) * 3, dur: stepSec * 14.8,
+               gain: 0.026, dest: bgmGain, attack: 0.10, verb: 0.45 });
       }
+    }
+    // ★R39 オルガンの呼吸：小節の後半（和音が変わる瞬間）にもう一度弾き直す。
+    //   R38 までは小節頭の1回きり＝半小節ごとに動く和音（CHORDS_MAOU 32要素）に
+    //   オルガンだけ付いて行けず、長いパッドが濁っていた。2回吸って吐く＝存在感は
+    //   gain ではなく**動き**で出す（この ch は inBar>=8 で後半の和音に切り替わっている）。
+    if (V === 'true' && inBar === 8) {
+      ch.pad.forEach((n, i) => {
+        tone({ type: 'sawtooth', freq: noteFreq(n), dur: stepSec * 7.4,
+               gain: (0.040 - i * 0.007) * (1 + lift * 0.6) * HOLY, dest: bgmGain,
+               attack: 0.05, verb: 0.40 });
+      });
+      tone({ type: 'square', freq: noteFreq(ch.pad[0]) * 4, dur: stepSec * 7.2,
+             gain: 0.024, dest: bgmGain, attack: 0.08, verb: 0.45 });
     }
 
     // ===== ⑤ 荘厳：聖歌隊（第3段から。orch は第2段から厚く） =====
@@ -1990,7 +2049,7 @@ function playBgmStep(step) {
         }
         const len = stepSec * 2 * hold;          // 1枡＝8分音符＝2ステップ
         const mf = noteFreq(m);
-        const g = 0.105 * (1 + lift);
+        const g = 0.105 * (1 + lift) * LEAD_DUCK;   // R39 神核の主題の段はギターが一歩下がる
         if (GT) {
           // 歪みギターのリード。デチューン3枚を**同じシェイパーへ**送るので、
           // 足し算ではなく互いに潰し合って本当のひずみになる。
@@ -2030,6 +2089,36 @@ function playBgmStep(step) {
           tone({ type: 'square', freq: mf * 2, dur: len * 0.6, gain: g * 0.20,
                  dest: bgmGain, attack: 0.004, verb: 0.26 });
         }
+      }
+    }
+
+    // ===== ⑥b ★R39 神核の主題：オルガンの独立声部（melody2・軌道神核だけ） =====
+    // ギターの主題（⑥）とは別の旋律を、本物のオルガンのレジストレーションで鳴らす：
+    //   プリンシパル 8'＋4'＋2 2/3'＋2'。×3（クイント）が入ると耳は即座に
+    //   「パイプオルガン」と認識する（整数オクターブだけだと太いシンセにしか聞こえない）。
+    //   attack 0.05〜0.08＝オルガンの「発語」。ギターの 0.008 と立ち上がりが違うから、
+    //   同じ帯域でも混ざらずに聞き分けられる。
+    if (V === 'true' && song.melody2 && inBar % 2 === 0) {
+      const j2 = inBar / 2;
+      const m2 = song.melody2[bar][j2];
+      if (m2 !== undefined && m2 !== -1 && m2 !== -99) {
+        let hold2 = 1, bi2 = bar, jj2 = j2 + 1;
+        while (hold2 < 10) {
+          if (jj2 >= 8) { jj2 = 0; bi2++; if (bi2 >= song.bars) break; }
+          if (song.melody2[bi2][jj2] !== -99) break;
+          hold2++; jj2++;
+        }
+        const len2 = stepSec * 2 * hold2;
+        const mf2 = noteFreq(m2);
+        const og = 0.088 * (1 + lift * 0.5);
+        tone({ type: 'sawtooth', freq: mf2, dur: len2 * 0.97, gain: og,
+               dest: bgmGain, attack: 0.05, verb: 0.50 });
+        tone({ type: 'square', freq: mf2 * 2, dur: len2 * 0.94, gain: og * 0.48,
+               dest: bgmGain, attack: 0.06, verb: 0.45 });
+        tone({ type: 'sine', freq: mf2 * 3, dur: len2 * 0.90, gain: og * 0.36,
+               dest: bgmGain, attack: 0.07, verb: 0.45 });
+        tone({ type: 'square', freq: mf2 * 4, dur: len2 * 0.85, gain: og * 0.26,
+               dest: bgmGain, attack: 0.08, verb: 0.50 });
       }
     }
 
