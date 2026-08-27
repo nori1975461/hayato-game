@@ -40,8 +40,6 @@ const CRIMSON = 0xe03028, CRIMSON_S = '#e03028';   // マオウレクスの色�
 const STEEL_S = '#e8ecf2';
 const CYAN = 0x36e0ff, CYAN_S = '#36e0ff';
 const YELLOW = 0xffe066, YELLOW_S = '#ffe066';
-const PINK = 0xff6ec7, PINK_S = '#ff6ec7';
-const MINT_S = '#7fffcf';
 const GOLD = 0xffd23f;                              // 軌道神核の光（trueForm.glowInner 系）
 const STEEL_TINT = 0x39424d;                        // ヴォイド・マキナ＝鋼のシルエット
 const MOB_DARK = 0x2b3138;                          // 抗戦中のモビット＝逆光の影（可愛さを外す）
@@ -64,8 +62,11 @@ const MOBIT_LINE = [
   { base: 'mon_samet', evo: 'mon_megasamet' },
   { base: 'mon_neonworm', evo: 'mon_neonmoth' },
 ];
-// Title の最終フレームと一致させるための公転パラメータ（Title.js: 5体・rx46・ry26・cy236・scale1.6）
-const TITLE_ORBIT = { n: 5, rx: 46, ry: 26, cy: 236, scale: 1.6 };
+// Title の最終フレームと一致させるための隊列パラメータ。
+// ★R44W2 で Title の公転（連れて回るマスコットの絵）を隊列へ変えたので、こちらも合わせる。
+//   ここがズレると Opening→Title の切り替わりで相棒だけが跳ぶ（R41 で自機が跳ねていた事故と同じ）。
+const TITLE_SQUAD = { keys: ['mon_togeron', 'mon_starpuppy', 'mon_pikabit', 'mon_samet'],
+  xs: [-122, -64, 64, 122], y: 248, scale: 2.0 };
 
 export class OpeningScene extends Phaser.Scene {
   constructor() {
@@ -278,8 +279,15 @@ export class OpeningScene extends Phaser.Scene {
   // 命令。エンディング「せかいに ひかりが もどった」と対になる一文（物語の環）。
   beatCommand() {
     const cx = this.W / 2;
-    const words = ['セカイから', 'ひかりを', 'けせ。'];
-    const xs = [cx - 148, cx + 8, cx + 126];
+    // ★R44W2「言葉の末尾の。ははずして。表記上おかしい」＝このゲームの表記は
+    //   ひらがな＋分かち書きで句点を使わない。命令も宣言も句点なしで置く。
+    const words = ['セカイから', 'ひかりを', 'けせ'];
+    // 語の幅から並びを組む（句点を外して最後の語が2文字になったので、固定座標だと右へ寄る）。
+    const CH = 14.4, GAP = 26;             // monospace 24px の1文字送りの近似
+    const ws = words.map((s) => s.length * CH);
+    const total = ws.reduce((a, b) => a + b, 0) + GAP * (words.length - 1);
+    let acc = cx - total / 2;
+    const xs = ws.map((w) => { const c = acc + w / 2; acc += w + GAP; return c; });
     this.cmdTexts = [];
     words.forEach((w, i) => {
       this.seq(i * 300, () => {
@@ -438,7 +446,7 @@ export class OpeningScene extends Phaser.Scene {
   // 宣言は1行だけ。説明せず、事実だけを置く。
   beatDeclare() {
     this.sfx('special', 0.7);
-    const t = this.reg(this.add.text(this.W / 2, 118, 'モビットは、たたかう。', {
+    const t = this.reg(this.add.text(this.W / 2, 118, 'モビットは、たたかう', {
       fontFamily: 'monospace', fontSize: '26px', color: EMBER_S, fontStyle: 'bold',
       stroke: '#2a1200', strokeThickness: 6,
     }).setOrigin(0.5).setAlpha(0).setScale(1.25).setDepth(D_TEXT));
@@ -536,7 +544,7 @@ export class OpeningScene extends Phaser.Scene {
   // 同じ瞬間にモビットも討つ＝主人公だけの手柄にしない、共闘の1カット。
   verbThrow() {
     this.sfx('throwHeavy', 1.0);
-    this.verbStamp('なげる！', this.heroX + 62, 174, PINK_S);
+    this.verbStamp('なげる！', this.heroX + 62, 174, EMBER_S);
     if (!this.prey || !this.prey.spr.active) return;
     const ball = this.prey.spr;
     const startX = ball.x, endX = 640, travel = 720;
@@ -589,10 +597,10 @@ export class OpeningScene extends Phaser.Scene {
     this.sfx(n >= 4 ? 'crushBoom' : 'crush', 1, 1 + n * 0.08);
     const x = r.spr.x, y = r.spr.y;
     this.burst(x, y, YELLOW, 9, D_TEXT - 1);
-    this.burst(x, y, PINK, 6, D_TEXT - 1);
+    this.burst(x, y, EMBER, 6, D_TEXT - 1);
     const cnt = this.reg(this.add.text(x, y - 16, String(n), {
       fontFamily: 'monospace', fontSize: (16 + n * 4) + 'px', color: YELLOW_S,
-      fontStyle: 'bold', stroke: PINK_S, strokeThickness: 4,
+      fontStyle: 'bold', stroke: '#3a2000', strokeThickness: 4,
     }).setOrigin(0.5).setDepth(D_TEXT + 1));
     this.tweens.add({ targets: cnt, y: y - 42 - n * 3, alpha: 0, duration: 620,
       ease: 'Cubic.out', onComplete: () => cnt.active && cnt.destroy() });
@@ -681,19 +689,25 @@ export class OpeningScene extends Phaser.Scene {
     this.reg(this.add.tileSprite(cx, this.H / 2, this.W, this.H, 'stars1').setAlpha(0.7).setDepth(D_STARS));
 
     this.ripple(cx, 112, YELLOW, D_TEXT - 2);
-    this.ripple(cx, 180, PINK, D_TEXT - 2);
+    this.ripple(cx, 180, EMBER, D_TEXT - 2);
 
-    // ロゴ結像（Title と完全一致: 320,112 / 34px / #ffe066 / stroke #ff6ec7 太さ6）
-    const logo = this.reg(this.add.text(cx, 112, 'クルット・モビット', {
-      fontFamily: 'monospace', fontSize: '34px', color: YELLOW_S,
-      fontStyle: 'bold', stroke: PINK_S, strokeThickness: 6,
+    // ロゴ結像（Title と完全一致: 320,112 / 34px / 金 #ffd76a ＋ 熾火の halo ＋ 焦げの芯）
+    // ★R44W2 でピンクの縁取りをやめた。飴玉の記号ではなく**打ち出した金属**にする。
+    const LOGO = 'クルット・モビット';
+    const logoHalo = this.reg(this.add.text(cx, 112, LOGO, {
+      fontFamily: 'monospace', fontSize: '34px', color: '#ff7a2a',
+      fontStyle: 'bold', stroke: '#ff7a2a', strokeThickness: 11,
+    }).setOrigin(0.5).setScale(0).setAlpha(0.55).setDepth(D_TEXT - 1));
+    const logo = this.reg(this.add.text(cx, 112, LOGO, {
+      fontFamily: 'monospace', fontSize: '34px', color: '#ffd76a',
+      fontStyle: 'bold', stroke: '#2a1408', strokeThickness: 5,
     }).setOrigin(0.5).setScale(0).setDepth(D_TEXT));
-    this.tweens.add({ targets: logo, scale: 1, duration: 420, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: [logo, logoHalo], scale: 1, duration: 420, ease: 'Back.easeOut' });
     this.burst(cx, 112, YELLOW, 12, D_TEXT + 1);
 
-    // サブタイトル（Title 一致: 320,156 / 16px / #7fffcf）
-    const sub = this.reg(this.add.text(cx, 156, '〜 KURUTTO MOBIT 〜', {
-      fontFamily: 'monospace', fontSize: '16px', color: MINT_S,
+    // サブタイトル（Title 一致: 320,156 / 16px / #ffcf9a）。ローマ字ではなく看板の動詞。
+    const sub = this.reg(this.add.text(cx, 156, 'つかんで ためて なげかえせ', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ffcf9a',
     }).setOrigin(0.5).setAlpha(0).setDepth(D_TEXT));
     this.tweens.add({ targets: sub, alpha: 1, duration: 300, delay: 200 });
 
@@ -706,9 +720,9 @@ export class OpeningScene extends Phaser.Scene {
       this.tweens.add({ targets: hg, alpha: 0, duration: 300, onComplete: () => hg.active && hg.destroy() });
     }
 
-    // ★モビットは Title の公転配置（5体・rx46・ry26・cy236・scale1.6）へ収まる。
-    //   Title の update は _a=0 から始まるので、フレーム1は base 角そのもの＝ここと一致する。
-    //   「主人公とモビットが最後まで並んで立っている」を最終フレームで見せる。
+    // ★モビットは Title の隊列（左右2体ずつ・y248・scale2.0）へ収まる。
+    //   Title の呼吸は _a=0 から始まる＝フレーム1は基準位置そのものなので、ここと一致する。
+    //   「主人公とモビットが最後まで**並んで立っている**」を最終フレームで見せる。
     this._mobitsIdle = false;
     this.mobits.forEach((m, i) => {
       if (!m.spr.active) return;
@@ -716,12 +730,17 @@ export class OpeningScene extends Phaser.Scene {
         const e = m.eye;
         this.tweens.add({ targets: e, alpha: 0, duration: 260, onComplete: () => e.active && e.destroy() });
       }
-      const base = (i / TITLE_ORBIT.n) * Math.PI * 2;
-      const x = cx + Math.cos(base) * TITLE_ORBIT.rx;
-      const y = TITLE_ORBIT.cy + Math.sin(base) * TITLE_ORBIT.ry;
-      m.spr.setDepth(D_HERO + 1);
-      this.tweens.add({ targets: m.spr, x, y, scale: TITLE_ORBIT.scale, angle: 0,
-        duration: 420, ease: 'Cubic.out' });
+      if (i >= TITLE_SQUAD.keys.length) {    // 隊列は4体。5体目は光に還す
+        const s = m.spr;
+        this.tweens.add({ targets: s, alpha: 0, duration: 320,
+          onComplete: () => s.active && s.destroy() });
+        return;
+      }
+      // ロゴの閃光の下で通常形態へ戻す。進化は幕3で役目を終えており、Title は
+      // 「これから連れていく仲間」の顔ぶれを見せる場所なので、始まりの姿で並ばせる。
+      m.spr.setTexture(TITLE_SQUAD.keys[i]).setDepth(D_HERO + 1);
+      this.tweens.add({ targets: m.spr, x: cx + TITLE_SQUAD.xs[i], y: TITLE_SQUAD.y,
+        scale: TITLE_SQUAD.scale, angle: 0, duration: 420, ease: 'Cubic.out' });
     });
 
     // ★Title 一致: プロンプトは y=306

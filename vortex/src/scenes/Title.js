@@ -20,27 +20,43 @@ export class TitleScene extends Phaser.Scene {
     bg.setAlpha(0.7);
     this.bg = bg;
 
-    // ロゴ
-    const logo = this.add.text(W / 2, 112, 'クルット・モビット', {
-      fontFamily: 'monospace', fontSize: '34px', color: '#ffe066',
-      fontStyle: 'bold', stroke: '#ff6ec7', strokeThickness: 6,
+    // ロゴ。★R44W2 実プレイFB「クルット・モビットの文字の色がピンク色がいまいち」。
+    //   ピンクの縁取りは飴玉の記号＝同じFBで否定された「かわいさ」そのものだった。
+    //   金属生命体と戦う話に合わせて **打ち出した金属**にする：熾火（ember）の外縁と
+    //   焦げた芯の二重の縁取り。Text の stroke は1本しか持てないので2枚重ねで作る。
+    const LOGO = 'クルット・モビット';
+    const logoHalo = this.add.text(W / 2, 112, LOGO, {
+      fontFamily: 'monospace', fontSize: '34px', color: '#ff7a2a',
+      fontStyle: 'bold', stroke: '#ff7a2a', strokeThickness: 11,
+    }).setOrigin(0.5).setAlpha(0.55);
+    const logo = this.add.text(W / 2, 112, LOGO, {
+      fontFamily: 'monospace', fontSize: '34px', color: '#ffd76a',
+      fontStyle: 'bold', stroke: '#2a1408', strokeThickness: 5,
     }).setOrigin(0.5);
-    this.tweens.add({ targets: logo, scale: 1.06, duration: 900,
+    this.tweens.add({ targets: [logo, logoHalo], scale: 1.06, duration: 900,
       yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(W / 2, 156, '〜 KURUTTO MOBIT 〜', {
-      fontFamily: 'monospace', fontSize: '16px', color: '#7fffcf',
+    // ★R44W2「〜 KURUTTO MOBIT 〜 も現在の世界観にあわない」。ローマ字の副題は
+    //   遊びの中身を何も言っていなかった。看板の動詞をそのまま副題にする＝
+    //   タイトルを見ただけで「何をするゲームか」が分かる。
+    this.add.text(W / 2, 156, 'つかんで ためて なげかえせ', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ffcf9a',
     }).setOrigin(0.5);
 
-    // デモ的に自機とグローを回す。シーン再入のたびに配列を作り直す
-    // （破棄済み GameObject 参照の蓄積を防ぐ）。
+    // ★R44W2「主人公の周囲をモビット達がまわっているのもいまいち」。
+    //   公転は「連れて回っているマスコット」の絵で、オープニングで打ち出した
+    //   「並んで戦う種族」と食い違っていた。→ **隊列**へ。主人公を中心に左右へ2体ずつ、
+    //   同じ地面に立って正面を向く。動きは呼吸だけ（振幅2px・位相をずらす）。
     const demo = this.add.image(W / 2, 236, 'player_1').setScale(3.2);
-    this.orbit = [];
-    for (let i = 0; i < 5; i++) {
-      const g = this.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD)
-        .setScale(1.4).setTint(0x7fd8ff);
-      const orb = this.add.image(0, 0, 'mon_starpuppy').setScale(1.6);
-      this.orbit.push({ g, orb, base: (i / 5) * Math.PI * 2, cx: W / 2, cy: 236 });
+    this.squad = [];
+    const SQUAD = ['mon_togeron', 'mon_starpuppy', 'mon_pikabit', 'mon_samet'];
+    const SQUAD_X = [-122, -64, 64, 122];
+    for (let i = 0; i < SQUAD.length; i++) {
+      const x = W / 2 + SQUAD_X[i];
+      const g = this.add.image(x, 250, 'glow').setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(1.1).setAlpha(0.45).setTint(0xffb27a);
+      const spr = this.add.image(x, 248, SQUAD[i]).setScale(2.0);
+      this.squad.push({ g, spr, x, y: 248, phase: i * 1.3 });
     }
 
     this.add.text(W / 2, 336, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
@@ -87,13 +103,12 @@ export class TitleScene extends Phaser.Scene {
     if (this.bg) this.bg.tilePositionX += delta * 0.004;
     const dt = delta / 1000;
     this._a = (this._a || 0) + dt;
-    if (this.orbit) {
-      for (const o of this.orbit) {
-        const ang = o.base + this._a * 1.6;
-        const x = o.cx + Math.cos(ang) * 46;
-        const y = o.cy + Math.sin(ang) * 26;
-        o.orb.setPosition(x, y);
-        o.g.setPosition(x, y);
+    // 隊列の呼吸。位相をずらすので「そろって上下する人形」にはならない。
+    if (this.squad) {
+      for (const s of this.squad) {
+        const b = Math.sin(this._a * 2.4 + s.phase) * 2;
+        s.spr.setPosition(s.x, s.y + b);
+        s.g.setPosition(s.x, s.y + 2 + b);
       }
     }
   }

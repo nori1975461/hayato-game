@@ -2205,7 +2205,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R44: 抗戦中のモビットは色を殺した逆光のシルエット（かわいさを画面から外す）');
   assert(/clearTint\(\)/.test(op),
     'R44: 進化で色が戻る＝力が戻った合図（殺した色を取り戻す対比）');
-  assert(/'モビットは、たたかう。'/.test(op),
+  assert(/'モビットは、たたかう'/.test(op),
     'R44: 宣言は1行だけ（説明せず事実を置く）');
   assert(/^\s*beatSilence\(\) \{/m.test(op) && /silenceWash/.test(op),
     'R44: 激発の前に完全静止＋無音の溜めがある（次の一歩を最大にする）');
@@ -2226,8 +2226,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   {
     const words = (/const words = \[([^\]]*)\]/.exec(op) || [, ''])[1];
     const got = (words.match(/'([^']+)'/g) || []).map((s) => s.replace(/'/g, '')).join(' ');
-    assert(got === 'セカイから ひかりを けせ。',
-      `R41: 冒頭の命令は「セカイから ひかりを けせ。」（実際: ${got}）`);
+    assert(got === 'セカイから ひかりを けせ',
+      `R41: 冒頭の命令は「セカイから ひかりを けせ」（実際: ${got}）`);
   }
   {
     const end = fs.readFileSync(path.join(SRC, 'scenes/Ending.js'), 'utf8');
@@ -2253,20 +2253,55 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(new RegExp(`this\\.add\\.text\\(cx, ${y},`).test(op),
         `R41: ロゴ/サブが Title と同じ y=${y} に結像する`);
     }
-    // ★R44: モビットは最後に消えず、Title の公転配置へ収まる＝主人公と並んで立ったまま終わる。
-    //   Title の update は _a=0 から始まるので、フレーム1は base 角そのもの。値がズレると
+    // ★R44W2: モビットは最後に消えず、Title の**隊列**へ収まる＝主人公と並んで立ったまま終わる。
+    //   （R44 は公転で一致させていたが、実プレイFB「主人公の周囲をモビット達がまわっているのも
+    //     いまいち」で Title を隊列へ変えたので、こちらも隊列で照合する。）
+    //   Title の呼吸は _a=0 から始まる＝フレーム1は基準位置そのもの。値がズレると
     //   Opening→Title の切り替わりで相棒だけが跳ぶ（R41 で自機が跳ねていたのと同じ事故）。
-    const orb = (/const TITLE_ORBIT = \{([^}]*)\}/.exec(op) || [, ''])[1];
-    const num = (k) => { const m = new RegExp(`${k}: ([\\d.]+)`).exec(orb); return m && m[1]; };
-    const tOrbN = (/for \(let i = 0; i < (\d+); i\+\+\) \{[\s\S]*?mon_starpuppy/.exec(title) || [])[1];
-    const tRx = (/Math\.cos\(ang\) \* (\d+)/.exec(title) || [])[1];
-    const tRy = (/Math\.sin\(ang\) \* (\d+)/.exec(title) || [])[1];
-    const tScale = (/'mon_starpuppy'\)\.setScale\(([\d.]+)\)/.exec(title) || [])[1];
-    const tCy = (/'player_1'\)\.setScale\([\d.]+\)/.test(title) ? '236' : null);
-    for (const [k, want, got] of [['n', tOrbN, num('n')], ['rx', tRx, num('rx')],
-      ['ry', tRy, num('ry')], ['scale', tScale, num('scale')], ['cy', tCy, num('cy')]]) {
-      assert(!!want && want === got,
-        `R44: 収束のモビット公転 ${k} が Title と一致（Title ${want} / Opening ${got}）`);
+    const sq = (/const TITLE_SQUAD = \{([\s\S]*?)\};/.exec(op) || [, ''])[1];
+    const oKeys = (sq.match(/'mon_[a-z]+'/g) || []).join(',');
+    const oXs = ((/xs: \[([^\]]*)\]/.exec(sq) || [, ''])[1]).replace(/\s/g, '');
+    const oY = (/y: (\d+)/.exec(sq) || [])[1];
+    const oScale = (/scale: ([\d.]+)/.exec(sq) || [])[1];
+    const tSq = (/const SQUAD = \[([^\]]*)\]/.exec(title) || [, ''])[1];
+    const tKeys = (tSq.match(/'mon_[a-z]+'/g) || []).join(',');
+    const tXs = ((/const SQUAD_X = \[([^\]]*)\]/.exec(title) || [, ''])[1]).replace(/\s/g, '');
+    const tY = (/this\.add\.image\(x, (\d+), SQUAD\[i\]\)/.exec(title) || [])[1];
+    const tScale = (/this\.add\.image\(x, \d+, SQUAD\[i\]\)\.setScale\(([\d.]+)\)/.exec(title) || [])[1];
+    assert(!!tKeys && tKeys === oKeys,
+      `R44W2: 隊列の顔ぶれが Title と一致（Title ${tKeys} / Opening ${oKeys}）`);
+    assert(!!tXs && tXs === oXs, `R44W2: 隊列のx配置が Title と一致（Title ${tXs} / Opening ${oXs}）`);
+    assert(!!tY && tY === oY, `R44W2: 隊列のyが Title と一致（Title ${tY} / Opening ${oY}）`);
+    assert(!!tScale && tScale === oScale,
+      `R44W2: 隊列のスケールが Title と一致（Title ${tScale} / Opening ${oScale}）`);
+    assert(!/Math\.cos\(ang\) \* \d+/.test(title),
+      'R44W2: Title の公転（連れて回るマスコットの絵）が残っていない');
+  }
+
+  // --- ⑥' ★R44W2 表記と配色（実プレイFBで名指しされた3点）---
+  {
+    // 「言葉の末尾の。ははずして。表記上おかしい」＝このゲームの表記はひらがな＋分かち書きで
+    // 句点を使わない。**画面に出る文字列**から句点を消す（コメントの句点は対象外）。
+    for (const [rel, src] of [['scenes/Opening.js', opRaw], ['scenes/Title.js', title],
+      ['systems/practice.js', fs.readFileSync(path.join(SRC, 'systems/practice.js'), 'utf8')]]) {
+      const strs = src.match(/'[^'\n]*'/g) || [];
+      const bad = strs.filter((s) => /。/.test(s) && /[ぁ-んァ-ヶ一-龠]/.test(s));
+      assert(bad.length === 0, `R44W2: ${rel} の画面文字列に句点が無い（残: ${bad.join(' / ')}）`);
+    }
+    // 「クルット・モビットの文字の色がピンク色がいまいち」＝飴玉の記号をやめる。
+    for (const [rel, src] of [['Title.js', title], ['Opening.js', op]]) {
+      const logoBlock = (new RegExp("LOGO = 'クルット・モビット'[\\s\\S]{0,700}").exec(src) || [''])[0];
+      assert(!/#ff6ec7/i.test(logoBlock), `R44W2: ${rel} のロゴにピンクの縁取りが残っていない`);
+      assert(/#ffd76a/i.test(logoBlock) && /#ff7a2a/i.test(logoBlock),
+        `R44W2: ${rel} のロゴは金＋熾火の二重の縁取り（打ち出した金属）`);
+    }
+    // 「〜 KURUTTO MOBIT 〜 も現在の世界観にあわない」＝ローマ字副題を捨て、看板の動詞にする。
+    for (const [rel, src] of [['Title.js', title], ['Opening.js', op]]) {
+      // 画面に出る文字列だけを見る（作り直しの経緯を説明するコメントは残してよい）
+      assert(!(src.match(/'[^'\n]*'/g) || []).some((s) => /KURUTTO/.test(s)),
+        `R44W2: ${rel} からローマ字副題が消えている`);
+      assert(/'つかんで ためて なげかえせ'/.test(src),
+        `R44W2: ${rel} の副題は看板の動詞（何をするゲームか一目で分かる）`);
     }
   }
 
@@ -2470,6 +2505,48 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const wk = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').wirearm;
     assert(wk.backSec >= last,
       `R44: 巻き戻りの尺(${wk.backSec}秒) ≧ 音の最後の要素(${last}秒)＝拳が収まった後に音だけ残らない`);
+  }
+}
+
+// ============ ★ R44W2 ボスの方向指示（退避したときに見失わないための矢印）============
+// 実プレイFB「ボスとの戦闘中に退避行動をとりたい。その際にボスがどこにいるか矢印でしめして」。
+// 下がること自体は元からできた（主人公 speed 148 ＞ ボスの chaseSpeed 60〜110）。
+// 足りなかったのは**下がった先で相手を読む手段**。カメラは主人公を追うので、離れるとボスは
+// 画面外へ消え、戻る方向も、弾がどこから来るかも分からなくなっていた。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const hud = fs.readFileSync(path.join(SRC, 'ui/hud.js'), 'utf8');
+
+  assert(/function drawBossArrow\(/.test(hud) && /drawBossArrow\(ent\)/.test(hud),
+    'R44W2: ボスの方向指示が実装され、ボス出現中に毎フレーム描かれる');
+  assert(/setScrollFactor\(0\)/.test(hud) && /cam\.scrollX/.test(hud) && /cam\.scrollY/.test(hud),
+    'R44W2: 矢印はHUD座標（scrollFactor 0）で、ボスのワールド座標をカメラ差で画面座標へ直す');
+  // 画面内にいるときは出さない（常時出ていると「見失う」以前に画面が汚れる）
+  assert(/if \(sx >= MX && sx <= VW - MX && sy >= MT && sy <= VH - MB\) return;/.test(hud),
+    'R44W2: ボスが画面内にいるときは矢印を出さない');
+  // HUDの帯（ボスHPバーは y44〜52）と重ならない内側に置く
+  {
+    const mt = +(/const MX = \d+, MT = (\d+), MB = \d+;/.exec(hud) || [])[1];
+    assert(mt >= 54, `R44W2: 矢印の上端(${mt})はボスHPバー(y44〜52)より下＝ゲージと重ならない`);
+  }
+  // ★見えない場所から撃たれるのを理不尽にしないための警告。予告中は矢印が変わる。
+  assert(/run\.boss && run\.boss\.telegraphing/.test(hud),
+    'R44W2: 画面外で予告が始まったら矢印が警告に変わる（見えない一撃を理不尽にしない）');
+  assert(/'ボス くる！'/.test(hud), 'R44W2: 予告中は矢印に「くる！」を添える（記号だけに頼らない）');
+  assert(/Math\.floor\(run\.elapsed \* 8\) % 2 === 0/.test(hud),
+    'R44W2: 点滅は elapsed 基準＝決定的（フレーム落ちで消えたままにならない）');
+  // 0除算ガード（真上／真横にいるとき cos or sin が 0 になる）
+  assert(/Math\.abs\(ca\) < 1e-4 \? Infinity/.test(hud) && /Math\.abs\(sa\) < 1e-4 \? Infinity/.test(hud),
+    'R44W2: 真上／真横にボスが居るときの0除算を避けている');
+  // 退避が成立する速度差（ここが逆転すると「逃げられない」に戻る）
+  {
+    const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+    const speeds = [...JSON.stringify(BALANCE.boss.tiers).matchAll(/"chaseSpeed":(\d+)/g)]
+      .map((m) => +m[1]);
+    const fastest = Math.max(...speeds);
+    assert(!!maou && speeds.length >= 5, 'R44W2: ボスの追跡速度を読める');
+    assert(BALANCE.player.speed > fastest,
+      `R44W2: 主人公(${BALANCE.player.speed}) は最速のボス(${fastest})より速い＝退避が成立する`);
   }
 }
 
