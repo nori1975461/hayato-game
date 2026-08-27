@@ -1457,8 +1457,14 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(starts.some((v) => v >= 0.012 && v <= 0.03),
       'R35: 低域の塊が12〜30ms 遅れて入る（二段構え＝重さは「2つの音の間」が作る）');
     // 非整数倍音＝金属を叩いた音。整数倍だと「楽器」に聞こえてしまう
-    assert(/1187/.test(hit) && /2322/.test(hit),
-      'R35: 金属の非整数倍音（1 : 2.76 : 5.40）がある');
+    // R42: 具体値（旧430系→現520系）ではなく**比率**で縛る＝基音Fと F×2.76・F×5.40 が共存すること
+    {
+      const fset = [...hit.matchAll(/freq: (\d+),/g)].map((m) => +m[1]);
+      const hasRatio = fset.some((f) =>
+        fset.some((a) => Math.abs(a / f - 2.76) < 0.02) &&
+        fset.some((b) => Math.abs(b / f - 5.40) < 0.02));
+      assert(hasRatio, 'R35: 金属の非整数倍音（1 : 2.76 : 5.40）がある');
+    }
     // ⚠️ R34W4 の回帰防止（豆鉄砲＝空気が抜ける音）はそのまま守る
     const sweeps = [...hit.matchAll(/freq: (\d+(?:\.\d+)?), freqEnd: (\d+(?:\.\d+)?), dur: (\d+(?:\.\d+)?)/g)];
     assert(sweeps.filter((m) => Number(m[3]) >= 0.35 && Number(m[1]) / Number(m[2]) >= 4).length === 0,
@@ -2201,6 +2207,48 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!/^import Phaser/m.test(op), 'R41: Phaser は window 参照（import 禁止）');
     assert(/if \(V\.autotest\) \{ this\.scene\.start\('Title'\); return; \}/.test(op),
       'R41: autotest はオープニングをスキップする（既存テストへ無影響）');
+  }
+}
+
+// ============ ★ R42 ワイヤーアーム金属音v3＋空振りニアミス＋巻き戻しウィンチ ============
+// 実プレイFB「金属音がまだたりない」。R38W2 の主役交代（帯域）に加えて金属の証拠3つ：
+//   ①リング＝0.5秒級の鳴き ②うなり＝近接した振動モード対 ③鳴きは歪みバスに入れない
+//   （5本のpartialを同じWaveShaperへ入れると相互変調で潰れ「ブザー」に平坦化する）
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const snd = read('audio/sound.js');
+  const boss = read('systems/boss.js');
+  const hit = (snd.match(/rocketPunchHit\(\) \{[\s\S]*?^  \},/m) || [''])[0];
+  assert(hit.length > 0, 'R42: rocketPunchHit を読める');
+
+  // ① リング：520Hzの鳴きが 0.5秒以上・verb残響つき（「ガツン」の「ン」）
+  assert(/freq: 520, freqEnd: \d+, dur: 0\.[5-9]\d*, [^}]*verb:/.test(hit),
+    'R42: 520Hzのリング（0.5秒以上＋verb残響）がある＝金属の余韻。0.26秒以下は「硬い木」');
+  // ② うなり：基音の相方（537/1481）が並走している
+  assert(/freq: 537,/.test(hit) && /freq: 1481,/.test(hit),
+    'R42: 近接モード対（520+537 / 1435+1481）がある＝うなりが無い金属はシンセに聞こえる');
+  // ③ 鳴きは素通し：リング層の行に dest（歪みバス行き）が無い
+  assert(!/freq: 537,[^}]*dest/.test(hit) && !/freq: 520, freqEnd: \d+,[^}]*dest/.test(hit),
+    'R42: リング層は歪みバスへ入れない＝WaveShaper内で潰れ合うと鳴きでなくブザーになる');
+  // ④ 破片：着弾後の時間差の高音「チン…チッ」
+  assert(/freq: 3520,/.test(hit) && /freq: 5270,/.test(hit),
+    'R42: 破片の跳ねる音（時間差の高音）がある＝「本当に壊れた」の証拠音');
+
+  // ⑤ 新SFX 2種が定義されている
+  for (const k of ['wireWhoosh', 'wireWinch']) {
+    assert(new RegExp(`^  ${k}\\(`, 'm').test(snd), `R42: SFX ${k} が定義されている`);
+  }
+  // ⑥ 空振りニアミスの結線：最接近（minD）から離れ始めた瞬間に鳴らす
+  assert(/Sound\.sfx\('wireWhoosh'/.test(boss) && /arm\.minD/.test(boss) && /arm\.whooshed = true/.test(boss),
+    'R42: ニアミスは「最接近して離れ始めた瞬間」に1回だけ＝接近中に鳴らすと命中音と重なる');
+  // ⑦ ウィンチの結線：startWireBack で命中/空振りに関係なく鳴る（anyHit 分岐の前）
+  {
+    const wb = (boss.match(/function startWireBack\(\) \{[\s\S]*?\n  \}/) || [''])[0];
+    assert(wb.includes("Sound.sfx('wireWinch')"),
+      'R42: 巻き戻しウィンチが startWireBack にある（backSec 0.3秒の無音を埋める）');
+    assert(wb.indexOf("Sound.sfx('wireWinch')") < wb.indexOf('const anyHit'),
+      'R42: ウィンチは anyHit 分岐の外＝命中でも空振りでも毎回鳴る機械の音');
   }
 }
 
