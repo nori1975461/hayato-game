@@ -1890,8 +1890,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `R37: 聖句の最終弾速が360以下（${(tf.verse.bulletSpeed * Math.max(...rg.bulletMul)).toFixed(0)}）＝雑魚スナイパー級を超えない`);
   assert(360 / (tf.verse.perRing + Math.max(...rg.verseAdd)) >= 17,
     `R37: 聖句の隙間は最終段でも17°以上（${(360 / (tf.verse.perRing + Math.max(...rg.verseAdd))).toFixed(1)}°）＝縫って抜けられる`);
-  assert(tf.aligned.sweepDeg + Math.max(...rg.sweepDegAdd) <= 26,
-    'R37: 整列レーザーの薙ぎは最終段でも26°以下＝横へ走れば抜けられる');
+  // ★R44W3 でこの技の公平さの担保が変わった。実プレイFB「せいれつは赤いラインはいらない。
+  //   かなりよけづらい攻撃でよい」に従い、薙ぎは 14°→120°（片方向）になったので、
+  //   旧ガード「26°以下＝横へ走れば抜けられる」はもう設計と合わない（＝計測器が実装と
+  //   食い違ったまま通り続ける状態になる・[[feedback_instrument_must_match_impl]]）。
+  //   新しい担保は**片方向かつ180°未満**＝薙がない側が必ず残ること。ここを越えると
+  //   全周が薙がれて避け場が消える＝理不尽になる。
+  {
+    const maxSpan = tf.aligned.sweepDeg + Math.max(...rg.sweepDegAdd);
+    assert(tf.aligned.sweepOneWay === true,
+      'R44W3: 整列の薙ぎは片方向（両側に振ると主人公は必ず通過点になる）');
+    assert(maxSpan < 180,
+      `R44W3: 整列の薙ぎは最終段でも180°未満（${maxSpan}°）＝薙がない側が必ず残る`);
+    assert(maxSpan >= 90,
+      `R44W3: 整列の薙ぎは90°以上（${maxSpan}°）＝「横へ一歩ずれる」だけの答えを消す`);
+  }
   assert(Math.min(...rg.idleMul) >= 0.6 && Math.min(...rg.alignSecMul) >= 0.7,
     'R37: 間合いと予告の短縮に下限がある（読む時間を最後まで奪わない）');
   assert(Math.max(...rg.wavesAdd) <= 1, 'R37: 殻の波数の追加は最大+1');
@@ -2547,6 +2560,71 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!!maou && speeds.length >= 5, 'R44W2: ボスの追跡速度を読める');
     assert(BALANCE.player.speed > fastest,
       `R44W2: 主人公(${BALANCE.player.speed}) は最速のボス(${fastest})より速い＝退避が成立する`);
+  }
+}
+
+// ============ ★★ R44W3 せいれつ＝ラスボス最大の攻撃を「手ごわい」へ ============
+// 実プレイFB「せいれつは、攻撃予告の**赤いラインはいらない**。あれがあると簡単によけられる。
+// 次の再標準はあるが、せいれつは**かなりよけづらい攻撃でよい**。ラスボス最大の攻撃なので、
+// プレーヤーに『この攻撃手ごわい』と思わせるのが肝要」。
+// 難しさを「見えなさ」ではなく**判断の数**で作る＝読む材料は全部残し、UIの線だけを外して
+// 正解を1つ（横へずれる）から2つ（直角に逃げる＋正しい側を選ぶ）へ増やす。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const T = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').trueForm;
+  const A = T.aligned, A2 = T.aligned2, PS = BALANCE.player.speed, PR = BALANCE.player.radius;
+
+  // --- ① 射線プレビューを整列からだけ外す（他は公平の担保として残す）---
+  assert(A.showLine === false, 'R44W3: 整列レーザーは射線プレビューを描かない（FBの本丸）');
+  assert(/function lockAim\(lockSec, spanDeg, len, showLine\)/.test(boss)
+    && /if \(showLine !== false\) drawLockLine\(/.test(boss),
+    'R44W3: 線の有無はロックとは独立して切れる（ロックを消したのではない＝避けられなくはしない）');
+  assert(A2.showLine !== false,
+    'R44W3: 再照準は射線プレビューを残す（lockSec 0.30 の細い技は線が公平の担保）');
+  for (const k of ['laser', 'chestLaser']) {
+    const L = T[k] || (BALANCE.boss.tiers.find((t) => t.bossId === 'maou')[k]);
+    if (L) assert(L.showLine !== false, `R44W3: ${k} は射線プレビューを残す`);
+  }
+
+  // --- ② ロックは残っている＝線を消しても「避けようがない」には戻らない（R43の再発防止）---
+  assert(A.lockSec > 0 && A.lockSec < A.alignSec,
+    'R44W3: 整列はいまもロックする（予告の途中で射線が確定する）');
+  {
+    const canRun = PS * A.lockSec, halfW = A.beamWidth / 2 + PR;
+    assert(canRun > halfW,
+      `R44W3: ロック後に射線から抜けられる（${A.lockSec}秒で${canRun.toFixed(0)}px ＞ 判定半幅${halfW}px）`);
+    // ただし余裕は削る＝「かなりよけづらい」。R43の2.2倍から1.2〜1.6倍帯へ。
+    const margin = canRun / halfW;
+    assert(margin >= 1.15 && margin <= 1.7,
+      `R44W3: 余裕は1.15〜1.7倍（${margin.toFixed(2)}倍）＝ぎりぎり避けられるが簡単ではない`);
+  }
+
+  // --- ③ 読み筋は「ボスの体」へ移した（UIの線の代わり）---
+  assert(A.windUpDeg > 0, 'R44W3: 振りかぶりの角度がある＝薙ぐ側を形で伝える');
+  assert(/alignWind = -lockDir \* ak\.windUpDeg/.test(boss),
+    'R44W3: 振りかぶりは薙ぐ向きと**逆**へ溜める（剣を引いてから振るのと同じ）');
+  assert(/\(alignAng \+ alignWind\) - TRUE_RING_BAKED\[i\]/.test(boss),
+    'R44W3: 振りかぶりが環の面に実際に効く（値だけ持って絵が動かない、を防ぐ）');
+  assert(/alignWind = 0/.test(boss) && (boss.match(/alignWind = 0/g) || []).length >= 4,
+    'R44W3: 振りかぶりは発射・リセット・破棄で必ず戻る（角度が残ると次の予告が嘘になる）');
+
+  // --- ④ 薙いだ跡は「後ろにだけ」伸びる（先回りして描くと消した線が扇で復活する）---
+  assert(A.scorch === true && /beam\.scorch && scorchGfx/.test(boss),
+    'R44W3: 薙いだ跡の焼け扇がある＝何が起きたかが一拍残る');
+  assert(/slice\(x, y, beam\.len, Math\.min\(beam\.angFrom, ang\), Math\.max\(beam\.angFrom, ang\)/.test(boss),
+    'R44W3: 焼け跡は angFrom から**いまの角度**までしか描かない（先読みにならない）');
+
+  // --- ⑤ 理不尽ガード：2連続で食らっても満タンからは即死しない（子どもの線）---
+  assert(A.damage + A2.damage < BALANCE.player.hp,
+    `R44W3: 整列${A.damage}＋再照準${A2.damage}＝${A.damage + A2.damage} ＜ 主人公HP${BALANCE.player.hp}`);
+  // --- ⑥ 「最大の攻撃」であること（他のどの技よりも重い）---
+  {
+    const others = [T.chestLaser, T.laser, A2, T.verse]
+      .concat(BALANCE.boss.tiers.find((t) => t.bossId === 'maou').wirearm)
+      .filter(Boolean).map((o) => o.damage).filter((n) => typeof n === 'number');
+    assert(others.every((d) => d <= A.damage),
+      `R44W3: 整列がボスの最大ダメージ（整列${A.damage} / 他の最大${Math.max(...others)}）`);
   }
 }
 

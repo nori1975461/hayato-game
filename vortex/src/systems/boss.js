@@ -89,6 +89,8 @@ export function createBoss(run) {
   let tfTier = 0;             // R37 激化の段（ゲージ1本割るごとに+1・trueForm.rage の添字）
   let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
   let alignAng = 0;           // 整列レーザーの射線（環が揃う向き＝そのまま射線）
+  let alignWind = 0;          // R44W3 振りかぶり（環の面を薙ぐ向きと逆へ溜める角度・rad）
+  let scorchGfx = null;       // R44W3 薙いだ跡の焼け扇（ビームの後ろに残る）
   // ★R40 軌道遊弋＋座の転移（trueForm の移動）。「フワフワ浮遊しているだけでは荘厳さを
   //   感じれない」への回答＝**神は追いかけない**。主人公を中心にした軌道の上を滑り、
   //   攻撃の前に光へ折りたたまれて軌道の先の「座」へ転移する（歩かず、座を移す）。
@@ -350,7 +352,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; clearLock(); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -581,14 +583,17 @@ export function createBoss(run) {
   //   これが無いと、予告は「来る」ことしか伝えず「どこへ」を伝えない＝走っても発射時に
   //   正面へ引き直されるので、避ける遊びが原理的に成立しない（実プレイFB「避けようがない」）。
   //   戻り値＝いま狙っている角度（ロック済みならその固定値）。
-  function lockAim(lockSec, spanDeg, len) {
+  // ★R44W3 showLine=false で「線を描かない」ロック。整列レーザーだけがこれを使う＝
+  //   ロック（＝どこへ撃つかの確定）は残したまま、**答えの表示**だけを外す。読み筋は
+  //   環の面と振りかぶりへ移る。線を消してもロックは残るので、避けられない技にはならない。
+  function lockAim(lockSec, spanDeg, len, showLine) {
     if (lockAng == null && stateT > (lockSec || 0)) return aim;      // まだ追尾中
     if (lockAng == null) {
       lockAng = aim;
       lockDir = run.rng.chance(0.5) ? 1 : -1;
       Sound.sfx('relock');
     }
-    drawLockLine(lockAng, spanDeg || 0, len || 480);
+    if (showLine !== false) drawLockLine(lockAng, spanDeg || 0, len || 480);
     return lockAng;
   }
 
@@ -854,7 +859,22 @@ export function createBoss(run) {
       case 'alignTele': {
         // ★R43 揃いきる前に射線を固定する（旧実装は発射の瞬間まで追い続けていたので、
         //   発射フレームで既にビーム内＝反応時間0の確定84ダメージだった）。
-        alignAng = lockAim(TF().aligned.lockSec, 0, TF().aligned.beamLength);
+        // ★R44W3 ただし**線は描かない**（実プレイFB「赤いラインはいらない。簡単によけられる」）。
+        //   読む材料は環の面に戻す：揃った面が射線／ロックで追尾が止まる／振りかぶりで薙ぐ側。
+        const ak = TF().aligned;
+        alignAng = lockAim(ak.lockSec, 0, ak.beamLength, ak.showLine !== false);
+        // 振りかぶり：ロック後、環の面を**薙ぐ向きと逆へ**溜める。剣を振る前に引くのと同じで、
+        // どちらへ薙ぐかが形だけで読める（UIの線ではなく、ボスの体で伝える）。
+        if (lockAng != null && ak.windUpDeg) {
+          const w = clamp01(1 - stateT / Math.max(0.01, ak.lockSec));
+          alignWind = -lockDir * ak.windUpDeg * D2R * (w * w * (3 - 2 * w));
+          // 光が振りかぶり側へ集まる＝形に加えて「気配」でも薙ぐ側を伝える
+          if (Math.floor(run.elapsed * 22) % 2 === 0) {
+            const a = alignAng + alignWind - lockDir * 0.5;
+            run.spawnParticles(boss.x + Math.cos(a) * boss.radius * 1.15,
+              boss.y + Math.sin(a) * boss.radius * 1.15, 0xff3040, 2);
+          }
+        } else alignWind = 0;
         const prog = clamp01(1 - stateT / tfAlignSec());
         if (Math.floor(run.elapsed * 14) % 2 === 0 && prog > 0.4) {
           // 溜めの後半は赤を混ぜる＝「深紅のレーザーが来る」を色でも予告する（R36W2）
@@ -1528,22 +1548,32 @@ export function createBoss(run) {
   // ============ 真の姿の攻撃3種 ============
   // ①整列レーザー。環が揃った向きがそのまま射線になる（予告が文字でなく形）。
   function fireAligned() {
-    // R37 激化：薙ぎ幅が段で広がる（14°→24°）。activeSec は据え置き＝横へ走れば抜けられる
-    const ak = TF().aligned, half = (ak.sweepDeg + rageArr('sweepDegAdd', 0)) * 0.5 * D2R;
+    // R37 激化：薙ぎ幅が段で広がる。R44W3 で基準が 14°→120° になったので刻みも広げた
+    // （最終段でも 146° ＜ 180°＝**逆側は必ず安全に残る**）。
+    const ak = TF().aligned;
+    const span = (ak.sweepDeg + rageArr('sweepDegAdd', 0)) * D2R;
+    // ★R44W3 片方向の薙ぎ。射線から lockDir 側へ 120°を舐める＝横へ一歩ずれる答えを消し、
+    //   「振りかぶりを読んで**正しい側**を選ぶ」を正解にする。両側に振ると主人公は必ず
+    //   通過点になる（薙ぎ104°/s ＞ 座230pxでの横走り36.9°/s）ので、片方向であることが公平の芯。
+    const dir = lockDir;  // clearLock より前に控える
+    const a0 = ak.sweepOneWay ? alignAng : alignAng - span * 0.5;
+    const a1 = ak.sweepOneWay ? alignAng + dir * span : alignAng + span * 0.5;
     // ★R36W2 実プレイFB「深みのある赤に。発射音や演出をできるだけ派手に」。
     //   深みは 暗い深紅の縁（beamTint）＋白熱の芯（coreTint）の2層で出す。音は専用の godLaser
-    //   （sound.js・BGMを沈めて撃つ）。撃つ瞬間は 白フラッシュ0.55＋揺れ700/15＋ヒットストップ。
+    //   （sound.js・BGMを沈めて撃つ）。撃つ瞬間は 白フラッシュ＋揺れ＋ヒットストップ。
     clearLock();          // R43 一射目のロックを解く（二射目は改めて狙い直す）
-    startBeam(alignAng - half, alignAng + half, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec,
-      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true });
+    alignWind = 0;        // 振りかぶりは発射で戻る（溜めた力が返る）
+    startBeam(a0, a1, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec,
+      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true, scorch: !!ak.scorch });
     whiteFlash(0.55);
-    run.shake(700, 15);
+    run.shake(800, 18);
     Sound.sfx('godLaser');
     Sound.sfx('thunder');
+    Sound.sfx('beam', 0.8, 0.7);
     recoil(alignAng);
     run.spawnParticles(boss.x, boss.y, 0xff3040, 30);
     run.spawnParticles(boss.x, boss.y, int(TF().glowInner), 22);
-    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.14);
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.20);
     state = 'alignFire'; stateT = ak.activeSec;
   }
 
@@ -2371,6 +2401,9 @@ export function createBoss(run) {
   function clearFx() {
     for (const f of fxList) f.img.destroy();
     fxList.length = 0;
+    // R44W3 薙いだ跡は「1拍だけ残す」ものなので、戦闘が終わったら必ず消す
+    // （撃破が薙ぎの最中に起きると、赤い扇が画面に焼き付いたまま残る）
+    if (scorchGfx) { run.tweens.killTweensOf(scorchGfx); scorchGfx.clear().setVisible(false); }
   }
 
   // ============ 最終ボス登場イベント ============
@@ -2469,7 +2502,14 @@ export function createBoss(run) {
       beamCore = run.add.image(0, 0, 'boss_beam').setOrigin(0, 0.5).setBlendMode(ADD).setDepth(10);
     }
     beam = { angFrom, angTo, len, width, dmg, life: activeSec, maxLife: activeSec, dmgT: 0,
-      spark: opts.spark || 0, heavy: !!opts.heavy, hasCore: !!opts.core };
+      spark: opts.spark || 0, heavy: !!opts.heavy, hasCore: !!opts.core, scorch: !!opts.scorch };
+    // ★R44W3 薙いだ跡の焼け扇。**ビームの後ろにだけ**伸びる（先回りして描くと射線の
+    //   先読みになり、消したはずの赤い線を扇の形で復活させてしまう）。
+    if (opts.scorch) {
+      if (!scorchGfx) scorchGfx = run.add.graphics().setDepth(9);
+      run.tweens.killTweensOf(scorchGfx);
+      scorchGfx.clear().setAlpha(1).setVisible(true);
+    }
     beamImg.setVisible(true).setTint(opts.tint != null ? int(opts.tint) : int(cfg.glowInner));
     beamCore.setVisible(!!opts.core);
     if (opts.core) beamCore.setTint(int(opts.core));
@@ -2479,11 +2519,23 @@ export function createBoss(run) {
     if (beam.life <= 0) {
       if (beamImg) beamImg.setVisible(false);
       if (beamCore) beamCore.setVisible(false);
+      // 焼け跡は薙ぎ終わってから消える＝「何が起きたか」を一拍だけ画面に残す
+      if (beam.scorch && scorchGfx) {
+        run.tweens.add({ targets: scorchGfx, alpha: 0, duration: 620,
+          onComplete: () => { if (scorchGfx) scorchGfx.clear().setVisible(false); } });
+      }
       beam = null; return;
     }
     const t = 1 - beam.life / beam.maxLife;
     const ang = beam.angFrom + (beam.angTo - beam.angFrom) * t;
     const x = boss ? boss.x : 0, y = boss ? boss.y : 0;
+    if (beam.scorch && scorchGfx) {
+      // 通り過ぎたぶんだけ扇を伸ばす（angFrom → いまの ang）
+      scorchGfx.clear();
+      scorchGfx.fillStyle(0x8c0a1c, 0.20);
+      scorchGfx.slice(x, y, beam.len, Math.min(beam.angFrom, ang), Math.max(beam.angFrom, ang), false);
+      scorchGfx.fillPath();
+    }
     beamImg.setPosition(x, y).setRotation(ang).setDisplaySize(beam.len, beam.width)
       .setAlpha(0.65 + 0.25 * Math.sin(run.elapsed * 30));
     if (beam.hasCore) {
@@ -2828,7 +2880,9 @@ export function createBoss(run) {
         sy = s * seen;
         if (alignE > 0) {
           // 整列：長軸を射線へ向け、縦を潰して「真横から見た環」＝一直線にする
-          rot = angLerp(rot, alignAng - TRUE_RING_BAKED[i], alignE);
+          // R44W3 alignWind＝振りかぶり。環の面が薙ぐ向きと逆へ溜まる＝**どちらへ薙ぐかが
+          // 形で読める**（赤い射線の代わりに、ボスの体そのものが答えを持つ）
+          rot = angLerp(rot, (alignAng + alignWind) - TRUE_RING_BAKED[i], alignE);
           sy = lerp(sy, s * 0.20, alignE);
         }
         sx = s * ringShrink; sy *= ringShrink;
@@ -3156,7 +3210,8 @@ export function createBoss(run) {
     if (trueCrack) { trueCrack.destroy(); trueCrack = null; }   // 転生カットシーンの亀裂
     clearShards();                                              // R43 粉砕の小片
     if (lockGfx) { lockGfx.destroy(); lockGfx = null; }         // R43 射線プレビュー
-    lockAng = null;
+    if (scorchGfx) { run.tweens.killTweensOf(scorchGfx); scorchGfx.destroy(); scorchGfx = null; }  // R44W3 焼け跡
+    lockAng = null; alignWind = 0;
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();
@@ -3344,6 +3399,11 @@ export function createBoss(run) {
         from: beam.angFrom, to: beam.angTo, width: beam.width, len: beam.len };
     },
     get locked() { return lockAng != null; },
+    // R44W3 検証用：整列レーザーの射線・振りかぶり・薙ぐ向き（読み筋が本当に出ているかを外から測る）
+    debugAlign() {
+      return { locked: lockAng != null, ang: alignAng, wind: alignWind, dir: lockDir,
+        lineDrawn: !!(lockGfx && lockGfx.commandBuffer && lockGfx.commandBuffer.length) };
+    },
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
     practiceSpawn, practiceClear, practiceAwaken,
