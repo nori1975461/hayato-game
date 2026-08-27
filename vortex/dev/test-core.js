@@ -2032,6 +2032,77 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 }
 
+// ============ ★★ R40 軌道神核の4点（移動・聖句解放・裁きの環・再照準）============
+// 実プレイFB「フワフワ浮遊では荘厳さを感じれない／せいくかいほうがしょぼい／青の炸裂弾は
+// 全くダメ／せいれつ―かんつうこうは素晴らしいが、よけやすいかも」。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+  const boot = fs.readFileSync(path.join(SRC, 'scenes/Boot.js'), 'utf8');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const tf = maou.trueForm;
+
+  // --- ① 移動＝軌道遊弋＋座の転移（追いかけない・歩かず座を移す）---
+  {
+    const mo = tf.motion;
+    assert(!!mo, 'R40: trueForm.motion（軌道遊弋）がある');
+    assert(mo.warpOutSec + mo.warpInSec <= 0.77,
+      `R40: 転移の尺 ${mo.warpOutSec + mo.warpInSec}秒 ≦ 最短idle 0.77秒＝転移が終わらないうちに攻撃が始まる競合を作らない`);
+    for (const k of ['aligned', 'verse', 'shell']) {
+      assert(mo.anchors[k] >= 140,
+        `R40: 転移の座 anchors.${k}（${mo.anchors[k]}px）≧140＝主人公の頭上に出現しない`);
+    }
+    assert(/tfOrbA/.test(boss) && /tfWarpPhase/.test(boss),
+      'R40: 軌道角と転移フェーズが boss.js に実在する');
+    assert(/Sound\.sfx\('warpOut'\)/.test(boss) && /Sound\.sfx\('warpIn'\)/.test(boss),
+      'R40: 転移の消/現で専用音が鳴る');
+    assert(/tfWarpAlpha/.test(boss.slice(boss.indexOf('function updateTrueDisp'))),
+      'R40: 転移の透明度が表示（updateTrueDisp）に実際に掛かっている');
+  }
+
+  // --- ② 聖句解放＝魔法陣＋ルーン弾＋小鐘 ---
+  {
+    assert(/kind: 'glyph'/.test(boss), 'R40: 聖句の弾が専用ルーン弾（glyph）になった');
+    assert(/verse_glyph/.test(boss) && /makeVerseGlyph\('verse_glyph'/.test(boot),
+      'R40: ルーン弾のテクスチャ verse_glyph が焼かれ、弾に結線されている');
+    assert(/Sound\.sfx\('versePeal'/.test(boss),
+      'R40: 読み上げ音が tick（機械音）から versePeal（聖堂の小鐘）へ');
+    assert(/Sound\.sfx\('verseCharge'\)/.test(boss),
+      'R40: 予告で詠唱スウェル（verseCharge）が鳴る');
+  }
+
+  // --- ③ 裁きの環＝専用の輪弾＋波ごとの色＋轟音（「青の炸裂弾」の正体＝第3形態の水色彗星）---
+  {
+    assert(/kind: 'judge'/.test(boss), 'R40: 殻の衝撃波が専用の輪弾（judge）になった');
+    assert(/judge_orb/.test(boss) && /makeJudgeOrb\('judge_orb'/.test(boot),
+      'R40: 輪弾のテクスチャ judge_orb が焼かれ、弾に結線されている');
+    assert(/JUDGE_TINTS/.test(boss), 'R40: 波ごとに色が変わる（金→白金→紫）');
+    assert(/Sound\.sfx\('judgeWave'/.test(boss), 'R40: 波の音が ringwave 流用から専用の judgeWave へ');
+  }
+
+  // --- ④ 整列レーザー二射目「再照準」＝一射目は据え置き・怠けだけを罰する ---
+  {
+    const a2 = tf.aligned2;
+    assert(!!a2, 'R40: aligned2（再照準）がある');
+    assert(a2.relockSec >= 0.4, `R40: 再照準の予告 ${a2.relockSec}秒 ≧0.4＝二射目も読める`);
+    assert(tf.aligned.damage + a2.damage < BALANCE.player.hp,
+      `R40: 2連被弾の合計 ${tf.aligned.damage + a2.damage} ＜ 主人公HP${BALANCE.player.hp}＝満タンから即死しない`);
+    assert(a2.beamWidth < tf.aligned.beamWidth && a2.activeSec <= tf.aligned.activeSec,
+      'R40: 二射目は一射目より細く短い＝「追いの一太刀」の格');
+    assert(/case 'align2Tele'/.test(boss) && /function fireAligned2\(\)/.test(boss),
+      'R40: 再照準のステートと発射が boss.js に実在する');
+    assert(/state === 'align2Tele'/.test(boss.slice(boss.indexOf('function updateTrueDisp'))),
+      'R40: 再照準中も環が整列を保つ（表示に結線）');
+    assert(/Sound\.sfx\('relock'\)/.test(boss), 'R40: 再照準の専用音が鳴る');
+  }
+
+  // --- ⑤ 新SFX6種が実在する（結線先の無い音・音の無い結線を両方殺す）---
+  for (const k of ['warpOut', 'warpIn', 'verseCharge', 'versePeal', 'judgeWave', 'relock']) {
+    assert(new RegExp(`^  ${k}\\(`, 'm').test(snd), `R40: SFX ${k} が sound.js に実在する`);
+  }
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
