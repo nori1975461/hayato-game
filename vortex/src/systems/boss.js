@@ -79,6 +79,7 @@ export function createBoss(run) {
   let trueForm = false;
   let awakening = false;      // 転生カットシーン中（多重発火と二重撃破を防ぐ）
   let trueCrack = null;       // 旧体に走る亀裂の描画（graphics・カットシーン終了で必ず破棄）
+  const shardImgs = [];       // R43 粉砕の小片（tween で飛ぶ・applyTrueLook と destroy で必ず片付ける）
   let ringSpin = [0, 0, 0];   // 3つの環の公転角（別々の速さで回る）
   let tfTier = 0;             // R37 激化の段（ゲージ1本割るごとに+1・trueForm.rage の添字）
   let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
@@ -789,8 +790,10 @@ export function createBoss(run) {
         const it = (tf.crackSec + tf.riseSec) - stateT;
         trackCine();
         drawCrack(it);
-        if (cineStage < 1 && it >= tf.shatterAt) { cineStage = 1; shatterOldBody(); }
-        if (cineStage < 2 && it >= tf.crackSec) { cineStage = 2; applyTrueLook(); }
+        // R43 4段構成：亀裂 →(shatterAt)→ 溜め（膨らんで静止）→(burstAt)→ 粉砕 →(crackSec)→ 出現
+        if (cineStage < 1 && it >= tf.shatterAt) { cineStage = 1; braceOldBody(); }
+        if (cineStage < 2 && it >= (tf.burstAt || tf.shatterAt)) { cineStage = 2; shatterOldBody(); }
+        if (cineStage < 3 && it >= tf.crackSec) { cineStage = 3; applyTrueLook(); }
         if (stateT <= 0) finishAwaken();
         break;
       }
@@ -1285,14 +1288,20 @@ export function createBoss(run) {
   // 旧体に走る亀裂。カットシーンの経過秒に応じて伸び、粉砕の瞬間に消える。
   function drawCrack(it) {
     const tf = cfg.trueForm;
-    if (it >= tf.shatterAt) { if (trueCrack) { trueCrack.clear(); } return; }
+    // R43: 亀裂は粉砕の瞬間（burstAt）まで描き続ける。shatterAt〜burstAt の「溜め」の間は
+    //   p=1 のまま脈打たせる＝**割れきる寸前で止まっている**ことが絵で分かる（重さは溜めが作る）。
+    const burst = tf.burstAt || tf.shatterAt;
+    if (it >= burst) { if (trueCrack) { trueCrack.clear(); } return; }
     if (!trueCrack) trueCrack = run.add.graphics().setDepth(14 + INTRO_LIFT);
     const p = clamp01(it / tf.shatterAt);
-    const R = boss.radius * 1.05;
+    const held = it >= tf.shatterAt;                  // 溜め中＝限界の亀裂が脈打つ
+    const R = boss.radius * 1.05 * (held ? 1.06 : 1);
     trueCrack.clear();
     // 中心から外へ枝分かれする稲妻を6本。太さより「伸びる速さ」で割れていく感じを作る
-    for (let i = 0; i < 6; i++) {
-      const base = i * (Math.PI * 2 / 6) + 0.4;
+    // R43: 溜め中は本数を倍（6→12）＝限界まで走った亀裂。破片が増える伏線にもなる
+    const lines = held ? 12 : 6;
+    for (let i = 0; i < lines; i++) {
+      const base = i * (Math.PI * 2 / lines) + 0.4;
       const seg = 5;
       let x = boss.x, y = boss.y, a = base;
       trueCrack.lineStyle(2.4 + Math.sin(run.elapsed * 40 + i) * 0.8,
@@ -1313,7 +1322,35 @@ export function createBoss(run) {
     }
   }
 
+  // R43 溜め：亀裂が限界に達し、旧体が**膨らんで静止する**。ここではまだ砕けない。
+  //   重さは速度を落とすことではなく「止まる時間」が作る（R35 打撃音の二段構えと同じ原理）。
+  //   息を吸うように外へ膨らみ、内側の火が漏れ、地鳴りだけが続く0.5秒。
+  function braceOldBody() {
+    const tf = cfg.trueForm;
+    const ms = Math.max(120, ((tf.burstAt || tf.shatterAt) - tf.shatterAt) * 1000);
+    Sound.sfx('bossStress');
+    run.shake(ms, 5);                                  // 弱く長く＝破裂前の地鳴り
+    if (disp) {
+      for (const p of disp.parts) {
+        const a = Math.atan2(p.img.y - boss.y, p.img.x - boss.x) + run.rng.range(-0.3, 0.3);
+        run.tweens.add({
+          targets: p.img, x: p.img.x + Math.cos(a) * 7, y: p.img.y + Math.sin(a) * 7,
+          scaleX: p.img.scaleX * 1.10, scaleY: p.img.scaleY * 1.10,
+          duration: ms, ease: 'Quad.in',               // じわ→ぐっ＝限界へ向かう膨張
+        });
+      }
+    }
+    for (let i = 0; i < 5; i++) {
+      run.spawnParticles(boss.x + run.rng.range(-46, 46), boss.y + run.rng.range(-46, 46), 0xff6a1f, 5);
+    }
+  }
+
   // 粉砕：旧体の9パーツを外へ吹き飛ばす。破片は tween に任せ、applyTrueLook で必ず destroy する。
+  // ★R43 実プレイFB「バラバラになるスピードをもう少し遅くして。破片の数もふやして」。
+  //   ①遅く＝尺を 1.0秒→1.8秒（balance の burstAt で確保）＋ ease を Quart.out へ
+  //     （出だしだけ速く、あとは空気に押されて重く漂う＝質量のある破片の落ち方）
+  //   ②数＝9パーツから **各3片の小片**を追加で散らす（9→36片）。小片は本体パーツの
+  //     テクスチャを縮めた複製なので、色も形も旧体そのもの＝「あの体が砕けた」に見える。
   function shatterOldBody() {
     if (trueCrack) { trueCrack.clear(); }
     whiteFlash(0.55);
@@ -1323,29 +1360,56 @@ export function createBoss(run) {
     Sound.sfx('crush', 3);
     Sound.sfx('metalSlam', 1, 0.9);
     const tf = cfg.trueForm;
-    const ms = Math.max(120, (tf.crackSec - tf.shatterAt) * 1000);
+    const ms = Math.max(120, (tf.crackSec - (tf.burstAt || tf.shatterAt)) * 1000);
+    const nShard = tf.shardsPerPart || 0;
     if (disp) {
       for (const p of disp.parts) {
         const a = run.rng.range(0, Math.PI * 2);
-        const d = run.rng.range(120, 320);
+        const d = run.rng.range(150, 360);
         run.tweens.add({
           targets: p.img, x: p.img.x + Math.cos(a) * d, y: p.img.y + Math.sin(a) * d,
           angle: run.rng.range(-540, 540), alpha: 0, scaleX: p.img.scaleX * 0.5, scaleY: p.img.scaleY * 0.5,
-          duration: ms, ease: 'Cubic.out',
+          duration: ms, ease: 'Quart.out',
         });
+        // 小片：同じ絵を縮めた複製をばらまく。飛距離・速さ・回転をばらつかせないと
+        // 「一斉に開く花火」になってしまい、砕けたようには見えない。
+        for (let k = 0; k < nShard; k++) {
+          const sc = run.rng.range(0.26, 0.48);
+          const img = run.add.image(p.img.x, p.img.y, p.img.texture.key)
+            .setDepth(p.img.depth).setOrigin(0.5, 0.5)
+            .setScale(p.img.scaleX * sc, p.img.scaleY * sc)
+            .setAlpha(0.95);
+          if (p.img.tintTopLeft != null && p.img.isTinted) img.setTint(p.img.tintTopLeft);
+          shardImgs.push(img);
+          const sa = run.rng.range(0, Math.PI * 2);
+          const sd = run.rng.range(90, 420);
+          run.tweens.add({
+            targets: img, x: img.x + Math.cos(sa) * sd, y: img.y + Math.sin(sa) * sd,
+            angle: run.rng.range(-900, 900), alpha: 0,
+            scaleX: img.scaleX * 0.6, scaleY: img.scaleY * 0.6,
+            duration: ms * run.rng.range(0.72, 1.0), ease: 'Quart.out',
+          });
+        }
       }
     }
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 16; i++) {
       run.spawnParticles(
-        boss.x + run.rng.range(-70, 70), boss.y + run.rng.range(-70, 70),
+        boss.x + run.rng.range(-84, 84), boss.y + run.rng.range(-84, 84),
         run.rng.pick([0xff3b2f, 0xffd23f, 0xc98cff, 0xffffff]), 16);
     }
+  }
+
+  // 小片の片付け（applyTrueLook / destroy から必ず呼ぶ＝tween 途中でも残さない）
+  function clearShards() {
+    for (const img of shardImgs) { run.tweens.killTweensOf(img); img.destroy(); }
+    shardImgs.length = 0;
   }
 
   // 旧体を捨てて真の姿のリグへ組み替える。HP/半径/弱点/攻撃表もここで一斉に切り替わる。
   function applyTrueLook() {
     const tf = cfg.trueForm;
     const s = tf.spriteScale;
+    clearShards();                      // R43 粉砕の小片（tween 途中でも必ず消す）
     if (disp) {
       for (const p of disp.parts) { run.tweens.killTweensOf(p.img); p.img.destroy(); }
       // ring/back は描画ループが役割を引くための印。role から推理させると、あとで rig を触った
@@ -2637,11 +2701,20 @@ export function createBoss(run) {
     const bob = Math.sin(run.elapsed * 1.6) * 2.2;
 
     // 出現：下から浮かび上がりながら実体化する（riseSec ぶん）
-    let rise = 1, riseDrop = 0;
+    // ★R43 実プレイFB「軌道神核ももう少しゆっくり登場して。そのほうが重々しさがでる」。
+    //   尺を伸ばすだけでは「遅いだけ」になる。重い物の登場は3つの性質を持つ：
+    //     ①**姿が先に見え、動きは後から追いつく**（暗闇に輪郭が浮かんでから持ち上がる）
+    //       → alpha は t^0.62 で早く、位置は smoothstep で遅く＝2本の曲線を分ける
+    //     ②**深いところから**上がる（52→86px）＝持ち上がる距離が長いほど質量に見える
+    //     ③**慣性**：環は止まっている状態から徐々に回り出す（riseSpin）。いきなり全速で
+    //       回っている物は軽い。下の公転計算がこの係数を掛ける。
+    let rise = 1, riseDrop = 0, riseSpin = 1;
     if (state === 'awakenCine') {
       const t = clamp01(((tf.crackSec + tf.riseSec) - stateT - tf.crackSec) / tf.riseSec);
       const e = t * t * (3 - 2 * t);
-      rise = e; riseDrop = (1 - e) * 52;
+      rise = Math.pow(t, 0.62);                      // ①姿は早く現れ
+      riseDrop = (1 - e) * 86;                       // ②位置は遅れて重く上がる
+      riseSpin = e * e;                              // ③回転は最後に追いつく（慣性）
     }
 
     // ①公転。3つの環を別々の速さ・別々の向きで回す＝「軌道」に見せる。
@@ -2650,7 +2723,8 @@ export function createBoss(run) {
     const spinSpd = [0.90, -0.72, 1.25];
     // R37 激化：環の公転が段で速くなる（×1.0→×1.95）＝激化がひと目で分かる「形」の変化
     const sm = rageArr('spinMul', 1);
-    for (let i = 0; i < 3; i++) ringSpin[i] += spinSpd[i] * sm * dt;
+    // R43 出現中は riseSpin（0→1）を掛ける＝静止した環が慣性で回り出す
+    for (let i = 0; i < 3; i++) ringSpin[i] += spinSpd[i] * sm * riseSpin * dt;
 
     // ④攻撃ごとの形。alignT=1 で3環が射線方向へ一直線、shellT=1 で環が核へ閉じきる。
     let alignT = 0, shellT = 0;
@@ -2672,6 +2746,8 @@ export function createBoss(run) {
     for (const p of disp.parts) {
       let px = cx + p.ox * s, py = cy + p.oy * s + bob + riseDrop;
       let rot = 0, sx = s, sy = s, alpha = rise * tfWarpAlpha;   // R40 転移中は光へ折りたたまれる
+      // R43 眼は最後に開く：体が浮かび上がりきってから瞼が上がる＝「見られた」の一拍を作る
+      if (p.tex === 'eye' && rise < 1) alpha = clamp01((rise - 0.58) / 0.42) * tfWarpAlpha;
 
       if (p.ring >= 0) {
         const i = p.ring;
@@ -3006,6 +3082,7 @@ export function createBoss(run) {
     destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
     destroyWeak();       // 弱点コアの表示を確実に破棄（リーク防止）
     if (trueCrack) { trueCrack.destroy(); trueCrack = null; }   // 転生カットシーンの亀裂
+    clearShards();                                              // R43 粉砕の小片
     if (!disp) return;
     for (const p of disp.parts) { if (p.img) p.img.destroy(); }
     if (disp.glowP) disp.glowP.destroy();

@@ -1188,6 +1188,21 @@ const SFX = {
     tone({ start: 0.36, type: 'sine', freq: 4180, dur: 0.045, gain: 0.05, attack: 0.001, verb: 0.25 });
   },
 
+  // ★R43 転生の「溜め」＝旧体が限界まで膨らんで静止している0.5秒の音。
+  //   破裂の前に置く**張力**の音なので、鳴り終わりが破裂と重ならないよう上へ昇らせて切る：
+  //   ①金属が軋む上昇うなり（ゆっくり上がる＝これから壊れる予感） ②内圧の低い唸り
+  //   ③不安定に震えるきしみ（近接2音のうなりで「もう保たない」を出す）
+  bossStress() {
+    const D = sfxDistBus;
+    duckBgm(0.42, 0.26, 0.20);          // 周りを深く長く引かせる＝静止の時間そのものを聴かせる
+    tone({ type: 'sawtooth', freq: 118, freqEnd: 232, dur: 0.50, gain: 0.30, attack: 0.10, dest: D });
+    tone({ type: 'sawtooth', freq: 121, freqEnd: 238, dur: 0.50, gain: 0.20, attack: 0.10, detune: 16, dest: D });
+    tone({ type: 'sine', freq: 44, freqEnd: 58, dur: 0.52, gain: 0.44, attack: 0.12 });
+    tone({ type: 'sine', freq: 860, freqEnd: 1180, dur: 0.44, gain: 0.10, attack: 0.16, verb: 0.40 });
+    tone({ type: 'sine', freq: 884, freqEnd: 1214, dur: 0.44, gain: 0.07, attack: 0.16, verb: 0.40 });
+    noiseHit({ start: 0.06, dur: 0.28, gain: 0.09, hpFreq: 900, lpFreq: 5200 });
+  },
+
   // ★R42 空振りニアミス：拳が主人公のすぐ横を通り過ぎた「ヒュンッ！」。
   //   緊張感は被弾量ではなく**避けた回数**で作る（恒久基準）。避けたことが音で数えられると
   //   「今の避けた！」が体験になる。帯域ノイズ＋通過の瞬間に音程が落ちるドップラー。
