@@ -1971,6 +1971,46 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/ch\.pad\[0\]\) \* 4/.test(snd), 'R38: オルガンの4フィート管（2オクターブ上の輝き）が足された');
   }
 
+  // --- ②b ★R39 実プレイFB「オルガンをもう少し目立たせて」＋「軌道神核のBGM自体の個性を」---
+  //     R38 までの maouTrue は旋律も和音もマオウレクスと同一＝個性の材料がミックスにしか
+  //     無かった。R39 は**第2旋律（神核の主題）**をオルガンの独立声部として追加。
+  //     実測（scratchpad/measure-r39.mjs）：段1沈黙0本・段2全音符・段3主題9音・
+  //     ギター段3/段2比0.491・クイント54本。
+  {
+    // 神核の主題が16小節ぶん定義され、段1（先頭4小節）はオルガン沈黙＝ギターが先に名乗る
+    const mi = snd.indexOf('const MELODY_TRUE = [');
+    assert(mi >= 0, 'R39: 神核の主題 MELODY_TRUE が定義されている');
+    const mblock = snd.slice(mi, snd.indexOf('];', mi));
+    const rows = mblock.split('\n').filter((l) => /^\s*\[/.test(l));
+    assert(rows.length === 16, `R39: MELODY_TRUE は16小節（${rows.length}）`);
+    for (let i = 0; i < 4; i++) {
+      assert(!/NOTE\./.test(rows[i]),
+        `R39: 段1（${i + 1}小節目）はオルガン沈黙＝マオウレクスの主題が先に立つ（同じ戦いの証）`);
+    }
+    assert(rows.slice(4).some((r) => /NOTE\./.test(r)),
+      'R39: 段2以降に神核の主題の音がある');
+    // maouTrue だけが melody2 を持つ（他の曲へ波及させない）
+    assert(/maouTrue:\s*\{[^}]*melody2: MELODY_TRUE/.test(snd),
+      'R39: maouTrue が melody2（神核の主題）を持つ');
+    assert((snd.match(/melody2: MELODY_TRUE/g) || []).length === 1,
+      'R39: melody2 を持つのは maouTrue の1曲だけ');
+    // オルガンの独立声部（⑥b）＝レジストレーション 8'+4'+2 2/3'+2'。
+    // ×3（クイント）が「パイプオルガン」の指紋＝これが消えるとただの太いシンセに戻る
+    assert(/song\.melody2\[bar\]\[j2\]/.test(snd), 'R39: melody2 を読む声部（⑥b）がある');
+    assert(/freq: mf2 \* 3,/.test(snd), 'R39: オルガンのクイント管（×3）＝パイプオルガンの指紋');
+    assert(/freq: mf2 \* 4,/.test(snd), 'R39: オルガンの2フィート管（×4）');
+    // 主役交代が「曲の中で」起きる：段3だけギターのリードが一歩下がる（消さない）
+    const md = /const LEAD_DUCK = V === 'true' \? \[1, 1, ([\d.]+), 1\]\[sec\] : 1;/.exec(snd);
+    assert(!!md && +md[1] >= 0.3 && +md[1] <= 0.7,
+      `R39: 段3のギターは 0.3〜0.7 へ一歩下がる（${md && md[1]}）＝消えると「同じ戦い」が切れる`);
+    assert(/\* LEAD_DUCK/.test(snd), 'R39: LEAD_DUCK がギターのリードに実際に掛かっている');
+    // オルガンの呼吸＝小節後半（和音が変わる瞬間）の弾き直し。存在感は gain ではなく動きで出す
+    assert(/if \(V === 'true' && inBar === 8\)/.test(snd),
+      'R39: オルガンが半小節ごとに弾き直す（32要素の和音に付いて行く）');
+    assert(/noteFreq\(ch\.pad\[0\]\) \* 3,/.test(snd),
+      'R39: パッドにもクイント管（×3）が足されている');
+  }
+
   // --- ③ R38W2 ワイヤーアーム被弾音「ボン→ガツン」：主役交代を式で縛る ---
   //     「ボン」の正体＝低域の塊（gain 0.94）が主役で金属（0.15以下）が脇役だったこと。
   //     回帰防止＝**低域の最大gainが金属の最大gainを上回ったら落ちる**。
