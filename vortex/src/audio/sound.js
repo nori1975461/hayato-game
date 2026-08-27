@@ -1585,16 +1585,75 @@ const SONGS = {
   // ★R36W2 軌道神核（第4形態）の専用曲。実プレイFB「マオウレクスのBGMを基にしてよい。それに
   //   神々しさのアレンジを加えて」＋「BGMはギターでいこう」（聞き比べの決着）。
   //   ＝**採用されたギター編成を土台のまま**、神々しさの声部を上へ積む（変えるのではなく足す）。
-  //   神々しさの正体は3つ：①鐘（倍の頻度＋段の頭でカリヨンの連打） ②聖歌隊（第3段からではなく
-  //   **最初から**歌い続ける） ③光背ドローン（和音の4倍音の高いサイン＝頭上で鳴り続ける光）。
-  //   さらに主題を天使の声（1オクターブ上・立ち上がりの遅いサイン）が常にユニゾンでなぞる。
-  //   邪悪は下へ落ち、神々しさは上へ昇る＝同じ作曲でも「別の段」だと耳で分かる。
+  // ★R38 実プレイFB「マオウレクスのBGMとの違いをほぼ感じれない。もっと神々しさをはっきり
+  //   わかる形に。参考は決戦！サルーイン」。原因は数値で明らか：追加した神々しさ声部の gain は
+  //   0.012〜0.032 で、土台（ベース0.088・ギターの壁0.070×3枚・リード0.105×3枚）の
+  //   **1/3〜1/10＝歪みの海にマスクされて届いていなかった**。直しは2本柱：
+  //   ①専用イントロ「降臨」（introSec）＝決戦！サルーインの構造（荘厳な導入→一転して疾走）を
+  //     借りる。テンポの無いパイプオルガンの Cm 全和音→**同主長調 C への跳躍**（R34W3 で
+  //     採譜した同曲の核「同じ場所に光が差す」）→ティンパニロール→疾走へ。
+  //     **曲の0秒目で別の曲だと分かる**＝「はっきりわかる」の最短経路。
+  //   ②本体は**主役交代**＝神々しさ声部（オルガン・聖歌隊・天使の声・鐘・ドローン・カリヨン）を
+  //     約2倍へ、ギターの壁とリードを約3割下げる。ベースとドラムは据え置き＝「同じ戦い」の証。
   maouTrue:  { bpm: 178, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
-               variant: 'true',   label: '④ きどうしんかく（かみ）' },
+               variant: 'true', introSec: 5.4, label: '④ きどうしんかく（かみ）' },
   ending: { bpm: 112, bars: 8, chords: CHORDS_END,    melody: MELODY_END,    style: 'ending' },
   result: { bpm: 96,  bars: 4, chords: CHORDS_RESULT, melody: MELODY_RESULT, style: 'result' },
 };
 let currentSong = SONGS.battle;   // 現在再生中の曲定義
+
+// ★R38 軌道神核イントロ「降臨」（introSec ぶん・切替時に1回だけ）。
+//   決戦！サルーインの構造＝**荘厳な導入から一転して疾走**を借りる。
+//   0.0秒: 大鐘＋テンポの無いパイプオルガンの Cm 全和音（空気が満ちる attack 0.22）
+//   2.7秒: **同主長調 C への跳躍**（R34W3 で採譜した同曲の核。Eb が E へ半音上がるだけで
+//          「同じ場所に光が差す」）＋聖歌隊＋光の一点 E6＋カリヨン下行
+//   4.5秒: ティンパニロールのクレッシェンド → 疾走本体へ雪崩れ込む
+//   ドラムもギターも無し＝**曲の0秒目で別の曲だと分かる**。
+function playMaouTrueIntro() {
+  // 大鐘：降臨の合図（1.5倍・2.67倍の倍音で教会の鐘の非整数倍音に寄せる）
+  const bell = noteFreq(NOTE.C5);
+  tone({ type: 'sine', freq: bell, dur: 3.4, gain: 0.085, attack: 0.004, verb: 0.65, dest: bgmGain });
+  tone({ type: 'sine', freq: bell * 1.5, dur: 2.8, gain: 0.036, attack: 0.006, verb: 0.60, dest: bgmGain });
+  tone({ type: 'sine', freq: bell * 2.67, dur: 2.0, gain: 0.020, attack: 0.008, verb: 0.55, dest: bgmGain });
+  // パイプオルガン Cm＋16フィートの唸り
+  [NOTE.C3, NOTE.G3, NOTE.C4, NOTE.Ds4, NOTE.G4].forEach((n, i) => {
+    const f = noteFreq(n);
+    tone({ type: 'sawtooth', freq: f, dur: 2.75, gain: 0.062 - i * 0.006,
+           attack: 0.22, verb: 0.50, dest: bgmGain });
+    tone({ type: 'square', freq: f * 2, dur: 2.70, gain: 0.020,
+           attack: 0.28, verb: 0.45, dest: bgmGain });
+  });
+  tone({ type: 'sine', freq: noteFreq(NOTE.C2), dur: 2.8, gain: 0.13, attack: 0.15, dest: bgmGain });
+  // 2.7秒: 同主長調 C（長三和音）＝光が差す
+  [NOTE.C3, NOTE.G3, NOTE.C4, NOTE.E4, NOTE.G4].forEach((n, i) => {
+    const f = noteFreq(n);
+    tone({ start: 2.7, type: 'sawtooth', freq: f, dur: 2.55, gain: 0.068 - i * 0.006,
+           attack: 0.16, verb: 0.50, dest: bgmGain });
+    tone({ start: 2.7, type: 'square', freq: f * 2, dur: 2.50, gain: 0.024,
+           attack: 0.20, verb: 0.45, dest: bgmGain });
+  });
+  tone({ start: 2.7, type: 'sine', freq: noteFreq(NOTE.C2), dur: 2.6, gain: 0.13, attack: 0.10, dest: bgmGain });
+  // 聖歌隊（跳躍の瞬間から歌う）＋光の一点 E6
+  [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5].forEach((n, i) => {
+    tone({ start: 2.7, type: 'triangle', freq: noteFreq(n) * 2, dur: 2.5,
+           gain: 0.040 - i * 0.005, attack: 0.30, verb: 0.65, dest: bgmGain });
+  });
+  tone({ start: 2.7, type: 'sine', freq: noteFreq(NOTE.E6), dur: 2.4, gain: 0.030,
+         attack: 0.05, verb: 0.60, dest: bgmGain });
+  // カリヨン下行（天から降る）：G6 → E6 → C6
+  [NOTE.G6, NOTE.E6, NOTE.C6].forEach((n, k) => {
+    tone({ start: 2.9 + k * 0.34, type: 'sine', freq: noteFreq(n), dur: 1.6,
+           gain: 0.034 - k * 0.005, attack: 0.004, verb: 0.60, dest: bgmGain });
+  });
+  // 4.5秒〜: ティンパニロール（クレッシェンド）→ 疾走へ
+  for (let k = 0; k < 8; k++) {
+    tone({ start: 4.5 + k * 0.105, type: 'sine', freq: 96, freqEnd: 62, dur: 0.10,
+           gain: 0.05 + k * 0.016, attack: 0.002, dest: bgmGain });
+    noiseHit({ start: 4.5 + k * 0.105, dur: 0.03, gain: 0.012 + k * 0.005,
+               hpFreq: 100, lpFreq: 1800, dest: bgmGain });
+  }
+  noiseHit({ start: 5.32, dur: 0.6, gain: 0.10, hpFreq: 2600, lpFreq: 15000, dest: bgmGain });
+}
 
 function playBgmStep(step) {
   if (!ctx || !bgmGain) return;
@@ -1770,6 +1829,11 @@ function playBgmStep(step) {
     const V = song.variant || 'guitar';
     const GT = V === 'guitar' || V === 'true';  // R36W2 軌道神核はギター編成が土台（採用版に足すだけ）
     const GTR = distBus || bgmGain;             // WaveShaper 非対応環境では素のBGMバスへ落とす
+    // ★R38 主役交代。「神々しさ声部を足しただけ」では歪みの海にマスクされて届かなかったので、
+    //   軌道神核では**神々しさ×2倍・ギター×0.7**でオルガンと聖歌隊がギターの上に立つ。
+    //   ベースとドラムは据え置き＝疾走の背骨は同じ＝「同じ戦いの別の段」は保つ。
+    const HOLY = V === 'true' ? 2.0 : 1;        // 神々しさ声部（オルガン/聖歌隊/鐘/ドローン/天使の声）
+    const GDIM = V === 'true' ? 0.70 : 1;       // ギターの壁とリードを下げる係数
 
     // ===== ① 低音：疾走の土台 =====
     {
@@ -1800,7 +1864,7 @@ function playBgmStep(step) {
       // シェイパーの中で干渉して濁る＝実際のギターアンプと同じ「壁」ができる。
       if (inBar % 2 === 0) {
         const r = noteFreq(ch.arp[0]);
-        const g = 0.070 * (1 + lift);
+        const g = 0.070 * (1 + lift) * GDIM;   // R38 軌道神核は壁を下げてオルガンに主役を譲る
         for (const [mul, det] of [[1, -8], [1, 8], [1.4983, 0]]) {
           tone({ type: 'sawtooth', freq: r * mul, dur: stepSec * 1.6, gain: g,
                  dest: GTR, attack: 0.003, detune: det });
@@ -1869,13 +1933,18 @@ function playBgmStep(step) {
       ch.pad.forEach((n, i) => {
         const f = noteFreq(n);
         tone({ type: 'sawtooth', freq: f, dur: stepSec * 15.2,
-               gain: (0.052 - i * 0.009) * (1 + lift * 0.6), dest: bgmGain,
+               gain: (0.052 - i * 0.009) * (1 + lift * 0.6) * HOLY, dest: bgmGain,
                attack: 0.06, verb: 0.40 });
         tone({ type: 'square', freq: f * 2, dur: stepSec * 15.0,
-               gain: 0.020, dest: bgmGain, attack: 0.09, verb: 0.30 });
+               gain: 0.020 * HOLY, dest: bgmGain, attack: 0.09, verb: 0.30 });
       });
       tone({ type: 'sine', freq: noteFreq(ch.bass) / 2, dur: stepSec * 15.4,
              gain: 0.12, dest: bgmGain, attack: 0.04 });
+      // R38 軌道神核：オルガンの4フィート管（2オクターブ上の輝き）＝上に積むほど神々しい
+      if (V === 'true') {
+        tone({ type: 'square', freq: noteFreq(ch.pad[0]) * 4, dur: stepSec * 14.5,
+               gain: 0.022, dest: bgmGain, attack: 0.12, verb: 0.45 });
+      }
     }
 
     // ===== ⑤ 荘厳：聖歌隊（第3段から。orch は第2段から厚く） =====
@@ -1885,11 +1954,11 @@ function playBgmStep(step) {
       ch.arp.forEach((n, i) => {
         const f = noteFreq(n);
         tone({ type: 'triangle', freq: f * 2, dur: stepSec * 7,
-               gain: (0.032 - i * 0.005) * (1 + lift), dest: bgmGain,
+               gain: (0.032 - i * 0.005) * (1 + lift) * HOLY, dest: bgmGain,
                attack: 0.14, verb: 0.55 });
         if (i < 3) {
           tone({ type: 'sine', freq: f * 4, dur: stepSec * 6,
-                 gain: 0.018 - i * 0.004, dest: bgmGain, attack: 0.18, verb: 0.50 });
+                 gain: (0.018 - i * 0.004) * HOLY, dest: bgmGain, attack: 0.18, verb: 0.50 });
         }
       });
     }
@@ -1915,17 +1984,18 @@ function playBgmStep(step) {
           // 歪みギターのリード。デチューン3枚を**同じシェイパーへ**送るので、
           // 足し算ではなく互いに潰し合って本当のひずみになる。
           for (const det of [-12, 0, 12]) {
-            tone({ type: 'sawtooth', freq: mf, dur: len * 0.96, gain: g * 0.70,
+            tone({ type: 'sawtooth', freq: mf, dur: len * 0.96, gain: g * 0.70 * GDIM,
                    dest: GTR, attack: 0.008, detune: det });
           }
           tone({ type: 'triangle', freq: mf * 2, dur: len * 0.9, gain: g * 0.40,
                  dest: bgmGain, attack: 0.008, verb: 0.30 });
           // R36W2 軌道神核：天使の声のユニゾン（1オクターブ上・遅い立ち上がり・深い残響）。
           // ギターの刃の上に、同じ旋律が光としてかぶさる＝「歌っているのは同じ主題」。
+          // R38 gain を約2倍へ＝ギターの刃と**同格**に（0.30では埋もれて聞こえなかった）。
           if (V === 'true') {
-            tone({ type: 'sine', freq: mf * 2, dur: len * 0.95, gain: g * 0.30,
+            tone({ type: 'sine', freq: mf * 2, dur: len * 0.95, gain: g * 0.55,
                    dest: bgmGain, attack: 0.07, verb: 0.60 });
-            tone({ type: 'triangle', freq: mf * 4, dur: len * 0.7, gain: g * 0.12,
+            tone({ type: 'triangle', freq: mf * 4, dur: len * 0.7, gain: g * 0.24,
                    dest: bgmGain, attack: 0.09, verb: 0.55 });
           }
         } else if (V === 'orch') {
@@ -1956,7 +2026,7 @@ function playBgmStep(step) {
     if (inBar === 0 && (bar % 4 === 0 || sec === 3 || (V === 'true' && bar % 2 === 0))) {
       const bright = sec === 3;
       const bf = noteFreq(bright ? ch.arp[1] : ch.arp[0]) * 2;
-      const bg = (bright ? 0.058 : 0.040) * (1 + lift * 0.5);
+      const bg = (bright ? 0.058 : 0.040) * (1 + lift * 0.5) * (V === 'true' ? 1.55 : 1);
       tone({ type: 'sine', freq: bf, dur: stepSec * 13, gain: bg,
              dest: bgmGain, attack: 0.004, verb: 0.60 });
       tone({ type: 'sine', freq: bf * 1.5, dur: stepSec * 11, gain: bg * 0.42,
@@ -1971,9 +2041,9 @@ function playBgmStep(step) {
       // 下へ重ねても子どものノートPCでは鳴らない＝R34W3の教訓の逆用）。
       if (inBar === 0) {
         tone({ type: 'sine', freq: noteFreq(ch.arp[0]) * 4, dur: stepSec * 15.5,
-               gain: 0.026 * (1 + lift * 0.5), dest: bgmGain, attack: 0.12, verb: 0.60 });
+               gain: 0.048 * (1 + lift * 0.5), dest: bgmGain, attack: 0.12, verb: 0.60 });
         tone({ type: 'sine', freq: noteFreq(ch.arp[2]) * 4, dur: stepSec * 15.5,
-               gain: 0.018, dest: bgmGain, attack: 0.16, verb: 0.60 });
+               gain: 0.034, dest: bgmGain, attack: 0.16, verb: 0.60 });
       }
       // カリヨン：段の頭で3連の鐘が上から降りてくる（arp[2]→arp[1]→arp[0]の下行＝
       // 「天から降る」方向。上行にすると出発の音になり、降臨の音にならない）。
@@ -1981,9 +2051,9 @@ function playBgmStep(step) {
         [2, 1, 0].forEach((ai, k) => {
           const bf2 = noteFreq(ch.arp[ai]) * 4;
           tone({ start: k * stepSec * 2, type: 'sine', freq: bf2, dur: stepSec * 9,
-                 gain: 0.030 - k * 0.005, attack: 0.004, dest: bgmGain, verb: 0.60 });
+                 gain: 0.052 - k * 0.008, attack: 0.004, dest: bgmGain, verb: 0.60 });
           tone({ start: k * stepSec * 2, type: 'sine', freq: bf2 * 2.67, dur: stepSec * 5,
-                 gain: 0.012, attack: 0.006, dest: bgmGain, verb: 0.55 });
+                 gain: 0.020, attack: 0.006, dest: bgmGain, verb: 0.55 });
         });
       }
     }
@@ -2210,7 +2280,13 @@ export const Sound = {
     currentSong = song;
     bgmPlaying = true;
     bgmStep = 0;
-    scheduleBgm();
+    // R38 専用イントロ（降臨）。ある曲だけ、その長さぶんループの開始を遅らせる。
+    if (song.introSec) {
+      playMaouTrueIntro();
+      bgmTimer = setTimeout(scheduleBgm, song.introSec * 1000);
+    } else {
+      scheduleBgm();
+    }
   },
 
   stopBgm() {
