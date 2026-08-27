@@ -1127,33 +1127,44 @@ const SFX = {
   //   ⚠️ 「豆鉄砲」の回帰防止（長い下降スイープ禁止・0.3秒以上のノイズ尾禁止）はそのまま守っている。
   rocketPunchHit() {
     const D = sfxDistBus;                 // null なら tone 側で素の sfxGain に落ちる
-    duckBgm(0.26, 0.10, 0.30);            // ⓒ 周りを黙らせる
+    duckBgm(0.34, 0.10, 0.34);            // ⓒ 周りを黙らせる（R38 最大の攻撃なので深く）
 
     // ① 「ガッ」＝インパクトの輪郭（1.5〜8ms）。ここが鋭いほど「殴った」に聞こえる
     noiseHit({ dur: 0.008, gain: 0.85, hpFreq: 400, lpFreq: 17000 });
     noiseHit({ dur: 0.020, gain: 0.62, hpFreq: 1400, lpFreq: 9000 });
     tone({ type: 'square', freq: 3200, freqEnd: 1900, dur: 0.014, gain: 0.34, attack: 0.0003, dest: D });
 
-    // ② 骨・木の胴鳴り＝固定音程を3つ、わざと濁らせて重ねる（協和させると「楽器」になってしまう）
-    tone({ type: 'square', freq: 165, dur: 0.10, gain: 0.46, attack: 0.0004, dest: D });
-    tone({ type: 'square', freq: 232, dur: 0.085, gain: 0.31, attack: 0.0004, detune: -18, dest: D });
-    tone({ type: 'sawtooth', freq: 311, dur: 0.065, gain: 0.25, attack: 0.0004, dest: D });
+    // ② 胴鳴り（R34W4の作法＝固定音程のsquare）。R38 金属寄りに1オクターブ上げる
+    tone({ type: 'square', freq: 330, dur: 0.09, gain: 0.40, attack: 0.0004, dest: D });
+    tone({ type: 'square', freq: 464, dur: 0.075, gain: 0.28, attack: 0.0004, detune: -18, dest: D });
 
-    // ③ 「ツン」＝18ms 遅らせて叩き込む低域の塊。この遅れが二段構えの本体
-    tone({ start: 0.018, type: 'sine', freq: 96, freqEnd: 52, dur: 0.20, gain: 0.94, attack: 0.0005 });
-    tone({ start: 0.018, type: 'triangle', freq: 64, freqEnd: 40, dur: 0.26, gain: 0.56, attack: 0.0006 });
-    tone({ start: 0.018, type: 'square', freq: 128, dur: 0.09, gain: 0.35, attack: 0.0004, dest: D });
-    noiseHit({ start: 0.016, dur: 0.045, gain: 0.55, hpFreq: 70, lpFreq: 2200 });
+    // ②' ★R38 鉄床（アンヴィル）の主役スタック＝「ガツン！」の正体。
+    //   実プレイFB「ボン！ではなくガツン！という強い金属音に」。旧実装が「ボン」に聞こえた
+    //   原因は数値で明らか：低域の塊 gain 0.94 が主役で、金属の鳴きは 0.15 以下の脇役だった。
+    //   低域が主役＝「ボン」、中高域の非整数倍音が主役＝「ガツン」。主役を交代する。
+    //   非整数比 1 : 2.76 : 5.40 : 8.93（実際の鉄板・棒の振動モード比）を**本物の歪み**へ
+    //   通す＝倍音同士が潰し合って金属の「軋み」が出る。
+    tone({ type: 'sawtooth', freq: 520, dur: 0.20, gain: 0.70, attack: 0.0003, dest: D });
+    tone({ type: 'sawtooth', freq: 1435, dur: 0.16, gain: 0.48, attack: 0.0003, dest: D });
+    tone({ type: 'square', freq: 2808, dur: 0.12, gain: 0.30, attack: 0.0004, dest: D });
+    tone({ type: 'sine', freq: 4644, dur: 0.09, gain: 0.16, attack: 0.0005 });
 
-    // ④ 金属バットの鳴き＝非整数倍音（1 : 2.76 : 5.40）。鉄板・棒を叩いたときの実際の比
-    tone({ start: 0.026, type: 'sine', freq: 430, dur: 0.16, gain: 0.15, attack: 0.0008 });
-    tone({ start: 0.026, type: 'sine', freq: 1187, dur: 0.12, gain: 0.09, attack: 0.001 });
-    tone({ start: 0.026, type: 'sine', freq: 2322, dur: 0.09, gain: 0.05, attack: 0.001 });
-    noiseHit({ start: 0.010, dur: 0.11, gain: 0.27, hpFreq: 3200, lpFreq: 14000 });
+    // ③ 「ツン」＝18ms 遅らせて叩き込む低域の塊。この遅れが二段構えの本体。
+    //   R38 gain 0.94→0.62 へ＝重さの土台には残すが、主役（＝ボン）からは降ろす
+    tone({ start: 0.018, type: 'sine', freq: 96, freqEnd: 52, dur: 0.18, gain: 0.62, attack: 0.0005 });
+    tone({ start: 0.018, type: 'triangle', freq: 64, freqEnd: 40, dur: 0.22, gain: 0.38, attack: 0.0006 });
+    tone({ start: 0.018, type: 'square', freq: 128, dur: 0.09, gain: 0.30, attack: 0.0004, dest: D });
+    noiseHit({ start: 0.016, dur: 0.045, gain: 0.48, hpFreq: 70, lpFreq: 2200 });
 
-    // ⑤ 尾：短く低く（0.3秒未満に収める。伸ばすと「空気が抜けた」に逆戻りする）
-    tone({ start: 0.04, type: 'sine', freq: 46, freqEnd: 30, dur: 0.28, gain: 0.31, attack: 0.008 });
-    noiseHit({ start: 0.05, dur: 0.20, gain: 0.15, hpFreq: 55, lpFreq: 760 });
+    // ④ 金属バットの鳴き＝非整数倍音（1 : 2.76 : 5.40）。R38 gain を3倍へ＝「カーン」の余韻
+    tone({ start: 0.026, type: 'sine', freq: 430, dur: 0.26, gain: 0.42, attack: 0.0008 });
+    tone({ start: 0.026, type: 'sine', freq: 1187, dur: 0.22, gain: 0.28, attack: 0.001 });
+    tone({ start: 0.026, type: 'sine', freq: 2322, dur: 0.16, gain: 0.16, attack: 0.001 });
+    noiseHit({ start: 0.010, dur: 0.11, gain: 0.30, hpFreq: 3200, lpFreq: 14000 });
+
+    // ⑤ 尾：短く（noiseの尾0.3秒未満は R34W4 の回帰ガードどおり。低域の尾も短縮）
+    tone({ start: 0.04, type: 'sine', freq: 46, freqEnd: 32, dur: 0.22, gain: 0.24, attack: 0.008 });
+    noiseHit({ start: 0.05, dur: 0.16, gain: 0.13, hpFreq: 55, lpFreq: 760 });
   },
 
   // ============ R36W2 マオウレクスのレーザー3点セット ============
