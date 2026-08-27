@@ -186,7 +186,7 @@ async function main() {
   })()`);
 
   let dead = false;
-  for (let i = 0; i < 340 && !dead; i++) {   // R37 尺65秒＋転生前30秒でも撃破まで見届ける
+  for (let i = 0; i < 560 && !dead; i++) {   // R40 軌道遊弋で尺が伸びたぶん観測予算も広げる（560×0.5s≒280秒）
     dead = await evalJs(`(function(){ return window.__D.tKill != null; })()`);
     if (!dead) await sleep(500);
   }
