@@ -971,8 +971,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R33: 弾配り役は合成の素材にしない（切り札の配り係が勝手に消える回帰の防止）');
   assert(/bl\.giveAmmo\(o, kind\)/.test(orb) && /canReceiveAmmo/.test(orb),
     'R33: orbit が種類つきで手渡しを呼んでいる');
-  assert(/ammoQueue = run\.rng\.shuffle/.test(orb),
-    'R33: 配る弾はボスごとに引き直す（マオウレクスの2発が必ず別の種類になる）');
+  // ⚠️ R33 は「ボスごとに引き直す」と縛っていたが、1ボス1発なので引き直すたびに先頭だけを
+  //    引く＝ボスをまたいで同じ弾が続く。実測（seed=41）で5ボス中4回が同じ弾だった。
+  //    R49 でキューを持ち越す形に変えた。守りたいのは引き直す動作ではなく
+  //    **連続で同じ弾が来ないこと**なので、そちらを縛る（詳細は R49 のブロック）。
+  assert(/ammoQueue = run\.rng\.shuffle/.test(orb) || /o\.ammoQueue = next;/.test(orb),
+    'R33: 配る弾はシャッフルした順に配る（マオウレクスの2発が必ず別の種類になる）');
   // ★ブラックホールの締めは enterStagger。burstStagger は「既によろけている敵を消す」処理なので
   //   ここで使うと弾が1体も増えない（実測：吸い込み7体→弾0体で踏んだ）。
   assert(/run\.enterStagger\(e\);[\s\S]{0,200}made\+\+/.test(bil),
@@ -3464,6 +3468,44 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R46: 補充は転生1回きり（毎フレーム足して無限に配る、を防ぐ）');
   assert(/debugAmmo\(\)/.test(orbit),
     'R46: 在庫を外から測れる（「軌道神核で0発」を数で捕まえられるように）');
+}
+
+// ============ R49 3種の特殊弾が「3種ある」と分かる ============
+// 実プレイFB「ライジンガーの特殊弾を3種類にして。雷光弾以外に2種類」。
+// ⚠️ 実測すると**すでに3種あって3種とも配られていた**（4シード×5ボス＝20発）。
+//    無かったのは種類ではなく届き方。原因は2つとも数で捕まえられる：
+//      ① テロップが「ビリッコ」固定＝進化してライジンガーになっても旧名が出ていた
+//      ② キューをボスごとに引き直して先頭だけ引く＝偏る（seed=41 は5回中4回が同じ弾）
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+  const bil = fs.readFileSync(path.join(SRC, 'systems/billiard.js'), 'utf8');
+  const KINDS = BALANCE.hero.billiard.ammoKinds || [];
+
+  // --- ① 3種そろっていて、どれも実装がある ---
+  assert(KINDS.length === 3, `R49: 配る弾は3種（実際 ${KINDS.length}種）`);
+  for (const k of KINDS) {
+    assert(!!BALANCE.hero.billiard[k], `R49: ${k} の設定が実在する`);
+    assert(new RegExp(`'${k}':`).test(bil) || new RegExp(`=== '${k}'`).test(bil)
+        || new RegExp(`HANDED_NAME = \\{[^}]*${k}:`).test(bil),
+      `R49: ${k} は billiard.js が名前つきで扱っている（設定だけあって無名、を防ぐ）`);
+  }
+
+  // --- ② 名前は渡した本人から取る（進化を打ち消さない）---
+  assert(!/announce\('ビリッコ が /.test(bil),
+    'R49: テロップに「ビリッコ」を直書きしない（進化してもその名前が出続ける）');
+  assert(/\(o\.evolved && o\.def\.evo\) \? o\.def\.evo\.name : o\.def\.name/.test(bil),
+    'R49: 進化していれば進化後の名前で名乗る');
+
+  // --- ③ キューはボスをまたいで持ち越す（3ボスで3種が一巡する）---
+  assert(!/o\.ammoBossId = ent\.id;[\s\S]{0,400}?o\.ammoQueue = run\.rng\.shuffle/.test(orbit),
+    'R49: ボスが変わってもキューを引き直さない（引き直すと先頭だけ引くので偏る＝実測）');
+  assert(/if \(!o\.ammoQueue \|\| !o\.ammoQueue\.length\) \{/.test(orbit),
+    'R49: 尽きたときだけ引き直す');
+  assert(/next\[0\] === o\.ammoLast/.test(orbit),
+    'R49: 引き直しの継ぎ目で同じ弾が2連続しない（一巡が台無しになる唯一の穴）');
+  assert(/o\.ammoLast = kind;/.test(orbit),
+    'R49: 直前に配った弾を覚えている');
 }
 
 // ============ R47 ラゴン（単独行動する槍使い）============

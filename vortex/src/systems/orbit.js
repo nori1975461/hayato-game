@@ -326,9 +326,11 @@ export function createOrbit(run) {
       const final = !!(ent.def && ent.def.id === 'maou');
       o.ammoStock = final ? o.ammoPerFinal : o.ammoPerBoss;
       o.ammoT = o.ammoFirst;
-      // ★R33 配る弾は3種になった。ボスごとに引き直す＝「今回は何をくれるか」がボス戦の顔になる。
-      //   マオウレクス戦は2発なので、シャッフルした順に配る＝**必ず違う種類**が来る。
-      o.ammoQueue = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
+      // ★R49 ここでキューを**引き直していた**のが、3種あるのに気づけない原因だった。
+      //   1ボス1発なので引き直すたびに先頭だけを引く＝ボスをまたいで同じ弾が続きうる。
+      //   実測（4シード×5ボス）で seed=41 は5回中4回がスーパーボール・ブラックホール0回。
+      //   → キューは**ボスをまたいで持ち越す**。3ボスで3種が必ず一巡する。
+      //   （在庫の作り直しは従来どおり。持ち越すのは「次に配る順番」だけ）
     }
     // ★R46 実プレイFB「雷光弾はボス戦中だけ間隔を詰めて。**ボス戦でこそ真価を発揮する**」。
     //   ⚠️ ここに実バグがあった：転生（第3形態→軌道神核）は**同じ boss オブジェクトを
@@ -350,13 +352,17 @@ export function createOrbit(run) {
     if (!bl || !bl.canReceiveAmmo || !bl.canReceiveAmmo()) return;
     o.ammoStock--;
     o.ammoT = o.ammoRefill;
-    // ★R49 在庫が種類数を超えるとキューが尽きる。軌道神核戦は 2発＋転生3発＝5発あるので、
-    //   尽きたぶんが全部 'bolt' に落ちて「最後の戦いだけ雷光弾ばかり」になっていた。
-    //   空になったら引き直す＝いちばん長い戦闘でも毎回ちがう弾が来る。
+    // ★R49 尽きたら引き直す。⚠️ 引き直した先頭が直前に配ったものと同じだと、一巡の
+    //   継ぎ目でだけ同じ弾が2連続する（3種の一巡が台無しになる唯一の穴）。入れ替えて防ぐ。
     if (!o.ammoQueue || !o.ammoQueue.length) {
-      o.ammoQueue = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
+      const next = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
+      if (next.length > 1 && next[0] === o.ammoLast) {
+        const t = next[0]; next[0] = next[next.length - 1]; next[next.length - 1] = t;
+      }
+      o.ammoQueue = next;
     }
     const kind = o.ammoQueue.shift() || 'bolt';
+    o.ammoLast = kind;
     bl.giveAmmo(o, kind);
   }
 
