@@ -307,9 +307,11 @@ export const MONSTERS = [
     //   （シルエット一致78.9%）＝「羽の生えた芋虫」にしか見えなかった。
     // 新案＝**上下2対の大きな翅**を左右へ張り出し、胴を細くする＝蛾の輪郭そのものにする。
     //   翅の目玉模様（w）を4つ置いて「蛾」の記号を立てる。
-    // ★R49「もっとキモカワにして」。翅の目玉模様に**瞳（k）を入れて本物の目にし、4つとも
-    //   内側を睨ませる**＝翅がこちらを見ている。触角の先を枝分かれさせてモサモサに、
-    //   口からピンクの口吻（ストロー）を下へ垂らした。
+    // ★R49「もっとキモカワにして」。触角の先を枝分かれさせてモサモサに、口からピンクの
+    //   口吻（ストロー）を下へ垂らした。
+    // ★R49W2「ネオンモスの翅を変えて。もっと可愛く」。睨む目玉（瞳入り）は**やめ**、
+    //   ピンクの水玉＋白のきらめきに置き換えて、翅の四隅を落として丸くした。
+    //   キモカワの担当は触角と口吻に残し、いちばん面積の大きい翅は可愛い側に振る。
     evo: {
       id: 'neonmoth',
       name: 'ネオンモス',
@@ -320,18 +322,18 @@ export const MONSTERS = [
         rows: [
           '..d..........d..',
           '.ddd........ddd.',
-          'gg..aaaaaaaa..gg',
-          'gggg.aaaaaa.gggg',
-          'gwwggaaaaaaggwwg',
-          'gkwgawkaawkagwkg',
-          'ggggakkaakkagggg',
-          'ggg.paawwaapggg.',
           '.gg.aaaaaaaa.gg.',
-          '..g..aaaaaa..g..',
-          'gg...aaaaaa...gg',
           'gggg.aaaaaa.gggg',
-          'gwwg.aaaaaa.gwwg',
-          'gkwg..aaaa..gwkg',
+          'gpgggaaaaaagggpg',
+          'ggggawkaawkagggg',
+          'gwggakkaakkaggwg',
+          'ggg.paawwaapggg.',
+          'ggg.aaaaaaaa.ggg',
+          '.gg..aaaaaa..gg.',
+          'ggg..aaaaaa..ggg',
+          'gggg.aaaaaa.gggg',
+          'gpgg.aaaaaa.ggpg',
+          'gwgg..aaaa..ggwg',
           '.gg...dddd...gg.',
           '.....d.pp.d.....',
         ],
@@ -450,28 +452,30 @@ export const MONSTERS = [
       //   見えなかった（シルエット一致82.0%）。
       // 新案＝**穴の空いた光輪**を頭上に浮かべ、**翼を左右いっぱいへ広げ**、胸のハートを
       //   体の半分まで大きくする＝「天使」の記号を3つとも立てる。
-      // ★R49「もっとキモカワにして」。天使の記号を崩さずに気味悪さを足す：**額に第三の目**、
-      //   **左右の翼にも目**（両翼＋両目＋額＝目が5つ）、光輪を左右非対称に歪ませ、
-      //   足を捨てて**ハートから垂れる2粒の雫**にした。
+      // ★R49「もっとキモカワにして」で目を5つ（額の第三の目＋両翼の目）にしたが、
+      //   R49W2「ハートエンジェルは二つ目にして。翅とお腹の色を交代させて」で撤回。
+      //   → 目は元どおり2つ。**翼をピンク（h）・胸のハートを白（w）へ入れ替え**た。
+      //   翼が体でいちばん広い面なので、ここが白からピンクになると印象が丸ごと変わる。
+      //   キモカワの担当は歪んだ光輪と、足の代わりに垂れる2粒の雫に残す。
       sprite: {
         palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
         rows: [
           '....wwww..ww....',
           '...w........w...',
           '....ww.wwwww....',
-          'ww....aaaa....ww',
-          'wwww.aawwaa.wwww',
-          'wwwwaaakkaaawwww',
-          'wkkaawkaawkaakkw',
-          'wkkaakkaakkaakkw',
-          '.wwppaaaaaappww.',
-          '..w.ahhhhhha.w..',
-          '...ahhhhhhhha...',
-          '...ahhhhhhhha...',
-          '....ahhhhhha....',
-          '.....ahhhha.....',
-          '.....hh..hh.....',
-          '......h..h......',
+          'hh....aaaa....hh',
+          'hhhh.aaaaaa.hhhh',
+          'hhhhaaaaaaaahhhh',
+          'hhhaawkaawkaahhh',
+          'hhhaakkaakkaahhh',
+          '.hhppaaaaaapphh.',
+          '..h.awwwwwwa.h..',
+          '...awwwwwwwwa...',
+          '...awwwwwwwwa...',
+          '....awwwwwwa....',
+          '.....awwwwa.....',
+          '.....ww..ww.....',
+          '......w..w......',
         ],
       },
     },
