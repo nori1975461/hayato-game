@@ -730,14 +730,14 @@ export function createBoss(run) {
               run.spawnParticles(boss.x, boss.y + 6, int(tfc.glowInner), 1);
             }
           }
-          if (stateT <= 0 && tfWarpPhase === 0) { tfWarped = false; beginAttack(); }
+          if (stateT <= 0 && tfWarpPhase === 0 && !shadowsBusy()) { tfWarped = false; beginAttack(); }
           break;
         }
         // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
         const cs = tfc ? tfc.chaseSpeed
           : cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
         moveBoss(nx * cs, ny * cs, dt);
-        if (stateT <= 0) beginAttack();
+        if (stateT <= 0 && !shadowsBusy()) beginAttack();
         break;
       }
 
@@ -1552,10 +1552,15 @@ export function createBoss(run) {
     Sound.sfx('thunder');
     Sound.sfx('elite');
     run.spawnParticles(boss.x, boss.y, int(tf.glowInner), 40);
-    // ★R44W9 名乗り→名前 の順で置く（第1形態の maouIntro と同じ作法）。色は第1形態の
-    //   宣告2行目と同じ '#ff7a7a'＝**同じ者が言っている**ことが色でも伝わる。
-    introText(tf.text3, '#ff7a7a', 126, 18, 3);
-    introText(tf.text2, '#ffedb0', 162, 20, 4);
+    // ★R44W10 実プレイFB「【真マオウレクス 軌道神核】のメッセージと**一緒に**コメントが
+    //   出てくる。**メッセージの後に**表示させて。一緒だとコメントが目立たない」。
+    //   名前のテロップは 160+200×2×(4+1)+260 ＝ **2.42秒**で消えるので、それを待ってから出す。
+    //   位置も画面中央へ寄せ、字も大きくして明滅を長くする＝**この一文だけが画面に残る**形。
+    introText(tf.text2, '#ffedb0', 140, 20, 4);
+    run.time.delayedCall(2520, () => {
+      if (!trueForm || !boss || !boss.active) return;   // 途中で戦闘が終わっていたら出さない
+      introText(tf.text3, '#ff7a7a', 150, 21, 5);
+    });
   }
 
   function finishAwaken() {
@@ -1673,6 +1678,18 @@ export function createBoss(run) {
   // ように**同値の別ソース**を混同する（実測で139回の誤計上をやった）。発生源で数える。
   const shadowStats = { spawned: 0, bites: 0, novaHits: 0, novas: 0 };
   let novaFxBudget = 2;     // 後続の影が撒く炎の1フレーム上限（判定は無いので絵だけ間引く）
+  // ★★R44W10 実測「影が果てた60回の**100%**が、せいれつの照射中だった」。
+  //   実プレイFB「かげおには、軌道神核の攻撃であるせいれつを受けて爆発するパターンが
+  //   ほとんど。それはおかしい」＝そのとおりで、しかも「ほとんど」ではなく**全部**だった。
+  //   構造的な必然：殻の残り（hold 1.7＋open 0.6＝2.3秒）より影の寿命のほうが長いので、
+  //   影が果てる頃にはボスは次の攻撃の照射に入っている。どれだけ大爆発を派手にしても
+  //   画面がレーザーで埋まっていれば**届かない**（[[feedback_change_must_reach_the_player]]）。
+  //   → **影が生きているあいだは次の攻撃に入らない**＝かげおにを1つの攻撃として完結させる。
+  //     「神が祈り、影が狩り、そして爆ぜる」までが1つの見せ場になる。
+  //   ⚠️ 無限待ちにしないよう上限を置く（影が何かで消えなくなっても戦闘は進む）。
+  const SHADOW_HOLD_MAX = 7.5;
+  let shadowHoldT = 0;
+  function shadowsBusy() { return shadows.length > 0 && shadowHoldT < SHADOW_HOLD_MAX; }
   // R44W7: 影の姿は**モビット**（主人公ではない）。実プレイFB「かげおには主人公ではなく
   //   モビットのほうがよい」。いま連れているパーティの顔ぶれをそのまま使う＝
   //   「自分のなかまの堕ちた影に追われる」。進化ずみなら進化形の顔で来る。
@@ -1800,8 +1817,13 @@ export function createBoss(run) {
       // ★残り flareSec は**その場に静止**＝時計を進めない。走者の背後で爆ぜる回避不能を消し、
       //   「影が立ち止まった＝爆ぜる」の予告を身体の動きで伝える（振りかぶりと同じ考え方）。
       const flaring = s.life <= sk.flareSec;
+      // ★R44W10「**ふわふわしながらせまってくる**感じであまりよくない」の正体は**等速**。
+      //   走者は等速では走らない＝踏み込みで速度が脈打つ。gaitSec の周期で速い→遅いを
+      //   繰り返す（平均は変えないので床の保証は無傷）。足音はこの脈の山で鳴らす。
+      const gaitPh = ((run.elapsed / sk.gaitSec + s.rank * 0.17) % 1 + 1) % 1;
       if (!flaring) {
-        s.pt += dt * sk.speedMul;
+        const gait = 1 + (sk.gaitAmp || 0) * Math.cos(gaitPh * Math.PI * 2);
+        s.pt += dt * sk.speedMul * gait;
         const floor = sk.minGapSec + s.rank * sk.rankGapSec;
         if (run.elapsed - s.pt < floor) s.pt = run.elapsed - floor;
       }
@@ -1816,15 +1838,22 @@ export function createBoss(run) {
       s.eye.setPosition(p.x, p.y + 8);
       // 分身（残像）＝自分の再生時計を少しずつ遡った位置。静止しているあいだは出さない
       // （動いていないのにぶれると「壊れている」に見える）。
+      // ★R44W10「**忍者のように**残像を残して」。尾を引く残像（連続追従）ではなく、
+      //   **その場に残って次の踏み込みで飛ぶ**のが忍者の残像。だから位置を
+      //   ghostQuantSec の格子へ量子化する＝くっきり離散した分身が等間隔に並ぶ。
+      //   濃さも 1/(g+1) の連続減衰ではなく ghostAlpha の階段（輪郭が立つ）。
+      const q = sk.ghostQuantSec || 0;
+      const qBase = q > 0 ? Math.floor(s.pt / q) * q : s.pt;
       for (let g = 0; g < s.ghosts.length; g++) {
         const gh = s.ghosts[g];
         if (flaring) { gh.setAlpha(0); continue; }
-        const gt = s.pt - sk.ghostLagSec * (g + 1);
+        const gt = q > 0 ? qBase - q * (g + 1) : s.pt - sk.ghostLagSec * (g + 1);
         const hg = histAt(gt), dg = histDirAt(gt);
+        const ga = (sk.ghostAlpha && sk.ghostAlpha[g] != null) ? sk.ghostAlpha[g] : 0.42 / (g + 1);
         gh.setPosition(hg.x - dg.y * s.lane, hg.y + dg.x * s.lane)
           .setFlipX(s.img.flipX)
-          .setScale(SHADOW_SCALE * s.depth * (1 - 0.06 * (g + 1)))
-          .setAlpha(baseA * (0.42 / (g + 1)))
+          .setScale(SHADOW_SCALE * s.depth * (1 - 0.05 * (g + 1)))
+          .setAlpha(baseA * ga)
           .setTint(s.img.tintTopLeft);
       }
       // 紫⇄深紅の脈（堕ちた聖句と同じ2色を往復＝同じ「堕ちたもの」だと色で分かる）
@@ -1837,6 +1866,18 @@ export function createBoss(run) {
       // ★噛むのは先頭1体だけ（実プレイFB「主人公に追いつくのは常に先頭だけ」）。
       //   後続は速さと圧の演出に徹する＝15体ぶんの判定が重ならない＝理不尽にならない。
       const dx = run.player.x - p.x, dy = run.player.y - p.y;
+      // ★R44W10「**ザッザッザッという迫ってくる効果音**を」。歩調の位相が一周した瞬間＝
+      //   踏み込みの瞬間に鳴らす＝絵と音が同じリズムになる。★「迫ってくる」は**距離の情報**
+      //   なので、音量とピッチを間合いで変える（近いほど大きく・高く）。
+      //   鳴らすのは先頭1体だけ（24体ぶん鳴らすと足音ではなく雑音になる）。音そのものが
+      //   「大勢が踏んだ」構造を持っている（sound.js の shadowStep が3回ずらして踏む）。
+      if (s.biter && !flaring) {
+        if (s.gaitPh != null && gaitPh < s.gaitPh) {
+          const near = clamp01(1 - Math.hypot(dx, dy) / (sk.stepNearPx || 220));
+          Sound.sfx('shadowStep', 0.30 + near * 0.62, 0.88 + near * 0.30);
+        }
+        s.gaitPh = gaitPh;
+      }
       if (s.biter) {
         s.dmgT -= dt;
         const rr = sk.radius + run.player.radius;
@@ -1883,38 +1924,70 @@ export function createBoss(run) {
       //   ①白の閃光 →（40ms）橙の閃光＝炎が画面を舐める ②環6枚（芯・衝撃波・火球・
       //   外環・煤・遅れて第二衝撃波）③放射状の炎柱8本 ④遅れて立ち上る煙柱
       //   ⑤billiard の shockRing 2枚 ⑥火の粉4種 ⑦二段の画面ゆれ。
-      whiteFlash(0.26);
-      run.time.delayedCall(40, () => whiteFlash(0.30, 0xff8a1f, 200));   // 炎が舐める
-      run.shake(760, 26);
-      run.time.delayedCall(150, () => run.shake(380, 10));               // 遅れて来る地響き
+      // ★★R44W10「爆発音・爆発のエフェクト・爆風の音・爆風のエフェクト、**4つとも足りない**。
+      //   **範囲を3倍以上**広げて。全体的に迫力不足。**最終ボスである軌道神核の攻撃である
+      //   という自覚**をもって」。半径が3倍（72→220）になったぶん、係数はむしろ**下げて**
+      //   絶対量を整える（2.2倍のままだと外環が直径968pxで画面を丸ごと塗り潰す）。
+      //   足すのは**層と時間**：閃光を三段に／環8枚／炎柱を内周8＋外周6の二重に／
+      //   **火の雨**（外周に遅れて降る炎）／画面ゆれを三段に。
+      // ★白は 0.22 に留める。実撮影で 0.30＋橙0.34 が重なる 40〜260ms は合計0.5相当になり、
+      //   **主人公も炎の形も白飛びで消えた**（R44W8 と同じ失敗の再演）。白を下げると橙が
+      //   主役になり「画面を舐める炎」に見える＝派手さは増えて視認性は戻る。
+      whiteFlash(0.22);
+      run.time.delayedCall(40, () => whiteFlash(0.34, 0xff8a1f, 220));   // 炎が画面を舐める
+      run.time.delayedCall(300, () => whiteFlash(0.16, 0xc0102a, 420));  // 深紅の残光＝退廃の色
+      run.shake(900, 32);
+      run.time.delayedCall(150, () => run.shake(520, 14));               // 遅れて来る地響き
+      run.time.delayedCall(420, () => run.shake(260, 7));                // さらに遅れて余震
       Sound.sfx('shadowBurst');            // BGMを沈めるのは SFX 側（duckBgm は sound.js の内部関数）
-      // 白熱の芯 → 白の衝撃波 → 炎 → 深紅の外環 → 煤。★2枚目の橙が**判定と同じ半径**
-      spawnRingFx(p.x, p.y, 0xffffff, 6, sk.novaRadius * 0.42, 0.12, 1.0);
-      spawnRingFx(p.x, p.y, 0xfff3d0, 8, sk.novaRadius * 0.75, 0.18, 0.95);
-      spawnRingFx(p.x, p.y, 0xff8a1f, 10, sk.novaRadius, 0.30, 0.92);
-      spawnRingFx(p.x, p.y, 0xff3a12, 12, sk.novaRadius * 1.45, 0.40, 0.8);
-      spawnRingFx(p.x, p.y, 0xc0102a, 14, sk.novaRadius * 2.2, 0.60, 0.62);
-      spawnRingFx(p.x, p.y, 0x2a0a18, 18, sk.novaRadius * 1.15, 0.70, 0.55);
+      // 白熱の芯 → 白の衝撃波 → 炎 → 深紅の外環 → 煤。★3枚目の橙が**判定と同じ半径**
+      spawnRingFx(p.x, p.y, 0xffffff, 6, sk.novaRadius * 0.32, 0.12, 1.0);
+      spawnRingFx(p.x, p.y, 0xfff3d0, 8, sk.novaRadius * 0.62, 0.20, 0.95);
+      spawnRingFx(p.x, p.y, 0xff8a1f, 10, sk.novaRadius, 0.34, 0.92);
+      spawnRingFx(p.x, p.y, 0xff3a12, 12, sk.novaRadius * 1.22, 0.46, 0.8);
+      spawnRingFx(p.x, p.y, 0xc0102a, 14, sk.novaRadius * 1.55, 0.66, 0.62);
+      spawnRingFx(p.x, p.y, 0x2a0a18, 18, sk.novaRadius * 0.95, 0.78, 0.55);
       run.time.delayedCall(120, () =>                                    // 第二衝撃波＝1発で終わらない
-        spawnRingFx(p.x, p.y, 0xffd07a, 20, sk.novaRadius * 1.8, 0.34, 0.5));
-      // ★炎柱を放射状に8本。pillar は上へしか伸びないので、**周囲8点に置いて**四方へ噴かせる
+        spawnRingFx(p.x, p.y, 0xffd07a, 20, sk.novaRadius * 1.35, 0.38, 0.5));
+      run.time.delayedCall(330, () =>                                    // 第三衝撃波＝余韻
+        spawnRingFx(p.x, p.y, 0xff6a1f, 24, sk.novaRadius * 1.7, 0.52, 0.34));
+      // ★炎柱は二重（内周8本＋外周6本）。pillar は上へしか伸びないので**周囲に置いて**四方へ噴かす
       for (let k = 0; k < 8; k++) {
         const a = (k / 8) * Math.PI * 2;
-        const rr = sk.novaRadius * (0.35 + (k % 2) * 0.35);
+        const rr = sk.novaRadius * (0.28 + (k % 2) * 0.22);
         spawnPillarFx(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.6 + 6,
-          k % 2 ? 0xffb020 : 0xff5a10, 18, sk.novaRadius * (1.1 + (k % 3) * 0.35), 0.36);
+          k % 2 ? 0xffb020 : 0xff5a10, 22, sk.novaRadius * (0.62 + (k % 3) * 0.18), 0.38);
       }
-      spawnPillarFx(p.x, p.y + 6, 0xff6a1f, 34, sk.novaRadius * 2.1, 0.46);
-      run.time.delayedCall(180, () =>                                    // 遅れて立ち上る煙
-        spawnPillarFx(p.x, p.y + 4, 0x3a1420, 26, sk.novaRadius * 2.6, 0.85, 0.5));
+      run.time.delayedCall(90, () => {
+        for (let k = 0; k < 6; k++) {
+          const a = ((k + 0.5) / 6) * Math.PI * 2;
+          const rr = sk.novaRadius * 0.86;
+          spawnPillarFx(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.6 + 6,
+            0xff7a1a, 18, sk.novaRadius * 0.55, 0.44, 0.5);
+        }
+      });
+      spawnPillarFx(p.x, p.y + 6, 0xff6a1f, 40, sk.novaRadius * 1.15, 0.50);
+      run.time.delayedCall(180, () =>                                    // 遅れて立ち上る煙（キノコ雲）
+        spawnPillarFx(p.x, p.y + 4, 0x3a1420, 30, sk.novaRadius * 1.5, 0.95, 0.5));
+      // ★火の雨＝外周に**遅れて**降る小さな炎。範囲が広いので「まだ終わらない」を外側で作る
+      for (let k = 0; k < 7; k++) {
+        run.time.delayedCall(220 + k * 55, () => {
+          const a = (k / 7) * Math.PI * 2 + 0.4;
+          const rr = sk.novaRadius * (0.7 + (k % 3) * 0.14);
+          const fx = p.x + Math.cos(a) * rr, fy = p.y + Math.sin(a) * rr * 0.62;
+          spawnRingFx(fx, fy, 0xff8a1f, 3, 26, 0.28, 0.7);
+          run.spawnParticles(fx, fy, 0xff6a1f, 4);
+        });
+      }
       if (run.billiard && run.billiard.shockRing) {
-        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.1, 0xffc060);
-        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.9, 0xffffff);
+        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 0.8, 0xffc060);
+        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.3, 0xffffff);
+        run.time.delayedCall(200, () => run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.6, 0xff6a1f));
       }
-      run.spawnParticles(p.x, p.y, 0xffffff, 12);      // 白熱の破片
-      run.spawnParticles(p.x, p.y, 0xffe9a8, 22);
-      run.spawnParticles(p.x, p.y, 0xff6a1f, 26);
-      run.spawnParticles(p.x, p.y, 0x2a0a18, 18);      // 煤
+      run.spawnParticles(p.x, p.y, 0xffffff, 18);      // 白熱の破片
+      run.spawnParticles(p.x, p.y, 0xffe9a8, 30);
+      run.spawnParticles(p.x, p.y, 0xff6a1f, 34);
+      run.spawnParticles(p.x, p.y, 0x2a0a18, 24);      // 煤
       if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.15);
       const nr = sk.novaRadius + run.player.radius;
       if (dx * dx + dy * dy <= nr * nr) {
@@ -1924,12 +1997,24 @@ export function createBoss(run) {
         //   届いた風＝当たった本人にだけ鳴る。絵も主人公から外向きに火の粉を散らす＝
         //   「巻き込まれた」が自分の身体の側で起きる。
         const d = Math.hypot(dx, dy) || 1;
+        const ux = dx / d, uy = dy / d;      // 爆心 → 主人公 の向き＝風が吹いてくる向き
         Sound.sfx('shadowBlast');
-        whiteFlash(0.22, 0xff5a10, 240);
-        run.shake(520, 16);
-        run.spawnParticles(run.player.x + (dx / d) * 10, run.player.y + (dy / d) * 10, 0xff8a1f, 14);
-        run.spawnParticles(run.player.x, run.player.y, 0xffffff, 8);
-        spawnRingFx(run.player.x, run.player.y, 0xffd07a, 4, 46, 0.26, 0.8);
+        // ★爆風のエフェクトも「足りない」と言われた側。爆発の絵を大きくするのではなく、
+        //   **主人公の身体の側**で3つ起こす：①橙の閃光が視界を舐める ②衝撃波が自分を
+        //   通り抜ける（環を主人公の位置から広げる）③吹き流される火の粉が**風下**へ伸びる。
+        whiteFlash(0.30, 0xff5a10, 300);
+        run.shake(700, 22);
+        if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.20);
+        spawnRingFx(run.player.x, run.player.y, 0xffd07a, 6, 74, 0.24, 0.9);
+        spawnRingFx(run.player.x, run.player.y, 0xff6a1f, 10, 132, 0.36, 0.7);
+        run.time.delayedCall(110, () =>
+          spawnRingFx(run.player.x, run.player.y, 0xc0102a, 14, 176, 0.44, 0.45));
+        for (let k = 0; k < 6; k++) {                 // 風下へ流される火の粉の帯
+          run.spawnParticles(run.player.x + ux * (14 + k * 15), run.player.y + uy * (14 + k * 15),
+            k % 2 ? 0xff8a1f : 0xffe9a8, 5);
+        }
+        run.spawnParticles(run.player.x, run.player.y, 0xffffff, 12);
+        run.spawnParticles(run.player.x, run.player.y, 0x2a0a18, 10);
       }
     } else {
       // 後続は判定を持たない炎だけ。段が後ろほど小さく＝奥で連鎖しているように見える
@@ -3701,7 +3786,10 @@ export function createBoss(run) {
       if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
       // R44W5 かげおに：真の姿のあいだは主人公の足あとを常に記録する（影の材料）。
       //   カットシーン中も記録は止めない＝影の再生に穴を作らない。
-      if (trueForm) recordShadowHist();
+      if (trueForm) {
+      recordShadowHist();
+      shadowHoldT = shadows.length ? shadowHoldT + dt : 0;
+    }
     }
 
     updateShadows(dt);        // R44W5: 影は殻が開いても lifeSec まで残る＝boss の state に縛らない

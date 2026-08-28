@@ -1425,32 +1425,53 @@ const SFX = {
   shadowBurst(vol = 1, pitch = 1) {
     const D = sfxDistBus;
     const big = vol >= 0.6;
-    if (big) duckBgm(0.62, 0.12, 0.62);           // 爆発の瞬間だけ音楽を沈める＝一撃が抜ける
+    if (big) duckBgm(0.78, 0.16, 0.95);           // 爆発の瞬間だけ音楽を沈める＝一撃が抜ける
     noiseHit({ dur: 0.035, gain: 0.34 * vol, hpFreq: 3200, lpFreq: 12000 });
     tone({ type: 'sine', freq: 118 * pitch, freqEnd: 27, dur: 0.62, gain: 0.95 * vol, attack: 0.001 });
     tone({ type: 'triangle', freq: 74 * pitch, freqEnd: 22, dur: 0.50, gain: 0.42 * vol, attack: 0.002 });
-    noiseHit({ dur: big ? 0.72 : 0.30, gain: 0.30 * vol, hpFreq: 160, lpFreq: 9000, lpEnd: 260 });
+    noiseHit({ dur: big ? 0.72 : 0.30, gain: 0.30 * vol, hpFreq: 160, lpFreq: 9000, lpEnd: 520 });
     tone({ type: 'sawtooth', freq: 880 * pitch, freqEnd: 120, dur: 0.28, gain: 0.20 * vol,
            attack: 0.002, dest: D });
     if (!big) return;
-    tone({ type: 'sine', freq: 42, freqEnd: 18, dur: 1.1, gain: 0.62 * vol, attack: 0.004 });
-    tone({ type: 'sine', freq: 96, freqEnd: 24, start: 0.055, dur: 0.80, gain: 0.72 * vol,
+    // ★★R44W10「爆発音・爆発のエフェクト・爆風の音・爆風のエフェクト、**4つともすべて足りない**。
+    //   全体的に迫力不足。最終ボスである軌道神核の攻撃であるという自覚をもって」。
+    //   ★音の「足りない」の正体は**帯域**だった。R44W8 で足したいちばん大きい層は
+    //     サブベース 42→18Hz（gain 0.62）で、これは**子どものノートPCではほぼ無音**
+    //     （[[R34W3の教訓]]：下はノートPCで鳴らない）。本体 118→27Hz も後半は聞こえない。
+    //     つまり「派手にしたつもりの層」がそもそも届いていなかった。
+    //   → 低域は残したまま（良いスピーカーでは効く）、**同じ形を聞こえる帯域にも重ねる**。
+    //     これは R38 の「主役交代」と同じ形＝足すのではなく、主役を届く側へ移す。
+    tone({ type: 'sine', freq: 42, freqEnd: 18, dur: 1.1, gain: 0.42 * vol, attack: 0.004 });
+    tone({ type: 'triangle', freq: 168, freqEnd: 72, dur: 1.0, gain: 0.50 * vol, attack: 0.004 });
+    // 二段の本体（0ms と 55ms）＝「ドッ…ドーン」。低域の相棒を2オクターブ上まで重ねる
+    tone({ type: 'sine', freq: 96, freqEnd: 24, start: 0.055, dur: 0.80, gain: 0.60 * vol,
            attack: 0.001 });
-    tone({ type: 'triangle', freq: 58, freqEnd: 19, start: 0.055, dur: 0.70, gain: 0.34 * vol,
+    tone({ type: 'triangle', freq: 236, freqEnd: 62, start: 0.055, dur: 0.72, gain: 0.52 * vol,
+           attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 472, freqEnd: 108, start: 0.055, dur: 0.46, gain: 0.26 * vol,
+           attack: 0.001, dest: D });
+    tone({ type: 'triangle', freq: 58, freqEnd: 19, start: 0.055, dur: 0.70, gain: 0.24 * vol,
            attack: 0.002 });
+    // 三段目（0.19秒）＝「…ゴォン」。最終ボスの一撃は1発では終わらない
+    tone({ type: 'triangle', freq: 190, freqEnd: 54, start: 0.19, dur: 0.95, gain: 0.44 * vol,
+           attack: 0.002, verb: 0.5 });
     // 金属の裂け：520 / 1435 / 2808Hz＝鉄床（wireHit）と同じ非整数比。歪みバスで「割れた」音に
-    tone({ type: 'square', freq: 520, freqEnd: 240, dur: 0.20, gain: 0.16 * vol,
+    tone({ type: 'square', freq: 520, freqEnd: 240, dur: 0.30, gain: 0.22 * vol,
            attack: 0.001, dest: D });
-    tone({ type: 'square', freq: 1435, freqEnd: 620, dur: 0.16, gain: 0.11 * vol,
+    tone({ type: 'square', freq: 1435, freqEnd: 620, dur: 0.24, gain: 0.15 * vol,
            attack: 0.001, dest: D });
-    tone({ type: 'square', freq: 2808, freqEnd: 980, dur: 0.12, gain: 0.07 * vol,
+    tone({ type: 'square', freq: 2808, freqEnd: 980, dur: 0.18, gain: 0.10 * vol,
            attack: 0.001, dest: D });
-    noiseHit({ start: 0.05, dur: 1.5, gain: 0.20 * vol, hpFreq: 60, lpFreq: 2600, lpEnd: 90 });
-    tone({ type: 'square', freq: 155.5, dur: 1.2, gain: 0.11 * vol, attack: 0.01, verb: 0.8 });
-    tone({ type: 'square', freq: 163.5, dur: 1.2, gain: 0.11 * vol, attack: 0.01, verb: 0.8 });
-    noiseHit({ start: 0.16, dur: 0.07, gain: 0.16 * vol, hpFreq: 1800, lpFreq: 7000 });
-    noiseHit({ start: 0.29, dur: 0.06, gain: 0.12 * vol, hpFreq: 2400, lpFreq: 9000 });
-    noiseHit({ start: 0.44, dur: 0.05, gain: 0.09 * vol, hpFreq: 3000, lpFreq: 11000 });
+    // 轟きの掃引を2本：速い炎（帯域が聞こえる側へ落ちる）＋遅い轟き（2.4秒＝余韻）
+    noiseHit({ start: 0.05, dur: 2.4, gain: 0.26 * vol, hpFreq: 140, lpFreq: 3200, lpEnd: 320 });
+    tone({ type: 'square', freq: 155.5, dur: 1.8, gain: 0.13 * vol, attack: 0.01, verb: 0.9 });
+    tone({ type: 'square', freq: 163.5, dur: 1.8, gain: 0.13 * vol, attack: 0.01, verb: 0.9 });
+    // がれきは5発（時間差が多いほど「大きいものが壊れた」に聞こえる）
+    noiseHit({ start: 0.16, dur: 0.07, gain: 0.18 * vol, hpFreq: 1800, lpFreq: 7000 });
+    noiseHit({ start: 0.29, dur: 0.06, gain: 0.15 * vol, hpFreq: 2400, lpFreq: 9000 });
+    noiseHit({ start: 0.44, dur: 0.05, gain: 0.12 * vol, hpFreq: 3000, lpFreq: 11000 });
+    noiseHit({ start: 0.63, dur: 0.05, gain: 0.10 * vol, hpFreq: 2200, lpFreq: 8000 });
+    noiseHit({ start: 0.86, dur: 0.04, gain: 0.08 * vol, hpFreq: 2800, lpFreq: 10000 });
   },
   // ★R44W8「爆風音」＝爆発音とは別（FBが2つに分けて書かれている）。爆発は**遠くで起きた出来事**、
   //   爆風は**自分の身体に当たった風**。だから材料が違う：破裂の芯を持たず、
@@ -1458,12 +1479,36 @@ const SFX = {
   //   1.4k→180Hz へ落ちる（体を通り過ぎる） ③服と地面が煽られる短い高域 ④肋に来るサブベース。
   //   立ち上がりが遅い（attack 0.09）のがミソ＝これで「破裂」ではなく「風」に聞こえる。
   shadowBlast(vol = 1) {
-    duckBgm(0.5, 0.10, 0.5);
-    tone({ type: 'sawtooth', freq: 68, freqEnd: 34, dur: 0.65, gain: 0.66 * vol, attack: 0.09 });
-    tone({ type: 'sine', freq: 36, freqEnd: 20, dur: 0.85, gain: 0.50 * vol, attack: 0.06 });
-    noiseHit({ dur: 0.55, gain: 0.34 * vol, hpFreq: 120, lpFreq: 1400, lpEnd: 180 });
-    noiseHit({ start: 0.04, dur: 0.22, gain: 0.20 * vol, hpFreq: 1600, lpFreq: 9000, lpEnd: 2200 });
-    tone({ type: 'square', freq: 163.5, dur: 0.5, gain: 0.09 * vol, attack: 0.05, verb: 0.6 });
+    const D = sfxDistBus;
+    duckBgm(0.68, 0.14, 0.8);
+    // ★R44W10 爆風も同じ理由で届いていなかった（68→34Hz・36→20Hz はノートPCで鳴らない）。
+    //   押し寄せる唸りの主役を**204→96Hz**へ移し、低域は下支えに降格する。
+    tone({ type: 'sawtooth', freq: 68, freqEnd: 34, dur: 0.65, gain: 0.42 * vol, attack: 0.09 });
+    tone({ type: 'sawtooth', freq: 204, freqEnd: 96, dur: 0.75, gain: 0.70 * vol, attack: 0.09,
+           dest: D });
+    tone({ type: 'triangle', freq: 144, freqEnd: 80, dur: 0.9, gain: 0.46 * vol, attack: 0.06 });
+    tone({ type: 'sine', freq: 36, freqEnd: 20, dur: 0.85, gain: 0.34 * vol, attack: 0.06 });
+    // 風が体を通り過ぎる：帯域が落ちる長いノイズ＋煽られる高域＋遅れて戻る空気
+    noiseHit({ dur: 0.9, gain: 0.40 * vol, hpFreq: 200, lpFreq: 3200, lpEnd: 420 });
+    noiseHit({ start: 0.04, dur: 0.30, gain: 0.26 * vol, hpFreq: 1600, lpFreq: 9000, lpEnd: 2200 });
+    noiseHit({ start: 0.38, dur: 0.45, gain: 0.16 * vol, hpFreq: 300, lpFreq: 2200, lpEnd: 600 });
+    tone({ type: 'square', freq: 163.5, dur: 0.9, gain: 0.12 * vol, attack: 0.05, verb: 0.8 });
+  },
+  // ★R44W10「移動時に**ザッザッザッという迫ってくる効果音**を」。
+  //   ★1回の再生で**大勢が踏んだ**に聞こえるよう、同じ踏み込みを 0/17/31ms とばらして重ねる
+  //     （24体ぶん個別に鳴らすと足音ではなく雑音になる。隊列の足音は音の側で作る）。
+  //   ザッ の正体＝砂を擦る短い高域ノイズ（帯域が落ちる）＋踏み固める短い中域。
+  //   ★重さを「低いドスン」で出さない（ノートPCで鳴らない）。168→96Hz の胴で出す。
+  shadowStep(vol = 1, pitch = 1) {
+    const feet = [0, 0.017, 0.031];
+    for (let i = 0; i < feet.length; i++) {
+      const g = vol * (i === 0 ? 1 : 0.46 - i * 0.10);
+      noiseHit({ start: feet[i], dur: 0.055, gain: 0.30 * g,
+                 hpFreq: 900 * pitch, lpFreq: 7000 * pitch, lpEnd: 1400 * pitch });
+      tone({ type: 'triangle', freq: 168 * pitch, freqEnd: 96 * pitch, start: feet[i],
+             dur: 0.07, gain: 0.34 * g, attack: 0.001 });
+    }
+    noiseHit({ dur: 0.10, gain: 0.12 * vol, hpFreq: 190, lpFreq: 900 });
   },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
