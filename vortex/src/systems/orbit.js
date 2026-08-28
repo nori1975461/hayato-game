@@ -1347,6 +1347,26 @@ export function createOrbit(run) {
                blade: +(o.lnBlade || 0).toFixed(2), sally: !!o.lnSally,
                scale: +o.spr.scaleX.toFixed(2) };
     },
+    // i番目の仲間がいま画面のどこに居るか。★R48 進化演出をその子の上で出すために要る。
+    // ⚠️ 従来は主人公の座標で光らせていた＝**誰が進化したのか画面から読めなかった**。
+    //    実プレイFB「何度もプレイした私が、モビットに進化形があることに気付かなかった」の
+    //    もう半分の原因はここ（絵を作り直しても、光が本人の上で出ないと目が向かない）。
+    memberPos(i) {
+      const o = orbs[i];
+      return o ? { x: o.x, y: o.y } : null;
+    },
+    // 進化した本人を大きく脈打たせる。★絵を作り直しても、切り替わる**瞬間**が
+    //   画面で動かないと「いま変わった」と読めない（武器レベルアップは既にこれをやっている）。
+    evolvePulse(i) {
+      const o = orbs[i];
+      if (!o || !o.spr) return;
+      const base = o.spr.scaleX || 1;
+      const gb = o.glow.scaleX || 1;
+      run.tweens.add({ targets: o.spr, scaleX: base * 1.75, scaleY: base * 1.75,
+        duration: 170, yoyo: true, ease: 'Quad.out' });
+      run.tweens.add({ targets: o.glow, scaleX: gb * 2.6, scaleY: gb * 2.6, alpha: 1,
+        duration: 220, yoyo: true, ease: 'Quad.out' });
+    },
     get weaponLevel() { return weaponLevel; },
     // R4: HUD 用。全なかま共通 weaponLevel なので先頭 orb の現フォームを代表として返す。
     // orb がまだ無い場合でも band から kind を算出して返す（表示が空にならないように）。

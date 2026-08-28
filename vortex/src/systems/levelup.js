@@ -86,7 +86,13 @@ export function createLevelup(run) {
       p.evolved = true;
       run.orbit.rebuild();
       if (run.fx && run.fx.evolveBurst) {
-        run.fx.evolveBurst({ x: run.player.x, y: run.player.y }, p.def.evo);
+        // ★R48 演出は**進化した本人の上**で出す。主人公の座標で光らせていた頃は、
+        //   誰が変わったのか画面から読めず「進化があること自体に気づかない」状態だった。
+        const at = (run.orbit.memberPos && run.orbit.memberPos(i))
+          || { x: run.player.x, y: run.player.y };
+        run.fx.evolveBurst(at, p.def.evo);
+        if (run.orbit.evolvePulse) run.orbit.evolvePulse(i);
+        if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.12);
       }
       return true;
     }
