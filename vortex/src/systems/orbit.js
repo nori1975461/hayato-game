@@ -303,6 +303,17 @@ export function createOrbit(run) {
       //   マオウレクス戦は2発なので、シャッフルした順に配る＝**必ず違う種類**が来る。
       o.ammoQueue = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
     }
+    // ★R46 実プレイFB「雷光弾はボス戦中だけ間隔を詰めて。**ボス戦でこそ真価を発揮する**」。
+    //   ⚠️ ここに実バグがあった：転生（第3形態→軌道神核）は**同じ boss オブジェクトを
+    //      使い回す**ので ent.id が変わらず、在庫が作り直されない。マオウレクス戦の2発を
+    //      転生前に使い切ると、**いちばん切り札が欲しい軌道神核戦で0発**になっていた。
+    //   → 転生した瞬間に1発だけ足す（第4形態を別のボスとして数え直すと2発になり多すぎる）。
+    if (bs.trueForm && !o.ammoTrueDone) {
+      o.ammoTrueDone = true;
+      o.ammoStock = (o.ammoStock || 0) + (A.AMMO.trueFormRefill || 0);
+      o.ammoT = Math.min(o.ammoT, A.AMMO.trueFormDelaySec || o.ammoFirst);
+    }
+    if (!bs.trueForm) o.ammoTrueDone = false;
     if (o.ammoStock <= 0) return;
     o.ammoT -= dt;
     if (o.ammoT > 0) return;
@@ -1035,6 +1046,13 @@ export function createOrbit(run) {
     get count() { return orbs.length; },
     // 検証用（R22）：回復モビットが実際に働いているかを外から観測するため。書き換え用ではない。
     get orbs() { return orbs; },
+    // 検証用（R46）：弾配り役の在庫。★軌道神核で0発になっていないかを外から測る。
+    debugAmmo() {
+      const o = orbs.find((x) => x.archetype === 'AMMO');
+      if (!o) return null;
+      return { stock: o.ammoStock, t: +(o.ammoT || 0).toFixed(1),
+               bossId: o.ammoBossId, trueDone: !!o.ammoTrueDone };
+    },
     // 検証用（R45）：ネムッコの寝姿・💤・覚醒を外から測る。
     // ⚠️ 「寝ている」は絵でしか確認できないので、絵を決めている値そのものを返す
     //    （回転・沈み・テクスチャ）＝スクショの目視と数値の両方で判定できるようにする。

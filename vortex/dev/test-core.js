@@ -3415,6 +3415,50 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/return core;/.test(cap), 'R45: makeCore が置いたコアを返す（拾われたか追える）');
 }
 
+// ============================================================================
+// R46 「雷光弾はボス戦中だけ間隔を詰めて。ボス戦でこそ真価を発揮する」
+// ============================================================================
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const spawner = fs.readFileSync(path.join(SRC, 'systems/spawner.js'), 'utf8');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+  const RA = BALANCE.rareEnemy;
+  const AM = BALANCE.archetypes.AMMO;
+
+  // --- ① マグマン（炎熱炸裂弾の出処）はボス戦中だけ間隔が詰まる ---
+  // 実測（R45）：自然プレイ315秒で出た5体のうち**ボス戦中は1体だけ**だった。
+  assert(RA.bossEveryMax < RA.everyMin,
+    `R46: ボス戦中の間隔（${RA.bossEveryMin}〜${RA.bossEveryMax}秒）は平常（${RA.everyMin}〜${RA.everyMax}秒）と`
+    + '**帯が重ならない**＝確実に詰まっている');
+  // ★平常時は触らない。2026-08-23「マグマンが少し多い」で34→54秒へ伸ばした経緯があるので、
+  //   総量を戻すのは逆行。増やすのではなく**寄せる**のがこの変更の主旨。
+  assert(RA.everyMin === 38 && RA.everyMax === 70,
+    `R46: 平常時の間隔は据え置き（${RA.everyMin}〜${RA.everyMax}秒）＝総量は増やさない`);
+  assert(RA.bossFirstSec > 0 && RA.bossFirstSec <= 12,
+    `R46: ボス戦に入った瞬間、待ちを ${RA.bossFirstSec}秒まで切り詰める`);
+  assert(/const onBoss = !!\(run\.boss && run\.boss\.active\);/.test(spawner)
+      && /if \(onBoss && RARE\.bossFirstSec != null\) rareT = Math\.min\(rareT, RARE\.bossFirstSec\);/.test(spawner),
+    'R46: ボス戦に**入った瞬間**に待ちを切り詰める（これが無いと長い待ちの途中でボスが'
+    + '始まった回は1体も出ずに終わる＝R45の実測の原因）');
+  assert(/onBoss && RARE\.bossEveryMin != null/.test(spawner),
+    'R46: ボス戦中は短い方の帯から間隔を引き直す');
+  assert(RA.maxAlive <= 2,
+    `R46: 同時に居られる数は据え置き ${RA.maxAlive}体（詰めるのは間隔だけ＝珍しさは残す）`);
+
+  // --- ② 雷光弾は軌道神核でも必ず1発ある ---
+  // ★実バグだった：転生は同じ boss オブジェクトを使い回すので ent.id が変わらず在庫が
+  //   作り直されない。実測（補充0発 vs 1発の引き算）＝**軌道神核戦で 0発 → 1発**。
+  assert(AM.trueFormRefill > 0,
+    `R46: 転生した瞬間に ${AM.trueFormRefill}発 補充する（0だと軌道神核戦で1発も来ない＝実測）`);
+  assert(AM.trueFormRefill < AM.perFinal,
+    'R46: 補充は perFinal より少ない（第4形態を別のボスとして数え直すと多すぎる）');
+  assert(/if \(bs\.trueForm && !o\.ammoTrueDone\) \{/.test(orbit)
+      && /if \(!bs\.trueForm\) o\.ammoTrueDone = false;/.test(orbit),
+    'R46: 補充は転生1回きり（毎フレーム足して無限に配る、を防ぐ）');
+  assert(/debugAmmo\(\)/.test(orbit),
+    'R46: 在庫を外から測れる（「軌道神核で0発」を数で捕まえられるように）');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

@@ -18,6 +18,7 @@ export function createSpawner(run) {
   const COMMON = ENEMIES.filter((e) => !e.rare);
   const RARE = BALANCE.rareEnemy;
   let rareT = RARE ? RARE.firstSec : 1e9;
+  let rareOnBoss = false;   // R46: ボス戦に入った/出た瞬間を捕まえるための直前の状態
 
   const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -153,9 +154,21 @@ export function createSpawner(run) {
     run.enemyCap = Math.max(8, Math.round(currentCap() * modeMul('capMul')));
     // レア雑魚（不定期・ボス戦中も止めない）
     if (RARE && byId[RARE.enemyId]) {
+      // ★R46「ボス戦中だけ間隔を詰めて。ボス戦でこそ真価を発揮する」。
+      //   ボス戦に**入った瞬間**に待ちを切り詰めるのが要：ここが無いと、平常の長い待ち
+      //   （最大70秒）の途中でボスが始まった場合、そのボス戦のあいだ1体も出ずに終わる。
+      //   実測（R45）で「5体中ボス戦中は1体だけ」だった原因がこれ。
+      const onBoss = !!(run.boss && run.boss.active);
+      if (onBoss !== rareOnBoss) {
+        rareOnBoss = onBoss;
+        if (onBoss && RARE.bossFirstSec != null) rareT = Math.min(rareT, RARE.bossFirstSec);
+      }
       rareT -= dt;
       if (rareT <= 0) {
-        rareT = run.rng.range(RARE.everyMin, RARE.everyMax);   // 次の間隔を毎回引き直す
+        // 次の間隔を毎回引き直す＝「不定期」。ボス戦中だけ短い方の帯から引く
+        rareT = onBoss && RARE.bossEveryMin != null
+          ? run.rng.range(RARE.bossEveryMin, RARE.bossEveryMax)
+          : run.rng.range(RARE.everyMin, RARE.everyMax);
         if (aliveRare() < RARE.maxAlive) spawnRare();
       }
       updateRareMarker();
