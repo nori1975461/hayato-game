@@ -245,6 +245,30 @@ export class RunScene extends Phaser.Scene {
     this.input.on('pointermove', () => { this._pointerSeen = true; this._pointerMoveT = this.elapsed; });
     this._jKey = kb.addKey(KC.J);   // 左クリックの代替（キーボードだけでも完走できる）
 
+    // ★R44W6 実プレイFB「ゲーム本番でもれんしゅうじょうでも、タイトル画面にもどれる設定を。
+    //   プレイ中に手がふれないキーがよい。ESCがいいと思う」。
+    //   ESC採用＝矢印/WASD/スペースから物理的に遠く誤爆しない。ただし1回押しで即タイトルだと
+    //   誤タッチ1回でランが全損するので、**1.6秒以内の2度押し**で確定にする（確認の文言を出す）。
+    kb.on('keydown-ESC', () => {
+      if (this.ended) return;
+      const now = this.time.now;
+      if (this._escArmedUntil && now < this._escArmedUntil) {
+        this._escArmedUntil = 0;
+        Sound.stopBgm();
+        this.scene.start('Title');
+        return;
+      }
+      this._escArmedUntil = now + 1600;
+      if (this._escText) this._escText.destroy();
+      const t = this.add.text(this.scale.width / 2, 322, 'もういちど ESC で タイトルへ', {
+        fontFamily: 'monospace', fontSize: '15px', color: '#ffffff',
+        stroke: '#000000', strokeThickness: 4,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(300);
+      this._escText = t;
+      this.tweens.add({ targets: t, alpha: 0, delay: 1100, duration: 500,
+        onComplete: () => { if (this._escText === t) this._escText = null; t.destroy(); } });
+    });
+
     kb.on('keydown-P', () => { if (!this.ended) this.togglePause(); });
     kb.on('keydown-M', () => this.toggleMute());
     kb.on('keydown-R', () => { if (this.paused) this.restartRun(); });

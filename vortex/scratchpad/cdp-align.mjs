@@ -201,7 +201,7 @@ async function main() {
   const A = out[0] && out[0].s, B = out[1] && out[1].s, C = out[2] && out[2].s;
   console.log('②射線プレビュー:      ' + ((A && A.line === 0) ? 'YES 出ていない（FBどおり）' : 'NO まだ描かれている'));
   console.log('③振りかぶり:          ' + (A ? (A.windMax * 180 / Math.PI).toFixed(1) + '°（設計18°）' : '?'));
-  console.log('④薙ぎ角:              ' + (A && A.spans.length ? A.spans.join(',') + '°（設計120°・片方向）' : '?'));
+  console.log('④薙ぎ角:              ' + (A && A.spans.length ? A.spans.join(',') + '°（R44W6設計145°・片方向）' : '?'));
   const rate = (o) => (o && o.fires ? (o.hitBig / o.fires) : null);
   const pct = (v) => (v == null ? '?' : (v * 100).toFixed(0) + '%');
   console.log('⑤棒立ちの被弾率:      ' + pct(rate(A)) + `（${A ? A.hitBig : '?'}/${A ? A.fires : '?'}）`

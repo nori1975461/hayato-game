@@ -643,13 +643,20 @@ export function createBoss(run) {
       // 視覚のフェードイン/降下は updateDisp 側（maouIntroFx）で担当。stateT<=0 で通常戦闘へ。
       case 'maouIntro': {
         const it = MAOU_INTRO.dur - stateT;
+        // ★R44W6 実プレイFB「『おまえたちはきけん・・・』はいまいち。唐突すぎるし、言葉に
+        //   なんの意味もつながりもない。『ひかりをけす』という意味のコメントを。最終ボス
+        //   （厳密には軌道神核の一つ前）らしい威厳をもった言葉を」。
+        //   ロボットの吃音（カタカナ＋・・・）をやめ、**漢字交じりの断定**で王の声にする
+        //   （小6・漢字OK。世界がひらがなの中で、この者だけ漢字で話す＝異質さと格）。
+        //   意味のつながり＝オープニングの命令「セカイから ひかりを けせ」を出した張本人が、
+        //   主人公を「小さき光」と呼んで同じ宣告を重ねる。エンディング「ひかりが もどった」の対句。
         if (introStage < 1 && it >= MAOU_INTRO.line1At) {
           introStage = 1;
-          introText('オマエタチ・・・ハ・・・キケン・・・', '#bff5ff', 108, 16, 3);
+          introText('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3);
         }
         if (introStage < 2 && it >= MAOU_INTRO.line2At) {
           introStage = 2;
-          introText('ハイジョ・・・スル・・・', '#ff7a7a', 140, 16, 3);
+          introText('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3);
         }
         if (introStage < 3 && it >= MAOU_INTRO.telopAt) {
           introStage = 3;
@@ -1570,7 +1577,8 @@ export function createBoss(run) {
     clearLock();          // R43 一射目のロックを解く（二射目は改めて狙い直す）
     alignWind = 0;        // 振りかぶりは発射で戻る（溜めた力が返る）
     startBeam(a0, a1, ak.beamLength, ak.beamWidth, ak.damage, ak.activeSec,
-      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true, scorch: !!ak.scorch });
+      { tint: ak.beamTint, core: ak.coreTint, spark: 0xff4030, heavy: true, scorch: !!ak.scorch,
+        sweepSec: ak.sweepSec });
     whiteFlash(0.55);
     run.shake(800, 18);
     Sound.sfx('godLaser');
@@ -2619,7 +2627,11 @@ export function createBoss(run) {
     if (!beamCore) {
       beamCore = run.add.image(0, 0, 'boss_beam').setOrigin(0, 0.5).setBlendMode(ADD).setDepth(10);
     }
+    // R44W6: sweepSec＝薙ぎ相の長さ。指定が無ければ activeSec 全体で薙ぐ（従来どおり）。
+    //   指定があれば sweepSec で薙ぎ切り、残り時間は終端で燃え続ける（焼き付き相）＝
+    //   「速く薙ぎ・長く照射」しても総角度は増えない（薙がない側の安全を保つ）。
     beam = { angFrom, angTo, len, width, dmg, life: activeSec, maxLife: activeSec, dmgT: 0,
+      sweepSec: opts.sweepSec || activeSec,
       spark: opts.spark || 0, heavy: !!opts.heavy, hasCore: !!opts.core, scorch: !!opts.scorch };
     // ★R44W3 薙いだ跡の焼け扇。**ビームの後ろにだけ**伸びる（先回りして描くと射線の
     //   先読みになり、消したはずの赤い線を扇の形で復活させてしまう）。
@@ -2644,7 +2656,7 @@ export function createBoss(run) {
       }
       beam = null; return;
     }
-    const t = 1 - beam.life / beam.maxLife;
+    const t = Math.min(1, (beam.maxLife - beam.life) / beam.sweepSec);   // R44W6: 薙ぎ相→焼き付き相
     const ang = beam.angFrom + (beam.angTo - beam.angFrom) * t;
     const x = boss ? boss.x : 0, y = boss ? boss.y : 0;
     if (beam.scorch && scorchGfx) {
@@ -3560,9 +3572,10 @@ export function createBoss(run) {
     // R43 検証用：いま張られているビームの向きと太さ（射線から主人公が何px離れているかを外から測る）
     debugBeam() {
       if (!beam) return null;
-      const t = 1 - beam.life / beam.maxLife;
+      const t = Math.min(1, (beam.maxLife - beam.life) / beam.sweepSec);
       return { ang: beam.angFrom + (beam.angTo - beam.angFrom) * t,
-        from: beam.angFrom, to: beam.angTo, width: beam.width, len: beam.len };
+        from: beam.angFrom, to: beam.angTo, width: beam.width, len: beam.len,
+        sweepDone: t >= 1 };
     },
     get locked() { return lockAng != null; },
     // R44W3 検証用：整列レーザーの射線・振りかぶり・薙ぐ向き（読み筋が本当に出ているかを外から測る）

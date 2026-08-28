@@ -2924,6 +2924,56 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R44W5: 影とその床（gap）を外から測れる');
 }
 
+// ============================================================================
+// R44W6 4件：ボス名の漢字表記／ESCでタイトルへ／せいれつ強化／マオウレクスの名乗り
+// ============================================================================
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const runjs = read('scenes/Run.js');
+  const tf = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').trueForm;
+
+  // --- ① 名前表記（指定の文字列そのまま。勝手に縮めない）---
+  assert(tf.name === '真マオウレクス【軌道神核（きどうしんかく）】',
+    'R44W6: HPバーの見出しが指定どおり「真マオウレクス【軌道神核（きどうしんかく）】」');
+  assert(tf.text2 === '真マオウレクス【軌道神核（きどうしんかく）】',
+    'R44W6: 転生テロップも同じ表記（画面ごとに名前が揺れない）');
+
+  // --- ② ESC＝2度押しでタイトルへ（本番もれんしゅうじょうも Run シーンなので1箇所で両対応）---
+  assert(/keydown-ESC/.test(runjs), 'R44W6: ESCキーの結線が Run にある');
+  assert(/_escArmedUntil/.test(runjs) && /もういちど ESC で タイトルへ/.test(runjs),
+    'R44W6: ESCは2度押し確認（誤タッチ1回でランが全損しない）');
+  assert(/Sound\.stopBgm\(\);\s*\n\s*this\.scene\.start\('Title'\)/.test(runjs),
+    'R44W6: タイトルへ戻るとき BGM を止める（Result と同じ作法）');
+
+  // --- ③ せいれつ強化＝薙ぎ相＋焼き付き相 ---
+  {
+    const A = tf.aligned;
+    assert(typeof A.sweepSec === 'number' && A.sweepSec < A.activeSec,
+      `R44W6: 照射が2相（薙ぎ${A.sweepSec}s ＋ 焼き付き${(A.activeSec - A.sweepSec).toFixed(2)}s）＝時間を伸ばしても総角度は増えない`);
+    const rate = A.sweepDeg / A.sweepSec;
+    assert(rate >= 130 && rate <= 200,
+      `R44W6: 薙ぎ速度 ${rate.toFixed(0)}°/s（旧104°/s より速く・読める上限200以内）`);
+    assert(A.beamWidth >= 120, `R44W6: 幅 ${A.beamWidth}（旧100より太い）`);
+    assert(A.activeSec >= 1.4, `R44W6: 照射 ${A.activeSec}s（旧1.15より長い）`);
+    assert(/sweepSec: ak\.sweepSec/.test(boss),
+      'R44W6: sweepSec が fireAligned から実際に渡っている');
+    assert(/sweepSec: opts\.sweepSec \|\| activeSec/.test(boss),
+      'R44W6: 他のビーム（じゃがん/胸部/再照準）は従来どおり全時間で薙ぐ（既定値）');
+    assert((boss.match(/\(beam\.maxLife - beam\.life\) \/ beam\.sweepSec/g) || []).length >= 2,
+      'R44W6: 描画とdebugBeamの両方が同じ2相の式＝計測器が実装から乖離しない');
+  }
+
+  // --- ④ マオウレクスの名乗り（唐突なロボ吃音 → 意味のつながる王の宣告）---
+  {
+    const mi = (boss.match(/case 'maouIntro':[\s\S]*?endIntro\(\)/) || [''])[0];
+    assert(!/キケン|ハイジョ/.test(mi), 'R44W6: 旧セリフ（オマエタチハキケン/ハイジョスル）が残っていない');
+    assert(/よくぞ来た 小さき光よ/.test(mi) && /この世界の光は 我が手で消す/.test(mi),
+      'R44W6: 名乗りが「ひかりをけす」の意味を持つ（OP命令「ひかりをけせ」・ED「ひかりがもどった」との対句）');
+  }
+}
+
 // --- 結果 ---
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);

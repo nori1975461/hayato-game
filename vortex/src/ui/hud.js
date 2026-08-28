@@ -91,7 +91,10 @@ export function createHud(run) {
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(D + 1).setVisible(false));
   }
 
-  const pauseText = run.add.text(320, 180, 'ポーズちゅう\n（P でさいかい / R でやりなおし）', {
+  // R44W6: ESCでタイトルへ戻れることは、ポーズ画面に書いておかないと誰も知らないまま終わる
+  //   （ESC自体は本番でもれんしゅうじょうでも効く。押すと確認の文言が出て2度押しで確定）
+  const pauseText = run.add.text(320, 180,
+    'ポーズちゅう\n（P でさいかい / R でやりなおし）\nESC 2かい で タイトルへ', {
     fontFamily: 'monospace', fontSize: '16px', color: '#ffffff', align: 'center',
   }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 5).setVisible(false);
 
