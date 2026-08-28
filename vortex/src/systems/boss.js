@@ -90,6 +90,7 @@ export function createBoss(run) {
   let splitLaserDone = false; // R37 分離中にじゃがんレーザーを1回撃ちきった印（撃つまで再合体しない）
   let alignAng = 0;           // 整列レーザーの射線（環が揃う向き＝そのまま射線）
   let alignWind = 0;          // R44W3 振りかぶり（環の面を薙ぐ向きと逆へ溜める角度・rad）
+  let alignTold = false;      // R44W8 技名テロップを出したか（照射の直前に1回だけ出す）
   let scorchGfx = null;       // R44W3 薙いだ跡の焼け扇（ビームの後ろに残る）
   // ★R40 軌道遊弋＋座の転移（trueForm の移動）。「フワフワ浮遊しているだけでは荘厳さを
   //   感じれない」への回答＝**神は追いかけない**。主人公を中心にした軌道の上を滑り、
@@ -509,9 +510,12 @@ export function createBoss(run) {
                          introText('ワイヤーアームはっしゃ', '#46e6ff', 156, 18, 1); break;
       case 'ring':       state = 'ringTele';    stateT = cfg.ring.telegraphSec; break;
       // ★真マオウレクス（第4形態）の3種。予告はどれも**形**で読める（文字より先に姿が変わる）。
-      case 'aligned':    state = 'alignTele';  stateT = tfAlignSec();
-                         Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.8);
-                         introText('せいれつ―― かんつうこう', '#ffedb0', 156, 18, 1); break;
+      // ★R44W8 実プレイFB「攻撃予告の**文字が表示されたら、間髪入れずに**レーザーを照射して。
+      //   **いきなり攻撃される怖さ**を出すため」。予告そのもの（環の整列・振りかぶり・気配の粒）は
+      //   そのまま残し、**文字だけを照射の直前へ遅らせる**（alignTele 内の textLeadSec）。
+      //   ＝「文字が出た＝もう来ている」。文字を消さないのは、技の名前は憶えてほしいから。
+      case 'aligned':    state = 'alignTele';  stateT = tfAlignSec(); alignTold = false;
+                         Sound.sfx('specialCharge'); Sound.sfx('warning', 0.7, 0.8); break;
       case 'verse':      state = 'verseTele';  stateT = TF().verse.teleSec; shotAcc = 0; shotIdx = 0;
                          // ★R40 予告を「魔法陣の展開」にする：外へ開く金環＋内へ閉じる白環＋詠唱の
                          //   スウェル。文字が剥がれる前に**儀式の場**が組み上がる＝最終ボスの格。
@@ -893,6 +897,12 @@ export function createBoss(run) {
           // 溜めの後半は赤を混ぜる＝「深紅のレーザーが来る」を色でも予告する（R36W2）
           run.spawnParticles(boss.x, boss.y,
             Math.floor(run.elapsed * 7) % 2 === 0 ? 0xff3040 : int(TF().glowInner), 2);
+        }
+        // ★文字は照射の直前（既定0.12秒前）に出す＝「文字が出た＝もう来ている」（R44W8）。
+        //   予告の頭に出していた旧実装では、文字から照射まで 2.0秒 の猶予があった。
+        if (!alignTold && stateT <= (ak.textLeadSec != null ? ak.textLeadSec : 0.12)) {
+          alignTold = true;
+          introText('せいれつ―― かんつうこう', '#ffedb0', 156, 18, 1);
         }
         if (stateT <= 0) fireAligned();
         break;
@@ -1659,7 +1669,7 @@ export function createBoss(run) {
   // 検証用の実績カウンタ。⚠️ hitPlayer のダメージ値で外から仕分けると、聖句16と炸裂16の
   // ように**同値の別ソース**を混同する（実測で139回の誤計上をやった）。発生源で数える。
   const shadowStats = { spawned: 0, bites: 0, novaHits: 0, novas: 0 };
-  let novaFxBudget = 4;     // 後続の影が撒く炎の1フレーム上限（判定は無いので絵だけ間引く）
+  let novaFxBudget = 2;     // 後続の影が撒く炎の1フレーム上限（判定は無いので絵だけ間引く）
   // R44W7: 影の姿は**モビット**（主人公ではない）。実プレイFB「かげおには主人公ではなく
   //   モビットのほうがよい」。いま連れているパーティの顔ぶれをそのまま使う＝
   //   「自分のなかまの堕ちた影に追われる」。進化ずみなら進化形の顔で来る。
@@ -1708,6 +1718,14 @@ export function createBoss(run) {
     // 列のオフセット（中央から左右対称）。中央に近いほど |off| が小さい＝先頭の噛み手を選ぶ基準
     const laneOffs = [];
     for (let l = 0; l < lanes; l++) laneOffs.push((l - (lanes - 1) / 2) * sk.laneGapPx);
+    // ★噛み手は「中央にいちばん近い列」を**添字で**選ぶ。旧実装は |offset| < laneGapPx/2 で
+    //   選んでいたので、列が**偶数**（R44W8 の4列）だと中央に0の列が無く**誰も噛み手にならない**
+    //   （＝どの影も判定を持たない無音の空振り）。噛み手だけは lane を 0 に固定する＝
+    //   足あとの上を正確になぞる（横にずれると立ち止まっても届かない）。
+    let biterLane = 0;
+    for (let l = 1; l < lanes; l++) {
+      if (Math.abs(laneOffs[l]) < Math.abs(laneOffs[biterLane])) biterLane = l;
+    }
     const texKeys = shadowTexKeys();          // 顔ぶれは体ごとに巡回＝隊列がぜんぶ同じ顔にならない
     for (let r = 0; r < sk.ranks; r++) {
       for (let l = 0; l < lanes; l++) {
@@ -1715,20 +1733,34 @@ export function createBoss(run) {
         const p = histAt(pt);
         // 後ろの段ほど小さく淡い＝奥行き。先頭（噛み手）だけが等身大＝「追いつくのは先頭だけ」が形で分かる
         const depth = 1 - r / Math.max(1, sk.ranks) * 0.42;
-        const isBiter = r === 0 && Math.abs(laneOffs[l]) < sk.laneGapPx * 0.5;
-        const pool = run.add.image(p.x, p.y + 10, 'white').setDepth(8)
+        const isBiter = r === 0 && l === biterLane;
+        // 千鳥＝奇数段を半列ずらす。間隔を広げずに**真後ろの重なり**だけを消せる
+        const stag = (sk.stagger && r % 2) ? sk.laneGapPx * 0.5 : 0;
+        // 個体ごとの固定ゆらぎ（決定的な擬似乱数）＝整列した格子ではなく「群れ」になる
+        const hsh = Math.sin(r * 12.9898 + l * 78.233) * 43758.5453;
+        const jit = ((hsh - Math.floor(hsh)) * 2 - 1) * (sk.jitterPx || 0);
+        const lane = isBiter ? 0 : laneOffs[l] + stag + jit;
+        // ★R44W8 depth は**種類ごと**に分ける（体ごとに pool→img→eye と積むと、描画順が
+        //   white / mon_ / glow と交互になり、24体ぶん**バッチが割れて**FPSが落ちる。
+        //   実測 15体56fps → 24体33fps の主因はここだった）。同じテクスチャがまとまるので
+        //   ドローコールは体数に比例しなくなる。噛み手だけは前面（+1）。
+        const dz = isBiter ? 1 : 0;
+        const pool = run.add.image(p.x, p.y + 10, 'white').setDepth(7.5)
           .setTint(0x14060e).setAlpha(0).setDisplaySize(44 * depth, 14 * depth);
         const tex = texKeys[(r * lanes + l) % texKeys.length];
         const img = run.add.image(p.x, p.y, tex).setScale(SHADOW_SCALE * depth).setFlipY(true)
-          .setDepth(isBiter ? 9 : 8).setAlpha(0).setTint(VERSE_FALL_A);
+          .setDepth(8 + dz).setAlpha(0).setTint(VERSE_FALL_A);
         const eye = run.add.image(p.x, p.y + 8, 'glow').setBlendMode(ADD)
-          .setDepth(isBiter ? 9 : 8).setTint(0xd01228).setAlpha(0)
+          .setDepth(8.5 + dz).setTint(0xd01228).setAlpha(0)
           .setDisplaySize(16 * depth, 16 * depth);
         // ★分身（残像）＝自分の再生時計を ghostLagSec ずつ遡った位置に置く。
         //   「走る姿がぶれて見える」＝速さの記号。位置は履歴から引くだけなので毎フレームの
         //   生成が要らず、体数が増えても破綻しない。
+        //   ★R44W8 後ろの段は1枚だけにする＝体数が1.6倍になっても画面上の枚数はほぼ据え置き。
+        //     分身が効くのは「速く走って見える」ためなので、読める距離にいる前列だけで足りる。
+        const gc = r < (sk.ghostNearRanks != null ? sk.ghostNearRanks : sk.ranks) ? sk.ghostCount : 1;
         const ghosts = [];
-        for (let g = 0; g < sk.ghostCount; g++) {
+        for (let g = 0; g < gc; g++) {
           ghosts.push(run.add.image(p.x, p.y, tex).setScale(SHADOW_SCALE * depth).setFlipY(true)
             .setDepth(7).setAlpha(0).setTint(VERSE_FALL_A));
         }
@@ -1736,7 +1768,7 @@ export function createBoss(run) {
           pt, riseT: 0, rising: true,
           // 段ごとに寿命をずらす＝先頭から後ろへ**連鎖して**爆ぜる（同時だと1発の白飛びになる）
           life: sk.lifeSec - (sk.ranks - 1 - r) * sk.chainSec,
-          dmgT: 0, idx: r, rank: r, lane: laneOffs[l], depth, biter: isBiter });
+          dmgT: 0, idx: r, rank: r, laneIdx: l, lane, depth, biter: isBiter });
         shadowStats.spawned++;
       }
     }
@@ -1747,7 +1779,7 @@ export function createBoss(run) {
     const sk = TF() && TF().shell ? TF().shell.shadow : null;
     if (!sk) { destroyShadows(); return; }
     let dripBudget = 2;                                 // 影のしずくは1フレーム合計2個まで
-    novaFxBudget = 4;                                   // 後続の炎は1フレーム4体まで（連鎖で同時に来る）
+    novaFxBudget = 2;                                   // 後続の炎は1フレーム2体まで（24体の連鎖でも粒が暴れない）
     for (let i = shadows.length - 1; i >= 0; i--) {
       const s = shadows[i];
       const baseA = s.biter ? 0.9 : 0.34 + s.depth * 0.34;   // 後続は淡い＝先頭が読める
@@ -1841,24 +1873,60 @@ export function createBoss(run) {
   function shadowNova(s, p, sk, dx, dy) {
     shadowStats.novas++;
     if (s.biter) {
-      // ★閃光は 0.22 まで（殻を割る whiteFlash(0.3) より弱い）。実撮影で 0.36 は
-      //   画面が真っ白に飛び、肝心の**炎が見えなくなった**＝「炎を出しながら大爆発」に反する。
-      whiteFlash(0.22);
-      run.shake(560, 15);
+      // ★★R44W8 実プレイFB「かげおにの一番の不満点は**爆発と爆風**。もっとずっと派手に。
+      //   とくに**エフェクトと音（爆発音と爆風音）**をいまよりずっと派手に」。
+      //   派手さは「1枚を強くする」では出ない（0.36の閃光は白飛びして炎が消えた実測）。
+      //   **層を増やして時間差で置く**＝目が「まだ終わらない」と感じ続けるのが派手さの正体。
+      //   ①白の閃光 →（40ms）橙の閃光＝炎が画面を舐める ②環6枚（芯・衝撃波・火球・
+      //   外環・煤・遅れて第二衝撃波）③放射状の炎柱8本 ④遅れて立ち上る煙柱
+      //   ⑤billiard の shockRing 2枚 ⑥火の粉4種 ⑦二段の画面ゆれ。
+      whiteFlash(0.26);
+      run.time.delayedCall(40, () => whiteFlash(0.30, 0xff8a1f, 200));   // 炎が舐める
+      run.shake(760, 26);
+      run.time.delayedCall(150, () => run.shake(380, 10));               // 遅れて来る地響き
       Sound.sfx('shadowBurst');            // BGMを沈めるのは SFX 側（duckBgm は sound.js の内部関数）
-      // 白熱の芯 → 炎 → 深紅の衝撃波。★真ん中の環が**判定と同じ半径**＝広さが学習できる
-      spawnRingFx(p.x, p.y, 0xfff3d0, 8, sk.novaRadius * 0.55, 0.16, 0.95);
+      // 白熱の芯 → 白の衝撃波 → 炎 → 深紅の外環 → 煤。★2枚目の橙が**判定と同じ半径**
+      spawnRingFx(p.x, p.y, 0xffffff, 6, sk.novaRadius * 0.42, 0.12, 1.0);
+      spawnRingFx(p.x, p.y, 0xfff3d0, 8, sk.novaRadius * 0.75, 0.18, 0.95);
       spawnRingFx(p.x, p.y, 0xff8a1f, 10, sk.novaRadius, 0.30, 0.92);
-      spawnRingFx(p.x, p.y, 0xc0102a, 14, sk.novaRadius * 1.9, 0.52, 0.6);
-      spawnPillarFx(p.x, p.y + 6, 0xff6a1f, 28, sk.novaRadius * 1.7, 0.42);
-      run.spawnParticles(p.x, p.y, 0xffe9a8, 10);
-      run.spawnParticles(p.x, p.y, 0xff6a1f, 12);
-      run.spawnParticles(p.x, p.y, 0x2a0a18, 8);
-      if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.09);
+      spawnRingFx(p.x, p.y, 0xff3a12, 12, sk.novaRadius * 1.45, 0.40, 0.8);
+      spawnRingFx(p.x, p.y, 0xc0102a, 14, sk.novaRadius * 2.2, 0.60, 0.62);
+      spawnRingFx(p.x, p.y, 0x2a0a18, 18, sk.novaRadius * 1.15, 0.70, 0.55);
+      run.time.delayedCall(120, () =>                                    // 第二衝撃波＝1発で終わらない
+        spawnRingFx(p.x, p.y, 0xffd07a, 20, sk.novaRadius * 1.8, 0.34, 0.5));
+      // ★炎柱を放射状に8本。pillar は上へしか伸びないので、**周囲8点に置いて**四方へ噴かせる
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        const rr = sk.novaRadius * (0.35 + (k % 2) * 0.35);
+        spawnPillarFx(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.6 + 6,
+          k % 2 ? 0xffb020 : 0xff5a10, 18, sk.novaRadius * (1.1 + (k % 3) * 0.35), 0.36);
+      }
+      spawnPillarFx(p.x, p.y + 6, 0xff6a1f, 34, sk.novaRadius * 2.1, 0.46);
+      run.time.delayedCall(180, () =>                                    // 遅れて立ち上る煙
+        spawnPillarFx(p.x, p.y + 4, 0x3a1420, 26, sk.novaRadius * 2.6, 0.85, 0.5));
+      if (run.billiard && run.billiard.shockRing) {
+        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.1, 0xffc060);
+        run.billiard.shockRing(p.x, p.y, sk.novaRadius * 1.9, 0xffffff);
+      }
+      run.spawnParticles(p.x, p.y, 0xffffff, 12);      // 白熱の破片
+      run.spawnParticles(p.x, p.y, 0xffe9a8, 22);
+      run.spawnParticles(p.x, p.y, 0xff6a1f, 26);
+      run.spawnParticles(p.x, p.y, 0x2a0a18, 18);      // 煤
+      if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.15);
       const nr = sk.novaRadius + run.player.radius;
       if (dx * dx + dy * dy <= nr * nr) {
         shadowStats.novaHits++;
         run.hitPlayer(sk.novaDamage, p.x, p.y);        // 位置を渡す＝爆風が主人公を押し飛ばす
+        // ★「爆風音」は爆発音とは別（FBが2つに分けて書かれている）。爆心から**主人公へ**
+        //   届いた風＝当たった本人にだけ鳴る。絵も主人公から外向きに火の粉を散らす＝
+        //   「巻き込まれた」が自分の身体の側で起きる。
+        const d = Math.hypot(dx, dy) || 1;
+        Sound.sfx('shadowBlast');
+        whiteFlash(0.22, 0xff5a10, 240);
+        run.shake(520, 16);
+        run.spawnParticles(run.player.x + (dx / d) * 10, run.player.y + (dy / d) * 10, 0xff8a1f, 14);
+        run.spawnParticles(run.player.x, run.player.y, 0xffffff, 8);
+        spawnRingFx(run.player.x, run.player.y, 0xffd07a, 4, 46, 0.26, 0.8);
       }
     } else {
       // 後続は判定を持たない炎だけ。段が後ろほど小さく＝奥で連鎖しているように見える
@@ -2592,12 +2660,14 @@ export function createBoss(run) {
   }
 
   // 画面フラッシュ（白フラッシュ alpha < 0.5 厳守）
-  function whiteFlash(a) {
+  // tint / dur は省略可（既定＝従来どおり白・260ms）。★色つきの短い閃光を白の直後に重ねると
+  //   「炎が画面を舐めた」に見える＝白だけを強くするより派手で、しかも炎が白飛びで消えない。
+  function whiteFlash(a, tint = 0xffffff, dur = 260) {
     const cam = run.cameras.main;
     const f = run.add.image(cam.width / 2, cam.height / 2, 'white').setScrollFactor(0)
-      .setDepth(2000).setBlendMode(ADD).setTint(0xffffff)
+      .setDepth(2000).setBlendMode(ADD).setTint(tint)
       .setDisplaySize(cam.width, cam.height).setAlpha(Math.min(0.49, a));
-    run.tweens.add({ targets: f, alpha: 0, duration: 260, onComplete: () => f.destroy() });
+    run.tweens.add({ targets: f, alpha: 0, duration: dur, onComplete: () => f.destroy() });
   }
 
   // ============ R40 ワンショットFX（環・光柱） ============
@@ -3696,7 +3766,7 @@ export function createBoss(run) {
       return shadows.map((s) => ({ x: Math.round(s.img.x), y: Math.round(s.img.y),
         rising: s.rising, gap: +(run.elapsed - s.pt).toFixed(3), life: +s.life.toFixed(2),
         tex: s.img.texture && s.img.texture.key, flipY: s.img.flipY,
-        rank: s.rank, lane: s.lane, biter: !!s.biter, ghosts: s.ghosts.length,
+        rank: s.rank, lane: s.lane, laneIdx: s.laneIdx, biter: !!s.biter, ghosts: s.ghosts.length,
         alpha: +s.img.alpha.toFixed(2), tint: s.img.tintTopLeft }));
     },
     get shadowHistLen() { return shadowHist.length; },

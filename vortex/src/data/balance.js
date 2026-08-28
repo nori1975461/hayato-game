@@ -1435,7 +1435,10 @@ export const BALANCE = {
           //   sweepDeg 120→145：激化最終段でも 145+26=171° ＜ 180°＝逆側は必ず安全に残る。
           aligned: { alignSec: 2.0, lockSec: 0.55, beamWidth: 120, beamLength: 760, damage: 84,
                      sweepDeg: 145, sweepOneWay: true, windUpDeg: 18, showLine: false,
-                     scorch: true, activeSec: 1.45, sweepSec: 0.95,
+                     // ★R44W8「予告の文字が表示されたら間髪入れずに照射」＝技名テロップを
+                   //   照射の 0.12秒前まで遅らせる（旧実装は予告の頭＝2.0秒前に出していた）。
+                   textLeadSec: 0.12,
+                   scorch: true, activeSec: 1.45, sweepSec: 0.95,
                      beamTint: '#d01228', coreTint: '#fff3ec' },
           // ★R40 実プレイFB「せいれつ―かんつうこうは素晴らしいが、よけやすいかも」。
           //   一射目は据え置き（読める公平さを崩さない）。かわりに**二射目「再照準」**＝
@@ -1530,11 +1533,23 @@ export const BALANCE = {
                    //     flareSec 0.7×148＝104px ＞ 72+7＝79px（余裕1.32倍）。広すぎない上限はここ。
                    //     炎の見た目はこれより外まで広がるが、**判定はこの円ひとつだけ**
                    //     （見た目＞判定は安全側。逆は「かすってもいないのに当たった」になる）。
-                   shadow: { ranks: 5, lanes: 3,          // 5段×3列＝15体（激化の最終段は4列＝20体）
-                             rankGapSec: 0.17, laneGapPx: 27,
-                             spawnBackSec: 1.0, rankSpreadSec: 0.5, chainSec: 0.06,
+                   // ★★R44W8 実プレイFB「モビットの影はかなりいい。かなり怖さがでていた。だが
+                   //   **団子のように固まっている**。集団で襲ってくるゴチャキャラ感も残しながら、
+                   //   **もう少し距離をとる**ように。**個体をもう少し増やす**ことも検討して」。
+                   //   ★団子の正体は**間隔がスプライトより狭かった**こと：モビットは 16×3.3＝53px、
+                   //     対して列27px・段25px（0.17秒×148px/s）＝**どちらも身幅の半分**なので
+                   //     ほとんど完全に重なっていた。数を減らさずにほどく手は3つ：
+                   //     ①間隔を身幅の手前まで広げる（46px・0.24秒＝36px）＝肩が触れる密度は残す
+                   //     ②**千鳥**（奇数段を半列ずらす）＝真後ろの重なりが消える。間隔を広げずに効く
+                   //     ③**個体ごとの固定ゆらぎ**（±jitterPx）＝整列した格子でなく**群れ**になる
+                   //   個体は 5段×3列15体 → **6段×4列＝24体**（激化の最終段は5列＝30体）。
+                   //   ★分身は後ろの段ほど減らす（先頭2段だけ2枚・以降1枚）＝体数が1.6倍でも
+                   //     画面上の枚数は 30→32 でほぼ据え置き＝FPSを守りながら密度だけ上げる。
+                   shadow: { ranks: 6, lanes: 4,          // 6段×4列＝24体（激化の最終段は5列＝30体）
+                             rankGapSec: 0.24, laneGapPx: 46, jitterPx: 10, stagger: true,
+                             spawnBackSec: 1.0, rankSpreadSec: 0.42, chainSec: 0.05,
                              speedMul: 1.85, minGapSec: 0.42,
-                             ghostLagSec: 0.055, ghostCount: 2,
+                             ghostLagSec: 0.055, ghostCount: 2, ghostNearRanks: 2,
                              lifeSec: 5.5, damage: 26, radius: 11, riseSec: 0.55,
                              novaRadius: 72, novaDamage: 16, flareSec: 0.7 } },
         },
