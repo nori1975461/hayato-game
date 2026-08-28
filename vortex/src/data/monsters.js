@@ -309,38 +309,43 @@ export const MONSTERS = [
     //   翅の目玉模様（w）を4つ置いて「蛾」の記号を立てる。
     // ★R49「もっとキモカワにして」。触角の先を枝分かれさせてモサモサに、口からピンクの
     //   口吻（ストロー）を下へ垂らした。キモカワの担当はこの2つに残す。
-    // ★R49W3「ネオンモスの翅の形と色をかわいくして」。
-    //   形＝上下おなじ大きさの塊をやめ、**上翅を大きく・下翅を小さく**した蝶の輪郭に。
-    // ★R49W4「翅を修正前の案よりもっと大きくして。横長ではなく縦長で」。
-    //   翅を上から下まで**14段**（row1〜14）に伸ばした＝体の全長ぶん縦に走る。
-    //   幅は4のまま＝横に張り出さずに面積だけ増える＝「縦長」。色は据え置き。
-    //   色＝地味な淡橙（体と同系）をやめ、**上翅は淡いピンク・下翅は淡い藤**の2色に。
-    //   オレンジの体に寒色を1つ入れると翅が体から分かれて見える（1色だと塊に見える）。
+    // ★R49W3/W4 は翅の形と大きさだけを直したが、いずれも不採用（3回連続）。
+    //   3回とも「翅をどう置くか」の軸で、蛾のまま可愛くしようとしていた
+    //   （[[feedback_rejected_twice_change_the_axis]]＝軸ごと変えるべきだった）。
+    // ★R49W5「モンシロチョウを基盤に、可愛さを出して」で全面作り直し。
+    //   モンシロチョウの記号は3つ＝**白い翅・前翅の外上角の黒・先が丸い棍棒状の触角**。
+    //   3つめが蛾との決定的な違い（蛾の触角は羽根状）なので、先端に丸い玉を必ず置く。
+    //   後翅だけ淡い黄（c）に落として前翅と分ける＝白一色だと1枚の板に見える。
+    //   ⚠️ 初案は体を上から下まで太いままにしたので、白い翅より**オレンジの体が主役**に
+    //      見えて蝶にならなかった。腹（row11以降）を幅6→4と絞り、空いた分を翅に渡す。
+    //   ⚠️ 翅と体のあいだに'.'を1列でも挟むと、実プレイでは背景が抜けて**穴**に見える。
+    //      前翅・後翅の区切りは隙間ではなく色（w→c）だけでやる。
+    //   体のオレンジと丸目・ほっぺは進化前から据え置き＝「同じ子が羽化した」を保つ。
     evo: {
       id: 'neonmoth',
       name: 'ネオンモス',
       baseDamage: 16,
       ovr: { hitRadius: 20, maxRadius: 115, expandSpeed: 260 },   // R4: neonwormのフォームは SLASH/RINGWAVE。近接hitRadius＋ねんどうりょくの輪(maxRadius/expandSpeed)を強化（旧 width は BEAM で読まれず死んでいた）
       sprite: {
-        palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9',
-                   g: '#ffd4ea', v: '#c9b6ff' },
+        palette: { a: '#ff9e66', d: '#c9502a', w: '#fffdf5', k: '#1b3b5f', p: '#ffb3d9',
+                   c: '#f6e9bd', n: '#3a3550' },
         rows: [
-          '.....d....d.....',
-          '.gg..d....d..gg.',
-          'ggg.aaaaaaaa.ggg',
-          'ggggaaaaaaaagggg',
-          'ggwgaaaaaaaagwgg',
-          'ggggawkaawkagggg',
-          'gwggakkaakkaggwg',
-          'ggggpaawwaapgggg',
-          'ggggaaaaaaaagggg',
-          'vvvvaaaaaaaavvvv',
-          'vvwv.aaaaaa.vwvv',
-          'vvvv.aaaaaa.vvvv',
-          'vwvv.aaaaaa.vvwv',
-          '.vvv.aaaaaa.vvv.',
-          '..v..dddddd..v..',
-          '.....d.pp.d.....',
+          '...pp......pp...',
+          '...pp......pp...',
+          '....k......k....',
+          '.....k....k.....',
+          '.....aaaaaa.....',
+          '..nnaaaaaaaann..',
+          '.nwwaaaaaaaawwn.',
+          'wwwwawkaawkawwww',
+          'wwwwakkaakkawwww',
+          'wwwwpaawwaapwwww',
+          'wwwwwaaaaaawwwww',
+          'wwnwwwaaaawwwnww',
+          'ccccccaaaacccccc',
+          'ccccccaaaacccccc',
+          '.cccccddddccccc.',
+          '..cccc.dd.cccc..',
         ],
       },
     },
