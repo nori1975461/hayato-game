@@ -64,7 +64,8 @@ function runnerScript(mode) {
     var r = window.__run, B = r.boss;
     window.__S = { bites: 0, novas: 0, novaBursts: 0, maxShadows: 0, minGap: 99,
       texOk: 0, texNg: 0, flipOk: 0, flipNg: 0, fps: 999, circA: 0,
-      lanes: 0, ranks: 0, ghosts: 0, biters: 0, texKeys: [], spread: 0 };
+      lanes: 0, ranks: 0, ghosts: 0, biters: 0, texKeys: [], spread: 0,
+      biteLog: [], movedPx: 0, px: 0, py: 0 };
     if (window.__t) clearInterval(window.__t);
     window.__base = B.shadowStats;   // モード開始時点の実績（発生源カウンタ・差分で数える）
     window.__t = setInterval(function(){
@@ -72,9 +73,25 @@ function runnerScript(mode) {
       r.player.hp = r.player.maxHp;
       var S = window.__S;
       var st = B.shadowStats, b0 = window.__base;
+      var gsPrev = window.__gsPrev || [];
+      var gs = B.debugShadows ? B.debugShadows() : [];
+      window.__gsPrev = gs;
+      // 直近50msで主人公が実際に動いた距離＝「走り続けている」の観測可能な証拠
+      if (S.px || S.py) S.movedPx = Math.hypot(r.player.x - S.px, r.player.y - S.py);
+      S.px = r.player.x; S.py = r.player.y;
+      // ★噛まれた瞬間の実測を残す：噛み手の gap（秒）と主人公との距離（px）。
+      //   「走っているのに噛まれた」が床の破れなのか計測器の隙間なのかは、この2つでしか分からない。
+      //   ⚠️ gsPrev は**この行より前**で定義していないと undefined を読む（129例外を出した）。
+      if (st.bites - b0.bites > S.bites) {
+        var bt = null;
+        for (var k = 0; k < gsPrev.length; k++) if (gsPrev[k].biter) bt = gsPrev[k];
+        S.biteLog.push(bt
+          ? { gap: bt.gap, dist: Math.round(Math.hypot(bt.x - r.player.x, bt.y - r.player.y)),
+              moved: Math.round(S.movedPx) }
+          : { gap: -1, dist: -1, moved: Math.round(S.movedPx) });
+      }
       S.bites = st.bites - b0.bites; S.novas = st.novaHits - b0.novaHits;
       S.novaBursts = st.novas - b0.novas;
-      var gs = B.debugShadows ? B.debugShadows() : [];
       S.maxShadows = Math.max(S.maxShadows, gs.length);
       for (var i = 0; i < gs.length; i++) {
         var g = gs[i];
@@ -87,7 +104,7 @@ function runnerScript(mode) {
         var ls = [], rs = [], nb = 0, xs = [], ys = [];
         for (var j = 0; j < gs.length; j++) {
           var q = gs[j];
-          if (ls.indexOf(q.lane) < 0) ls.push(q.lane);
+          if (ls.indexOf(q.laneIdx) < 0) ls.push(q.laneIdx);
           if (rs.indexOf(q.rank) < 0) rs.push(q.rank);
           if (q.biter) nb++;
           xs.push(q.x); ys.push(q.y);
@@ -162,6 +179,7 @@ async function main() {
   const up = await evalJs(`(function(){
     var r = window.__run;
     r.practiceMode = true;
+
     r.boss.practiceSpawn('maou');
     r.boss.practiceAwaken();
     // ⚠️ 60msごとのHP回復では足りない：整列84＋再照準52＋体当たり38が同じ窓に重なると
@@ -244,6 +262,13 @@ async function main() {
   console.log('④棒立ちの噛みつき:    ' + (A ? A.bites : '?') + '回 ← 多いほど「止まったら死ぬ」が本物');
   console.log('⑤走り続けの噛みつき:  ' + (B ? B.bites : '?') + '回 ← 0なら「理不尽ではない」');
   console.log('⑥ループの噛みつき:    ' + (C ? C.bites : '?') + '回 ← 0が正しい＝動き続ければ形は問わない（ルールは とまるな だけ）');
+  for (let i = 0; i < out.length; i++) {
+    const o = out[i];
+    if (o && o.biteLog && o.biteLog.length) {
+      console.log(`   ${LABEL[i]} 噛まれた瞬間: `
+        + o.biteLog.map((b) => `gap${b.gap}s/距離${b.dist}px/直前50msで${b.moved}px移動`).join(' , '));
+    }
+  }
   console.log('EXCEPTIONS=' + exceptions);
   process.exit(0);
 }

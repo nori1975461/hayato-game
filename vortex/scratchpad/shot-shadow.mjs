@@ -127,7 +127,7 @@ async function main() {
   // 主人公を動かし続ける（影が「後ろをついてくる」絵になる）
   await evalJs(`(function(){
     var r = window.__run; var a = 0;
-    setInterval(function(){ a += 0.02; r.player.x += Math.cos(a) * 5; r.player.y += Math.sin(a) * 5; }, 50);
+    window.__mv = setInterval(function(){ a += 0.02; r.player.x += Math.cos(a) * 5; r.player.y += Math.sin(a) * 5; }, 50);
     return true;
   })()`);
   let held = false;
@@ -141,6 +141,9 @@ async function main() {
   const g1 = await evalJs(`window.__run.boss.debugShadows()`);
   console.log('①影が追っている（' + (g1 ? g1.length : 0) + '体）');
   await snap('shadow-hunt', 2);
+  // ★ここで主人公を止める＝噛み手が足あとに追いついて**主人公の位置で**爆ぜる。
+  //   動かしたままだと爆心が隊列の後方＝カメラ端になり、爆発の全体が1枚に収まらない。
+  await evalJs('clearInterval(window.__mv); true;');
   // 炸裂直前（フレア）を狙う：life<=0.6 の影が出るまで待つ
   for (let i = 0; i < 60; i++) {
     const f = await evalJs(`window.__run.boss.debugShadows().some(function(s){ return s.life <= 0.6; })`);
