@@ -311,6 +311,9 @@ export const MONSTERS = [
     //   口吻（ストロー）を下へ垂らした。キモカワの担当はこの2つに残す。
     // ★R49W3「ネオンモスの翅の形と色をかわいくして」。
     //   形＝上下おなじ大きさの塊をやめ、**上翅を大きく・下翅を小さく**した蝶の輪郭に。
+    // ★R49W4「翅を修正前の案よりもっと大きくして。横長ではなく縦長で」。
+    //   翅を上から下まで**14段**（row1〜14）に伸ばした＝体の全長ぶん縦に走る。
+    //   幅は4のまま＝横に張り出さずに面積だけ増える＝「縦長」。色は据え置き。
     //   色＝地味な淡橙（体と同系）をやめ、**上翅は淡いピンク・下翅は淡い藤**の2色に。
     //   オレンジの体に寒色を1つ入れると翅が体から分かれて見える（1色だと塊に見える）。
     evo: {
@@ -322,21 +325,21 @@ export const MONSTERS = [
         palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9',
                    g: '#ffd4ea', v: '#c9b6ff' },
         rows: [
-          '..d..........d..',
-          '.ddd........ddd.',
-          '.gg.aaaaaaaa.gg.',
+          '.....d....d.....',
+          '.gg..d....d..gg.',
+          'ggg.aaaaaaaa.ggg',
           'ggggaaaaaaaagggg',
           'ggwgaaaaaaaagwgg',
           'ggggawkaawkagggg',
-          'ggggakkaakkagggg',
+          'gwggakkaakkaggwg',
           'ggggpaawwaapgggg',
-          '.vvvaaaaaaaavvv.',
+          'ggggaaaaaaaagggg',
+          'vvvvaaaaaaaavvvv',
+          'vvwv.aaaaaa.vwvv',
+          'vvvv.aaaaaa.vvvv',
+          'vwvv.aaaaaa.vvwv',
           '.vvv.aaaaaa.vvv.',
-          '.vwv.aaaaaa.vwv.',
-          '..v..aaaaaa..v..',
-          '.....aaaaaa.....',
-          '.....aaaaaa.....',
-          '.....dddddd.....',
+          '..v..dddddd..v..',
           '.....d.pp.d.....',
         ],
       },
