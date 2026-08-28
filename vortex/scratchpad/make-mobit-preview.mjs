@@ -38,6 +38,10 @@ const ROLE = {
   SLEEPY: { group: 'support', label: 'ねむり／かくせい',
     desc: `軌道神核に入るまで何もしない。覚醒後は${A.SLEEPY.everySec}秒ごとに`
         + `たて／ドリンク／回復(${A.SLEEPY.healAmount})をランダム・**上限なし**` },
+  LANCER: { group: 'solo', label: 'ひとりで たたかう',
+    desc: `${A.LANCER.huntSec}秒 狩って ${A.LANCER.pantSec}秒 休む。主人公から`
+        + `${A.LANCER.minStandoff}〜${A.LANCER.huntRange}px の前線で、${A.LANCER.thrustSec}秒ごとに`
+        + `1体ずつ **消滅**させる（気絶させて弾にしない）` },
 };
 const RARITY = { N: 'よく でる', R: 'ときどき', SR: 'めったに' };
 
@@ -54,6 +58,7 @@ const meta = {
   maxLevel: W.maxLevel,
   slots: BALANCE.orbit.maxSlots,
   ammoExtra: BALANCE.orbit.ammoExtraSlots,
+  lancer: A.LANCER,
   build: fs.readFileSync(path.join(HERE, '../src/data/version.js'), 'utf8').match(/BUILD = '([^']+)'/)[1],
 };
 
@@ -72,6 +77,7 @@ const html = `<title>モビット図鑑</title>
   --gold: #b8860b;
   --fight: #2f6fd8;
   --support: #1f8f5f;
+  --solo: #b3441a;
   --shadow: 0 1px 2px rgba(20,26,46,.07), 0 6px 18px rgba(20,26,46,.06);
   --grid: rgba(23,28,43,.05);
 }
@@ -89,6 +95,7 @@ const html = `<title>モビット図鑑</title>
     --gold: #ffd23f;
     --fight: #7fb0ff;
     --support: #6ce0a8;
+    --solo: #ff8a5c;
     --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.42);
     --grid: rgba(232,236,248,.045);
     color-scheme: dark;
@@ -104,6 +111,7 @@ const html = `<title>モビット図鑑</title>
   --gold: #ffd23f;
   --fight: #7fb0ff;
   --support: #6ce0a8;
+  --solo: #ff8a5c;
   --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 26px rgba(0,0,0,.42);
   --grid: rgba(232,236,248,.045);
   color-scheme: dark;
@@ -195,7 +203,7 @@ footer { margin-top: 54px; padding-top: 16px; border-top: 1px solid var(--line);
 <div class="wrap">
   <header>
     <h1>モビット図鑑</h1>
-    <p class="sub">「クルット・モビット」に出てくる仲間モンスター全11種。絵・名前・進化形・実装されている性能の数値を、ゲーム本体のデータからそのまま書き出したもの。</p>
+    <p class="sub">「クルット・モビット」に出てくる仲間モンスター全12種。絵・名前・進化形・実装されている性能の数値を、ゲーム本体のデータからそのまま書き出したもの。</p>
     <div class="meta">
       <span>ビルド <b id="build"></b></span>
       <span>公転わく <b id="slots"></b>人（＋とくべつなたま役の専用わく <b id="extra"></b>）</span>
@@ -210,6 +218,10 @@ footer { margin-top: 54px; padding-top: 16px; border-top: 1px solid var(--line);
   <h2 style="--accent: var(--support)">ささえる <span class="n" id="nsupport"></span></h2>
   <p class="lead">敵に一切さわらない役。攻撃しないので「仲間はとどめを刺せない」という設計の関門と関係なく成立する。ここの数値はぶきレベルでも合体でも伸びない ― この子たちの価値は量ではなく「ここぞで必ず1回ある」ことなので。</p>
   <div class="grid" id="support"></div>
+
+  <h2 style="--accent: var(--solo)">ひとりで たたかう <span class="n" id="nsolo"></span></h2>
+  <p class="lead">公転の輪から外れて自分で前線へ出ていく、たった1体の例外。<b>このゲームで唯一とどめを刺せる仲間</b>でもある ― 他の子は敵をよろけさせるまでしかできず、消すのは主人公の投げだけ、という根本ルールをこの子だけが破る。だから合体でしか手に入らない超レアに置いてある。</p>
+  <div class="grid" id="solo"></div>
 
   <footer>数値はすべて <code>src/data/monsters.js</code> と <code>src/data/balance.js</code> から生成。手で書いた数字は1つも無い。</footer>
 </div>
@@ -280,6 +292,10 @@ function card(m) {
   const rows = [];
   if (role.group === 'fight') {
     rows.push(['きほん攻撃力', m.baseDamage + (m.evo ? '  →  ' + m.evo.baseDamage + '（しんか）' : '')]);
+  } else if (role.group === 'solo') {
+    rows.push(['きほん攻撃力', m.baseDamage + (m.evo ? '  →  ' + m.evo.baseDamage + '（しんか）' : '')]);
+    rows.push(['やりの ながさ', (META.lancer.reach * 2) + 'px（からだは ' + Math.round(16 * META.lancer.spriteScale) + 'px）']);
+    rows.push(['からだの 大きさ', META.lancer.spriteScale + '倍（ほかの子は 2.5倍）']);
   } else {
     rows.push(['攻撃力', 'なし（敵にさわらない）']);
   }
@@ -304,17 +320,17 @@ document.getElementById('slots').textContent = META.slots;
 document.getElementById('extra').textContent = META.ammoExtra;
 document.getElementById('maxlv').textContent = META.maxLevel;
 
-const fight = MONS.filter((m) => META.roles[m.archetype].group === 'fight');
-const support = MONS.filter((m) => META.roles[m.archetype].group === 'support');
-document.getElementById('nfight').textContent = fight.length + 'たい';
-document.getElementById('nsupport').textContent = support.length + 'たい';
-for (const m of fight) document.getElementById('fight').append(card(m));
-for (const m of support) document.getElementById('support').append(card(m));
+for (const g of ['fight', 'support', 'solo']) {
+  const list = MONS.filter((m) => META.roles[m.archetype].group === g);
+  document.getElementById('n' + g).textContent = list.length + 'たい';
+  for (const m of list) document.getElementById(g).append(card(m));
+}
 </script>
 `;
 
 fs.writeFileSync(path.join(HERE, 'mobits.html'), html, 'utf8');
 console.log('書き出し: vortex/scratchpad/mobits.html');
-console.log(`  たたかう ${data.filter((m) => ROLE[m.archetype].group === 'fight').length}体`
-  + ` / ささえる ${data.filter((m) => ROLE[m.archetype].group === 'support').length}体`
-  + ` / 合計 ${data.length}体`);
+for (const g of ['fight', 'support', 'solo']) {
+  console.log(`  ${g}: ${data.filter((m) => ROLE[m.archetype].group === g).length}体`);
+}
+console.log(`  合計 ${data.length}体`);
