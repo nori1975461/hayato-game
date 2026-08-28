@@ -2905,7 +2905,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const flarePx = BALANCE.player.speed * sh.flareSec;
     assert(flarePx > sh.novaRadius + BALANCE.player.radius,
       `R44W5: フレア中に走って離せる距離（${flarePx.toFixed(0)}px）＞ 爆風（${sh.novaRadius + BALANCE.player.radius}px）＝正しく走っていれば必ず躱せる`);
-    assert(/const flaring = s\.life <= sk\.flareSec;\s*\n\s*if \(!flaring\) \{/.test(boss),
+    assert(/const flaring = s\.life <= sk\.flareSec;[\s\S]{0,400}if \(!flaring\) \{/.test(boss),
       'R44W5: フレア中は影が静止する（時計を進めない）＝「立ち止まった＝爆ぜる」が身体で読める');
   }
 
@@ -2918,7 +2918,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R44W5: 召喚の最初に前回の影を消す＝重ね掛けで無限に増えない');
 
   // --- ④ 影の材料（足あと）と、殻に縛られない追走 ---
-  assert(/if \(trueForm\) recordShadowHist\(\)/.test(boss),
+  assert(/if \(trueForm\) \{\s*\n\s*recordShadowHist\(\);/.test(boss),
     'R44W5: 足あとは真の姿のあいだ常に記録される（影の再生に穴を作らない）');
   assert(/updateShadows\(dt\);/.test(boss),
     'R44W5: 影の更新はボスの state に縛られない＝殻が開いても lifeSec まで狩り続ける');
@@ -3008,8 +3008,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     // ★「爆発音と爆風音」とFBが2つに分けて書いている＝爆風は当たった本人にだけ起きる別の事件
     assert(/run\.hitPlayer\(sk\.novaDamage[\s\S]{0,400}Sound\.sfx\('shadowBlast'\)/.test(nova),
       'R44W8: 爆風音は**巻き込まれた時だけ**鳴る（爆発音とは別物）');
-    assert(/Sound\.sfx\('shadowBlast'\)[\s\S]{0,400}run\.spawnParticles\(run\.player\.x/.test(nova),
+    assert(/Sound\.sfx\('shadowBlast'\)[\s\S]{0,900}run\.spawnParticles\(run\.player\.x/.test(nova),
       'R44W8: 爆風の絵は**主人公の側**で起きる（自分が巻き込まれたことが自分の身体で分かる）');
+    // ★R44W10 爆風は「主人公を通り抜ける」＝環は**主人公の位置から**広がる。
+    assert((nova.match(/spawnRingFx\(run\.player\.x/g) || []).length >= 3,
+      'R44W10: 衝撃波が自分を通り抜ける環が3枚（爆心の環とは別に、身体の側でも起きる）');
+    assert(/const ux = dx \/ d, uy = dy \/ d;/.test(nova)
+      && /run\.spawnParticles\(run\.player\.x \+ ux \*/.test(nova),
+      'R44W10: 火の粉は**風下**へ帯になって流れる（爆心→主人公の向き）＝押し流された絵');
+    assert((nova.match(/spawnPillarFx\(/g) || []).length >= 4
+      && /for \(let k = 0; k < 6; k\+\+\)/.test(nova),
+      'R44W10: 炎柱は二重（内周8本＋外周6本）＋中央＋煙柱');
+    assert(/火の雨/.test(nova) && (nova.match(/run\.time\.delayedCall\(/g) || []).length >= 8,
+      'R44W10: 時間差の演出が8つ以上（三段の閃光・三段のゆれ・第二第三衝撃波・外周の柱・火の雨）');
   }
   {
     const sb = (sound.match(/shadowBurst\(vol = 1, pitch = 1\)[\s\S]*?\n  \},/) || [''])[0];
@@ -3034,8 +3045,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R44W8: 本体が**二段**（0ms と 55ms）＝「ドッ…ドーン」。1発の低音より確実に大きく聞こえる');
     assert(/freq: 520,/.test(sb) && /freq: 1435,/.test(sb) && /freq: 2808,/.test(sb),
       'R44W8: 金属の裂け 520/1435/2808Hz＝鉄床と同じ非整数比＝「割れた」の証拠');
-    assert(/dur: 1\.5, gain: [\d.]+ \* vol, hpFreq: 60, lpFreq: 2600, lpEnd: 90/.test(sb),
-      'R44W8: 遅い轟きの掃引（1.5秒・2.6k→90Hz）＝尾が長く残る');
+    // ★R44W10 で 90Hz の終端は**子どものノートPCで鳴らない**ので聞こえる側（320Hz）へ上げ、
+    //   長さも 1.5→2.4秒（最終ボスの一撃の余韻）。旧値へ戻ったら落ちる。
+    const slow = (sb.match(/dur: ([\d.]+), gain: [\d.]+ \* vol, hpFreq: \d+, lpFreq: \d+, lpEnd: (\d+)/) || []);
+    assert(Number(slow[1]) >= 2.0 && Number(slow[2]) >= 250,
+      `R44W10: 遅い轟きの掃引は${slow[1]}秒・終端${slow[2]}Hz＝長く、かつ**聞こえる帯域**に残る`);
     assert((sb.match(/noiseHit\(\{ start: 0\./g) || []).length >= 3,
       'R44W8: がれきは3発（時間差が多いほど「大きいものが壊れた」に聞こえる）');
     const dk = (sb.match(/duckBgm\(([\d.]+)/) || [])[1];
@@ -3050,15 +3064,77 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const atks = (bl.match(/attack: ([\d.]+)/g) || []).map((m) => Number(m.match(/[\d.]+/)[0]));
     assert(atks.length >= 3 && Math.max(...atks) >= 0.05,
       `R44W8: 爆風は**立ち上がりが遅い**（最大attack ${Math.max(...atks)}s）＝破裂ではなく押し寄せる風に聞こえる`);
-    assert(/lpEnd: 180/.test(bl),
-      'R44W8: 風のノイズが 1.4k→180Hz へ落ちる＝体を通り過ぎる');
+    assert(/lpEnd: 420/.test(bl),
+      'R44W10: 風のノイズは 3.2k→420Hz へ落ちる（180Hz だとノートPCで消える）＝体を通り過ぎる');
     assert(/duckBgm\(/.test(bl), 'R44W8: 爆風でもBGMを沈める');
     const sbGains = (bl.match(/gain: ([\d.]+) \* vol/g) || []).map((m) => Number(m.match(/[\d.]+/)[0]));
     assert(Math.max(...sbGains) >= 0.5,
       `R44W8: 爆風は聞こえる大きさ（最大gain ${Math.max(...sbGains)}）＝R44W3の巻き戻し音の失敗（打撃音の1/7で聞こえなかった）を繰り返さない`);
   }
 
-  // --- ⑩ 検証口 ---
+  // --- ⑩ R44W10 爆発と爆風の範囲（「3倍以上広げて。最終ボスの攻撃であるという自覚を」）---
+  {
+    assert(sh.novaRadius >= 72 * 3,
+      `R44W10: 爆風の判定半径 ${sh.novaRadius}px ≧ 旧72px×3＝指定どおり3倍以上`);
+    // ★範囲を3倍にするなら**逃げる猶予も3倍**要る。逆算の式そのものは変えない
+    const flarePx10 = BALANCE.player.speed * sh.flareSec;
+    assert(flarePx10 > sh.novaRadius + BALANCE.player.radius,
+      `R44W10: フレア中に走って離せる距離（${flarePx10.toFixed(0)}px）＞ 爆風（${sh.novaRadius + BALANCE.player.radius}px）＝広げても躱せる`);
+    assert(sh.flareSec >= 1.5,
+      `R44W10: 静止フレア ${sh.flareSec}s＝「爆弾のカウントダウン」として読める長さ`);
+  }
+
+  // --- ⑪ R44W10 かげおには1つの攻撃として完結する ---
+  //   ★実測：影が果てた60回の**100%**がせいれつの照射中だった（FB「せいれつを受けて
+  //     爆発するパターンがほとんど。それはおかしい」＝そのとおりで、しかも全部だった）。
+  //     どれだけ大爆発を派手にしても画面がレーザーで埋まっていれば**届かない**。
+  {
+    assert(/function shadowsBusy\(\)/.test(boss),
+      'R44W10: 影が生きているあいだは次の攻撃に入らない仕組みがある');
+    assert((boss.match(/!shadowsBusy\(\)\)/g) || []).length >= 2,
+      'R44W10: 攻撃の開始口（軌道遊弋と追跡）の**両方**に効いている＝片方から漏れない');
+    assert(/const SHADOW_HOLD_MAX = [\d.]+;/.test(boss) && /shadowHoldT < SHADOW_HOLD_MAX/.test(boss),
+      'R44W10: 待ちには上限がある＝影が消えなくなっても戦闘が止まらない');
+    const total = sh.riseSec + sh.lifeSec;
+    const shellLeft = tf.shell.holdSec + tf.shell.openSec;
+    assert(total - shellLeft < 3.0,
+      `R44W10: 殻が終わってからの待ちは ${(total - shellLeft).toFixed(2)}秒（3秒未満）＝完結させても尺を食い潰さない`);
+    assert(sh.chainSec * sh.ranks >= 0.5,
+      `R44W10: 連鎖は ${(sh.chainSec * sh.ranks).toFixed(2)}秒かけて後ろから前へ流れる＝最後に先頭の大爆発で締まる`);
+  }
+
+  // --- ⑫ R44W10 忍者の残像と足音（「ふわふわしながらせまってくる」の解消）---
+  {
+    assert(sh.gaitSec > 0 && sh.gaitAmp > 0,
+      `R44W10: 歩調（周期${sh.gaitSec}s・振幅±${sh.gaitAmp}）＝**等速をやめる**。ふわふわの正体は等速だった`);
+    assert(/const gait = 1 \+ \(sk\.gaitAmp \|\| 0\) \* Math\.cos\(gaitPh \* Math\.PI \* 2\);/.test(boss),
+      'R44W10: 歩調が実装に実在する（値だけ持って効かない、を防ぐ）');
+    assert(sh.gaitAmp < 1,
+      'R44W10: 歩調の振幅は1未満＝速度が負にならない（後ろへ下がる影は「走っている」に見えない）');
+    assert(sh.ghostCount >= 4 && sh.ghostQuantSec > 0 && Array.isArray(sh.ghostAlpha),
+      `R44W10: 忍者の残像＝${sh.ghostCount}枚・${sh.ghostQuantSec}秒の格子・濃さは階段`);
+    assert(/const qBase = q > 0 \? Math\.floor\(s\.pt \/ q\) \* q : s\.pt;/.test(boss),
+      'R44W10: 残像は**格子へ量子化**＝尾を引くのではなく「その場に残って次の踏み込みで飛ぶ」');
+    assert(sh.ghostAlpha[0] > sh.ghostAlpha[sh.ghostAlpha.length - 1],
+      'R44W10: 残像の濃さは手前ほど濃い階段（連続減衰だと輪郭が立たない）');
+    assert(/^  shadowStep\(/m.test(sound) && /Sound\.sfx\('shadowStep'/.test(boss),
+      'R44W10: 足音 shadowStep が実在し、boss.js から鳴らされる');
+    assert(/if \(s\.biter && !flaring\) \{[\s\S]{0,320}Sound\.sfx\('shadowStep'/.test(boss),
+      'R44W10: 足音は**先頭1体だけ**が鳴らす（24体ぶん鳴らすと足音でなく雑音になる）');
+    assert(/gaitPh < s\.gaitPh/.test(boss),
+      'R44W10: 足音は歩調の位相が一周した瞬間＝踏み込みの瞬間に鳴る（絵と同じリズム）');
+    {
+      const st10 = (sound.match(/shadowStep\(vol = 1, pitch = 1\)[\s\S]*?\n  \},/) || [''])[0];
+      assert(/const feet = \[0, [\d.]+, [\d.]+\];/.test(st10),
+        'R44W10: 1回の再生で**大勢が踏んだ**構造（3つの足を17/31msずらす）＝隊列の足音は音の側で作る');
+      assert(!/freq: [0-9]?[0-9],/.test(st10),
+        'R44W10: 足音の重さを100Hz未満で作らない（子どものノートPCで鳴らない）');
+    }
+    assert(/0\.30 \+ near \* 0\.62/.test(boss) && /0\.88 \+ near \* 0\.30/.test(boss),
+      'R44W10: 「迫ってくる」は**距離の情報**＝間合いが近いほど大きく・高く鳴る');
+  }
+
+  // --- ⑬ 検証口 ---
   assert(/debugShadows\(\)/.test(boss) && /shadowHistLen/.test(boss),
     'R44W5: 影とその床（gap）を外から測れる');
 }
@@ -3128,8 +3204,18 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const look = (boss.match(/function applyTrueLook\(\)[\s\S]*?\n  \}/) || [''])[0];
     assert(/introText\(tf\.text3,/.test(look),
       'R44W9: 名乗りが**出現の関数から実際に呼ばれている**（データだけ足して画面に出ない、を殺す）');
-    assert(look.indexOf('tf.text3') < look.indexOf('tf.text2'),
-      'R44W9: 名乗り → 名前 の順（第1形態の maouIntro と同じ作法）');
+    // ★R44W10 実プレイFB「名前のメッセージと**一緒に**コメントが出てくる。**メッセージの後に**
+    //   表示させて。一緒だとコメントが目立たない」→ R44W9 の順序ガードを**反転**する。
+    //   名前のテロップの寿命（160+200×2×(4+1)+260＝2420ms）より後に出ることを式で縛る。
+    assert(look.indexOf('tf.text2') < look.indexOf('tf.text3'),
+      'R44W10: 名前 → 名乗り の順（一緒に出すとコメントが埋もれる）');
+    {
+      const d = Number((look.match(/delayedCall\((\d+), \(\) => \{[\s\S]{0,200}tf\.text3/) || [])[1]);
+      const rep = Number((look.match(/introText\(tf\.text2[^)]*, (\d+)\)/) || [])[1]);
+      const life = 160 + 200 * 2 * (rep + 1) + 260;
+      assert(d >= life,
+        `R44W10: 名乗りは名前が消えてから出る（遅延${d}ms ≧ 名前の寿命${life}ms）＝この一文だけが画面に残る`);
+    }
     assert((look.match(/introText\(/g) || []).length >= 2,
       'R44W9: 出現時のテロップは2つ以上＝「コメントがない」（名前だけ）の回帰を殺す');
     assert(/introText\(tf\.text3, '#ff7a7a'/.test(look),
