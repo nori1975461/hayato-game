@@ -1552,6 +1552,9 @@ export function createBoss(run) {
     Sound.sfx('thunder');
     Sound.sfx('elite');
     run.spawnParticles(boss.x, boss.y, int(tf.glowInner), 40);
+    // ★R44W9 名乗り→名前 の順で置く（第1形態の maouIntro と同じ作法）。色は第1形態の
+    //   宣告2行目と同じ '#ff7a7a'＝**同じ者が言っている**ことが色でも伝わる。
+    introText(tf.text3, '#ff7a7a', 126, 18, 3);
     introText(tf.text2, '#ffedb0', 162, 20, 4);
   }
 
