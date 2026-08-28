@@ -1414,10 +1414,18 @@ const SFX = {
   //     ④うなりの尾＝かげおに家族の署名 155.5/163.5Hz を残響で伸ばす
   //     ⑤がれき＝遅れて降る短い高域（時間差があると「大きいものが壊れた」に聞こえる）
   //   ★後続の影（vol小）は①〜③の縮小版だけ。15体ぶんの尾が重なると濁って逆に小さくなる。
+  //   ★★R44W8「かげおにの一番の不満点は爆発と爆風。もっとずっと派手に。とくにエフェクトと
+  //     音（爆発音と爆風音）をいまよりずっと派手に」。★音量では派手にならない（既に0.95で
+  //     ヘッドルームが無い）。**層と時間**を足す：
+  //       ⑥サブベース 42→18Hz＝体に来る帯域（旧実装に無かった）
+  //       ⑦**二段の本体**（0ms と 55ms）＝「ドッ…ドーン」。1発の低音より確実に大きく聞こえる
+  //       ⑧金属の裂け（非整数比の3本を歪みバスへ）＝「割れた」の証拠
+  //       ⑨轟きの掃引を**2本**（速い炎0.72秒＋遅い轟き1.5秒）＝尾が長く残る
+  //       ⑩がれきを3発へ・duck を 0.5→0.62 / release 0.42→0.62
   shadowBurst(vol = 1, pitch = 1) {
     const D = sfxDistBus;
     const big = vol >= 0.6;
-    if (big) duckBgm(0.5, 0.10, 0.42);            // 爆発の瞬間だけ音楽を沈める＝一撃が抜ける
+    if (big) duckBgm(0.62, 0.12, 0.62);           // 爆発の瞬間だけ音楽を沈める＝一撃が抜ける
     noiseHit({ dur: 0.035, gain: 0.34 * vol, hpFreq: 3200, lpFreq: 12000 });
     tone({ type: 'sine', freq: 118 * pitch, freqEnd: 27, dur: 0.62, gain: 0.95 * vol, attack: 0.001 });
     tone({ type: 'triangle', freq: 74 * pitch, freqEnd: 22, dur: 0.50, gain: 0.42 * vol, attack: 0.002 });
@@ -1425,10 +1433,37 @@ const SFX = {
     tone({ type: 'sawtooth', freq: 880 * pitch, freqEnd: 120, dur: 0.28, gain: 0.20 * vol,
            attack: 0.002, dest: D });
     if (!big) return;
-    tone({ type: 'square', freq: 155.5, dur: 0.9, gain: 0.11 * vol, attack: 0.01, verb: 0.7 });
-    tone({ type: 'square', freq: 163.5, dur: 0.9, gain: 0.11 * vol, attack: 0.01, verb: 0.7 });
-    noiseHit({ start: 0.16, dur: 0.07, gain: 0.14 * vol, hpFreq: 1800, lpFreq: 7000 });
-    noiseHit({ start: 0.29, dur: 0.06, gain: 0.10 * vol, hpFreq: 2400, lpFreq: 9000 });
+    tone({ type: 'sine', freq: 42, freqEnd: 18, dur: 1.1, gain: 0.62 * vol, attack: 0.004 });
+    tone({ type: 'sine', freq: 96, freqEnd: 24, start: 0.055, dur: 0.80, gain: 0.72 * vol,
+           attack: 0.001 });
+    tone({ type: 'triangle', freq: 58, freqEnd: 19, start: 0.055, dur: 0.70, gain: 0.34 * vol,
+           attack: 0.002 });
+    // 金属の裂け：520 / 1435 / 2808Hz＝鉄床（wireHit）と同じ非整数比。歪みバスで「割れた」音に
+    tone({ type: 'square', freq: 520, freqEnd: 240, dur: 0.20, gain: 0.16 * vol,
+           attack: 0.001, dest: D });
+    tone({ type: 'square', freq: 1435, freqEnd: 620, dur: 0.16, gain: 0.11 * vol,
+           attack: 0.001, dest: D });
+    tone({ type: 'square', freq: 2808, freqEnd: 980, dur: 0.12, gain: 0.07 * vol,
+           attack: 0.001, dest: D });
+    noiseHit({ start: 0.05, dur: 1.5, gain: 0.20 * vol, hpFreq: 60, lpFreq: 2600, lpEnd: 90 });
+    tone({ type: 'square', freq: 155.5, dur: 1.2, gain: 0.11 * vol, attack: 0.01, verb: 0.8 });
+    tone({ type: 'square', freq: 163.5, dur: 1.2, gain: 0.11 * vol, attack: 0.01, verb: 0.8 });
+    noiseHit({ start: 0.16, dur: 0.07, gain: 0.16 * vol, hpFreq: 1800, lpFreq: 7000 });
+    noiseHit({ start: 0.29, dur: 0.06, gain: 0.12 * vol, hpFreq: 2400, lpFreq: 9000 });
+    noiseHit({ start: 0.44, dur: 0.05, gain: 0.09 * vol, hpFreq: 3000, lpFreq: 11000 });
+  },
+  // ★R44W8「爆風音」＝爆発音とは別（FBが2つに分けて書かれている）。爆発は**遠くで起きた出来事**、
+  //   爆風は**自分の身体に当たった風**。だから材料が違う：破裂の芯を持たず、
+  //   ①押し寄せる帯域（低い唸りが 0.09秒かけて**立ち上がる**＝ぶつかってくる） ②風のノイズが
+  //   1.4k→180Hz へ落ちる（体を通り過ぎる） ③服と地面が煽られる短い高域 ④肋に来るサブベース。
+  //   立ち上がりが遅い（attack 0.09）のがミソ＝これで「破裂」ではなく「風」に聞こえる。
+  shadowBlast(vol = 1) {
+    duckBgm(0.5, 0.10, 0.5);
+    tone({ type: 'sawtooth', freq: 68, freqEnd: 34, dur: 0.65, gain: 0.66 * vol, attack: 0.09 });
+    tone({ type: 'sine', freq: 36, freqEnd: 20, dur: 0.85, gain: 0.50 * vol, attack: 0.06 });
+    noiseHit({ dur: 0.55, gain: 0.34 * vol, hpFreq: 120, lpFreq: 1400, lpEnd: 180 });
+    noiseHit({ start: 0.04, dur: 0.22, gain: 0.20 * vol, hpFreq: 1600, lpFreq: 9000, lpEnd: 2200 });
+    tone({ type: 'square', freq: 163.5, dur: 0.5, gain: 0.09 * vol, attack: 0.05, verb: 0.6 });
   },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
