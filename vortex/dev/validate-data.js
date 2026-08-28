@@ -15,10 +15,10 @@ const RARITY = ['N', 'R', 'SR'];
 // R45: SHIELD / SPEED / SLEEPY を追加（命の盾・爆速ドリンク・ネムッコ）。
 // HEAL / AMMO と同じ非戦闘系＝敵に一切触れないアーキタイプ。
 const ARCHETYPE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL', 'AMMO',
-                   'SHIELD', 'SPEED', 'SLEEPY'];
+                   'SHIELD', 'SPEED', 'SLEEPY', 'LANCER'];
 // R4: forms の tex は Boot.js が生成する武器テクスチャ名のいずれかであること
 const WEAPON_TEX = ['w_paw', 'w_toy', 'w_hammer', 'w_cookie', 'w_star2',
-                    'w_rainbow', 'w_note', 'w_drop', 'w_ring', 'w_bubble', 'w_heart'];
+                    'w_rainbow', 'w_note', 'w_drop', 'w_ring', 'w_bubble', 'w_heart', 'w_lance'];
 const MOVEMENT = ['chase', 'sine', 'charge', 'hop', 'spiral', 'hover'];
 const ATTACK_TYPE = ['quake', 'divebomb', 'selfdestruct', 'lockbeam', 'spread'];
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -71,7 +71,15 @@ for (const m of MONSTERS) {
   check(Array.isArray(m.forms) && m.forms.length === 2, `${label}: forms が2要素の配列でない`);
   if (Array.isArray(m.forms) && m.forms.length === 2) {
     check(m.forms[0] && m.forms[0].kind === 'melee', `${label}: forms[0].kind が 'melee' でない`);
-    check(m.forms[1] && m.forms[1].kind === 'ranged', `${label}: forms[1].kind が 'ranged' でない`);
+    // ★R47 LANCER（ラゴン）だけ例外。単独行動で槍を突き続ける子なので、11秒ごとの
+    //   近接↔遠距離のフォームチェンジを持たない（切り替わると狩りが中断されて見える）。
+    //   ⚠️ ここを「両方 melee は禁止」のままにして kind だけ ranged と偽ると、
+    //      データが実装と食い違う嘘になるので、検証側に例外を書く。
+    if (m.archetype !== 'LANCER') {
+      check(m.forms[1] && m.forms[1].kind === 'ranged', `${label}: forms[1].kind が 'ranged' でない`);
+    } else {
+      check(m.forms[1] && m.forms[1].kind === 'melee', `${label}: LANCER の forms[1].kind は 'melee'`);
+    }
     m.forms.forEach((f, fi) => {
       check(f && typeof f.name === 'string' && f.name.length > 0, `${label}.forms[${fi}]: name が無い`);
       check(f && ARCHETYPE.includes(f.archetype), `${label}.forms[${fi}]: archetype "${f && f.archetype}" が enum 外`);

@@ -106,9 +106,9 @@ function assert(cond, msg) {
   assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
 }
 
-// --- MONSTERS が11種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ／
-//     R23: 弾薬役ビリッコ／R45: マモリン・ドリンゴ・ネムッコを追加） ---
-assert(MONSTERS.length === 11, 'data: MONSTERS が11種');
+// --- MONSTERS が12種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ／
+//     R23: 弾薬役ビリッコ／R45: マモリン・ドリンゴ・ネムッコ／R47: 槍のラゴンを追加） ---
+assert(MONSTERS.length === 12, 'data: MONSTERS が12種');
 assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマンを追加）');
 
 // --- Wave R1: 新雑魚5種（gareon/chibit/bomba/snipa/turret）が存在 ---
@@ -141,13 +141,17 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
 // --- Wave R4: 武器フォームチェンジ。全なかまに forms が2つ・form0=melee/form1=ranged ---
 {
   const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL', 'AMMO',
-                 'SHIELD', 'SPEED', 'SLEEPY'];   // R45: 命の盾／爆速ドリンク／ネムッコ
+                 'SHIELD', 'SPEED', 'SLEEPY',   // R45: 命の盾／爆速ドリンク／ネムッコ
+                 'LANCER'];                      // R47: 単独行動の槍使いラゴン
   const allTwo = MONSTERS.every((m) => Array.isArray(m.forms) && m.forms.length === 2);
   assert(allTwo, 'data: 全なかまに forms が2つ定義されている');
   const meleeFirst = MONSTERS.every((m) => m.forms && m.forms[0] && m.forms[0].kind === 'melee');
-  const rangedSecond = MONSTERS.every((m) => m.forms && m.forms[1] && m.forms[1].kind === 'ranged');
+  // ★R47 LANCER（ラゴン）だけ両方 melee。単独行動で槍を突き続ける子なので、11秒ごとの
+  //   近接↔遠距離の往復を持たない（切り替わると狩りが中断されて見える）。
+  const rangedSecond = MONSTERS.every((m) => m.forms && m.forms[1]
+    && (m.archetype === 'LANCER' ? m.forms[1].kind === 'melee' : m.forms[1].kind === 'ranged'));
   assert(meleeFirst, 'data: 全なかまの forms[0] が melee（近接）');
-  assert(rangedSecond, 'data: 全なかまの forms[1] が ranged（遠距離）');
+  assert(rangedSecond, 'data: 全なかまの forms[1] が ranged（遠距離。LANCER だけ melee）');
   const archeOk = MONSTERS.every((m) => m.forms
     && m.forms.every((f) => ARCHE.includes(f.archetype) && typeof f.tex === 'string' && typeof f.sfx === 'string'));
   assert(archeOk, 'data: 全フォームの archetype が enum 内・tex/sfx が文字列');
@@ -329,7 +333,7 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
     if (m.evo && m.evo.id) ids.push(m.evo.id);
   }
   const unique = new Set(ids).size === ids.length;
-  assert(ids.length === 22 && unique, 'data: MONSTERS 11種＋evo id を合わせて全 id が一意（22件）');
+  assert(ids.length === 24 && unique, "data: MONSTERS 12種＋evo id を合わせて全 id が一意（24件）");
 }
 
 // --- 開始編成 starpuppy / pikabit の id が存在 ---
@@ -3457,6 +3461,161 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R46: 補充は転生1回きり（毎フレーム足して無限に配る、を防ぐ）');
   assert(/debugAmmo\(\)/.test(orbit),
     'R46: 在庫を外から測れる（「軌道神核で0発」を数で捕まえられるように）');
+}
+
+// ============ R47 ラゴン（単独行動する槍使い）============
+// 実プレイFB「新たなレアモビットを創造して。引き当て超レア。他のモビットより、一回り身体が
+//   大きく筋肉もりもりの武闘派のモビット。このモビットは長い槍を持ち、その槍で勝手に敵を
+//   倒しに行く。ふつうモビットは主人公の近くを離れないが、このモビットだけ単独行動して敵を
+//   攻撃しにいく。敵を気絶させて弾にするのではない。完全に倒す。（消滅させる）名前はラゴン。
+//   槍はライトセーバーのように青白く光るスタイリッシュな武器にして。しばらく戦ったら、
+//   疲れをいやすために主人公のもとに帰ってくる。その際に肩で息をする行動をいれて。
+//   しばらくしたらまた戦いにいく。このモビットに体力ゲージは不要」。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+  const runjs = fs.readFileSync(path.join(SRC, 'scenes/Run.js'), 'utf8');
+  const boot = fs.readFileSync(path.join(SRC, 'scenes/Boot.js'), 'utf8');
+  const cap = fs.readFileSync(path.join(SRC, 'systems/capture.js'), 'utf8');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+  const L = BALANCE.archetypes.LANCER;
+  const lagon = MONSTERS.find((m) => m.id === 'lagon');
+
+  // --- ① 存在と素性 ---
+  assert(!!lagon, 'R47: モビット「ラゴン」が存在する');
+  assert(lagon && lagon.name === 'ラゴン', 'R47: 名前は指定どおり「ラゴン」');
+  assert(lagon && lagon.rarity === 'SR',
+    'R47: レアリティは SR（FB「引き当て超レア」）');
+  assert(lagon && lagon.archetype === 'LANCER',
+    'R47: 専用アーキタイプ LANCER（既存のどれとも振る舞いが違う）');
+  assert(lagon && lagon.evo && lagon.evo.id === 'gigalagon',
+    'R47: 進化形「ギガラゴン」を持つ');
+  assert(lagon && lagon.sprite.rows.length === 16
+    && lagon.sprite.rows.every((r) => r.length === 16),
+    'R47: スプライトは16×16（他のモビットと同じ土俵で「大きい」を出す）');
+
+  // --- ② 「一回り身体が大きい」を数で縛る ---
+  // ⚠️ 16×16 のグリッドは全員同じなので、造形だけでは「大きい」は絶対に伝わらない。
+  //    画面上の実寸（表示スケール）で差を付けているか＝ここが唯一の担保。
+  assert(L.spriteScale > 2.5,
+    `R47: 表示スケール ${L.spriteScale} が通常のモビット(2.5)より大きい＝一回り大きい体`);
+  assert(/o\.archetype === 'LANCER'\s*\n?\s*\?\s*\(A\.LANCER\.spriteScale/.test(orbit)
+    || /A\.LANCER\.spriteScale/.test(orbit),
+    'R47: そのスケールが実際に rebuild で使われている（定数を置いただけで終わらせない）');
+
+  // --- ③ 単独行動。⚠️ここが R21W2 で潰した最悪の構造の再発点 ---
+  // 「仲間が画面外まで敵を掃除し、敵が主人公に届く前に消える」＝①攻撃の爽快感と
+  // ②被弾の緊張感が同時に失われる。ラゴンは唯一とどめを刺せるので、鎖を数で縛る。
+  assert(L.huntRange > BALANCE.orbit.allyMaxReach,
+    `R47: 狩りの半径 ${L.huntRange} が他モビットの到達距離 ${BALANCE.orbit.allyMaxReach} より外`
+    + '＝「1体だけ離れて戦っている」が画面で分かる');
+  assert(L.huntRange < BALANCE.view.width / 2 && L.huntRange < BALANCE.view.height,
+    `R47: 狩りの半径 ${L.huntRange} はビュー(${BALANCE.view.width}×${BALANCE.view.height})の内側`
+    + '＝画面外で勝手に掃除しない（R21W2の回帰防止）');
+  // ★内側の鎖。「離れて戦っている」を平均値の願望ではなく**構造**で保証する。
+  assert(L.minStandoff > BALANCE.orbit.baseRadius,
+    `R47: 狩っている間は主人公から ${L.minStandoff}px 未満に入らない`
+    + `（公転半径 ${BALANCE.orbit.baseRadius}px より外＝公転の輪と絶対に重ならない）`);
+  assert(L.minStandoff - L.reach > 0,
+    `R47: 主人公の周り ${L.minStandoff - L.reach}px には槍が届かない`
+    + '＝密着した敵は最後までプレイヤーの獲物として残る');
+  assert(/function lancerStandoff\(o, px, py, L\) \{/.test(orbit)
+      && /od > L\.huntRange \? L\.huntRange : \(od < lo \? lo : od\)/.test(orbit),
+    'R47: その帯が毎フレームの押し戻しで効いている（実測：入れる前は狩り中の平均が'
+    + '74.6px＝公転の1.55倍まで落ちた。敵が主人公へ集まるとラゴンも引き寄せられる）');
+  assert(/for \(const e of run\.enemies\)[\s\S]{0,200}?if \(!e\.active \|\| e\.stag \|\| e\.isBoss\) continue;/.test(orbit),
+    'R47: よろけ（＝主人公の獲物）とボスは狙わない。動詞（掴んで投げる）を奪わない');
+
+  // --- ④ 「完全に倒す（消滅させる）」＝とどめの関門の唯一の例外 ---
+  assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs),
+    'R47: ラゴンだけ「よろけ」を経由せずに撃破できる（FB「気絶させて弾にするのではない」）');
+  assert(/if \(src === 'manual' \|\| lanceFinish \|\| e\.isBoss \|\| e\.rebooted\)/.test(runjs),
+    'R47: その例外が dealDamage の**合流点**に置かれている（個別経路で killEnemy を直接'
+    + '呼ぶと弱点コア・王冠無敵・よろけ判定を全部すり抜ける）');
+  assert(/!e\.isBoss/.test(runjs.match(/const lanceFinish[^\n]*/)[0]),
+    'R47: ボスにはとどめを刺せない（ボス撃破の主語は主人公のまま）');
+  assert(/src === 'ally' \|\| src === 'lagon'/.test(runjs),
+    'R47: ボスへのダメージは仲間と同じ倍率（単独行動でボスを溶かせない）');
+  assert(/run\.dealDamage\(best, dmg, LANCE_GLOW, 'lagon'\)/.test(orbit),
+    'R47: 攻撃は run.dealDamage を通る（killEnemy 直呼びの抜け道を作らない）');
+
+  // --- ⑤ 帰ってきて肩で息をする（＝これがバランスの安全弁でもある）---
+  assert(L.huntSec > 0 && L.pantSec > 0,
+    `R47: 狩り ${L.huntSec}秒 → 休み ${L.pantSec}秒 の往復`);
+  assert(L.pantSec / (L.huntSec + L.pantSec) >= 0.25,
+    `R47: 休んでいる時間が全体の ${Math.round(L.pantSec / (L.huntSec + L.pantSec) * 100)}%`
+    + '＝**その間はプレイヤーの狩り場が戻る**（常時狩り続けると動詞が消える）');
+  assert(/o\.lnState = 'back'/.test(orbit) && /o\.lnState = 'pant'/.test(orbit)
+      && /o\.lnState = 'hunt'/.test(orbit),
+    'R47: hunt → back → pant → hunt の3状態を往復する');
+  assert(/Sound\.sfx\('lancePant'\)/.test(orbit),
+    'R47: 帰還したら肩で息の音が鳴る（FB「肩で息をする行動をいれて」）');
+  assert(/o\.lnBreath = br \* 3\.2;/.test(orbit),
+    'R47: 息は**上下の運動**として見える（音だけだと「休んでいる」が画面に出ない）');
+  assert(/Sound\.sfx\('lanceIgnite'\)/.test(orbit),
+    'R47: 休み明けに槍を点火して狩りへ戻る＝「また戦いにいく」が音でも分かる');
+  // ★出撃と帰りの速さは別。同じ値にしたら実測で帰りが90秒中**1.6秒**しか映らず、
+  //   FBの「主人公のもとに帰ってくる」がプレイヤーの目に一度も入らなかった。
+  assert(L.sallySpeed > L.moveSpeed && L.moveSpeed > L.returnSpeed,
+    `R47: 出撃${L.sallySpeed} > 狩り${L.moveSpeed} > 帰り${L.returnSpeed}`
+    + '＝勇んで出て、疲れて戻る（速度だけで読める）');
+  assert(L.returnSpeed < BALANCE.player.speed,
+    `R47: 帰りの速さ ${L.returnSpeed} は主人公 ${BALANCE.player.speed} より遅い＝疲れている`);
+  assert(/o\.lnSally = true;/.test(orbit) && /od >= L\.huntRange \* 0\.8/.test(orbit),
+    'R47: 狩りに出るとき前線まで一気に駆ける（これが無いと敵が主人公へ集まる性質のせいで'
+    + '「中間で会う」だけになり、狩り中の平均が 68px＝公転の1.4倍にしかならなかった＝実測）');
+  assert(/o\.lnTargetId/.test(orbit),
+    'R47: 標的をロックする（毎フレーム選び直すと新しく湧いた敵へ飛び続け、'
+    + '実測で消滅が53体→8体まで落ちた）');
+
+  // --- ⑥ 体力ゲージは持たない（FB指定）---
+  assert(!/lnHp|lancerHp|o\.hp/.test(orbit),
+    'R47: ラゴンにHPを持たせない（FB「このモビットに体力ゲージは不要」）');
+
+  // --- ⑦ ライトセーバーの槍 ---
+  assert(/makeLance\(key, w, h, core\)/.test(boot),
+    'R47: 槍テクスチャの生成関数がある');
+  assert(/this\.makeLance\('w_lance', /.test(boot) && /this\.makeLance\('w_lance_glow', /.test(boot),
+    'R47: 芯（細い白）とグロー（太い青）の**2枚**を作る＝1枚のtintでは光って見えない');
+  assert(/const LANCE_GLOW = 0x4aa8ff;/.test(orbit),
+    'R47: 槍は青白（FB「ライトセーバーのように青白く光る」）');
+  assert(BALANCE.stagger.tint !== 0x4aa8ff,
+    `R47: よろけの輪の色(0x${BALANCE.stagger.tint.toString(16)})と槍の色が別物`
+    + '＝「自分の獲物」の語彙と混ざらない');
+  assert(/setBlendMode\(Phaser\.BlendModes\.ADD\)[\s\S]{0,80}?setTint\(LANCE_GLOW\)/.test(orbit),
+    'R47: グローは加算合成（光っているように見える唯一の方法）');
+  assert(/o\.lnThrust/.test(orbit) && /push = \(o\.lnThrust \|\| 0\) > 0/.test(orbit),
+    'R47: 突いた瞬間だけ槍が前へ伸びる＝「刺した」が形で読める');
+  // ★描画の長さと当たり判定を同じ reach から作る。⚠️ 見た目だけ長くして間合いを短いまま
+  //   にすると「刺さっているのに当たらない」＝R25で踏んだ最悪の形になる。
+  assert(/const len = A\.LANCER\.reach \* 2\.0 \* blade;/.test(orbit),
+    'R47: 槍の描画長は当たり判定 reach から作る（見た目と間合いが食い違わない）');
+  assert(L.reach * 2.0 > 16 * L.spriteScale,
+    `R47: 槍の長さ ${(L.reach * 2).toFixed(0)}px が体 ${(16 * L.spriteScale).toFixed(0)}px より長い`
+    + '＝FBの「長い槍」が絵で成立する');
+  assert(/setOrigin\(0\.5, 0\.86\)/.test(orbit),
+    'R47: 槍は柄の側を握る（原点を中央にすると実プレイの等倍で**背中へ突き抜けて**見えた）');
+  assert(/const wantBlade = \(o\.lnState === 'hunt'\) \? 1 : 0;/.test(orbit),
+    'R47: 刃が出ているのは狩っている間だけ（帰り道と休憩中はしまう＝休んでいるのが分かる）');
+  assert(lagon && lagon.forms.every((f) => f.tex === 'w_lance' && f.archetype === 'LANCER'),
+    'R47: 2フォームとも槍のまま＝11秒ごとのフォームチェンジで単独行動が中断しない');
+
+  // --- ⑧ 音は4つとも別物 ---
+  for (const k of ['lanceIgnite', 'lanceThrust', 'lanceSlay', 'lancePant']) {
+    assert(new RegExp(`\\n  ${k}\\(vol`).test(snd), `R47: 音 ${k} が定義されている`);
+  }
+  assert(/Sound\.sfx\('lanceSlay'\)/.test(orbit) && /Sound\.sfx\('lanceThrust'\)/.test(orbit),
+    'R47: 「突いた」と「消した」で別の音が鳴る＝倒した回数が**数えられる**');
+  assert(!/dest: D/.test(snd.slice(snd.indexOf('lanceIgnite(vol'), snd.indexOf('judgeWave(vol'))),
+    'R47: ラゴンの音は歪みバスに通さない（味方の音は澄んだ側／R42の教訓）');
+
+  // --- ⑨ 役割を持つモビットを合成で奪わない（R45の入れ忘れをここで閉じる）---
+  for (const a of ['HEAL', 'AMMO', 'SHIELD', 'SPEED', 'SLEEPY']) {
+    assert(new RegExp(`NON_COMBAT = \\[[^\\]]*'${a}'`).test(cap),
+      `R47: ${a} は合成の素材にしない（プレイヤーが選んだ役割を勝手に別物へ化けさせない）`);
+  }
+  assert(lagon && lagon.rarity === 'SR' && /if \(rar === 'SR'\) continue;/.test(cap),
+    'R47: ラゴン自身も SR なので素材にならない（手に入れた超レアが合成で消えない）');
 }
 
 if (failures > 0) {
