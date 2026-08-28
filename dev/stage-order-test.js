@@ -1,10 +1,9 @@
 // ボスの並び（stageOrder）の検証。
 // 使い方: node stage-order-test.js <game.jsのパス>
 //
-// ボスの並びはプレイごとにシャッフルされるが、入れ替えてよいのは同じ難易度帯の中だけ。
-// ここが壊れると「3面にライリュウ(hpMul 3.77)が出て詰む」「20面の邪竜ジギムントが別のボスに
-// なって物語が破綻する」といった事故になるが、乱数任せなので実行時エラーにはならず気づけない。
-// ボスやステージを増やしたときに STAGE_TIERS の更新を忘れる事故も検出する。
+// ★2026-08-29 実プレイFB「ボスの出現をランダムにしたら評判がすこぶる悪い」でシャッフルを撤去。
+// ここで縛るのは「1面から最終面まで、毎回おなじ決まった順で出る」こと。壊れても実行時
+// エラーにはならず、遊んで初めて「順番が違う」と分かる種類の事故なので数で押さえる。
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync(process.argv[2], 'utf8');
@@ -45,19 +44,8 @@ function check(label, fn) {
 }
 
 const LAST = run('LAST_STAGE');
-const TIERS = run('STAGE_TIERS');
 const NAMES = run('BOSS_TYPES.map(b => b.name)');
-const TRIALS = 200; // 乱数任せなので十分な回数まわす
-
-check('STAGE_TIERS が全ステージを重複なく連続で覆っている', () => {
-  let expect = 0;
-  for (const [from, to] of TIERS) {
-    if (from !== expect) throw new Error(`難易度帯が連続していない: ${expect} の次が ${from}`);
-    if (to <= from) throw new Error(`難易度帯の範囲が不正: [${from}, ${to}]`);
-    expect = to;
-  }
-  if (expect !== LAST) throw new Error(`難易度帯が全${LAST}ステージを覆っていない（${expect}まで）。ボス追加時のSTAGE_TIERS更新もれ`);
-});
+const TRIALS = 200; // 「何回やってもおなじ」を確かめる側になったので回数はそのまま使う
 
 check('BOSS_TYPESとSTAGESの数が一致している', () => {
   const nb = run('BOSS_TYPES.length');
@@ -65,19 +53,21 @@ check('BOSS_TYPESとSTAGESの数が一致している', () => {
   if (nb !== ns) throw new Error(`BOSS_TYPES=${nb} と STAGES=${ns} が不一致（世界とボスの対応が崩れる）`);
 });
 
-check(`${TRIALS}回シャッフルしても難易度帯をまたがない`, () => {
-  for (let r = 0; r < TRIALS; r++) {
-    run('buildStageOrder();');
-    const order = JSON.parse(run('JSON.stringify(stageOrder)'));
-    order.forEach((slot, pos) => {
-      const a = TIERS.findIndex(([f, t]) => pos >= f && pos < t);
-      const b = TIERS.findIndex(([f, t]) => slot >= f && slot < t);
-      if (a !== b) throw new Error(`ステージ${pos + 1}に別の難易度帯の ${NAMES[slot]} が出た`);
-    });
+check(`${TRIALS}回まわしてもボスの並びは毎回おなじ（ランダムに戻っていない）`, () => {
+  const seen = new Set();
+  for (let r = 0; r < TRIALS; r++) { run('buildStageOrder();'); seen.add(run('JSON.stringify(stageOrder)')); }
+  if (seen.size !== 1) throw new Error(`${TRIALS}回で${seen.size}通りの並びが出た（並びが固定されていない）`);
+});
+
+check('ステージ番号とボスが定義順どおりに対応する（1面＝BOSS_TYPES[0]）', () => {
+  run('buildStageOrder();');
+  const order = JSON.parse(run('JSON.stringify(stageOrder)'));
+  for (let i = 0; i < LAST; i++) {
+    if (order[i] !== i) throw new Error(`ステージ${i + 1}に ${NAMES[order[i]]}（定義順なら ${NAMES[i]}）`);
   }
 });
 
-check(`${TRIALS}回シャッフルしても並びが順列（全ボスがちょうど1回ずつ出る）`, () => {
+check(`${TRIALS}回まわしても並びが順列（全ボスがちょうど1回ずつ出る）`, () => {
   for (let r = 0; r < TRIALS; r++) {
     run('buildStageOrder();');
     const order = JSON.parse(run('JSON.stringify(stageOrder)'));
@@ -86,7 +76,7 @@ check(`${TRIALS}回シャッフルしても並びが順列（全ボスがちょ�
   }
 });
 
-check('物語の区切りのボスは動かない（邪竜=20面 / 最終ボス=最終面）', () => {
+check('物語の区切りのボスが定位置にいる（邪竜=20面 / 最終ボス=最終面）', () => {
   const sigmundIdx = run('BOSS_TYPES.findIndex(t => t.deathEvent)');
   for (let r = 0; r < TRIALS; r++) {
     run('buildStageOrder();');
@@ -94,12 +84,6 @@ check('物語の区切りのボスは動かない（邪竜=20面 / 最終ボス=
     if (order[sigmundIdx] !== sigmundIdx) throw new Error(`邪竜(${NAMES[sigmundIdx]})が${order.indexOf(sigmundIdx) + 1}面へ動いた`);
     if (order[LAST - 1] !== LAST - 1) throw new Error(`最終ボス(${NAMES[LAST - 1]})が動いた`);
   }
-});
-
-check('シャッフルされている（毎回おなじ並びではない）', () => {
-  const seen = new Set();
-  for (let r = 0; r < TRIALS; r++) { run('buildStageOrder();'); seen.add(run('JSON.stringify(stageOrder)')); }
-  if (seen.size < TRIALS * 0.5) throw new Error(`${TRIALS}回で${seen.size}通りしか出ない（シャッフルが効いていない）`);
 });
 
 check('全ボスが最後まで到達可能（どのボスも必ずどこかのステージに出る）', () => {
@@ -117,7 +101,7 @@ check('全ボスが最後まで到達可能（どのボスも必ずどこかの�
 check('図鑑の記録がステージ番号ではなく実際のボスを指す', () => {
   run('buildStageOrder();');
   const order = JSON.parse(run('JSON.stringify(stageOrder)'));
-  // 記録処理と同じ式で、シャッフル後もステージ→ボスの対応が保たれるか確かめる
+  // 記録処理と同じ式で、ステージ→ボスの対応が保たれるか確かめる（stageOrder経由の参照は残してある）
   for (let s = 1; s <= LAST; s++) {
     run(`stage = ${s};`);
     const actual = run('currentBossType().name');
