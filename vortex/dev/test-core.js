@@ -3508,6 +3508,58 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R49: 直前に配った弾を覚えている');
 }
 
+// ============ R49W3 進化は必ず「数字」も伸ばす ============
+// 実プレイFB「オーロラジェリー、進化しても攻撃力そのまま？ ほかに進化した数字があれば
+//   別にそれでいいが。進化しても見た目しか変化しないのはやめて」。
+// 調べると**オーロラジェリーは伸びていた**（tickDamage 1→2・radius 60→80）。
+// 素の baseDamage が 1→1 なのは、FIELD がそれを**読まない**から（接触ダメージ用の値）。
+// 本当に伸びていなかったのは別の4体で、SHIELD/SPEED/SLEEPY にいたっては
+// BALANCE を直読みしていて **ovr を見る口すら無かった**＝数値を書いても効かない状態だった。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+
+  // baseDamage（＝memberDamage 経由の接触ダメージ）を実際に読む型。
+  // ここに無い型は baseDamage を書いても無意味なので、ovr で伸ばさないと嘘になる。
+  const USES_BASE_DAMAGE = ['SLASH', 'SHOT', 'BEAM', 'BOOMERANG', 'RINGWAVE', 'LANCER'];
+
+  for (const m of MONSTERS) {
+    if (!m.evo) continue;
+    const usesBase = USES_BASE_DAMAGE.includes(m.archetype);
+    const ovr = m.evo.ovr || {};
+    const grew = usesBase
+      ? m.evo.baseDamage > m.baseDamage
+      : Object.keys(ovr).length > 0;
+    assert(grew,
+      `R49W3: ${m.evo.name} は進化で数字が伸びる`
+      + (usesBase ? `（攻撃力 ${m.baseDamage}→${m.evo.baseDamage}）`
+                  : `（${m.archetype} は baseDamage を読まないので ovr が要る）`));
+  }
+
+  // ★上書きは「素の値と違う」ことまで見る。ovr に素と同じ値を書いても伸びていない。
+  for (const m of MONSTERS) {
+    if (!m.evo || !m.evo.ovr) continue;
+    const A = BALANCE.archetypes[m.archetype] || {};
+    let differs = 0;
+    for (const k of Object.keys(m.evo.ovr)) if (A[k] !== m.evo.ovr[k]) differs++;
+    assert(differs > 0,
+      `R49W3: ${m.evo.name} の ovr は素の設定と違う値になっている（同じ値を書いても伸びない）`);
+  }
+
+  // --- SHIELD/SPEED/SLEEPY が ovr を引く口を持っている ---
+  assert(/const OV = \(o, S, k\) =>/.test(orbit) && /o\.ovr = ovr;/.test(orbit),
+    'R49W3: 進化形の上書き値を引くヘルパ OV があり、rebuild が o.ovr を入れている');
+  for (const k of ['durSec', 'hpTrigger', 'moveMul', 'everySec', 'healAmount', 'boonMult']) {
+    assert(new RegExp(`OV\\(o, S, '${k}'\\)`).test(orbit),
+      `R49W3: ${k} は OV 経由で読む（BALANCE 直読みに戻すと進化が効かなくなる）`);
+  }
+  assert(!/if \(p\.hp > p\.maxHp \* S\.hpTrigger\)/.test(orbit)
+      && !/run\.grantShield\(S\.durSec, o\)/.test(orbit),
+    'R49W3: 直読みの残骸が無い（1か所でも残ると、そこだけ進化しない）');
+  assert(BALANCE.archetypes.SLEEPY.boonMult === 1.0,
+    'R49W3: 素の boonMult は1.0（進化していないネムッコの配るものは変わらない）');
+}
+
 // ============ R47 ラゴン（単独行動する槍使い）============
 // 実プレイFB「新たなレアモビットを創造して。引き当て超レア。他のモビットより、一回り身体が
 //   大きく筋肉もりもりの武闘派のモビット。このモビットは長い槍を持ち、その槍で勝手に敵を

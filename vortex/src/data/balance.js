@@ -633,7 +633,9 @@ export const BALANCE = {
     //   （💤・体育座り・横になる）。役立たずを**演出として成立させる**のがこの子の仕事。
     // ⚠️ 使用上限は無いが**間隔**は要る（無限バリアになると②が消える）。12秒ごとに1つ。
     //    軌道神核戦は実測112秒なので約9回＝盾3回・薬3回・回復3回に落ち着く。
-    SLEEPY: { everySec: 12, firstDelaySec: 3, healAmount: 22,
+    // boonMult ＝ 配る盾／薬の**持続時間**にかかる倍率。素は1.0で、進化形（メザメガミ）が
+    //   ovr で上書きする（R49W3「進化しても見た目しか変化しないのはやめて」）。
+    SLEEPY: { everySec: 12, firstDelaySec: 3, healAmount: 22, boonMult: 1.0,
               kinds: ['shield', 'speed', 'heal'],
               // 寝ている姿の周期（この秒ごとに 体育座り→横になる→体育座り… と移る）
               poseSec: 4.5, yawnSec: 3.2 },

@@ -149,6 +149,11 @@ export function createOrbit(run) {
       // ★R45 SHIELD/SPEED/SLEEPY は**武器レベルでも合体でも一切伸びない**。
       //   AMMO と同じ理由＝この子たちの価値は「量」ではなく「ボス戦に必ず1回ある」こと。
       //   伸ばすと終盤ボスが一方的になる（無敵時間が積み上がって②被弾の緊張感が消える）。
+      // ★R49W3 ただし**進化だけは別**。実プレイFB「進化しても見た目しか変化しないのはやめて」。
+      //   この3つは BALANCE.archetypes を直読みしていて ovr を見る口が無かった＝進化形に
+      //   数値を書いても効かない状態だった。ovr を持たせて update 側から引けるようにする。
+      //   （レベルでも合体でも伸びないのは据え置き。伸びるのは進化したときだけ）
+      o.ovr = ovr;
 
       // 武器レベル成長（必ず最後に適用）。FB#2: 実効レベル el 基準（合成なかまは強く伸びる）。
       const wl = el - 1;
@@ -370,6 +375,11 @@ export function createOrbit(run) {
   // 3つとも敵に触れない＝run.dealDamage を一度も呼ばない。決めるのは「いつ配るか」だけで、
   // 効果そのもの（無敵・移動倍率）と見た目は Run.js が持つ（主人公に付くものなので）。
 
+  // ★R49W3 進化形の上書き値を引く。SHIELD/SPEED/SLEEPY は BALANCE を直読みしていたので、
+  //   進化形に数値を書いても効かなかった（＝この3体は本当に見た目しか変わっていなかった）。
+  //   o.ovr は rebuild が入れる。進化していないときは undefined なので素の値がそのまま出る。
+  const OV = (o, S, k) => ((o.ovr && o.ovr[k] != null) ? o.ovr[k] : S[k]);
+
   // 現在のボスが軌道神核（真マオウレクス第4形態）か。ネムッコの覚醒条件。
   function isTrueMaou() {
     const bs = run.boss;
@@ -396,13 +406,13 @@ export function createOrbit(run) {
   //    無敵で潰して終わる＝盾が1回も仕事をしない（守った実感が生まれない）。
   function updateShield(o, dt) {
     const S = BALANCE.archetypes.SHIELD;
-    if (!bossStock(o, 'sh', S.perBoss, S.perFinal)) return;
+    if (!bossStock(o, 'sh', OV(o, S, 'perBoss'), OV(o, S, 'perFinal'))) return;
     if (o.shStock <= 0) return;
     const p = run.player;
     if (!p || run.ended || run.cinematic) return;
-    if (p.hp > p.maxHp * S.hpTrigger) return;
+    if (p.hp > p.maxHp * OV(o, S, 'hpTrigger')) return;
     o.shStock--;
-    run.grantShield(S.durSec, o);
+    run.grantShield(OV(o, S, 'durSec'), o);
   }
 
   // ★②爆速ドリンク（ドリンゴ）。FB「一時的に移動速度を1.5倍に上げる薬（ボス戦ごとに1回のみ）」。
@@ -410,13 +420,13 @@ export function createOrbit(run) {
   // 実際に攻撃が始まる頃に効き始める＝薬が「効いている」時間が戦闘に重なる。
   function updateSpeed(o, dt) {
     const S = BALANCE.archetypes.SPEED;
-    if (!bossStock(o, 'sp', S.perBoss, S.perFinal)) return;
+    if (!bossStock(o, 'sp', OV(o, S, 'perBoss'), OV(o, S, 'perFinal'))) return;
     if (o.spStock <= 0) return;
     if (run.cinematic) return;
     o.spT = (o.spT || 0) + dt;
-    if (o.spT < S.delaySec) return;
+    if (o.spT < OV(o, S, 'delaySec')) return;
     o.spStock--;
-    run.grantSpeed(S.moveMul, S.durSec, o);
+    run.grantSpeed(OV(o, S, 'moveMul'), OV(o, S, 'durSec'), o);
   }
 
   // ★③ネムッコ。FB「ずっとなにもせずに欠伸ばかりして役に立たないが、軌道神核との戦闘に
@@ -441,19 +451,20 @@ export function createOrbit(run) {
     o.slT = (o.slT || 0) - dt;
     if (o.slT > 0) return;
     const first = o.slFired == null;
-    if (first) { o.slFired = 0; o.slT = S.firstDelaySec; return; }
-    o.slT = S.everySec;
+    if (first) { o.slFired = 0; o.slT = OV(o, S, 'firstDelaySec'); return; }
+    o.slT = OV(o, S, 'everySec');
     o.slFired++;
     const kind = run.rng.pick(S.kinds);
     if (kind === 'shield') {
-      run.grantShield(BALANCE.archetypes.SHIELD.durSec, o);
+      run.grantShield(BALANCE.archetypes.SHIELD.durSec * OV(o, S, 'boonMult'), o);
     } else if (kind === 'speed') {
-      run.grantSpeed(BALANCE.archetypes.SPEED.moveMul, BALANCE.archetypes.SPEED.durSec, o);
+      run.grantSpeed(BALANCE.archetypes.SPEED.moveMul,
+                     BALANCE.archetypes.SPEED.durSec * OV(o, S, 'boonMult'), o);
     } else {
       const p = run.player;
       if (!p) return;
       const before = p.hp;
-      p.hp = Math.min(p.maxHp, p.hp + S.healAmount);
+      p.hp = Math.min(p.maxHp, p.hp + OV(o, S, 'healAmount'));
       const got = Math.round(p.hp - before);
       run.spawnParticles(p.x, p.y, 0x7dff8f, 14);
       run.floatText(p.x, p.y - 34, got > 0 ? '+' + got + ' HP' : 'まんたん！', '#7dff8f');
