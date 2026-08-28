@@ -2046,7 +2046,7 @@ const SHOP_ITEMS = [
   { id: 'bandana',  name: 'まけずぎらいのバンダナ', desc: 'ライフのこり2いかで スピードが 15% アップ',  price: 600 },
   { id: 'crown',    name: 'おうじゃのかんむり',   desc: 'ひっさつを つかっても ゲージが 25 のこる',    price: 800 },
   { id: 'socks',    name: 'にじのくつした',       desc: 'はしると にじいろの キラキラが でる！',       price: 250 },
-  { id: 'mercKnight', name: 'せいぎのナイト（傭兵）', desc: 'やりで いっしょに たたかう・10はつで しぼう',   price: 900,  repeat: true, merc: true },
+  { id: 'mercKnight', name: 'せいぎのナイト（傭兵）', desc: 'ながい やりで いっしょに たたかう・10はつで しぼう', price: 900,  repeat: true, merc: true },
   { id: 'mercArcher', name: 'もりのアーチャー（傭兵）', desc: 'ゆみで えんきょり・10はつで しぼう',           price: 1100, repeat: true, merc: true },
 ];
 
@@ -2706,8 +2706,11 @@ const MERC_OFFSETS = [{ x: -56, y: 32 }, { x: 56, y: 32 }]; // 主人公の後�
 const MERC_TYPES = {
   mercKnight: {
     name: 'せいぎのナイト', sprite: 'mercKnight', color: '#3b5dc9',
-    ranged: false, dmg: 4, reach: 68, atkInterval: 45, price: 900,
-    desc: 'やりで せっきんせん・こうげき力たかめ',
+    // ★2026-08-29 reach 68→170。実測で「一番近い敵まで」の中央値が130〜153pxあり、
+    //   68では射程内にいる時間が全体の1割前後しかなかった＝9割は届いていなかった。
+    //   170で射程内が5〜7割・攻撃回数が2〜3倍になる（dev/merc-reach-probe.js）。
+    ranged: false, dmg: 4, reach: 170, atkInterval: 45, price: 900,
+    desc: 'ながい やりで なぎはらう・こうげき力たかめ',
   },
   mercArcher: {
     name: 'もりのアーチャー', sprite: 'mercArcher', color: '#38b764',
@@ -5571,29 +5574,38 @@ function drawMercWeapon(m, type) {
       ctx.stroke();
     }
   } else {
-    // ナイトの槍: 長く、くるくる回転する（攻撃中は速く回る）
+    // ナイトの槍: とても長く、くるくる回転する（攻撃中は速く回る）
+    // ★2026-08-29 実プレイFB「今の槍では敵に届いてなくて全く戦力になっていない」。
+    //   届く距離(reach)を 68→170 に伸ばしたので、見えている槍もそこまで伸ばす。
+    //   見た目と判定がずれると「刺さって見えるのに減らない」になる（HAYATOでは
+    //   演出だけ出て0が出るのが一番たちが悪い）。だから長さは数値で持たず reach から
+    //   逆算する＝以後 reach をいじっても槍の絵が勝手に追従し、ずれようがない。
     const spin = frame * (m.atkAnim > 0 ? 0.5 : 0.22);
     ctx.rotate(m.angle + spin);
-    const len = 34 + (m.atkAnim > 0 ? 12 : 0);
+    const len = type.reach - 22 + (m.atkAnim > 0 ? 6 : 0);   // 穂先(len+16)が reach とほぼ一致
     // 柄（後方にも伸ばして回転がわかりやすいように）
     ctx.strokeStyle = '#a77b5b';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(-10, 0);
+    ctx.moveTo(-16, 0);
     ctx.lineTo(len, 0);
     ctx.stroke();
-    // 穂先
+    // 柄の金具（長い柄が1本の棒に見えないよう2箇所で締める）
+    ctx.fillStyle = '#94b0c2';
+    ctx.fillRect(len * 0.42, -3, 5, 6);
+    ctx.fillRect(len * 0.72, -3, 5, 6);
+    // 穂先（長さに合わせて大きく）
     ctx.fillStyle = '#cfe8ff';
     ctx.beginPath();
-    ctx.moveTo(len, -4);
-    ctx.lineTo(len + 9, 0);
-    ctx.lineTo(len, 4);
+    ctx.moveTo(len, -6);
+    ctx.lineTo(len + 16, 0);
+    ctx.lineTo(len, 6);
     ctx.closePath();
     ctx.fill();
     // 石突（反対側の飾り玉）
     ctx.fillStyle = '#94b0c2';
     ctx.beginPath();
-    ctx.arc(-10, 0, 2.5, 0, Math.PI * 2);
+    ctx.arc(-16, 0, 3.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
