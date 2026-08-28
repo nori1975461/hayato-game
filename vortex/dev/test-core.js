@@ -3117,6 +3117,32 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R44W8: 技に入るたびにフラグが戻る＝2回目以降もテロップが出る');
   }
 
+  // --- ⑤ R44W9 軌道神核の名乗り（実プレイFB「軌道神核出現時のコメントがない。検証して」）---
+  //   ★実測で確認したとおり、出ていたのは状況説明（text）とボス名（text2）だけで、
+  //     **本人のセリフが1つも無かった**。第4形態は作中で最後に姿を現す者なので、
+  //     名前だけで通り過ぎるのは格に合わない。
+  {
+    const tf9 = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').trueForm;
+    assert(tf9.text3 === '小さき光よ…　我が手で消しさらん…',
+      'R44W9: 軌道神核の名乗りが指定どおりの文言で定義されている');
+    const look = (boss.match(/function applyTrueLook\(\)[\s\S]*?\n  \}/) || [''])[0];
+    assert(/introText\(tf\.text3,/.test(look),
+      'R44W9: 名乗りが**出現の関数から実際に呼ばれている**（データだけ足して画面に出ない、を殺す）');
+    assert(look.indexOf('tf.text3') < look.indexOf('tf.text2'),
+      'R44W9: 名乗り → 名前 の順（第1形態の maouIntro と同じ作法）');
+    assert((look.match(/introText\(/g) || []).length >= 2,
+      'R44W9: 出現時のテロップは2つ以上＝「コメントがない」（名前だけ）の回帰を殺す');
+    assert(/introText\(tf\.text3, '#ff7a7a'/.test(look),
+      'R44W9: 色は第1形態の宣告2行目と同じ #ff7a7a＝**同じ者が言っている**ことが色でも伝わる');
+    // ★意味は作品内の対句で作る（R44W6 と同じ原理）。第1形態と同じ「小さき光」で呼びかけ、
+    //   同じ「消す」で結ぶ＝真の姿になっても言っていることは変わらない。
+    const mi9 = (boss.match(/case 'maouIntro':[\s\S]*?endIntro\(\)/) || [''])[0];
+    assert(/小さき光/.test(mi9) && /小さき光/.test(tf9.text3),
+      'R44W9: 第1形態の名乗りと軌道神核の名乗りが同じ「小さき光」で呼びかける＝対句');
+    assert(/消す/.test(mi9) && /消し/.test(tf9.text3),
+      'R44W9: どちらも「消す」で結ぶ＝オープニングの命令「ひかりを けせ」と一本につながる');
+  }
+
   // --- ④ マオウレクスの名乗り（唐突なロボ吃音 → 意味のつながる王の宣告）---
   {
     const mi = (boss.match(/case 'maouIntro':[\s\S]*?endIntro\(\)/) || [''])[0];
