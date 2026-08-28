@@ -13,4 +13,4 @@
 //   ② この版番号をタイトルに表示する。画面の数字が下の BUILD と違えば、それは間違いなくキャッシュ。
 //
 // ⚠️ この値を書き換えたら必ず `node vortex/dev/stamp-cache-bust.js` を実行して index.html を作り直す。
-export const BUILD = '20260828-10';
+export const BUILD = '20260828-11';

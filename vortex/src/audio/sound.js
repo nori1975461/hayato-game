@@ -1499,16 +1499,23 @@ const SFX = {
   //     （24体ぶん個別に鳴らすと足音ではなく雑音になる。隊列の足音は音の側で作る）。
   //   ザッ の正体＝砂を擦る短い高域ノイズ（帯域が落ちる）＋踏み固める短い中域。
   //   ★重さを「低いドスン」で出さない（ノートPCで鳴らない）。168→96Hz の胴で出す。
+  //   ★R44W12 実プレイFB「かげおにの移動音をもっと大きくして。その方がプレーヤーが
+  //     **追われてる感**がでる」。実測（cdp-shadow-step.mjs）で耳に届く大きさは最大0.313＝
+  //     被弾音 shadowBite(0.6) の半分しかなく、しかも軌道神核BGM（歪んだギター＋16分の
+  //     ベース）と帯域が丸かぶりだった。音量・帯域の2つで上げる（[[R44W4 巻き戻し音]]と同じ処方）：
+  //       ①gain を約1.7倍（0.34→0.56）＝被弾音と同格まで
+  //       ②擦り（ザッ）を 900-7000Hz → 1500-9500Hz へ。歪みギターの中域から逃がす
+  //       ③踏み込みの胴を 168→210Hz へ。16分刻みのベースの上へ抜けさせる
   shadowStep(vol = 1, pitch = 1) {
     const feet = [0, 0.017, 0.031];
     for (let i = 0; i < feet.length; i++) {
       const g = vol * (i === 0 ? 1 : 0.46 - i * 0.10);
-      noiseHit({ start: feet[i], dur: 0.055, gain: 0.30 * g,
-                 hpFreq: 900 * pitch, lpFreq: 7000 * pitch, lpEnd: 1400 * pitch });
-      tone({ type: 'triangle', freq: 168 * pitch, freqEnd: 96 * pitch, start: feet[i],
-             dur: 0.07, gain: 0.34 * g, attack: 0.001 });
+      noiseHit({ start: feet[i], dur: 0.055, gain: 0.52 * g,
+                 hpFreq: 1500 * pitch, lpFreq: 9500 * pitch, lpEnd: 2200 * pitch });
+      tone({ type: 'triangle', freq: 210 * pitch, freqEnd: 112 * pitch, start: feet[i],
+             dur: 0.07, gain: 0.56 * g, attack: 0.001 });
     }
-    noiseHit({ dur: 0.10, gain: 0.12 * vol, hpFreq: 190, lpFreq: 900 });
+    noiseHit({ dur: 0.10, gain: 0.20 * vol, hpFreq: 190, lpFreq: 900 });
   },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {

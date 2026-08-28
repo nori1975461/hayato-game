@@ -1875,8 +1875,13 @@ export function createBoss(run) {
       //   「大勢が踏んだ」構造を持っている（sound.js の shadowStep が3回ずらして踏む）。
       if (s.biter && !flaring) {
         if (s.gaitPh != null && gaitPh < s.gaitPh) {
-          const near = clamp01(1 - Math.hypot(dx, dy) / (sk.stepNearPx || 220));
-          Sound.sfx('shadowStep', 0.30 + near * 0.62, 0.88 + near * 0.30);
+          // ★R44W12 実測で分かったこと：足音を鳴らすのは主人公を追う先頭の1体なので、
+          //   間合いは常に120px以内（実測60回中60回）＝**距離の情報が一度も動いていなかった**。
+          //   vol は 0.86〜0.92 に張り付き、設計した 0.30〜0.92 のレンジは絵に描いた餅だった。
+          //   → 基準（stepNearPx）を実際に起きる距離＝湧いた直後の後方までへ広げ、
+          //     同時に全体を上げる（FB「もっと大きく＝追われてる感」）。
+          const near = clamp01(1 - Math.hypot(dx, dy) / (sk.stepNearPx || 420));
+          Sound.sfx('shadowStep', 0.40 + near * 0.72, 0.88 + near * 0.30);
         }
         s.gaitPh = gaitPh;
       }

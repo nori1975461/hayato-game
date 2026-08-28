@@ -1576,7 +1576,7 @@ export const BALANCE = {
                              //     **格子に量子化**する＝くっきり離散した分身が等間隔に並ぶ。
                              //   ★足音は歩調の**山**で鳴らす＝絵と音が同じリズムになる。
                              //     音量とピッチは間合いで変える＝「迫ってくる」は距離の情報。
-                             gaitSec: 0.26, gaitAmp: 0.55, stepNearPx: 220,
+                             gaitSec: 0.26, gaitAmp: 0.55, stepNearPx: 420,
                              ghostLagSec: 0.055, ghostCount: 4, ghostNearRanks: 3,
                              ghostQuantSec: 0.085, ghostAlpha: [0.62, 0.42, 0.26, 0.14],
                              lifeSec: 4.6, damage: 26, radius: 11, riseSec: 0.55,

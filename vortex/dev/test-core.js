@@ -3119,7 +3119,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R44W10: 残像の濃さは手前ほど濃い階段（連続減衰だと輪郭が立たない）');
     assert(/^  shadowStep\(/m.test(sound) && /Sound\.sfx\('shadowStep'/.test(boss),
       'R44W10: 足音 shadowStep が実在し、boss.js から鳴らされる');
-    assert(/if \(s\.biter && !flaring\) \{[\s\S]{0,320}Sound\.sfx\('shadowStep'/.test(boss),
+    assert(/if \(s\.biter && !flaring\) \{[\s\S]{0,900}Sound\.sfx\('shadowStep'/.test(boss),
       'R44W10: 足音は**先頭1体だけ**が鳴らす（24体ぶん鳴らすと足音でなく雑音になる）');
     assert(/gaitPh < s\.gaitPh/.test(boss),
       'R44W10: 足音は歩調の位相が一周した瞬間＝踏み込みの瞬間に鳴る（絵と同じリズム）');
@@ -3129,9 +3129,30 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'R44W10: 1回の再生で**大勢が踏んだ**構造（3つの足を17/31msずらす）＝隊列の足音は音の側で作る');
       assert(!/freq: [0-9]?[0-9],/.test(st10),
         'R44W10: 足音の重さを100Hz未満で作らない（子どものノートPCで鳴らない）');
+      // ★R44W12 実プレイFB「かげおにの移動音をもっと大きくして。その方が**追われてる感**が
+      //   でる」。実測：耳に届く大きさは 0.313 で、被弾音 shadowBite(0.6) の半分しかなかった。
+      const gmax = Math.max(...[...st10.matchAll(/gain: ([\d.]+) \* g/g)].map((m) => Number(m[1])));
+      assert(gmax > 0.34,
+        `R44W12: 足音の最大 gain ${gmax}（旧0.34）＝被弾音と同格まで上げる。旧値へ戻ったら落ちる`);
+      const bite = (sound.match(/shadowBite\(vol = 1\)[\s\S]*?\n  \},/) || [''])[0];
+      const bmax = Math.max(...[...bite.matchAll(/gain: ([\d.]+) \* vol/g)].map((m) => Number(m[1])));
+      assert(gmax >= bmax * 0.85,
+        `R44W12: 足音(${gmax}) は被弾音(${bmax}) と同格＝迫る音が噛まれる音に負けない`);
+      // ★帯域：軌道神核BGM（歪んだギター＋16分刻みのベース）から逃がす。ここを下げると
+      //   いくら音量を上げても曲に埋もれて「聞こえない」に戻る（[[R44W4 巻き戻し音]]と同じ罠）
+      const hp = Number((st10.match(/hpFreq: (\d+) \* pitch/) || [])[1]);
+      const body = Number((st10.match(/freq: (\d+) \* pitch, freqEnd/) || [])[1]);
+      assert(hp >= 1400, `R44W12: 擦り（ザッ）は ${hp}Hz から上＝歪みギターの中域を避ける`);
+      assert(body >= 200, `R44W12: 踏み込みの胴は ${body}Hz＝16分刻みのベースの上へ抜ける`);
     }
-    assert(/0\.30 \+ near \* 0\.62/.test(boss) && /0\.88 \+ near \* 0\.30/.test(boss),
-      'R44W10: 「迫ってくる」は**距離の情報**＝間合いが近いほど大きく・高く鳴る');
+    assert(/0\.40 \+ near \* 0\.72/.test(boss) && /0\.88 \+ near \* 0\.30/.test(boss),
+      'R44W12: 「迫ってくる」は**距離の情報**＝間合いが近いほど大きく・高く鳴る（音量は底上げ）');
+    // ★R44W12 実測で分かった空振り：足音を鳴らすのは主人公を追う先頭の1体なので、
+    //   間合いは常に120px以内（60回中60回）＝設計した 0.30〜0.92 のレンジは一度も動いていなかった。
+    //   基準を「湧いた直後の後方」まで広げて、距離の式が実際に意味を持つようにする。
+    assert(sh.stepNearPx >= BALANCE.player.speed * sh.spawnBackSec * 2,
+      `R44W12: 足音の距離の基準 ${sh.stepNearPx}px は湧いた直後の後方`
+      + `（${(BALANCE.player.speed * sh.spawnBackSec).toFixed(0)}px）より遠い＝式が実際に動く`);
   }
 
   // --- ⑬ 検証口 ---
