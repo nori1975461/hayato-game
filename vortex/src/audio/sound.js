@@ -133,7 +133,7 @@ function noiseHit(opts) {
   if (!ctx) return;
   const {
     start = 0, dur = 0.1, gain = 0.3, dest = sfxGain,
-    hpFreq = 800, lpFreq = 6000,
+    hpFreq = 800, lpFreq = 6000, lpEnd = 0,
   } = opts;
   const t0 = ctx.currentTime + start;
   const src = ctx.createBufferSource();
@@ -143,7 +143,10 @@ function noiseHit(opts) {
   hp.frequency.value = hpFreq;
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = lpFreq;
+  lp.frequency.setValueAtTime(lpFreq, t0);
+  // R44W7: 帯域を時間で下げる掃引（既定は無効＝既存の呼び出しは一切変わらない）。
+  //   「広がって燃える炎」は音量ではなく**帯域が下へ落ちること**で聞こえる。
+  if (lpEnd > 0) lp.frequency.exponentialRampToValueAtTime(Math.max(60, lpEnd), t0 + dur);
   const g = ctx.createGain();
   g.gain.setValueAtTime(gain, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
@@ -1403,13 +1406,29 @@ const SFX = {
     tone({ type: 'square', freq: 327, dur: 0.12, gain: 0.14 * vol, attack: 0.002 });
     noiseHit({ dur: 0.04, gain: 0.2 * vol, hpFreq: 500, lpFreq: 4000 });
   },
-  // ③影が果てる闇の炸裂：短い暗い破裂（果てる場所に居てはいけない、の念押し）
-  shadowBurst(vol = 1) {
+  // ③影が果てる大爆発（R44W7「炎を出しながら大爆発して。爆発音も派手に」）。
+  //   爆発が「近い・大きい」と聞こえるのは音量ではなく**時間構造**：
+  //     ①先行するクラック（0ms・ごく短い高域）＝これが無いと遠い花火になる
+  //     ②本体の低音（深い下降）＝大きさの体
+  //     ③炎＝帯域が 9k→260Hz へ落ちる掃引ノイズ（広がって燃える）
+  //     ④うなりの尾＝かげおに家族の署名 155.5/163.5Hz を残響で伸ばす
+  //     ⑤がれき＝遅れて降る短い高域（時間差があると「大きいものが壊れた」に聞こえる）
+  //   ★後続の影（vol小）は①〜③の縮小版だけ。15体ぶんの尾が重なると濁って逆に小さくなる。
+  shadowBurst(vol = 1, pitch = 1) {
     const D = sfxDistBus;
-    tone({ type: 'sine', freq: 90, freqEnd: 38, dur: 0.26, gain: 0.65 * vol, attack: 0.001 });
-    tone({ type: 'sawtooth', freq: 620, freqEnd: 140, dur: 0.2, gain: 0.14 * vol,
+    const big = vol >= 0.6;
+    if (big) duckBgm(0.5, 0.10, 0.42);            // 爆発の瞬間だけ音楽を沈める＝一撃が抜ける
+    noiseHit({ dur: 0.035, gain: 0.34 * vol, hpFreq: 3200, lpFreq: 12000 });
+    tone({ type: 'sine', freq: 118 * pitch, freqEnd: 27, dur: 0.62, gain: 0.95 * vol, attack: 0.001 });
+    tone({ type: 'triangle', freq: 74 * pitch, freqEnd: 22, dur: 0.50, gain: 0.42 * vol, attack: 0.002 });
+    noiseHit({ dur: big ? 0.72 : 0.30, gain: 0.30 * vol, hpFreq: 160, lpFreq: 9000, lpEnd: 260 });
+    tone({ type: 'sawtooth', freq: 880 * pitch, freqEnd: 120, dur: 0.28, gain: 0.20 * vol,
            attack: 0.002, dest: D });
-    noiseHit({ dur: 0.1, gain: 0.22 * vol, hpFreq: 220, lpFreq: 5200 });
+    if (!big) return;
+    tone({ type: 'square', freq: 155.5, dur: 0.9, gain: 0.11 * vol, attack: 0.01, verb: 0.7 });
+    tone({ type: 'square', freq: 163.5, dur: 0.9, gain: 0.11 * vol, attack: 0.01, verb: 0.7 });
+    noiseHit({ start: 0.16, dur: 0.07, gain: 0.14 * vol, hpFreq: 1800, lpFreq: 7000 });
+    noiseHit({ start: 0.29, dur: 0.06, gain: 0.10 * vol, hpFreq: 2400, lpFreq: 9000 });
   },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {

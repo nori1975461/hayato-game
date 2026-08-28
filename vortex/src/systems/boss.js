@@ -1659,6 +1659,20 @@ export function createBoss(run) {
   // 検証用の実績カウンタ。⚠️ hitPlayer のダメージ値で外から仕分けると、聖句16と炸裂16の
   // ように**同値の別ソース**を混同する（実測で139回の誤計上をやった）。発生源で数える。
   const shadowStats = { spawned: 0, bites: 0, novaHits: 0, novas: 0 };
+  let novaFxBudget = 4;     // 後続の影が撒く炎の1フレーム上限（判定は無いので絵だけ間引く）
+  // R44W7: 影の姿は**モビット**（主人公ではない）。実プレイFB「かげおには主人公ではなく
+  //   モビットのほうがよい」。いま連れているパーティの顔ぶれをそのまま使う＝
+  //   「自分のなかまの堕ちた影に追われる」。進化ずみなら進化形の顔で来る。
+  const SHADOW_SCALE = 3.3;   // モビットは16x16（主人公は18x16）ぶん大きめにして画面上の背丈を合わせる
+  function shadowTexKeys() {
+    const keys = [];
+    for (const m of (run.party || [])) {
+      const src = (m.evolved && m.def && m.def.evo) ? m.def.evo : m.def;
+      if (src && run.textures.exists('mon_' + src.id)) keys.push('mon_' + src.id);
+    }
+    if (!keys.length && run.textures.exists('mon_starpuppy')) keys.push('mon_starpuppy');
+    return keys.length ? keys : ['player'];
+  }
   function recordShadowHist() {
     shadowHist.push({ t: run.elapsed, x: run.player.x, y: run.player.y });
     // 最長ディレイ+余裕ぶんだけ保持（無限に伸ばさない）
@@ -1678,24 +1692,53 @@ export function createBoss(run) {
     }
     return shadowHist[shadowHist.length - 1];
   }
+  // R44W7: 進行方向（履歴上の速度ベクトル）。列を「進行方向に垂直」へ振るために要る。
+  //   ここが無いと横並びが画面のX軸に固定され、主人公が縦へ走ると隊列が1列に潰れて見える。
+  function histDirAt(t) {
+    const a = histAt(t - 0.12), b = histAt(t);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1.5) return { x: 1, y: 0 };
+    return { x: dx / d, y: dy / d };
+  }
   function spawnShadows() {
     destroyShadows();                                   // 前回の残りが居たら重ねない
     const sk = TF().shell.shadow;
-    const n = Math.min(sk.delaySec.length, sk.count + rageArr('shadowAdd', 0));
-    for (let i = 0; i < n; i++) {
-      const delay = sk.delaySec[i];
-      const p = histAt(run.elapsed - delay);
-      // 影だまり（足あとに開く暗い水たまり）。ADD だと明るくなってしまうので通常ブレンドの暗色
-      const pool = run.add.image(p.x, p.y + 10, 'white').setDepth(8)
-        .setTint(0x14060e).setAlpha(0).setDisplaySize(44, 14);
-      const img = run.add.image(p.x, p.y, 'player').setScale(3.0).setFlipY(true)
-        .setDepth(9).setAlpha(0).setTint(VERSE_FALL_A);
-      // 空洞の眼＝倒立しているので頭は下。深紅の小さな光を「下」に灯す
-      const eye = run.add.image(p.x, p.y + 8, 'glow').setBlendMode(ADD)
-        .setDepth(9).setTint(0xd01228).setAlpha(0).setDisplaySize(16, 16);
-      shadows.push({ img, eye, pool, pt: run.elapsed - delay, riseT: 0, rising: true,
-        life: sk.lifeSec, dmgT: 0, idx: i });
-      shadowStats.spawned++;
+    const lanes = sk.lanes + rageArr('lanesAdd', 0);
+    // 列のオフセット（中央から左右対称）。中央に近いほど |off| が小さい＝先頭の噛み手を選ぶ基準
+    const laneOffs = [];
+    for (let l = 0; l < lanes; l++) laneOffs.push((l - (lanes - 1) / 2) * sk.laneGapPx);
+    const texKeys = shadowTexKeys();          // 顔ぶれは体ごとに巡回＝隊列がぜんぶ同じ顔にならない
+    for (let r = 0; r < sk.ranks; r++) {
+      for (let l = 0; l < lanes; l++) {
+        const pt = run.elapsed - (sk.spawnBackSec + r * sk.rankSpreadSec);
+        const p = histAt(pt);
+        // 後ろの段ほど小さく淡い＝奥行き。先頭（噛み手）だけが等身大＝「追いつくのは先頭だけ」が形で分かる
+        const depth = 1 - r / Math.max(1, sk.ranks) * 0.42;
+        const isBiter = r === 0 && Math.abs(laneOffs[l]) < sk.laneGapPx * 0.5;
+        const pool = run.add.image(p.x, p.y + 10, 'white').setDepth(8)
+          .setTint(0x14060e).setAlpha(0).setDisplaySize(44 * depth, 14 * depth);
+        const tex = texKeys[(r * lanes + l) % texKeys.length];
+        const img = run.add.image(p.x, p.y, tex).setScale(SHADOW_SCALE * depth).setFlipY(true)
+          .setDepth(isBiter ? 9 : 8).setAlpha(0).setTint(VERSE_FALL_A);
+        const eye = run.add.image(p.x, p.y + 8, 'glow').setBlendMode(ADD)
+          .setDepth(isBiter ? 9 : 8).setTint(0xd01228).setAlpha(0)
+          .setDisplaySize(16 * depth, 16 * depth);
+        // ★分身（残像）＝自分の再生時計を ghostLagSec ずつ遡った位置に置く。
+        //   「走る姿がぶれて見える」＝速さの記号。位置は履歴から引くだけなので毎フレームの
+        //   生成が要らず、体数が増えても破綻しない。
+        const ghosts = [];
+        for (let g = 0; g < sk.ghostCount; g++) {
+          ghosts.push(run.add.image(p.x, p.y, tex).setScale(SHADOW_SCALE * depth).setFlipY(true)
+            .setDepth(7).setAlpha(0).setTint(VERSE_FALL_A));
+        }
+        shadows.push({ img, eye, pool, ghosts,
+          pt, riseT: 0, rising: true,
+          // 段ごとに寿命をずらす＝先頭から後ろへ**連鎖して**爆ぜる（同時だと1発の白飛びになる）
+          life: sk.lifeSec - (sk.ranks - 1 - r) * sk.chainSec,
+          dmgT: 0, idx: r, rank: r, lane: laneOffs[l], depth, biter: isBiter });
+        shadowStats.spawned++;
+      }
     }
     Sound.sfx('shadowRise');
   }
@@ -1704,14 +1747,16 @@ export function createBoss(run) {
     const sk = TF() && TF().shell ? TF().shell.shadow : null;
     if (!sk) { destroyShadows(); return; }
     let dripBudget = 2;                                 // 影のしずくは1フレーム合計2個まで
+    novaFxBudget = 4;                                   // 後続の炎は1フレーム4体まで（連鎖で同時に来る）
     for (let i = shadows.length - 1; i >= 0; i--) {
       const s = shadows[i];
+      const baseA = s.biter ? 0.9 : 0.34 + s.depth * 0.34;   // 後続は淡い＝先頭が読める
       if (s.rising) {
         s.riseT += dt;
         const k = clamp01(s.riseT / sk.riseSec);
-        s.img.setAlpha(0.88 * k).setScale(3.0 * (0.4 + 0.6 * k));
-        s.pool.setAlpha(0.5 * k);
-        s.eye.setAlpha(0.9 * k);
+        s.img.setAlpha(baseA * k).setScale(SHADOW_SCALE * s.depth * (0.4 + 0.6 * k));
+        s.pool.setAlpha(0.5 * s.depth * k);
+        s.eye.setAlpha(0.9 * s.depth * k);
         if (k >= 1) s.rising = false;
         continue;                                       // 起き上がるまでは動かない＝読める
       }
@@ -1719,56 +1764,118 @@ export function createBoss(run) {
       // 1体に見える＝実測で判明。ずらすと「堕ちた自分の隊列」が数えられる）。
       // ★残り flareSec は**その場に静止**＝時計を進めない。走者の背後で爆ぜる回避不能を消し、
       //   「影が立ち止まった＝爆ぜる」の予告を身体の動きで伝える（振りかぶりと同じ考え方）。
-      if (s.life > sk.flareSec) {
+      const flaring = s.life <= sk.flareSec;
+      if (!flaring) {
         s.pt += dt * sk.speedMul;
-        const floor = sk.minGapSec + s.idx * (sk.gapStepSec || 0);
+        const floor = sk.minGapSec + s.rank * sk.rankGapSec;
         if (run.elapsed - s.pt < floor) s.pt = run.elapsed - floor;
       }
-      const p = histAt(s.pt);
+      // 列は**進行方向に垂直**へ振る（画面のX軸に固定すると縦走行で1列に潰れる）
+      const d = histDirAt(s.pt);
+      const nx = -d.y * s.lane, ny = d.x * s.lane;
+      const h = histAt(s.pt);
+      const p = { x: h.x + nx, y: h.y + ny };
       if (p.x !== s.img.x) s.img.setFlipX(p.x < s.img.x);
       s.img.setPosition(p.x, p.y);
       s.pool.setPosition(p.x, p.y + 10);
       s.eye.setPosition(p.x, p.y + 8);
+      // 分身（残像）＝自分の再生時計を少しずつ遡った位置。静止しているあいだは出さない
+      // （動いていないのにぶれると「壊れている」に見える）。
+      for (let g = 0; g < s.ghosts.length; g++) {
+        const gh = s.ghosts[g];
+        if (flaring) { gh.setAlpha(0); continue; }
+        const gt = s.pt - sk.ghostLagSec * (g + 1);
+        const hg = histAt(gt), dg = histDirAt(gt);
+        gh.setPosition(hg.x - dg.y * s.lane, hg.y + dg.x * s.lane)
+          .setFlipX(s.img.flipX)
+          .setScale(SHADOW_SCALE * s.depth * (1 - 0.06 * (g + 1)))
+          .setAlpha(baseA * (0.42 / (g + 1)))
+          .setTint(s.img.tintTopLeft);
+      }
       // 紫⇄深紅の脈（堕ちた聖句と同じ2色を往復＝同じ「堕ちたもの」だと色で分かる）
       const pulse = 0.5 + 0.5 * Math.sin(run.elapsed * 6 + s.idx * 2.1);
       s.img.setTint(mixRgb(VERSE_FALL_A, VERSE_FALL_B, pulse));
-      if (dripBudget > 0 && Math.floor(run.elapsed * 14 + s.idx) % 3 === 0) {
+      if (dripBudget > 0 && s.biter && Math.floor(run.elapsed * 14) % 3 === 0) {
         dripBudget--;
         run.spawnParticles(p.x, p.y + 6, 0x2a0a18, 1);
       }
-      // 噛みつき。invuln は run.hitPlayer 側にあるが、影1体ごとにも間隔を持つ（多重ヒット防止）
-      s.dmgT -= dt;
+      // ★噛むのは先頭1体だけ（実プレイFB「主人公に追いつくのは常に先頭だけ」）。
+      //   後続は速さと圧の演出に徹する＝15体ぶんの判定が重ならない＝理不尽にならない。
       const dx = run.player.x - p.x, dy = run.player.y - p.y;
-      const rr = sk.radius + run.player.radius;
-      if (s.dmgT <= 0 && dx * dx + dy * dy <= rr * rr) {
-        s.dmgT = 0.8;
-        shadowStats.bites++;
-        Sound.sfx('shadowBite');
-        run.hitPlayer(sk.damage, p.x, p.y);
+      if (s.biter) {
+        s.dmgT -= dt;
+        const rr = sk.radius + run.player.radius;
+        if (s.dmgT <= 0 && dx * dx + dy * dy <= rr * rr) {
+          s.dmgT = 0.8;
+          shadowStats.bites++;
+          Sound.sfx('shadowBite');
+          run.hitPlayer(sk.damage, p.x, p.y);
+        }
       }
       // 寿命。残り flareSec は静止して深紅に張りつめ、膨らむ＝炸裂の予告
       s.life -= dt;
-      if (s.life <= sk.flareSec) {
+      if (flaring) {
         const w = clamp01(1 - s.life / sk.flareSec);
-        s.img.setTint(mixRgb(VERSE_FALL_B, 0xff6a5a, w)).setScale(3.0 + w * 0.9);
-        s.eye.setDisplaySize(16 + w * 18, 16 + w * 18);
+        s.img.setTint(mixRgb(VERSE_FALL_B, 0xff6a5a, w))
+          .setScale(SHADOW_SCALE * s.depth + w * 0.9);
+        s.eye.setDisplaySize(16 * s.depth + w * 22, 16 * s.depth + w * 22);
+        // 先頭だけは足元に**判定と同じ半径の環**を出す＝爆風の本当の広さを学習できる
+        if (s.biter && !s.ringed && s.life <= sk.flareSec * 0.45) {
+          s.ringed = true;
+          spawnRingFx(p.x, p.y, 0xff8a1f, sk.novaRadius * 0.35, sk.novaRadius, sk.flareSec * 0.45, 0.5);
+        }
       }
       if (s.life <= 0) {
-        // 闇の炸裂：影は果てるときにも一撃を置いていく（近くで見送ってはいけない）
-        spawnRingFx(p.x, p.y, 0xc0102a, 6, sk.novaRadius, 0.32, 0.8);
-        run.spawnParticles(p.x, p.y, 0x2a0a18, 8);
-        run.spawnParticles(p.x, p.y, 0xc0102a, 6);
-        Sound.sfx('shadowBurst');
-        shadowStats.novas++;
-        const nr = sk.novaRadius + run.player.radius;
-        if (dx * dx + dy * dy <= nr * nr) { shadowStats.novaHits++; run.hitPlayer(sk.novaDamage, p.x, p.y); }
+        shadowNova(s, p, sk, dx, dy);
         s.img.destroy(); s.eye.destroy(); s.pool.destroy();
+        for (const gh of s.ghosts) gh.destroy();
         shadows.splice(i, 1);
       }
     }
   }
+  // ★R44W7「最後弾けるのも演出が地味。**炎を出しながら大爆発**して。爆発音も派手に。
+  //   **爆風が主人公を襲う**効果もいい。ただし爆風の範囲が広すぎるのはダメ」。
+  //   判定を持つのは**先頭1体の1つの円だけ**（novaRadius）。後続は炎だけを撒く＝
+  //   画面は大爆発、判定は1つ（[[feedback_one_hit_one_circle]]）。
+  //   見た目は判定より外まで広がる。逆（判定＞見た目）は「かすってもいないのに当たった」になる。
+  function shadowNova(s, p, sk, dx, dy) {
+    shadowStats.novas++;
+    if (s.biter) {
+      // ★閃光は 0.22 まで（殻を割る whiteFlash(0.3) より弱い）。実撮影で 0.36 は
+      //   画面が真っ白に飛び、肝心の**炎が見えなくなった**＝「炎を出しながら大爆発」に反する。
+      whiteFlash(0.22);
+      run.shake(560, 15);
+      Sound.sfx('shadowBurst');            // BGMを沈めるのは SFX 側（duckBgm は sound.js の内部関数）
+      // 白熱の芯 → 炎 → 深紅の衝撃波。★真ん中の環が**判定と同じ半径**＝広さが学習できる
+      spawnRingFx(p.x, p.y, 0xfff3d0, 8, sk.novaRadius * 0.55, 0.16, 0.95);
+      spawnRingFx(p.x, p.y, 0xff8a1f, 10, sk.novaRadius, 0.30, 0.92);
+      spawnRingFx(p.x, p.y, 0xc0102a, 14, sk.novaRadius * 1.9, 0.52, 0.6);
+      spawnPillarFx(p.x, p.y + 6, 0xff6a1f, 28, sk.novaRadius * 1.7, 0.42);
+      run.spawnParticles(p.x, p.y, 0xffe9a8, 10);
+      run.spawnParticles(p.x, p.y, 0xff6a1f, 12);
+      run.spawnParticles(p.x, p.y, 0x2a0a18, 8);
+      if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.09);
+      const nr = sk.novaRadius + run.player.radius;
+      if (dx * dx + dy * dy <= nr * nr) {
+        shadowStats.novaHits++;
+        run.hitPlayer(sk.novaDamage, p.x, p.y);        // 位置を渡す＝爆風が主人公を押し飛ばす
+      }
+    } else {
+      // 後続は判定を持たない炎だけ。段が後ろほど小さく＝奥で連鎖しているように見える
+      if (novaFxBudget > 0) {
+        novaFxBudget--;
+        spawnRingFx(p.x, p.y, 0xff8a1f, 6, sk.novaRadius * 0.75 * s.depth, 0.26, 0.6);
+        run.spawnParticles(p.x, p.y, 0xff6a1f, 5);
+        run.spawnParticles(p.x, p.y, 0x2a0a18, 4);
+        Sound.sfx('shadowBurst', 0.35, 1.15 + s.rank * 0.06);
+      }
+    }
+  }
   function destroyShadows() {
-    for (const s of shadows) { s.img.destroy(); s.eye.destroy(); s.pool.destroy(); }
+    for (const s of shadows) {
+      s.img.destroy(); s.eye.destroy(); s.pool.destroy();
+      if (s.ghosts) for (const gh of s.ghosts) gh.destroy();
+    }
     shadows.length = 0;
   }
 
@@ -3589,6 +3696,7 @@ export function createBoss(run) {
       return shadows.map((s) => ({ x: Math.round(s.img.x), y: Math.round(s.img.y),
         rising: s.rising, gap: +(run.elapsed - s.pt).toFixed(3), life: +s.life.toFixed(2),
         tex: s.img.texture && s.img.texture.key, flipY: s.img.flipY,
+        rank: s.rank, lane: s.lane, biter: !!s.biter, ghosts: s.ghosts.length,
         alpha: +s.img.alpha.toFixed(2), tint: s.img.tintTopLeft }));
     },
     get shadowHistLen() { return shadowHist.length; },
