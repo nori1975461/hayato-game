@@ -520,6 +520,12 @@ export function createBoss(run) {
                            TF().verse.teleSec, 0.8);
                          spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 2.8, boss.radius * 1.1,
                            TF().verse.teleSec, 0.6);
+                         // ★R44W4 悪魔性は弾だけでなく**儀式の場**にも要る。金環（外へ開く祈り）と
+                         //   白環（内へ閉じる祈り）の下から、遅れて**紫の第3の環**が滲み出る。
+                         //   遅い＝2枚の祈りの下に別のものが混ざっている、が形で分かる。
+                         //   色は VERSE_FALL_A と同じ紫＝**この環の色に、これから弾が堕ちる**。
+                         spawnRingFx(boss.x, boss.y, 0xa24bff, boss.radius * 0.3, boss.radius * 1.7,
+                           TF().verse.teleSec * 1.35, 0.7);
                          introText('せいく かいほう', '#ffd23f', 156, 18, 1); break;
       case 'shell':      state = 'shellTele';  stateT = TF().shell.teleSec; shellDmg = 0;
                          Sound.sfx('warning', 0.8, 0.6);
@@ -1613,9 +1619,12 @@ export function createBoss(run) {
     //   弾を**聖句の文字そのもの**にする：専用ルーン弾（verse_glyph・回転しながら飛ぶ）＋
     //   白金の輝き。剥がれる瞬間は環の位置に小さな輪が弾け、光の欠片が散る＝
     //   「環から文字が剥がれた」が1発ずつ見える。
+    // ★R44W4「文字を基にしているのは神格性があっていい。そこに退廃（悪魔性）を込められないか」。
+    //   発射の瞬間は**あくまで聖句**（白金）。堕ちるのは飛んでからで、fallSec 後に
+    //   corruptGlyph() が形・色・回転をまとめて堕とす＝過程が見える（→ updateBullets）。
     spawnBullet2(px, py, Math.cos(out) * sp, Math.sin(out) * sp,
       { radius: vk.bulletRadius, damage: vk.damage, life: vk.lifeSec,
-        kind: 'glyph', tint: 0xfff0b0, spin: 3.2 });
+        kind: 'glyph', tint: 0xfff0b0, spin: 3.2, fallSec: vk.fallSec });
     run.spawnParticles(px, py, 0xffd23f, 2);
     if (i % 3 === 0) {
       spawnRingFx(px, py, 0xffd23f, 4, 22, 0.30, 0.7);
@@ -2642,8 +2651,39 @@ export function createBoss(run) {
       decel: opts.decel || 0, noHit: !!opts.noHit,   // R29: 転がって止まる爆弾（触れても爆ぜない＝時間で爆発）
       life: opts.life != null ? opts.life : 3,
       dmg: opts.damage != null ? opts.damage : 10,
+      // R44W4: 聖句の文字が堕ちるまでの秒数（0なら堕ちない＝他の弾は無関係）
+      fallSec: opts.fallSec || 0, fallen: false, fallT: 0,
       spr: d.spr, glow: d.glow,
     });
+  }
+
+  // ★R44W4 聖句の文字が「堕ちる」瞬間。形・色・回転・音を**同じフレームでまとめて**変える。
+  //   ばらけて変わると「壊れた」に見えるので、1つの出来事として起こす。
+  const VERSE_FALL_A = 0xa24bff;   // 堕ちた直後＝紫（軌道神核の紫と同じ語彙）
+  const VERSE_FALL_B = 0xc0102a;   // 落ちきった先＝深紅（整列レーザーの縁と同じ語彙）
+  let fallBudget = 2;              // 1フレームに鳴らす/輪を出す上限（1回で最大60発が堕ちるため）
+  function corruptGlyph(b) {
+    b.fallen = true; b.fallT = 0;
+    b.spr.setTexture('verse_glyph_fallen').setTint(VERSE_FALL_A)
+      .setDisplaySize(b.r * 3.9, b.r * 3.9);        // 堕ちて一回り膨らむ＝「重くなった」
+    // ★実撮影で最初の版を却下した：光背を暗い血の色（0x5a0e28）にしたら弾が**画面から消えた**。
+    //   退廃は「暗さ」ではない。このゲームの退廃の語彙は**紫と深紅の飽和**（軌道神核の紫・
+    //   整列レーザーの縁 #d01228）で、暗さは一度も使っていない。文字（暗い深紅）の後ろに
+    //   深紅の光背を置く＝**黒い文字が縁で燃えている**＝退廃も可読性も両立する。
+    b.glow.setTint(0xd01228).setAlpha(0.95);
+    run.spawnParticles(b.x, b.y, 0x2a0a18, 2);      // 灰＝燃え尽きた神の光（一瞬だけ暗くてよい）
+    if (fallBudget > 0) {
+      fallBudget--;
+      spawnRingFx(b.x, b.y, 0xff2a5a, 3, 17, 0.26, 0.8);   // 堕ちた瞬間がいちばん目立つ
+      Sound.sfx('verseFall', 0.5);
+    }
+  }
+  // 2色の間を混ぜる（堕ちた紫が深紅へ落ちていく途中の色）
+  function mixRgb(a, c, t) {
+    const r = ((a >> 16) & 255) + (((c >> 16) & 255) - ((a >> 16) & 255)) * t;
+    const g = ((a >> 8) & 255) + (((c >> 8) & 255) - ((a >> 8) & 255)) * t;
+    const b = (a & 255) + ((c & 255) - (a & 255)) * t;
+    return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
   }
 
   function recycleBullet(b) {
@@ -2664,6 +2704,7 @@ export function createBoss(run) {
     //   1発ずつ尾を出すと毎秒数千個のスプライトになって確実に処理落ちする。
     //   予算制にすると「近くの弾から順に少しだけ散る」＝見た目は保ったまま上限が固定される。
     let trailBudget = 3;
+    fallBudget = 2;               // R44W4: 堕ちの輪と音は1フレーム2発まで（1回で最大60発が堕ちる）
     for (const b of bullets) {
       if (!b.active) continue;
       if (b.kind === 'missile') {
@@ -2707,6 +2748,18 @@ export function createBoss(run) {
         b.spr.rotation += dt * 9;
         b.trailT -= dt;
         if (b.trailT <= 0) { b.trailT = 0.08; run.spawnParticles(b.x, b.y, 0xffe24a, 1); }
+      } else if (b.kind === 'glyph' || b.kind === 'judge') {
+        // ★R44W4 で見つけた実装漏れ：R40 は「回転しながら飛ぶ」と書いて spin:3.2 まで渡して
+        //   いたのに、spin を読んでいるのは cutter の分岐だけだった＝**文字弾も輪弾も一度も
+        //   回っていなかった**（rot0 も 0 固定）。ここで結線する。
+        b.age += dt;
+        b.spr.rotation += dt * b.spin * (b.fallen ? 2.6 : 1);   // 堕ちると回転が跳ねる＝読めなくなる
+        if (b.fallSec > 0 && !b.fallen && b.age >= b.fallSec) corruptGlyph(b);
+        if (b.fallen) {
+          b.fallT += dt;
+          const k = Math.min(1, b.fallT / 0.5);                 // 紫→深紅は0.5秒かけて落ちる
+          b.spr.setTint(mixRgb(VERSE_FALL_A, VERSE_FALL_B, k));
+        }
       } else if (b.kind === 'cutter') {
         b.spr.rotation += dt * b.spin;
         if (b.returns) {
@@ -3403,6 +3456,19 @@ export function createBoss(run) {
     debugAlign() {
       return { locked: lockAng != null, ang: alignAng, wind: alignWind, dir: lockDir,
         lineDrawn: !!(lockGfx && lockGfx.commandBuffer && lockGfx.commandBuffer.length) };
+    },
+    // R44W4 検証用：飛んでいる聖句の文字弾（速さ・堕ちたか・回っているか）。
+    //   ★「堕ちた」は設定値ではなく**画面に出ているテクスチャの名前**で数える
+    //     ＝[[feedback_measure_vfx_by_diff]]（値だけ変わって絵が変わらない、を通さない）。
+    debugGlyphs() {
+      const out = [];
+      for (const b of bullets) {
+        if (!b.active || b.kind !== 'glyph') continue;
+        out.push({ spd: Math.round(Math.hypot(b.vx, b.vy)), age: +b.age.toFixed(2),
+          fallen: !!b.fallen, tex: b.spr.texture && b.spr.texture.key,
+          rot: +b.spr.rotation.toFixed(3), tint: b.spr.tintTopLeft });
+      }
+      return out;
     },
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）

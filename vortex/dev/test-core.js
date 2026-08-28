@@ -1886,8 +1886,20 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R37: 弾速・密度・薙ぎ・波数・公転は段で増える一方');
 
   // --- 理不尽ガード（数で縛る）。緊張感は被弾量ではなく「避けた回数」で作る ---
-  assert(tf.verse.bulletSpeed * Math.max(...rg.bulletMul) <= 360,
-    `R37: 聖句の最終弾速が360以下（${(tf.verse.bulletSpeed * Math.max(...rg.bulletMul)).toFixed(0)}）＝雑魚スナイパー級を超えない`);
+  // ★R44W4 実プレイFB「せいくの弾のスピードを上げて」。旧ガード「最終弾速360以下＝雑魚
+  //   スナイパー級を超えない」は**ユーザーの指示で前提そのものが撤回された**（最終ボスの弾が
+  //   雑魚と同格である必要はない）。削除せず**反転**する（[[feedback_dont_codify_a_deletion]]）。
+  //   新しい担保は2つ：①作中最速であること（＝上げた指示が効いている） ②460以下
+  //     （＝環の隙間へ入る猶予が残る帯。弾は radial なので隙間に入れば当たらない構造は不変だが、
+  //       入るまでの猶予は速さに反比例する。座165px／隙間18°＝52pxを主人公148px/sで詰めるのに
+  //       0.35秒、その間に弾が進むのは460×0.35＝161px＝環1つぶん＝ぎりぎり間に合う）
+  {
+    const vmax = tf.verse.bulletSpeed * Math.max(...rg.bulletMul);
+    assert(vmax > 350, `R44W4: 聖句の最終弾速が旧上限350より速い（${vmax.toFixed(0)}）＝「速度を上げて」が効いている`);
+    assert(vmax <= 460, `R44W4: 聖句の最終弾速が460以下（${vmax.toFixed(0)}）＝隙間へ入る猶予が残る`);
+    assert(tf.verse.damage === 16,
+      `R44W4: 聖句の damage は据え置き16（${tf.verse.damage}）＝速さは被弾量ではなく「避けた回数」へ使う`);
+  }
   assert(360 / (tf.verse.perRing + Math.max(...rg.verseAdd)) >= 17,
     `R37: 聖句の隙間は最終段でも17°以上（${(360 / (tf.verse.perRing + Math.max(...rg.verseAdd))).toFixed(1)}°）＝縫って抜けられる`);
   // ★R44W3 でこの技の公平さの担保が変わった。実プレイFB「せいれつは赤いラインはいらない。
@@ -2625,6 +2637,158 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       .filter(Boolean).map((o) => o.damage).filter((n) => typeof n === 'number');
     assert(others.every((d) => d <= A.damage),
       `R44W3: 整列がボスの最大ダメージ（整列${A.damage} / 他の最大${Math.max(...others)}）`);
+  }
+}
+
+// ============================================================================
+// R44W4 せいく（聖句解放）— 弾速アップと「堕ちる文字」（退廃／悪魔性）
+// 実プレイFB「①せいくの弾のスピードを上げて ②せいくのビジュアルは文字を基にしているという
+// 発想は神格性があっていいのだが、そこに退廃的な要素（悪魔性）をビジュアルに込められないか」。
+// ★設計＝悪魔性を**別の記号として足さない**。同じ聖句が飛行中に堕ちる＝神格性が退廃へ変わる
+//   **過程**を見せる。足すだけでは神格性の隣に並んで埋もれる（R38「主役交代が要る」の教訓）。
+// ============================================================================
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const boot = read('scenes/Boot.js');
+  const sound = read('audio/sound.js');
+  const tf = BALANCE.boss.tiers.find((t) => t.bossId === 'maou').trueForm;
+  const V = tf.verse;
+
+  // --- ① 堕ちるまでの時間が「見える場所」に置かれているか ---
+  assert(typeof V.fallSec === 'number' && V.fallSec > 0,
+    `R44W4: 聖句に fallSec がある（${V.fallSec}）＝堕ちる瞬間が数値で決まっている`);
+  {
+    // 0 なら最初から堕ちた弾＝「過程」が消える。長すぎると画面外で堕ちて誰も見ない。
+    const px = V.bulletSpeed * V.fallSec;
+    assert(px >= 60 && px <= 200,
+      `R44W4: 堕ちるのは環から60〜200px（${px.toFixed(0)}px）＝環を離れた直後・まだ画面の内`);
+    assert(V.fallSec < V.lifeSec * 0.5,
+      `R44W4: 堕ちてからの飛行が寿命の半分以上残る（堕ち${V.fallSec}s / 寿命${V.lifeSec}s）`);
+  }
+
+  // --- ② 堕ちた姿のテクスチャが焼かれ、弾に結線されているか ---
+  assert(/makeFallenGlyph\('verse_glyph_fallen'/.test(boot),
+    'R44W4: 堕ちた文字のテクスチャ verse_glyph_fallen が焼かれている');
+  assert(/makeFallenGlyph\(key, size\)/.test(boot),
+    'R44W4: makeFallenGlyph が定義されている');
+  assert(boss.includes("setTexture('verse_glyph_fallen')"),
+    'R44W4: 飛行中に堕ちた文字へ差し替わる（テクスチャを焼くだけで使わない、を防ぐ）');
+  // ★形は**実装をそのままラスタライズして**数で縛る（数値リテラルを書き写すと、実装を
+  //   直したときに計測器だけ古い値で通り続ける＝[[feedback_instrument_must_match_impl]]）。
+  //   Boot.js の makeMask コールバックを取り出して 14×14 に焼き、性質を測る。
+  {
+    const SIZE = 14;
+    const raster = (fnName) => {
+      const body = (boot.match(new RegExp(fnName + '\\(key, size\\) \\{([\\s\\S]*?)\\n  \\}')) || [])[1];
+      const cb = (String(body).match(/\(x, y\) => \{([\s\S]*)\}\);/) || [])[1];
+      assert(!!cb, `R44W4: ${fnName} の判定式を読める`);
+      const f = new Function('x', 'y', 'size', 'const c = size / 2 - 0.5;\n' + cb);
+      const g = [];
+      for (let y = 0; y < SIZE; y++) {
+        const row = [];
+        for (let x = 0; x < SIZE; x++) row.push(!!f(x + 0.5, y + 0.5, SIZE));
+        g.push(row);
+      }
+      return g;
+    };
+    const holy = raster('makeVerseGlyph'), fall = raster('makeFallenGlyph');
+    const count = (g) => g.flat().filter(Boolean).length;
+    const rowW = (g) => g.map((r) => r.filter(Boolean).length);
+    // ⚠️ 判定式の中心は c = size/2 - 0.5 ＝ 6.5 で、標本点は x+0.5。つまり鏡映の相手は
+    //   「列 x ↔ 列 12-x」で、13列目だけ相手がいない。そこを外して対称性を測る。
+    const mirrorX = (g) => g.every((r) => r.slice(0, SIZE - 1).every((v, x) => v === r[SIZE - 2 - x]));
+    const mirrorY = (g) => g.slice(0, SIZE - 1).every((r, y) => r.every((v, x) => v === g[SIZE - 2 - y][x]));
+
+    assert(count(fall) >= 34 && count(fall) <= 70,
+      `R44W4: 堕ちた文字の画素数が34〜70（${count(fall)}）＝空でも塗り潰しでもない`);
+    // ①倒立＝いちばん広い行（横腕）が中心より**下**にある。正位置の聖句は上下対称。
+    {
+      const w = rowW(fall), wi = w.indexOf(Math.max(...w));
+      assert(wi > SIZE / 2, `R44W4: 横腕が中心より下（行${wi}）＝正位置の十字を上下反転した形`);
+      assert(mirrorY(holy), 'R44W4: 正位置の聖句は上下対称＝整った文字（対比が成り立つ）');
+      assert(!mirrorY(fall), 'R44W4: 堕ちた文字は上下非対称＝倒立している');
+    }
+    // ②左右非対称＝折れている。正位置は左右対称。
+    assert(!mirrorX(fall), 'R44W4: 堕ちた文字は左右非対称＝腕が折れている');
+    assert(mirrorX(holy), 'R44W4: 正位置の聖句は左右対称＝整った文字（対比が成り立つ）');
+    // ⑤中央の空洞の眼＝中心が抜けていて、その外側には画素がある
+    {
+      const cxy = SIZE / 2 - 1;
+      const hole = !fall[cxy][cxy] && !fall[cxy][cxy + 1] && !fall[cxy + 1][cxy] && !fall[cxy + 1][cxy + 1];
+      const around = fall[cxy].filter(Boolean).length > 0;
+      assert(hole && around, 'R44W4: 中央に空洞の眼が開いている（外側には芯が残る）');
+      assert(holy[cxy][cxy], 'R44W4: 正位置の聖句は中央が詰まっている＝対比が成り立つ');
+    }
+    // ④上端が2本に割れる＝最上行に画素の島が2つある
+    {
+      const top = fall.findIndex((r) => r.some(Boolean));
+      let islands = 0, prev = false;
+      for (const on of fall[top]) { if (on && !prev) islands++; prev = on; }
+      assert(islands === 2, `R44W4: 上端が2本の牙に割れている（島${islands}）`);
+    }
+  }
+
+  // --- ③ 堕ちるのは形だけでなく、色・回転・音も同じ瞬間に変わるか ---
+  //     ばらけて変わると「壊れた」に見える。1つの出来事として起こす。
+  assert(/function corruptGlyph\(b\)/.test(boss), 'R44W4: 堕ちの処理 corruptGlyph がある');
+  {
+    const cg = (boss.match(/function corruptGlyph\(b\)[\s\S]*?\n  \}/) || [''])[0];
+    for (const [what, re] of [
+      ['形', /setTexture\('verse_glyph_fallen'\)/],
+      ['色', /setTint\(VERSE_FALL_A\)/],
+      ['光背', /glow\.setTint\(0xd01228\)/],
+      ['灰', /spawnParticles\(b\.x, b\.y, 0x2a0a18/],
+      ['音', /Sound\.sfx\('verseFall'/],
+    ]) assert(re.test(cg), `R44W4: 堕ちる瞬間に${what}が変わる`);
+  }
+  assert(/VERSE_FALL_A = 0xa24bff/.test(boss) && /VERSE_FALL_B = 0xc0102a/.test(boss),
+    'R44W4: 堕ちの色は紫→深紅＝作中の語彙（神核の紫・整列レーザーの縁）を使う');
+  // ★実撮影で「暗い光背にしたら弾が画面から消えた」を1度やっている。退廃＝暗さ、をやり直さない
+  //   ための式のガード（[[feedback_measure_vfx_by_diff]]／見える位置で描かれるかまで見る）。
+  {
+    const lum = (h) => 0.30 * ((h >> 16) & 255) + 0.59 * ((h >> 8) & 255) + 0.11 * (h & 255);
+    const g = Number((boss.match(/glow\.setTint\((0x[0-9a-f]{6})\)\.setAlpha\(0\.95\)/) || [])[1]);
+    assert(g && lum(g) >= lum(0xc0102a),
+      `R44W4: 堕ちた弾の光背は文字より明るい（光背${lum(g).toFixed(0)} ≧ 文字${lum(0xc0102a).toFixed(0)}）＝黒い文字が縁で燃える`);
+    assert(/spawnRingFx\(b\.x, b\.y, 0xff2a5a/.test(boss),
+      'R44W4: 堕ちた瞬間の輪がいちばん明るい＝「いま堕ちた」が見える');
+  }
+  assert(/mixRgb\(VERSE_FALL_A, VERSE_FALL_B, k\)/.test(boss),
+    'R44W4: 紫から深紅へ連続で落ちる（2段の切替ではなく「落ちていく」）');
+  assert(/b\.spin \* \(b\.fallen \? 2\.6 : 1\)/.test(boss),
+    'R44W4: 堕ちると回転が跳ねる＝文字が読めなくなる');
+
+  // ★R40 の実装漏れの是正。コメントは「回転しながら飛ぶ」で spin:3.2 まで渡していたのに、
+  //   spin を読むのは cutter の分岐だけだった＝文字弾も輪弾も一度も回っていなかった。
+  assert(/b\.kind === 'glyph' \|\| b\.kind === 'judge'/.test(boss),
+    'R44W4: 文字弾／輪弾に更新分岐がある（＝spin が結線された）');
+
+  // --- ④ 暴走しないこと。1回の聖句で最大60発が同時に堕ちる ---
+  assert(/fallBudget = 2/.test(boss) && /if \(fallBudget > 0\)/.test(boss),
+    'R44W4: 堕ちの輪と音は1フレーム2発まで（60発ぶんの音が同時に鳴らない）');
+
+  // --- ⑤ 儀式の場（予告の魔法陣）にも退廃が混ざるか ---
+  {
+    const vc = (boss.match(/case 'verse':[\s\S]*?case 'shell':/) || [''])[0];
+    const n = (vc.match(/spawnRingFx\(/g) || []).length;
+    assert(n === 3, `R44W4: 聖句の予告は3枚の環（${n}）＝金・白・紫`);
+    assert(/spawnRingFx\(boss\.x, boss\.y, 0xa24bff/.test(vc),
+      'R44W4: 第3の環は VERSE_FALL_A と同じ紫＝この色に弾が堕ちる、を先に見せる');
+    assert(vc.indexOf('0xa24bff') > vc.indexOf('0xffffff'),
+      'R44W4: 紫の環は2枚の祈りの**あと**に置かれる＝下から遅れて滲む');
+  }
+
+  // --- ⑥ 音は「昇る鐘」の対句として「降りる」か ---
+  {
+    const vf = (sound.match(/verseFall\(vol = 1\)[\s\S]*?\n  \},/) || [''])[0];
+    assert(vf.length > 0, 'R44W4: verseFall を読める');
+    const m = vf.match(/freq: (\d+(?:\.\d+)?), freqEnd: (\d+(?:\.\d+)?)/);
+    assert(m && Number(m[2]) < Number(m[1]),
+      `R44W4: 堕ちの音は下降する（${m ? m[1] + '→' + m[2] : '—'}）＝昇る versePeal の対句`);
+    assert(/freq: 311/.test(vf) && /freq: 327/.test(vf),
+      'R44W4: 濁りのうなり（311/327Hz＝澄んだ和音にならない間隔）がある');
   }
 }
 

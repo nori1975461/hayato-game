@@ -57,6 +57,7 @@ export class BootScene extends Phaser.Scene {
     //   全くダメ」＝神核の攻撃なのに弾が第3形態の水色彗星のままだった。
     //   聖句＝文字（ルーン十字）・裁き＝光輪（スポーク付きの車輪）。どちらも回転しながら飛ぶ。
     this.makeVerseGlyph('verse_glyph', 14);
+    this.makeFallenGlyph('verse_glyph_fallen', 14);   // R44W4: 同じ文字が堕ちた姿
     this.makeJudgeOrb('judge_orb', 16);
     this.makeSpark('spark', 7);               // 爆散パーティクル
     this.makeWhite('white', 4);               // ビーム・リング用の白基材
@@ -391,6 +392,34 @@ export class BootScene extends Phaser.Scene {
       if (ay <= 1.1 && ax <= 4.6) return true;                    // 横腕
       if (ax + ay <= 3.2) return true;                            // 菱形の芯
       if (Math.abs(ay - 4.2) <= 0.9 && ax <= 2.6) return true;    // 上下の横木（飾り）
+      return false;
+    });
+  }
+
+  // ★R44W4 実プレイFB「せいくのビジュアルは文字を基にしているという発想は神格性があっていいのだが、
+  //   そこに退廃的な要素（悪魔性）をビジュアルに込めることはできないか」。
+  //   悪魔性を**別の記号として足す**と神格性の隣に並ぶだけで埋もれる（[[R38の教訓＝足しただけでは
+  //   届かない・主役交代が要る]]）。なので**同じ文字が堕ちた姿**を1枚描いて、飛行中に差し替える。
+  //   ＝画面に出るのは「神の文字が、読み上げられた先で冒涜の文字へ変わる」という**過程**になる。
+  //   堕ちの記号は5つとも「正位置の聖句を壊した形」で作る（新しい語彙を持ち込まない）：
+  //     ①倒立十字＝横腕を**下寄り**へ（正位置の十字は腕が上寄り。上下反転が倒立の定義）
+  //     ②腕の左右の長さが違う＝折れている
+  //     ③左腕の先が下へ垂れる＝支えを失った形
+  //     ④上端が2本の牙に割れる＝文字の先が獣の口になる
+  //     ⑤中央に空洞の眼が開く＝軌道神核の単眼と呼応（どの部位より優先して抜く）
+  //   ⚠️ 形は**14px等倍のラスタで確かめて**決めた（[[feedback_pixel_art_judge_at_play_zoom]]）。
+  //      初版は腕・垂れ・芯が左側でひと塊に融合して「穴のあいた塊」にしか見えなかった。
+  makeFallenGlyph(key, size) {
+    const c = size / 2 - 0.5;
+    this.makeMask(key, size, (x, y) => {
+      const dx = x - c, dy = y - c;
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (ax * ax + ay * ay <= 1.75 * 1.75) return false;                       // ⑤空洞の眼
+      if (ax <= 1.1 && dy >= -3.0 && dy <= 4.6) return true;                    // 縦軸
+      if (Math.abs(dy - 2.4) <= 1.0 && dx >= -4.6 && dx <= 3.0) return true;    // ①②下寄りの腕・非対称
+      if (Math.abs(dx + 4.2) <= 1.0 && dy >= 2.4 && dy <= 5.2) return true;     // ③垂れ下がった先端
+      if (Math.abs(ax - (-dy - 3.0) * 0.72) <= 0.85 && dy <= -3.0 && dy >= -6.6) return true;  // ④牙
+      if (ax + ay <= 3.4) return true;                                          // 芯（眼のぶんだけ環になる）
       return false;
     });
   }

@@ -1371,6 +1371,21 @@ const SFX = {
     tone({ start: 0.05, type: 'sine', freq: 2093 * (1 + (pitch - 1) * 0.3), dur: 0.10,
            gain: 0.13 * vol, attack: 0.002, verb: 0.55 });
   },
+  // ★R44W4 聖句が「堕ちる」音。versePeal（読み上げの鐘＝音程が**昇る**）の対句として、
+  //   ここは全部**降りる**：声の基音が下へ滑り、鐘が濁ったうなりに変わる。
+  //   濁りは非整数比の2音を近接させて作る（うなり＝金属でも声でもない不快な帯）。
+  //   0.16秒に収める＝1発ごとに鳴っても弾幕の読み上げを潰さない（呼び出し側でも1フレーム2発に制限）。
+  verseFall(vol = 1) {
+    const D = sfxDistBus;
+    // 声が落ちる：のこぎり波が下降＝「聖句が言葉でなくなる」
+    tone({ type: 'sawtooth', freq: 174.6, freqEnd: 61.7, dur: 0.16, gain: 0.30 * vol,
+           attack: 0.002, dest: D });
+    // 濁りのうなり：311Hz と 327Hz＝16Hz のうなり（澄んだ和音にならない間隔）
+    tone({ type: 'square', freq: 311, dur: 0.14, gain: 0.12 * vol, attack: 0.003, dest: D });
+    tone({ type: 'square', freq: 327, dur: 0.14, gain: 0.12 * vol, attack: 0.003, dest: D });
+    // 石が砕けて灰になる質感（高域は短く＝耳に刺さらない）
+    noiseHit({ dur: 0.05, gain: 0.16 * vol, hpFreq: 300, lpFreq: 2600 });
+  },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
     const D = sfxDistBus;
