@@ -518,8 +518,13 @@ export function createBilliard(run) {
     //   数字やアイコンで説明せず、世界が止まりかけることで「何か起きた」を体に入れる。
     run.slowMotion(L.slowSec, L.slowMul);
     Sound.sfx('boltCharge');
+    // ★R49 名前は**渡してきた本人**から取る。「ビリッコ」で固定していたので、進化して
+    //   ライジンガーになっても画面には「ビリッコ」と出ていた＝進化した実感を打ち消していた。
+    const who = (o && o.def)
+      ? ((o.evolved && o.def.evo) ? o.def.evo.name : o.def.name)
+      : 'ビリッコ';
     if (run.fx && run.fx.announce) {
-      run.fx.announce('ビリッコ が ' + (HANDED_NAME[k] || 'とくべつな たま') + ' を つくった！', S.color);
+      run.fx.announce(who + ' が ' + (HANDED_NAME[k] || 'とくべつな たま') + ' を つくった！', S.color);
     }
     screenFlash(0.32, S.color);
   }
