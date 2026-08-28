@@ -2831,12 +2831,37 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   const lanesMax = sh.lanes + Math.max(...tf.rage.lanesAdd);
   const bodies = sh.ranks * sh.lanes;
   const bodiesMax = sh.ranks * lanesMax;
-  assert(bodies >= 10 && bodiesMax <= 20,
-    `R44W7: 影は10〜20体（初段${bodies}体・最終段${bodiesMax}体）＝FB「2体では怖さの演出として弱すぎる。10〜20体ぐらいに増やして」`);
+  // ★R44W8 FB「団子のように固まっている。ゴチャキャラ感も残しながらもう少し距離をとって。
+  //   個体をもう少し増やすことも検討して」→ 24体（激化30体）・間隔は**スプライト身幅を基準**に。
+  assert(bodies >= 20 && bodiesMax <= 32,
+    `R44W8: 影は20〜32体（初段${bodies}体・最終段${bodiesMax}体）＝FB「個体をもう少し増やす」`);
   assert(sh.ranks >= 3 && sh.lanes >= 3,
     `R44W7: ${sh.ranks}段×${sh.lanes}列＝複数列（FB「後ろにずらっと並べるのでなく、複数列にして」）`);
-  assert(sh.laneGapPx > (sh.radius + BALANCE.player.radius) * 1.2,
-    `R44W7: 列の間隔${sh.laneGapPx}px ＞ 接触径${sh.radius + BALANCE.player.radius}px×1.2＝隣の列と重なって1体に見えない`);
+  {
+    // ★団子の正体＝間隔がスプライトの身幅より狭かったこと。身幅を実データから出して縛る
+    //   （数値リテラルで書き写すと、縮尺やドット絵を変えたときに嘘のガードになる）。
+    const SS = Number((boss.match(/const SHADOW_SCALE = ([\d.]+);/) || [])[1]);
+    const bodyPx = SS * MONSTERS[0].sprite.rows[0].length;
+    const rankPx = sh.rankGapSec * BALANCE.player.speed;
+    assert(sh.laneGapPx >= bodyPx * 0.8,
+      `R44W8: 列の間隔${sh.laneGapPx}px ≧ 身幅${bodyPx.toFixed(0)}px×0.8＝横に重なって団子にならない`);
+    assert(rankPx >= bodyPx * 0.6,
+      `R44W8: 段の間隔${rankPx.toFixed(0)}px（床${sh.rankGapSec}s×${BALANCE.player.speed}px/s）≧ 身幅×0.6＝縦に重ならない`);
+    assert(sh.laneGapPx < bodyPx * 1.6 && rankPx < bodyPx * 1.6,
+      'R44W8: ただし身幅の1.6倍未満＝**ゴチャキャラ感**（肩が触れる密度）は残す＝散開させない');
+  }
+  assert(sh.stagger === true && sh.jitterPx > 0,
+    `R44W8: 千鳥（奇数段を半列ずらす）＋個体ごとのゆらぎ±${sh.jitterPx}px＝整列した格子ではなく「群れ」になる`);
+  assert(/const stag = \(sk\.stagger && r % 2\) \? sk\.laneGapPx \* 0\.5 : 0;/.test(boss),
+    'R44W8: 千鳥が実装に実在する（値だけ持って効かない、を防ぐ）');
+  assert(/const jit = \(\(hsh - Math\.floor\(hsh\)\) \* 2 - 1\) \* \(sk\.jitterPx \|\| 0\);/.test(boss),
+    'R44W8: ゆらぎは**決定的**な擬似乱数＝同じ体は毎フレーム同じ位置（ちらつかない）');
+  // ★偶数列だと中央に0の列が無い。旧実装（|offset| < laneGapPx/2）では**誰も噛み手にならなかった**
+  assert(/let biterLane = 0;/.test(boss) && /l === biterLane/.test(boss)
+    && /const lane = isBiter \? 0 :/.test(boss),
+    'R44W8: 噛み手は添字で選び lane を0に固定＝列が偶数でも必ず1体いる／足あとの上を正確になぞる');
+  assert(sh.ghostNearRanks < sh.ranks,
+    `R44W8: 分身は前${sh.ghostNearRanks}段だけ2枚・以降1枚＝体数が増えても画面上の枚数を据え置く`);
   assert(sh.rankSpreadSec > 0 && sh.rankGapSec > 0,
     'R44W7: 段は「過去へずらして湧く」＋「追走の床も段ごとにずらす」＝縦にほどける（全員が1点に重なる実測バグの再発防止）');
   assert(sh.speedMul >= 1.8,
@@ -2959,16 +2984,32 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const nova = (boss.match(/function shadowNova\([\s\S]*?\n  \}/) || [''])[0];
     assert(/whiteFlash\(/.test(nova) && /run\.shake\(/.test(nova) && /run\.freezeT/.test(nova),
       'R44W7: 大爆発は閃光＋画面ゆれ＋ヒットストップ（「地味」の反対＝身体で分かる3点）');
-    assert((nova.match(/spawnRingFx\(/g) || []).length >= 3 && /spawnPillarFx\(/.test(nova),
-      'R44W7: 白熱の芯→炎→衝撃波の3重の環＋炎柱＝炎を出しながら爆発する');
-    assert((nova.match(/run\.spawnParticles\(/g) || []).length >= 3,
-      'R44W7: 火の粉（白熱・炎・煤）を撒く');
+    // ★R44W8 FB「かげおにの一番の不満点は爆発と爆風。もっとずっと派手に」。
+    //   派手さは「1枚を強くする」では出ない（閃光0.36は白飛びして炎が消えた実測）。
+    //   **層を増やして時間差で置く**＝目が「まだ終わらない」と感じ続けるのが派手さの正体。
+    assert((nova.match(/spawnRingFx\(/g) || []).length >= 6,
+      'R44W8: 環は6枚以上（芯・衝撃波・火球・外環・煤・遅れて第二衝撃波）');
+    assert((nova.match(/spawnPillarFx\(/g) || []).length >= 3 && /for \(let k = 0; k < 8; k\+\+\)/.test(nova),
+      'R44W8: 炎柱は**放射状に8本**＋中央＋遅れて立ち上る煙柱');
+    assert((nova.match(/run\.time\.delayedCall\(/g) || []).length >= 4,
+      'R44W8: 時間差で置く演出が4つ以上（橙の閃光・第二衝撃波・煙柱・二段目のゆれ）');
+    assert(/whiteFlash\(0\.\d+, 0xff8a1f/.test(nova),
+      'R44W8: 白の閃光の直後に**橙の閃光**＝炎が画面を舐める（白だけ強くすると炎が飛ぶ）');
+    assert(/run\.billiard\.shockRing\(/.test(nova),
+      'R44W8: 既存の shockRing も2枚重ねる（この作品でいちばん派手な環を借りる）');
+    assert((nova.match(/run\.spawnParticles\(/g) || []).length >= 6,
+      'R44W8: 火の粉は6回以上（白熱の破片・白熱・炎・煤＋爆風side）');
     assert(/run\.hitPlayer\(sk\.novaDamage, p\.x, p\.y\)/.test(nova),
       'R44W7: 爆風は位置つきで当たる＝主人公が押し飛ばされる（「爆風が主人公を襲う」）');
     assert((nova.match(/run\.hitPlayer\(/g) || []).length === 1 && /if \(s\.biter\) \{/.test(nova),
       'R44W7: 爆風の判定は先頭1体の円ひとつだけ＝画面は大爆発・判定は1つ（範囲が広すぎない）');
     assert(/novaFxBudget/.test(nova) && /novaFxBudget = \d+;/.test(boss),
       'R44W7: 後続の炎は1フレーム予算つき＝20体が同時に果てても粒が暴れない');
+    // ★「爆発音と爆風音」とFBが2つに分けて書いている＝爆風は当たった本人にだけ起きる別の事件
+    assert(/run\.hitPlayer\(sk\.novaDamage[\s\S]{0,400}Sound\.sfx\('shadowBlast'\)/.test(nova),
+      'R44W8: 爆風音は**巻き込まれた時だけ**鳴る（爆発音とは別物）');
+    assert(/Sound\.sfx\('shadowBlast'\)[\s\S]{0,400}run\.spawnParticles\(run\.player\.x/.test(nova),
+      'R44W8: 爆風の絵は**主人公の側**で起きる（自分が巻き込まれたことが自分の身体で分かる）');
   }
   {
     const sb = (sound.match(/shadowBurst\(vol = 1, pitch = 1\)[\s\S]*?\n  \},/) || [''])[0];
@@ -2985,6 +3026,36 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       `R44W7: 爆発の本体は旧実装（0.65）より大きい（${Math.max(...gains)}）＝「爆発音も派手に」`);
     assert(/if \(!big\) return;/.test(sb),
       'R44W7: 後続（vol小）は尾を鳴らさない＝15体ぶんの残響が重なって濁る（＝逆に小さく聞こえる）のを防ぐ');
+    // ★R44W8「音をいまよりずっと派手に」。★音量ではもう上げられない（0.95でヘッドルームが無い）
+    //   ので**層と時間**を足す。層が減ったら回帰＝式で縛る。
+    assert(/freq: 42, freqEnd: 18/.test(sb),
+      'R44W8: サブベース42→18Hz＝体に来る帯域（旧実装に無かった）');
+    assert(/start: 0\.055/.test(sb),
+      'R44W8: 本体が**二段**（0ms と 55ms）＝「ドッ…ドーン」。1発の低音より確実に大きく聞こえる');
+    assert(/freq: 520,/.test(sb) && /freq: 1435,/.test(sb) && /freq: 2808,/.test(sb),
+      'R44W8: 金属の裂け 520/1435/2808Hz＝鉄床と同じ非整数比＝「割れた」の証拠');
+    assert(/dur: 1\.5, gain: [\d.]+ \* vol, hpFreq: 60, lpFreq: 2600, lpEnd: 90/.test(sb),
+      'R44W8: 遅い轟きの掃引（1.5秒・2.6k→90Hz）＝尾が長く残る');
+    assert((sb.match(/noiseHit\(\{ start: 0\./g) || []).length >= 3,
+      'R44W8: がれきは3発（時間差が多いほど「大きいものが壊れた」に聞こえる）');
+    const dk = (sb.match(/duckBgm\(([\d.]+)/) || [])[1];
+    assert(Number(dk) >= 0.6,
+      `R44W8: BGMを沈める深さ${dk}（旧0.5より深い）＝爆発の瞬間の抜けを広げる`);
+  }
+  {
+    // 爆風音は**破裂ではなく風**。立ち上がりが遅いこと（attack）がその証拠。
+    const bl = (sound.match(/shadowBlast\(vol = 1\)[\s\S]*?\n  \},/) || [''])[0];
+    assert(bl.length > 0, 'R44W8: SFX shadowBlast（爆風音）が sound.js に実在する');
+    assert(/Sound\.sfx\('shadowBlast'\)/.test(boss), 'R44W8: shadowBlast が boss.js から鳴らされる');
+    const atks = (bl.match(/attack: ([\d.]+)/g) || []).map((m) => Number(m.match(/[\d.]+/)[0]));
+    assert(atks.length >= 3 && Math.max(...atks) >= 0.05,
+      `R44W8: 爆風は**立ち上がりが遅い**（最大attack ${Math.max(...atks)}s）＝破裂ではなく押し寄せる風に聞こえる`);
+    assert(/lpEnd: 180/.test(bl),
+      'R44W8: 風のノイズが 1.4k→180Hz へ落ちる＝体を通り過ぎる');
+    assert(/duckBgm\(/.test(bl), 'R44W8: 爆風でもBGMを沈める');
+    const sbGains = (bl.match(/gain: ([\d.]+) \* vol/g) || []).map((m) => Number(m.match(/[\d.]+/)[0]));
+    assert(Math.max(...sbGains) >= 0.5,
+      `R44W8: 爆風は聞こえる大きさ（最大gain ${Math.max(...sbGains)}）＝R44W3の巻き戻し音の失敗（打撃音の1/7で聞こえなかった）を繰り返さない`);
   }
 
   // --- ⑩ 検証口 ---
@@ -3031,6 +3102,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R44W6: 他のビーム（じゃがん/胸部/再照準）は従来どおり全時間で薙ぐ（既定値）');
     assert((boss.match(/\(beam\.maxLife - beam\.life\) \/ beam\.sweepSec/g) || []).length >= 2,
       'R44W6: 描画とdebugBeamの両方が同じ2相の式＝計測器が実装から乖離しない');
+    // ★R44W8 FB「攻撃予告の**文字が表示されたら間髪入れずに**照射して。いきなり攻撃される
+    //   怖さを出すため」。予告そのもの（環の整列・振りかぶり）は残し、**文字だけ**を後ろへ寄せる。
+    assert(typeof A.textLeadSec === 'number' && A.textLeadSec <= 0.2,
+      `R44W8: 技名テロップは照射の${A.textLeadSec}秒前＝「文字が出た＝もう来ている」`);
+    assert(A.textLeadSec < A.alignSec / 8,
+      `R44W8: テロップの猶予は予告全体（${A.alignSec}s）の1/8未満＝旧実装（予告の頭＝2.0秒前）の回帰を殺す`);
+    assert(!/case 'aligned':[\s\S]{0,400}introText\('せいれつ/.test(boss),
+      'R44W8: 予告の**開始時**にはテロップを出さない（旧実装の残りが無い）');
+    assert(/if \(!alignTold && stateT <= \(ak\.textLeadSec/.test(boss)
+      && /introText\('せいれつ―― かんつうこう'/.test(boss),
+      'R44W8: テロップは alignTele の終盤で1回だけ出る（alignTold で二重表示を殺す）');
+    assert(/alignTold = false;/.test(boss),
+      'R44W8: 技に入るたびにフラグが戻る＝2回目以降もテロップが出る');
   }
 
   // --- ④ マオウレクスの名乗り（唐突なロボ吃音 → 意味のつながる王の宣告）---
