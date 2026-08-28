@@ -3618,6 +3618,81 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R47: ラゴン自身も SR なので素材にならない（手に入れた超レアが合成で消えない）');
 }
 
+// ============ R48 進化が「別の姿」になったと分かる ============
+// 実プレイFB「オーラジェリー、ネムッコ以外、進化後の姿がほぼ進化前と変わらない。実際何度も
+//   プレイした私が、モビットに進化形があることに気付かなかった。進化後のビジュアルを
+//   作り直して」。
+// 原因は2つあった。① 絵がほぼ同じ（トゲキングはシルエットが1ドットも動いていなかった）
+//                  ② 進化演出を**主人公の座標**で出していたので、誰が変わったか読めなかった
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const lv = fs.readFileSync(path.join(SRC, 'systems/levelup.js'), 'utf8');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+
+  // --- ① 進化前後の「変化量」を数で縛る ---
+  // ⚠️ シルエット単体では判定できない。ユーザーが**変わっていると認めた**オーロラジェリーは
+  //    シルエット96.9%（ほぼ同形）だが色一致64.8%＝色で別物になっている。逆にネオンモスは
+  //    形で別物。どちらか一方でも大きく動けば伝わるので、2つの変化量の和で見る。
+  //    合格線 38.3 ＝ そのオーロラジェリーの値そのもの。
+  const PASS = 38.3;
+  //  対象外の2体はユーザーが名指しで「これは変わっている」と言った側。基準の出どころなので
+  //  ここを合格線で縛ると、基準そのものが動いたときに気づけなくなる。
+  const EXEMPT = ['aurajelly', 'nemukko'];
+  const pxOf = (s, x, y) => {
+    const ch = s.rows[y] && s.rows[y][x];
+    return (!ch || ch === '.') ? null : (s.palette[ch] || '#000').toLowerCase();
+  };
+  const evoScore = (m) => {
+    const a = m.sprite, b = m.evo.sprite;
+    const h = Math.max(a.rows.length, b.rows.length);
+    const w = Math.max(a.rows[0].length, b.rows[0].length);
+    let same = 0, sil = 0, total = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      total++;
+      const ca = pxOf(a, x, y), cb = pxOf(b, x, y);
+      if (ca === cb) same++;
+      if (!!ca === !!cb) sil++;
+    }
+    return (100 - sil / total * 100) + (100 - same / total * 100);
+  };
+  let scored = 0;
+  for (const m of MONSTERS) {
+    if (!m.evo) continue;
+    if (EXEMPT.includes(m.id)) continue;
+    scored++;
+    const s = evoScore(m);
+    assert(s >= PASS,
+      `R48: ${m.name} → ${m.evo.name} の変化スコア ${s.toFixed(1)} が ${PASS} 以上`
+      + '（色替えだけの進化に戻していない）');
+  }
+  assert(scored === 10, `R48: 作り直した進化形10体すべてを採点している（実際 ${scored} 体）`);
+
+  // 特に「シルエットが1ドットも動かない」進化は二度と作らない（トゲキングの再発防止）
+  for (const m of MONSTERS) {
+    if (!m.evo || EXEMPT.includes(m.id)) continue;
+    const a = m.sprite, b = m.evo.sprite;
+    let silSame = 0, total = 0;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      total++;
+      if (!!pxOf(a, x, y) === !!pxOf(b, x, y)) silSame++;
+    }
+    assert(silSame / total < 0.95,
+      `R48: ${m.evo.name} のシルエットは進化前と95%未満の一致（塗り替えただけにしない）`);
+  }
+
+  // --- ② 進化演出は「進化した本人」の上で出す ---
+  assert(/run\.orbit\.memberPos\(i\)/.test(lv),
+    'R48: 進化演出の座標は進化した本人（party[i]）から取る');
+  assert(!/evolveBurst\(\{ x: run\.player\.x/.test(lv),
+    'R48: 主人公の座標で光らせない（誰が変わったのか画面から読めなくなる）');
+  assert(/run\.orbit\.evolvePulse\(i\)/.test(lv),
+    'R48: 本人のスプライトも一緒に大きく脈打つ（光だけだと背景の演出に紛れる）');
+  assert(/memberPos\(i\)\s*\{/.test(orbit) && /evolvePulse\(i\)\s*\{/.test(orbit),
+    'R48: orbit 側に memberPos / evolvePulse が実装されている');
+  assert(/run\.freezeT = Math\.max\(run\.freezeT \|\| 0, 0\.12\)/.test(lv),
+    'R48: 一瞬だけ時間が止まる（進化した瞬間に画面を見る理由をつくる）');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);
