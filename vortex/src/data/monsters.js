@@ -239,6 +239,9 @@ export const MONSTERS = [
     // ★R48 再設計。旧版は小さな背びれが2枚になっただけ（シルエット一致92.6%）。
     // 新案＝**巨大な背びれが天へ伸び、胸びれが左右へ張り出し、口が裂けて牙が並ぶ**。
     //   足（下の2本）を捨てて尾びれにする＝二頭身のチビザメから「泳ぐ大型ザメ」へ。
+    // ★R49 実プレイFB「もっとキモカワにして」。足したのは**目を4つに増やす**（大きい2つの
+    //   内側に小さい黒目がもう2つ）と、**口から下へ垂れる長い舌**。かわいい丸目のまま
+    //   数だけ増やすと「かわいいのに気持ち悪い」になる＝キモカワの芯。
     evo: {
       id: 'megasamet',
       name: 'メガサメット',
@@ -252,17 +255,17 @@ export const MONSTERS = [
           '.....dddddd.....',
           '....dddddddd....',
           '..aaaaaaaaaaaa..',
-          'daaaaaaaaaaaaaad',
-          'ddawkaaaaaawkadd',
-          'ddakkaaaaaakkadd',
+          'daakaaaaaaaakaad',
+          'daawkaaaaaawkaad',
+          'daakkaaaaaakkaad',
           'daappaaaaaappaad',
           '.akwkwkwkwkwkwa.',
           '.awwwwwwwwwwwwa.',
-          '..awwwwwwwwwwa..',
-          '...aawwwwwwaa...',
-          '..aaaaaaaaaaaa..',
-          '..ddaaaaaaaadd..',
-          '.dd..........dd.',
+          '..awwppppwwwwa..',
+          '...awppppppwa...',
+          '..aaaappppaaaa..',
+          '..ddaappppaadd..',
+          '.dd...pppp...dd.',
         ],
       },
     },
@@ -304,6 +307,9 @@ export const MONSTERS = [
     //   （シルエット一致78.9%）＝「羽の生えた芋虫」にしか見えなかった。
     // 新案＝**上下2対の大きな翅**を左右へ張り出し、胴を細くする＝蛾の輪郭そのものにする。
     //   翅の目玉模様（w）を4つ置いて「蛾」の記号を立てる。
+    // ★R49「もっとキモカワにして」。翅の目玉模様に**瞳（k）を入れて本物の目にし、4つとも
+    //   内側を睨ませる**＝翅がこちらを見ている。触角の先を枝分かれさせてモサモサに、
+    //   口からピンクの口吻（ストロー）を下へ垂らした。
     evo: {
       id: 'neonmoth',
       name: 'ネオンモス',
@@ -313,21 +319,21 @@ export const MONSTERS = [
         palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', g: '#ffe0b3' },
         rows: [
           '..d..........d..',
-          '...d........d...',
+          '.ddd........ddd.',
           'gg..aaaaaaaa..gg',
           'gggg.aaaaaa.gggg',
-          'gwgggaaaaaagggwg',
-          'ggggawkaawkagggg',
+          'gwwggaaaaaaggwwg',
+          'gkwgawkaawkagwkg',
           'ggggakkaakkagggg',
           'ggg.paawwaapggg.',
           '.gg.aaaaaaaa.gg.',
           '..g..aaaaaa..g..',
           'gg...aaaaaa...gg',
           'gggg.aaaaaa.gggg',
-          'gwgg.aaaaaa.ggwg',
-          'gggg..aaaa..gggg',
+          'gwwg.aaaaaa.gwwg',
+          'gkwg..aaaa..gwkg',
           '.gg...dddd...gg.',
-          '......dd.dd.....',
+          '.....d.pp.d.....',
         ],
       },
     },
@@ -444,25 +450,28 @@ export const MONSTERS = [
       //   見えなかった（シルエット一致82.0%）。
       // 新案＝**穴の空いた光輪**を頭上に浮かべ、**翼を左右いっぱいへ広げ**、胸のハートを
       //   体の半分まで大きくする＝「天使」の記号を3つとも立てる。
+      // ★R49「もっとキモカワにして」。天使の記号を崩さずに気味悪さを足す：**額に第三の目**、
+      //   **左右の翼にも目**（両翼＋両目＋額＝目が5つ）、光輪を左右非対称に歪ませ、
+      //   足を捨てて**ハートから垂れる2粒の雫**にした。
       sprite: {
         palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
         rows: [
-          '.....wwwwww.....',
-          '....w......w....',
-          '.....wwwwww.....',
+          '....wwww..ww....',
+          '...w........w...',
+          '....ww.wwwww....',
           'ww....aaaa....ww',
-          'wwww.aaaaaa.wwww',
-          'wwwwaaaaaaaawwww',
-          'wwwaawkaawkaawww',
-          'wwwaakkaakkaawww',
+          'wwww.aawwaa.wwww',
+          'wwwwaaakkaaawwww',
+          'wkkaawkaawkaakkw',
+          'wkkaakkaakkaakkw',
           '.wwppaaaaaappww.',
           '..w.ahhhhhha.w..',
           '...ahhhhhhhha...',
           '...ahhhhhhhha...',
           '....ahhhhhha....',
           '.....ahhhha.....',
-          '......aaaa......',
-          '.....dddddd.....',
+          '.....hh..hh.....',
+          '......h..h......',
         ],
       },
     },
