@@ -1386,6 +1386,31 @@ const SFX = {
     // 石が砕けて灰になる質感（高域は短く＝耳に刺さらない）
     noiseHit({ dur: 0.05, gain: 0.16 * vol, hpFreq: 300, lpFreq: 2600 });
   },
+  // ★R44W5 かげおに3点セット。退廃の音の署名＝**非整数比の近接2音のうなり**（verseFall の
+  //   311/327Hz）を家族で共有する。影は聖句より深いところの存在なので**1オクターブ下**（155/163）。
+  // ①影が足あとから起き上がる：息を吸うような遅い立ち上がり＋地の底のうねり
+  shadowRise(vol = 1) {
+    tone({ type: 'sine', freq: 46, freqEnd: 92, dur: 0.7, gain: 0.5 * vol, attack: 0.4 });
+    tone({ type: 'square', freq: 155.5, dur: 0.6, gain: 0.10 * vol, attack: 0.35, verb: 0.6 });
+    tone({ type: 'square', freq: 163.5, dur: 0.6, gain: 0.10 * vol, attack: 0.35, verb: 0.6 });
+    noiseHit({ dur: 0.55, gain: 0.12 * vol, hpFreq: 2400, lpFreq: 8000 });
+  },
+  // ②影に噛みつかれた：重い一撃＋うなり（弾とは違う「冷たい」被弾だと音で分かる）
+  shadowBite(vol = 1) {
+    const D = sfxDistBus;
+    tone({ type: 'sine', freq: 140, freqEnd: 48, dur: 0.18, gain: 0.6 * vol, attack: 0.001, dest: D });
+    tone({ type: 'square', freq: 311, dur: 0.12, gain: 0.14 * vol, attack: 0.002 });
+    tone({ type: 'square', freq: 327, dur: 0.12, gain: 0.14 * vol, attack: 0.002 });
+    noiseHit({ dur: 0.04, gain: 0.2 * vol, hpFreq: 500, lpFreq: 4000 });
+  },
+  // ③影が果てる闇の炸裂：短い暗い破裂（果てる場所に居てはいけない、の念押し）
+  shadowBurst(vol = 1) {
+    const D = sfxDistBus;
+    tone({ type: 'sine', freq: 90, freqEnd: 38, dur: 0.26, gain: 0.65 * vol, attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 620, freqEnd: 140, dur: 0.2, gain: 0.14 * vol,
+           attack: 0.002, dest: D });
+    noiseHit({ dur: 0.1, gain: 0.22 * vol, hpFreq: 220, lpFreq: 5200 });
+  },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
     const D = sfxDistBus;

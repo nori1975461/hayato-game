@@ -1734,8 +1734,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(tf.idleSec.length === tf.attacks.length,
     `true: 攻撃の数と待ち時間の数が一致（${tf.attacks.length} / ${tf.idleSec.length}）`);
   // R35 の教訓＝歩いて追い抜ける弾を最終ボスに撃たせない（主人公の移動は148px/秒）
-  for (const [k, v] of [['聖句解放', tf.verse.bulletSpeed], ['殻閉じの衝撃波', tf.shell.bulletSpeed]]) {
-    assert(v >= 148 * 1.5, `true: ${k}の弾が主人公(148)の1.5倍以上（${v}）`);
+  // ★R44W5 殻閉じは弾を撃たなくなった（→かげおに）。同じ教訓の新しい形＝
+  //   影の再生は主人公より速く進む（speedMul>1＝いつか追いつく脅威）が、
+  //   minGapSec の床がある（＝走り続ける限り絶対に捕まらない）。両方無いと壊れる。
+  assert(tf.verse.bulletSpeed >= 148 * 1.5,
+    `true: 聖句解放の弾が主人公(148)の1.5倍以上（${tf.verse.bulletSpeed}）`);
+  {
+    const sh = tf.shell.shadow;
+    assert(!!sh, 'R44W5: 殻閉じに shadow（かげおに）の設定がある');
+    assert(sh.speedMul > 1, `R44W5: 影の再生は実時間より速い（×${sh.speedMul}）＝止まれば必ず追いつかれる`);
+    assert(sh.minGapSec >= 0.25,
+      `R44W5: 追走の床が0.25秒以上（${sh.minGapSec}）＝走り続ける限り捕まらない（完全理不尽の禁止）`);
   }
   // ★殻閉じの閾値は比率ではなく**絶対値**で縛る（R37 の教訓：HPを2倍にしたら比率0.10の
   //   ままで閾値が20000へ倍増し、6回とも割れなかった＝割る遊びがまた消えた）。
@@ -1871,7 +1880,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- 激化の器：ゲージ1本＝1段。配列がゲージ本数とズレると終盤の段が無言で欠ける ---
   assert(!!rg, 'R37: trueForm.rage が存在（65秒を同じ3種の繰り返しだけで埋めない）');
-  for (const k of ['idleMul', 'alignSecMul', 'sweepDegAdd', 'verseAdd', 'bulletMul', 'wavesAdd', 'spinMul']) {
+  for (const k of ['idleMul', 'alignSecMul', 'sweepDegAdd', 'verseAdd', 'bulletMul', 'shadowAdd', 'spinMul']) {
     assert(Array.isArray(rg[k]) && rg[k].length === tf.gaugeSegments,
       `R37: rage.${k} の長さがゲージ本数（${tf.gaugeSegments}）と一致`);
   }
@@ -1882,8 +1891,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   const up = (a) => a.every((v, i) => i === 0 || v >= a[i - 1]);
   const down = (a) => a.every((v, i) => i === 0 || v <= a[i - 1]);
   assert(down(rg.idleMul) && down(rg.alignSecMul), 'R37: 間合いと予告は段で縮む一方');
-  assert(up(rg.bulletMul) && up(rg.verseAdd) && up(rg.sweepDegAdd) && up(rg.wavesAdd) && up(rg.spinMul),
-    'R37: 弾速・密度・薙ぎ・波数・公転は段で増える一方');
+  assert(up(rg.bulletMul) && up(rg.verseAdd) && up(rg.sweepDegAdd) && up(rg.shadowAdd) && up(rg.spinMul),
+    'R37: 弾速・密度・薙ぎ・影の数・公転は段で増える一方（wavesAdd は R44W5 で shadowAdd へ）');
 
   // --- 理不尽ガード（数で縛る）。緊張感は被弾量ではなく「避けた回数」で作る ---
   // ★R44W4 実プレイFB「せいくの弾のスピードを上げて」。旧ガード「最終弾速360以下＝雑魚
@@ -1919,7 +1928,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
   assert(Math.min(...rg.idleMul) >= 0.6 && Math.min(...rg.alignSecMul) >= 0.7,
     'R37: 間合いと予告の短縮に下限がある（読む時間を最後まで奪わない）');
-  assert(Math.max(...rg.wavesAdd) <= 1, 'R37: 殻の波数の追加は最大+1');
+  assert(Math.max(...rg.shadowAdd) <= 2, 'R44W5: かげおにの追加は最大+2（旧 wavesAdd 上限+1 の後継）');
   assert(!Object.keys(rg).some((k) => /damage|dmg/i.test(k)),
     'R37: 激化に damage 系のキーが無い（[[feedback_tension_is_not_damage]]）');
 
@@ -1929,9 +1938,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(boss.includes("rageArr('idleMul', 1)"), 'R37: 間合いに idleMul が効く');
   assert(boss.includes("rageArr('sweepDegAdd', 0)"), 'R37: 薙ぎ幅に sweepDegAdd が効く');
   assert(boss.includes("rageArr('verseAdd', 0)"), 'R37: 聖句の発数に verseAdd が効く');
-  assert((boss.match(/rageArr\('bulletMul', 1\)/g) || []).length >= 2,
-    'R37: 聖句と殻の両方の弾速に bulletMul が効く');
-  assert(boss.includes("rageArr('wavesAdd', 0)"), 'R37: 殻の波数に wavesAdd が効く');
+  // R44W5: 殻は弾を撃たなくなった（→かげおに・激化は shadowAdd が担う）ので、bulletMul の
+  //   結線先は聖句の1箇所になった（旧ガード「2箇所以上」を実装に合わせて反転）。
+  assert((boss.match(/rageArr\('bulletMul', 1\)/g) || []).length >= 1,
+    'R37/R44W5: 聖句の弾速に bulletMul が効く');
+  assert(boss.includes("rageArr('shadowAdd', 0)"), 'R44W5: かげおにの数に shadowAdd が効く');
   assert(boss.includes("rageArr('spinMul', 1)"), 'R37: 環の公転に spinMul が効く＝激化が形で見える');
   // 整列の予告秒は 開始(startAttackByName)・進行(alignTele)・環の描画(updateTrueDisp) の
   // 3か所が同じ実効値を見る。1か所でも素の alignSec を読むと「揃いきる前に撃つ」嘘になる
@@ -2115,13 +2126,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'R40: 予告で詠唱スウェル（verseCharge）が鳴る');
   }
 
-  // --- ③ 裁きの環＝専用の輪弾＋波ごとの色＋轟音（「青の炸裂弾」の正体＝第3形態の水色彗星）---
+  // --- ③ 裁きの環 → かげおに（R44W5 で置換）---
+  // ★実プレイFB「丸い弾も修正して。退廃性（悪魔性）が強く、やや理不尽な、弾以外の攻撃に」。
+  //   R40 の輪弾（judge_orb 全方位 3〜4波）は**ユーザーの指示で置換された**。旧ガードは
+  //   削除せず反転（[[feedback_dont_codify_a_deletion]]）：波の発射コードが**残っていない**こと、
+  //   影の召喚が**ある**ことを縛る。テクスチャと弾種 'judge' の機構は汎用インフラなので残す
+  //   （grep で使用者が fireShellWave だけだったことを確認済み）。
   {
-    assert(/kind: 'judge'/.test(boss), 'R40: 殻の衝撃波が専用の輪弾（judge）になった');
-    assert(/judge_orb/.test(boss) && /makeJudgeOrb\('judge_orb'/.test(boot),
-      'R40: 輪弾のテクスチャ judge_orb が焼かれ、弾に結線されている');
-    assert(/JUDGE_TINTS/.test(boss), 'R40: 波ごとに色が変わる（金→白金→紫）');
-    assert(/Sound\.sfx\('judgeWave'/.test(boss), 'R40: 波の音が ringwave 流用から専用の judgeWave へ');
+    assert(!/fireShellWave/.test(boss) && !/JUDGE_TINTS/.test(boss),
+      'R44W5: 殻の全方位弾は廃止された（波の発射コードが残っていない）');
+    assert(/makeJudgeOrb\('judge_orb'/.test(boot),
+      'R44W5: judge_orb テクスチャの機構は残す（使うのをやめただけ・将来の再利用可）');
+    assert(/function spawnShadows\(\)/.test(boss) && /function updateShadows\(dt\)/.test(boss),
+      'R44W5: かげおに（影の召喚と追走）が boss.js に実在する');
   }
 
   // --- ④ 整列レーザー二射目「再照準」＝一射目は据え置き・怠けだけを罰する ---
@@ -2790,6 +2807,121 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/freq: 311/.test(vf) && /freq: 327/.test(vf),
       'R44W4: 濁りのうなり（311/327Hz＝澄んだ和音にならない間隔）がある');
   }
+}
+
+// ============================================================================
+// R44W5 かげおに — 殻閉じの丸い弾（judge_orb 全方位弾）の置換
+// 実プレイFB「せいくの次の攻撃（丸い弾）も修正して。オリジナリティーあふれる攻撃に。
+// 今度は退廃性（悪魔性）が強く、**やや理不尽**な攻撃にして。できれば弾以外の意外な攻撃に」。
+// ★設計＝**主人公自身の影**が足あとから起き上がり、過去の動きを speedMul 倍速で再生して追う。
+//   捕まる条件は「止まる・引き返す・小さく回る」だけ。minGapSec の床が
+//   「走り続ける限り絶対に捕まらない」を保証する＝**やや**理不尽（完全理不尽の禁止）。
+// ============================================================================
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const sound = read('audio/sound.js');
+  const run = read('scenes/Run.js');
+  const maou = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const tf = maou.trueForm;
+  const sh = tf.shell.shadow;
+
+  // --- ① 数値の整合 ---
+  assert(sh.delaySec.length >= sh.count + Math.max(...tf.rage.shadowAdd),
+    `R44W5: 最終段の影の数（${sh.count + Math.max(...tf.rage.shadowAdd)}）ぶんディレイが定義されている（${sh.delaySec.length}）`);
+  assert(sh.delaySec.every((v, i) => i === 0 || v > sh.delaySec[i - 1]),
+    'R44W5: ディレイは昇順＝影は足あとの新しい順に並ぶ（同じ場所に重ならない）');
+  assert(sh.riseSec < tf.shell.holdSec,
+    `R44W5: 影は殻が閉じているうちに起き上がりきる（rise ${sh.riseSec}s ＜ hold ${tf.shell.holdSec}s）＝「神は祈り影が狩る」絵が成立`);
+  assert(sh.lifeSec > tf.shell.holdSec + tf.shell.openSec,
+    `R44W5: 影は殻が開いても残る（life ${sh.lifeSec}s ＞ hold+open ${tf.shell.holdSec + tf.shell.openSec}s）＝次の攻撃と重なる圧`);
+  assert(sh.damage < maou.wirearm.damage + 1 && sh.damage >= 16,
+    `R44W5: 噛みつき${sh.damage}は回避可能系＝回避不能系ワイヤー${maou.wirearm.damage}を超えない`);
+  assert(sh.damage + sh.novaDamage < tf.aligned.damage,
+    `R44W5: 噛みつき+炸裂（${sh.damage + sh.novaDamage}）＜ 整列${tf.aligned.damage}＝最大の一撃の格を守る`);
+
+  // --- ② 「やや理不尽」の床（ここが崩れると完全理不尽になる）---
+  {
+    const touchPx = sh.radius + BALANCE.player.radius;
+    const gapPx = BALANCE.player.speed * sh.minGapSec;
+    assert(gapPx > touchPx * 1.5,
+      `R44W5: 走っている限りの間合い（${gapPx.toFixed(0)}px）＞ 接触判定（${touchPx}px）×1.5＝走り続ければ絶対に捕まらない`);
+    assert(/if \(run\.elapsed - s\.pt < floor\) s\.pt = run\.elapsed - floor/.test(boss),
+      'R44W5: 床が実装に実在する（値だけ持って効かない、を防ぐ）');
+    // ★主動詞を否定しない：**動きながらの溜め**（0.5倍＝74px/s）では噛まれない床であること。
+    //   床0.35だと投げるたびに噛まれた（実測）＝掴む→溜める→投げるの否定になる。
+    //   ⚠️ 据え置きの狙い（aimStopSec 0.5秒の完全停止）だけは床0.55とほぼ同じ＝噛まれ得る。
+    //   これは意図＝「影が出ている間は、立ち止まっての長い狙いだけができない」が圧の中身。
+    const chargePx = BALANCE.player.speed * BALANCE.hero.billiard.moveMulWhileCharge * sh.minGapSec;
+    assert(chargePx > touchPx,
+      `R44W5: 溜め歩きの間合い（${chargePx.toFixed(0)}px）＞ 接触（${touchPx}px）＝動きながらの溜めと投げは安全・捕まるのは立ち止まりだけ`);
+    assert(typeof sh.gapStepSec === 'number' && sh.gapStepSec > 0,
+      'R44W5: 影ごとに床をずらす＝全員が1点に重なって1体に見える（実測）の再発防止');
+    // ★炸裂は静止してから：走者の背後（trail px）で爆ぜると回避不能（実測でB/Cが被弾した）。
+    //   静止フレア中に走って離せる距離 ＞ 爆風、を式で縛る。
+    const flarePx = BALANCE.player.speed * sh.flareSec;
+    assert(flarePx > sh.novaRadius + BALANCE.player.radius,
+      `R44W5: フレア中に走って離せる距離（${flarePx.toFixed(0)}px）＞ 爆風（${sh.novaRadius + BALANCE.player.radius}px）＝正しく走っていれば必ず躱せる`);
+    assert(/if \(s\.life > sk\.flareSec\) \{/.test(boss),
+      'R44W5: フレア中は影が静止する（時計を進めない）＝「立ち止まった＝爆ぜる」が身体で読める');
+  }
+
+  // --- ③ 召喚の条件：殻が閉じきったときだけ。割れば影は出ない ---
+  assert((boss.match(/spawnShadows\(\);/g) || []).length === 1,
+    'R44W5: 召喚は1箇所から＝殻が閉じきった瞬間だけ');
+  assert(/state = 'shellHold'[\s\S]{0,600}spawnShadows\(\)/.test(boss),
+    'R44W5: 召喚は shellHold 遷移の中＝shellInterrupt（割った）経路からは出ない');
+  assert(/function spawnShadows\(\) \{\s*\n\s*destroyShadows\(\)/.test(boss),
+    'R44W5: 召喚の最初に前回の影を消す＝重ね掛けで無限に増えない');
+
+  // --- ④ 影の材料（足あと）と、殻に縛られない追走 ---
+  assert(/if \(trueForm\) recordShadowHist\(\)/.test(boss),
+    'R44W5: 足あとは真の姿のあいだ常に記録される（影の再生に穴を作らない）');
+  assert(/updateShadows\(dt\);/.test(boss),
+    'R44W5: 影の更新はボスの state に縛られない＝殻が開いても lifeSec まで狩り続ける');
+  assert(/while \(shadowHist\.length > 2 && shadowHist\[0\]\.t < keep\) shadowHist\.shift\(\)/.test(boss),
+    'R44W5: 足あとは上限つき＝無限に伸びない');
+
+  // --- ⑤ 退廃の語彙の連続性（新しい語彙を持ち込まない）---
+  assert(/'player'\)\.setScale\(3\.0\)\.setFlipY\(true\)/.test(boss),
+    'R44W5: 影は主人公と同じテクスチャ・同じ縮尺・倒立（堕ちた聖句と同じ「倒立」の語彙）');
+  assert(/setScale\(3\.0\)/.test(run.match(/playerImg = [^\n]+/)[0]),
+    'R44W5: 主人公の実表示も3.0倍＝影と等身大（縮尺が違うと「本人の影」に見えない）');
+  assert(/mixRgb\(VERSE_FALL_A, VERSE_FALL_B, pulse\)/.test(boss),
+    'R44W5: 影の脈は堕ちた聖句と同じ紫→深紅（色の家族が同じ＝同じ「堕ちたもの」）');
+  assert(/setTint\(0xd01228\)/.test((boss.match(/function spawnShadows[\s\S]*?\n  \}/) || [''])[0]),
+    'R44W5: 空洞の眼＝深紅の光が下（倒立した頭）に灯る');
+
+  // --- ⑥ 果てる瞬間：予告してから炸裂する ---
+  assert(/if \(s\.life <= sk\.flareSec\) \{/.test(boss),
+    'R44W5: 炸裂の flareSec 前から張りつめて膨らむ＝無予告の置き土産にしない');
+  assert(/spawnRingFx\(p\.x, p\.y, 0xc0102a, 6, sk\.novaRadius/.test(boss),
+    'R44W5: 炸裂は深紅の輪＝効果範囲が見える');
+
+  // --- ⑦ 音3点＝結線先の無い音・音の無い結線を両方殺す ---
+  for (const k of ['shadowRise', 'shadowBite', 'shadowBurst']) {
+    assert(new RegExp(`^  ${k}\\(`, 'm').test(sound), `R44W5: SFX ${k} が sound.js に実在する`);
+    assert(new RegExp(`Sound\\.sfx\\('${k}'`).test(boss), `R44W5: SFX ${k} が boss.js から鳴らされる`);
+  }
+  // 退廃の音の署名＝非整数比の近接2音（verseFall の311/327）を1オクターブ下で共有
+  {
+    const sr = (sound.match(/shadowRise\(vol = 1\)[\s\S]*?\n  \},/) || [''])[0];
+    assert(/freq: 155\.5/.test(sr) && /freq: 163\.5/.test(sr),
+      'R44W5: 影のうなりは 155.5/163.5Hz＝verseFall の署名の1オクターブ下（深いところの存在）');
+  }
+
+  // --- ⑧ 後始末と予算 ---
+  assert(/destroyShadows\(\);\s*\n\s*shadowHist\.length = 0;/.test(boss),
+    'R44W5: clearFx で影と足あとが消える（勝った画面に影が残らない）');
+  assert(/let dripBudget = 2/.test(boss),
+    'R44W5: 影のしずくは1フレーム2個まで（最大4体でも粒が暴れない）');
+  assert(/introText\('かげおに ―― とまるな！'/.test(boss),
+    'R44W5: 技名と遊び方が1行で出る（かげおに＝名前がルール）');
+
+  // --- ⑨ 検証口 ---
+  assert(/debugShadows\(\)/.test(boss) && /shadowHistLen/.test(boss),
+    'R44W5: 影とその床（gap）を外から測れる');
 }
 
 // --- 結果 ---

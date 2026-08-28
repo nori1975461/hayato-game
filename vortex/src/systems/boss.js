@@ -955,20 +955,20 @@ export function createBoss(run) {
         const sk = TF().shell;
         if (shellDmg >= boss.maxHp * sk.interruptRatio) { shellInterrupt(); break; }
         if (stateT <= 0) {
-          state = 'shellHold'; stateT = sk.holdSec; shotIdx = 0;
+          state = 'shellHold'; stateT = sk.holdSec;
           whiteFlash(0.34); run.shake(320, 8);
           Sound.sfx('metalSlam'); Sound.sfx('bigBoom', 0.7, 0.7);
+          // ★R44W5 かげおに。殻を閉じて祈っているあいだ、神は弾を撃たない——
+          //   代わりに**主人公自身の影**を放つ。割って止めていれば（shellInterrupt）ここへ
+          //   来ないので、**割れば影は出ない**＝「割りにいく」動機がいちばん強い技になる。
+          spawnShadows();
+          introText('かげおに ―― とまるな！', '#c98cff', 156, 18, 1);
         }
         break;
       }
       case 'shellHold': {
-        const sk = TF().shell;
-        // R37 激化：衝撃波の波数が増える（3→4波・網目が1枚増える）
-        const waves = sk.waves + rageArr('wavesAdd', 0);
-        while (shotIdx < waves && (sk.holdSec - stateT) >= shotIdx * sk.waveInterval) {
-          fireShellWave(shotIdx++, sk);
-        }
-        if (stateT <= 0) { state = 'shellOpen'; stateT = sk.openSec; Sound.sfx('metalSlam', 0.8, 1.5); }
+        // R44W5: 波の発射は廃止（→かげおに）。閉じているあいだは無敵のまま影が狩る。
+        if (stateT <= 0) { state = 'shellOpen'; stateT = TF().shell.openSec; Sound.sfx('metalSlam', 0.8, 1.5); }
         break;
       }
       case 'shellOpen':
@@ -1633,29 +1633,135 @@ export function createBoss(run) {
     }
   }
 
-  // ③殻閉じ。閉じきったあとの全方位衝撃波（波ごとに半分ずらして網目にする）。
-  // ★R40 実プレイFB「青の炸裂弾？があるが、全くダメ」。正体＝弾が cfg.bulletTint（第3形態の
-  //   水色 #38e1ff）の彗星のままだった＝**神核の攻撃なのに前の姿の弾**が出ていた。
-  //   専用の「裁きの輪」弾（judge_orb・回転する光輪）＋波ごとに色が変わる（金→白金→紫）＋
-  //   弾と同じ速さで広がる環＋座から立つ光柱＋専用の轟音（judgeWave・波ごとに音程が昇る）。
-  const JUDGE_TINTS = [0xffd23f, 0xfff2a8, 0xc98cff, 0xff9a3c];
-  function fireShellWave(w, sk) {
-    const off = (w % 2) * (Math.PI / sk.perWave);
-    const sp = sk.bulletSpeed * rageArr('bulletMul', 1);  // R37 激化で弾速が上がる（最大×1.25）
-    const tint = JUDGE_TINTS[w % JUDGE_TINTS.length];
-    for (let i = 0; i < sk.perWave; i++) {
-      const a = off + (i / sk.perWave) * Math.PI * 2;
-      spawnBullet2(boss.x + Math.cos(a) * boss.radius * 0.8, boss.y + Math.sin(a) * boss.radius * 0.8,
-        Math.cos(a) * sp, Math.sin(a) * sp,
-        { radius: sk.bulletRadius, damage: sk.damage, life: sk.lifeSec,
-          kind: 'judge', tint, spin: 2.6 });
+  // ③殻閉じ →「かげおに」（R44W5）。
+  // ★実プレイFB「丸い弾も修正して。オリジナリティーあふれる攻撃に。今度は退廃性（悪魔性）が
+  //   強く、やや理不尽な攻撃にして。できれば弾以外の意外な攻撃に」。
+  //   旧実装（R40 の judge_orb 全方位弾 3〜4波）を廃止し、**主人公自身の影**が狩る技へ。
+  //   ⚠️ judge_orb のテクスチャと弾種 'judge' の機構は残してある（spawnBullet2 は汎用の
+  //     弾インフラで、消すと差分が広がるだけ。使うのをやめただけ＝grep で確認済み）。
+  //
+  //   仕組み：主人公の位置を毎フレーム記録し（shadowHist）、影はその**過去の再生**として動く。
+  //     - 影の再生時計 pt は実時間の speedMul 倍で進む＝過去がだんだん現在に追いつく
+  //     - ただし (いま − pt) は minGapSec より縮まない＝**走り続ける限り絶対に捕まらない**床。
+  //       止まる・引き返す・小さく回る、だけが捕まる＝「やや理不尽」はこの床の上に立つ
+  //     - 倒立（flipY）＝堕ちた聖句と同じ語彙。色も紫→深紅（VERSE_FALL_A/B）を脈で往復
+  //     - 殻が開いても影は lifeSec まで残り、果てる瞬間に小さな闇の炸裂（nova）を置いていく
+  let shadowHist = [];      // {t, x, y} 主人公の足あと（真の姿のあいだだけ記録）
+  let shadows = [];         // 生きている影
+  // 検証用の実績カウンタ。⚠️ hitPlayer のダメージ値で外から仕分けると、聖句16と炸裂16の
+  // ように**同値の別ソース**を混同する（実測で139回の誤計上をやった）。発生源で数える。
+  const shadowStats = { spawned: 0, bites: 0, novaHits: 0, novas: 0 };
+  function recordShadowHist() {
+    shadowHist.push({ t: run.elapsed, x: run.player.x, y: run.player.y });
+    // 最長ディレイ+余裕ぶんだけ保持（無限に伸ばさない）
+    const keep = run.elapsed - 6.5;
+    while (shadowHist.length > 2 && shadowHist[0].t < keep) shadowHist.shift();
+  }
+  function histAt(t) {
+    if (!shadowHist.length) return { x: run.player.x, y: run.player.y };
+    if (t <= shadowHist[0].t) return shadowHist[0];
+    for (let i = shadowHist.length - 1; i >= 0; i--) {
+      if (shadowHist[i].t <= t) {
+        const a = shadowHist[i], b = shadowHist[Math.min(i + 1, shadowHist.length - 1)];
+        const span = b.t - a.t || 1;
+        const k = clamp01((t - a.t) / span);
+        return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+      }
     }
-    // 弾列と同じ速さで開く環＝「波」が1枚の形として見える（弾の点列だけでは輪郭が出ない）
-    spawnRingFx(boss.x, boss.y, tint, boss.radius * 0.8, boss.radius * 0.8 + sp * 0.5, 0.5, 0.75);
-    spawnPillarFx(boss.x, boss.y + boss.radius * 0.5, tint, 22, boss.radius * 2.6, 0.45);
-    run.shake(300, 8);
-    Sound.sfx('judgeWave', 0.9, 1.0 + w * 0.12);
-    if (w === 0) whiteFlash(0.16);
+    return shadowHist[shadowHist.length - 1];
+  }
+  function spawnShadows() {
+    destroyShadows();                                   // 前回の残りが居たら重ねない
+    const sk = TF().shell.shadow;
+    const n = Math.min(sk.delaySec.length, sk.count + rageArr('shadowAdd', 0));
+    for (let i = 0; i < n; i++) {
+      const delay = sk.delaySec[i];
+      const p = histAt(run.elapsed - delay);
+      // 影だまり（足あとに開く暗い水たまり）。ADD だと明るくなってしまうので通常ブレンドの暗色
+      const pool = run.add.image(p.x, p.y + 10, 'white').setDepth(8)
+        .setTint(0x14060e).setAlpha(0).setDisplaySize(44, 14);
+      const img = run.add.image(p.x, p.y, 'player').setScale(3.0).setFlipY(true)
+        .setDepth(9).setAlpha(0).setTint(VERSE_FALL_A);
+      // 空洞の眼＝倒立しているので頭は下。深紅の小さな光を「下」に灯す
+      const eye = run.add.image(p.x, p.y + 8, 'glow').setBlendMode(ADD)
+        .setDepth(9).setTint(0xd01228).setAlpha(0).setDisplaySize(16, 16);
+      shadows.push({ img, eye, pool, pt: run.elapsed - delay, riseT: 0, rising: true,
+        life: sk.lifeSec, dmgT: 0, idx: i });
+      shadowStats.spawned++;
+    }
+    Sound.sfx('shadowRise');
+  }
+  function updateShadows(dt) {
+    if (!shadows.length) return;
+    const sk = TF() && TF().shell ? TF().shell.shadow : null;
+    if (!sk) { destroyShadows(); return; }
+    let dripBudget = 2;                                 // 影のしずくは1フレーム合計2個まで
+    for (let i = shadows.length - 1; i >= 0; i--) {
+      const s = shadows[i];
+      if (s.rising) {
+        s.riseT += dt;
+        const k = clamp01(s.riseT / sk.riseSec);
+        s.img.setAlpha(0.88 * k).setScale(3.0 * (0.4 + 0.6 * k));
+        s.pool.setAlpha(0.5 * k);
+        s.eye.setAlpha(0.9 * k);
+        if (k >= 1) s.rising = false;
+        continue;                                       // 起き上がるまでは動かない＝読める
+      }
+      // 再生時計を進める。床＝影ごとに minGap + idx×gapStep（同じ床だと全員が1点に重なって
+      // 1体に見える＝実測で判明。ずらすと「堕ちた自分の隊列」が数えられる）。
+      // ★残り flareSec は**その場に静止**＝時計を進めない。走者の背後で爆ぜる回避不能を消し、
+      //   「影が立ち止まった＝爆ぜる」の予告を身体の動きで伝える（振りかぶりと同じ考え方）。
+      if (s.life > sk.flareSec) {
+        s.pt += dt * sk.speedMul;
+        const floor = sk.minGapSec + s.idx * (sk.gapStepSec || 0);
+        if (run.elapsed - s.pt < floor) s.pt = run.elapsed - floor;
+      }
+      const p = histAt(s.pt);
+      if (p.x !== s.img.x) s.img.setFlipX(p.x < s.img.x);
+      s.img.setPosition(p.x, p.y);
+      s.pool.setPosition(p.x, p.y + 10);
+      s.eye.setPosition(p.x, p.y + 8);
+      // 紫⇄深紅の脈（堕ちた聖句と同じ2色を往復＝同じ「堕ちたもの」だと色で分かる）
+      const pulse = 0.5 + 0.5 * Math.sin(run.elapsed * 6 + s.idx * 2.1);
+      s.img.setTint(mixRgb(VERSE_FALL_A, VERSE_FALL_B, pulse));
+      if (dripBudget > 0 && Math.floor(run.elapsed * 14 + s.idx) % 3 === 0) {
+        dripBudget--;
+        run.spawnParticles(p.x, p.y + 6, 0x2a0a18, 1);
+      }
+      // 噛みつき。invuln は run.hitPlayer 側にあるが、影1体ごとにも間隔を持つ（多重ヒット防止）
+      s.dmgT -= dt;
+      const dx = run.player.x - p.x, dy = run.player.y - p.y;
+      const rr = sk.radius + run.player.radius;
+      if (s.dmgT <= 0 && dx * dx + dy * dy <= rr * rr) {
+        s.dmgT = 0.8;
+        shadowStats.bites++;
+        Sound.sfx('shadowBite');
+        run.hitPlayer(sk.damage, p.x, p.y);
+      }
+      // 寿命。残り flareSec は静止して深紅に張りつめ、膨らむ＝炸裂の予告
+      s.life -= dt;
+      if (s.life <= sk.flareSec) {
+        const w = clamp01(1 - s.life / sk.flareSec);
+        s.img.setTint(mixRgb(VERSE_FALL_B, 0xff6a5a, w)).setScale(3.0 + w * 0.9);
+        s.eye.setDisplaySize(16 + w * 18, 16 + w * 18);
+      }
+      if (s.life <= 0) {
+        // 闇の炸裂：影は果てるときにも一撃を置いていく（近くで見送ってはいけない）
+        spawnRingFx(p.x, p.y, 0xc0102a, 6, sk.novaRadius, 0.32, 0.8);
+        run.spawnParticles(p.x, p.y, 0x2a0a18, 8);
+        run.spawnParticles(p.x, p.y, 0xc0102a, 6);
+        Sound.sfx('shadowBurst');
+        shadowStats.novas++;
+        const nr = sk.novaRadius + run.player.radius;
+        if (dx * dx + dy * dy <= nr * nr) { shadowStats.novaHits++; run.hitPlayer(sk.novaDamage, p.x, p.y); }
+        s.img.destroy(); s.eye.destroy(); s.pool.destroy();
+        shadows.splice(i, 1);
+      }
+    }
+  }
+  function destroyShadows() {
+    for (const s of shadows) { s.img.destroy(); s.eye.destroy(); s.pool.destroy(); }
+    shadows.length = 0;
   }
 
   // 閉じきる前に眼へ規定量を当てられた＝閉じられない。大きな隙（追撃の窓）に化ける。
@@ -2413,6 +2519,9 @@ export function createBoss(run) {
     // R44W3 薙いだ跡は「1拍だけ残す」ものなので、戦闘が終わったら必ず消す
     // （撃破が薙ぎの最中に起きると、赤い扇が画面に焼き付いたまま残る）
     if (scorchGfx) { run.tweens.killTweensOf(scorchGfx); scorchGfx.clear().setVisible(false); }
+    // R44W5 かげおに：撃破・練習リセットで影と足あとも必ず消す（勝った画面に影が残ると嘘になる）
+    destroyShadows();
+    shadowHist.length = 0;
   }
 
   // ============ 最終ボス登場イベント ============
@@ -3398,8 +3507,12 @@ export function createBoss(run) {
       // カットシーン中は体当たりで削らない。見せている最中に理不尽に減るのが一番しらける
       const cine = state === 'splitCine' || state === 'mergeCine' || state === 'awakenCine';
       if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
+      // R44W5 かげおに：真の姿のあいだは主人公の足あとを常に記録する（影の材料）。
+      //   カットシーン中も記録は止めない＝影の再生に穴を作らない。
+      if (trueForm) recordShadowHist();
     }
 
+    updateShadows(dt);        // R44W5: 影は殻が開いても lifeSec まで残る＝boss の state に縛らない
     updateBullets(dt);
     updateStrikes(dt);      // R29: ボスが消えた後も残った着弾は最後まで爆発させる（bullets と同じ扱い）
     if (beam) updateBeam(dt);
@@ -3457,6 +3570,16 @@ export function createBoss(run) {
       return { locked: lockAng != null, ang: alignAng, wind: alignWind, dir: lockDir,
         lineDrawn: !!(lockGfx && lockGfx.commandBuffer && lockGfx.commandBuffer.length) };
     },
+    // R44W5 検証用：かげおに（画面に出ている影そのもの）。gap＝再生時計と現在の差＝
+    //   minGapSec の床が効いているか（0.35未満なら「走っても捕まる」理不尽になっている）。
+    debugShadows() {
+      return shadows.map((s) => ({ x: Math.round(s.img.x), y: Math.round(s.img.y),
+        rising: s.rising, gap: +(run.elapsed - s.pt).toFixed(3), life: +s.life.toFixed(2),
+        tex: s.img.texture && s.img.texture.key, flipY: s.img.flipY,
+        alpha: +s.img.alpha.toFixed(2), tint: s.img.tintTopLeft }));
+    },
+    get shadowHistLen() { return shadowHist.length; },
+    get shadowStats() { return { ...shadowStats }; },
     // R44W4 検証用：飛んでいる聖句の文字弾（速さ・堕ちたか・回っているか）。
     //   ★「堕ちた」は設定値ではなく**画面に出ているテクスチャの名前**で数える
     //     ＝[[feedback_measure_vfx_by_diff]]（値だけ変わって絵が変わらない、を通さない）。
