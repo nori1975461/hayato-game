@@ -1453,11 +1453,13 @@ export function createBoss(run) {
   function shatterOldBody() {
     if (trueCrack) { trueCrack.clear(); }
     whiteFlash(0.55);
-    run.shake(620, 14);
-    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.14);
-    Sound.sfx('bigBoom');
-    Sound.sfx('crush', 3);
-    Sound.sfx('metalSlam', 1, 0.9);
+    // ★R44W11 実プレイFB「効果音を修正して。**爆発音とその余韻**をいれて」。
+    //   音を 0.71秒 → 3.0秒の尾へ作り直したので、揺れも尾に合わせて2段にする
+    //   （音だけ伸ばして画面が先に静まると、余韻が「鳴り残り」に聞こえる）。
+    run.shake(900, 18);
+    run.time.delayedCall(440, () => run.shake(760, 7));   // がれきが降る間の地鳴り
+    if (!run.cinematic) run.freezeT = Math.max(run.freezeT || 0, 0.18);
+    Sound.sfx('maouShatter');
     const tf = cfg.trueForm;
     const ms = Math.max(120, (tf.crackSec - (tf.burstAt || tf.shatterAt)) * 1000);
     const nShard = tf.shardsPerPart || 0;

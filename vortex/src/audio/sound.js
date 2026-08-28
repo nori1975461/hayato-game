@@ -1530,6 +1530,71 @@ const SFX = {
     tone({ start: 0.10, type: 'sawtooth', freq: 500, freqEnd: 1000, dur: 0.30, gain: 0.07,
            attack: 0.02, dest: D });
   },
+  // ★R44W11 実プレイFB「マオウレクスがバラバラになるシーン。効果音を修正して。
+  //   **爆発音とその余韻**をいれて」。
+  //   実測（cdp-awaken-sfx.mjs）で指摘の裏が取れた：粉砕の瞬間に鳴っていたのは汎用SFXの
+  //   寄せ集め（bigBoom＋crush＋metalSlam）で **25層・余韻0.71秒**。かげおに1体の大爆発
+  //   （shadowBurst＝2.4秒の尾）より短い。**作中最大の破壊が、雑魚の爆発より早く消えていた**。
+  //
+  //   ★この場面は startAwaken で **BGMを止めている**＝作中でいちばん静かな瞬間。
+  //     だから余韻はここでこそ効く（沈黙へ溶けていく尾を、他の曲が邪魔しない）。
+  //   構造：①先行クラック ②三段の破裂（0/70/220ms＝「ドッ ドーン …ゴォン」）
+  //         ③**装甲が引き裂かれる**（歪みバス）と④**金属の鳴き**（★歪ませない）
+  //         ⑤破片が散る ⑥時間差の伸びるがれき ⑦帯域が落ちていく3秒の轟き ⑧沈み込み
+  //   ★③と④を分けるのが要（[[R42の教訓]]）。5本の倍音を同じ WaveShaper に入れると
+  //     相互変調で潰れて「ブザー」に平坦化する。クラングの構造＝**歪んだアタック＋
+  //     素通しの鳴き＋残響**で、役割を分担させる。余韻の主役は④。
+  //   ★重さを100Hz未満だけで作らない（[[R34W3の教訓]]：下は子どものノートPCで鳴らない）。
+  //     低域は残したまま、同じ形を 320 / 262 / 196 / 148Hz に重ねて**届く側に主役を置く**。
+  maouShatter(vol = 1) {
+    const D = sfxDistBus;
+    // ①先行クラック：これが無いと「遠くの花火」になる（近さは高域の一瞬が作る）
+    noiseHit({ dur: 0.04, gain: 0.40 * vol, hpFreq: 3400, lpFreq: 13000 });
+    // ②一段目「ドッ」＝破裂の芯
+    tone({ type: 'sine', freq: 190, freqEnd: 34, dur: 0.80, gain: 0.95 * vol, attack: 0.0008 });
+    tone({ type: 'triangle', freq: 320, freqEnd: 80, dur: 0.70, gain: 0.62 * vol, attack: 0.0008 });
+    tone({ type: 'sine', freq: 52, freqEnd: 20, dur: 1.30, gain: 0.45 * vol, attack: 0.004 });
+    // 二段目「ドーン」（70ms）＝1発の低音より確実に大きく聞こえる
+    tone({ type: 'sine', freq: 128, freqEnd: 28, start: 0.07, dur: 1.00, gain: 0.72 * vol,
+           attack: 0.001 });
+    tone({ type: 'triangle', freq: 262, freqEnd: 64, start: 0.07, dur: 0.90, gain: 0.58 * vol,
+           attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 524, freqEnd: 110, start: 0.07, dur: 0.50, gain: 0.28 * vol,
+           attack: 0.001, dest: D });
+    // 三段目「…ゴォン」（220ms）＝最終ボスの破壊は1発では終わらない
+    tone({ type: 'triangle', freq: 196, freqEnd: 52, start: 0.22, dur: 1.30, gain: 0.50 * vol,
+           attack: 0.002, verb: 0.55 });
+    // ③装甲が引き裂かれる：歪みバスへ入れるのは**アタックだけ**
+    tone({ type: 'sawtooth', freq: 700, freqEnd: 180, dur: 0.55, gain: 0.30 * vol,
+           attack: 0.001, dest: D });
+    tone({ type: 'square', freq: 1435, freqEnd: 520, dur: 0.42, gain: 0.18 * vol,
+           attack: 0.001, dest: D });
+    // ④金属の鳴き：鉄床と同じ非整数比（520 : 1435 : 2808 ＝ 1 : 2.76 : 5.40）を**素通しで**長く。
+    //   ここが余韻の主役＝「巨大な金属の胴が、砕けたあとも鳴り続けている」
+    tone({ type: 'square', freq: 520, dur: 2.40, gain: 0.145 * vol, attack: 0.004, verb: 0.90 });
+    tone({ type: 'square', freq: 1435, dur: 2.00, gain: 0.090 * vol, attack: 0.004, verb: 0.90 });
+    tone({ type: 'square', freq: 2808, dur: 1.60, gain: 0.055 * vol, attack: 0.004, verb: 0.90 });
+    // 壊れた機械のうなり（13.5Hz のうなりが出る2本）＝止まらない駆動音が軋みながら落ちていく
+    tone({ type: 'square', freq: 233, dur: 2.60, gain: 0.10 * vol, attack: 0.02, verb: 0.90 });
+    tone({ type: 'square', freq: 246.5, dur: 2.60, gain: 0.10 * vol, attack: 0.02, verb: 0.90 });
+    // ⑤破片が四方へ散る：帯域が 10k→1.6k へ落ちる＝遠ざかっていく（「バラバラ」の音の側）
+    noiseHit({ start: 0.02, dur: 0.70, gain: 0.26 * vol, hpFreq: 900, lpFreq: 10000, lpEnd: 1600 });
+    // ⑦余韻の轟き：3.0秒かけて 3.6k→300Hz へ落ちる。★終端を聞こえる帯域に置く
+    noiseHit({ start: 0.06, dur: 3.00, gain: 0.28 * vol, hpFreq: 120, lpFreq: 3600, lpEnd: 300 });
+    // ⑥がれき：間隔が**だんだん伸びる**6発（等間隔だと機械的に聞こえ、質量が消える）
+    const rubble = [0.20, 0.36, 0.55, 0.79, 1.08, 1.44];
+    for (let i = 0; i < rubble.length; i++) {
+      noiseHit({ start: rubble[i], dur: 0.07 - i * 0.005, gain: (0.20 - i * 0.025) * vol,
+                 hpFreq: 1800 + i * 220, lpFreq: 9000 });
+      tone({ type: 'triangle', freq: 210 - i * 14, freqEnd: 90, start: rubble[i], dur: 0.10,
+             gain: (0.16 - i * 0.02) * vol, attack: 0.001 });
+    }
+    // ⑧沈み込み：最後に体へ残る低音。BGMが無いので、これがそのまま沈黙へ溶ける
+    tone({ type: 'sine', freq: 74, freqEnd: 30, start: 0.80, dur: 2.20, gain: 0.30 * vol,
+           attack: 0.06 });
+    tone({ type: 'triangle', freq: 148, freqEnd: 60, start: 0.80, dur: 2.20, gain: 0.26 * vol,
+           attack: 0.06, verb: 0.6 });
+  },
 
   // ============ R34W2 ナックルウェーブ：トマホーク斉射の3点セット ============
   // 実プレイFB「ナックルウェーブやワイヤーアームも攻撃音や発射音がなにもかわっていない」。

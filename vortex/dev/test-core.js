@@ -3137,6 +3137,52 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ⑬ 検証口 ---
   assert(/debugShadows\(\)/.test(boss) && /shadowHistLen/.test(boss),
     'R44W5: 影とその床（gap）を外から測れる');
+
+  // --- ⑭ R44W11 転生（バラバラになるシーン）の爆発音と余韻 ---
+  //   実測（cdp-awaken-sfx.mjs）：旧実装は bigBoom＋crush＋metalSlam の寄せ集めで
+  //   **25層・余韻0.71秒**。かげおに1体の大爆発（2.4秒の尾）より短かった。
+  {
+    assert(/^  maouShatter\(vol = 1\) \{/m.test(sound),
+      'R44W11: 粉砕の専用音 maouShatter が実在する');
+    assert(/Sound\.sfx\('maouShatter'\)/.test(boss),
+      'R44W11: shatterOldBody から鳴らされる');
+    const shat = (boss.match(/function shatterOldBody\(\)[\s\S]*?\n  \}/) || [''])[0];
+    assert(!/bigBoom|'crush'|metalSlam/.test(shat),
+      'R44W11: 汎用SFXの寄せ集めに戻っていない（専用音1本で鳴らす）');
+    const ms = (sound.match(/maouShatter\(vol = 1\) \{[\s\S]*?\n  \},/) || [''])[0];
+    // 余韻＝いちばん遅くまで鳴っている層（start + dur）。3秒の轟きと2.4秒の鳴きが担う
+    let tail = 0;
+    for (const m of ms.matchAll(/start: ([\d.]+)[^;]*?dur: ([\d.]+)/g)) {
+      tail = Math.max(tail, Number(m[1]) + Number(m[2]));
+    }
+    for (const m of ms.matchAll(/dur: ([\d.]+)/g)) tail = Math.max(tail, Number(m[1]));
+    assert(tail >= 2.8, `R44W11: 余韻は ${tail.toFixed(2)}秒（旧0.71秒）＝BGMを止めた沈黙へ溶ける`);
+    // ★鳴き（リング）は**歪みバスに入れない**（[[R42の教訓]]：同じ WaveShaper に倍音を
+    //   まとめて入れると相互変調で潰れ、金属ではなく「ブザー」に平坦化する）
+    const ring = ms.split('\n').filter((l) => /freq: (520|1435|2808), dur:/.test(l));
+    assert(ring.length === 3, 'R44W11: 鉄床と同じ非整数比 520:1435:2808 の鳴きが3本ある');
+    assert(ring.every((l) => !/dest: D/.test(l)),
+      'R44W11: 鳴きは歪みバスへ入れない（アタックだけを歪ませる＝クラングの役割分担）');
+    assert(/dest: D/.test(ms), 'R44W11: 引き裂きのアタックは歪みバスを通る');
+    // ★重さを100Hz未満だけで作らない（子どものノートPCで鳴らない）
+    const mid = [...ms.matchAll(/freq: (\d+(?:\.\d+)?), freqEnd: \d+/g)]
+      .map((m) => Number(m[1])).filter((f) => f >= 140);
+    assert(mid.length >= 5,
+      `R44W11: 聞こえる帯域（140Hz以上）の層が ${mid.length} 本＝低域だけに頼らない`);
+    // がれきは**間隔がだんだん伸びる**（等間隔だと機械的で質量が消える）
+    const rub = (ms.match(/const rubble = \[([^\]]+)\]/) || [])[1];
+    assert(rub, 'R44W11: がれきの時刻表がある');
+    const rs = rub.split(',').map(Number);
+    assert(rs.length >= 6, `R44W11: がれきは ${rs.length}発（大きいものが壊れた証拠は時間差）`);
+    let widening = true;
+    for (let i = 2; i < rs.length; i++) {
+      if (rs[i] - rs[i - 1] <= rs[i - 1] - rs[i - 2]) widening = false;
+    }
+    assert(widening, 'R44W11: がれきの間隔は落ちきるにつれて伸びる');
+    // 画面も尾に合わせて2段で揺れる（音だけ伸びると「鳴り残り」に聞こえる）
+    assert(/run\.shake\(900, 18\);[\s\S]{0,160}delayedCall\(440, \(\) => run\.shake\(760, 7\)\)/.test(shat),
+      'R44W11: 揺れも2段＝爆発の直後と、がれきが降る間の地鳴り');
+  }
 }
 
 // ============================================================================
