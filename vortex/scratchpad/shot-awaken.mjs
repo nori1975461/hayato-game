@@ -139,9 +139,14 @@ async function main() {
     named = await evalJs('window.__named');
     if (!named) await sleep(60);
   }
-  await sleep(420);           // テロップが出そろって明滅している最中
+  await sleep(420);           // 名前のテロップが明滅している最中
   console.log('軌道神核の出現: ' + (named ? 'YES' : 'NO'));
-  await snap('awaken-lines', 2);
+  await snap('awaken-name', 2);
+  // ★R44W10「メッセージの後にコメントを」＝2枚に分かれているはず。
+  //   名前の寿命 2.42秒 ＋ 遅延 2.52秒 なので、名前が消えた後にもう1枚撮る。
+  await sleep(2500);
+  console.log('（名前が消えたあと）');
+  await snap('awaken-line', 2);
   process.exit(0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
