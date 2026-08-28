@@ -63,7 +63,8 @@ function runnerScript(mode) {
   return `(function(){
     var r = window.__run, B = r.boss;
     window.__S = { bites: 0, novas: 0, novaBursts: 0, maxShadows: 0, minGap: 99,
-      texOk: 0, texNg: 0, flipOk: 0, flipNg: 0, fps: 999, circA: 0 };
+      texOk: 0, texNg: 0, flipOk: 0, flipNg: 0, fps: 999, circA: 0,
+      lanes: 0, ranks: 0, ghosts: 0, biters: 0, texKeys: [], spread: 0 };
     if (window.__t) clearInterval(window.__t);
     window.__base = B.shadowStats;   // モード開始時点の実績（発生源カウンタ・差分で数える）
     window.__t = setInterval(function(){
@@ -78,16 +79,37 @@ function runnerScript(mode) {
       for (var i = 0; i < gs.length; i++) {
         var g = gs[i];
         if (!g.rising) S.minGap = Math.min(S.minGap, g.gap);
-        if (g.tex === 'player') S.texOk++; else S.texNg++;
+        if (g.tex && g.tex.indexOf('mon_') === 0) S.texOk++; else S.texNg++;
         if (g.flipY) S.flipOk++; else S.flipNg++;
+        if (S.texKeys.indexOf(g.tex) < 0) S.texKeys.push(g.tex);
+      }
+      if (gs.length) {
+        var ls = [], rs = [], nb = 0, xs = [], ys = [];
+        for (var j = 0; j < gs.length; j++) {
+          var q = gs[j];
+          if (ls.indexOf(q.lane) < 0) ls.push(q.lane);
+          if (rs.indexOf(q.rank) < 0) rs.push(q.rank);
+          if (q.biter) nb++;
+          xs.push(q.x); ys.push(q.y);
+        }
+        S.lanes = Math.max(S.lanes, ls.length);
+        S.ranks = Math.max(S.ranks, rs.length);
+        S.biters = Math.max(S.biters, nb);
+        S.ghosts = Math.max(S.ghosts, gs[0].ghosts || 0);
+        // 隊列の広がり＝いちばん離れた2体の距離。1点に重なって「1体に見える」の再発検知
+        S.spread = Math.max(S.spread, Math.hypot(Math.max.apply(null, xs) - Math.min.apply(null, xs),
+                                                 Math.max.apply(null, ys) - Math.min.apply(null, ys)));
       }
       if (gs.length) S.fps = Math.min(S.fps, Math.round(window.__vortexGame.loop.actualFps));
-      var step = 148 * 0.05;
-      if (${mode} === 1) { r.player.x += step; }
+      // ⚠️ 相対移動（x += step）だと autotest のボットの入力と足し引きされ、
+      //    ボットが逆へ引いた瞬間だけ「止まった」状態が生まれて噛まれる（実測1回の正体）。
+      //    絶対座標で毎tick置き直す＝この計測では確実に148px/sで走り続ける。
+      S.circA += 0.05;
+      if (${mode} === 1) { r.player.x = window.__cx + S.circA * 148; r.player.y = window.__cy; }
       else if (${mode} === 2) {
-        S.circA += (148 / 60) * 0.05;              // 円周速度148px/s・半径60px
-        r.player.x = window.__cx + Math.cos(S.circA) * 60;
-        r.player.y = window.__cy + Math.sin(S.circA) * 60;
+        var a = S.circA * (148 / 60);              // 円周速度148px/s・半径60px
+        r.player.x = window.__cx + Math.cos(a) * 60;
+        r.player.y = window.__cy + Math.sin(a) * 60;
       }
     }, 50);
     return true;
@@ -210,8 +232,12 @@ async function main() {
   }
 
   const [A, B, C] = out;
-  console.log('②影は主人公の倒立か:  '
-    + (A && A.texOk > 0 && A.texNg === 0 && A.flipNg === 0 ? `YES（player×flipY ${A.texOk}サンプル）` : 'NO'));
+  console.log('②影はモビットの倒立か:'
+    + (A && A.texOk > 0 && A.texNg === 0 && A.flipNg === 0
+      ? `YES（mon_×flipY ${A.texOk}サンプル / 顔ぶれ ${A.texKeys.join(',')}）` : 'NO'));
+  console.log('②b 隊列:             '
+    + (A ? `最大${A.maxShadows}体 ${A.ranks}段×${A.lanes}列 / 噛み手${A.biters}体 / 分身${A.ghosts}枚/体 / `
+      + `広がり${A.spread.toFixed(0)}px` : '?'));
   console.log('③床（minGap）:        '
     + (out.every((s) => s && s.minGap >= 0.34) ? `YES 全モード0.34秒以上` : 'NO 床割れ＝完全理不尽')
     + `（A ${A ? A.minGap.toFixed(2) : '?'} / B ${B ? B.minGap.toFixed(2) : '?'} / C ${C ? C.minGap.toFixed(2) : '?'}）`);

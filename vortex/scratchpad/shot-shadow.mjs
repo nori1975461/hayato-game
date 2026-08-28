@@ -149,6 +149,17 @@ async function main() {
   }
   console.log('②炸裂直前（静止して膨らむ）');
   await snap('shadow-flare', 2);
+  // ③大爆発の瞬間（R44W7「炎を出しながら大爆発して」）＝先頭の炸裂が起きた直後を狙う。
+  //   novas が増えた「次のフレーム」に撮る＝環も炎柱も火の粉もまだ全部生きている。
+  await evalJs(`(function(){ window.__n0 = window.__run.boss.shadowStats.novas; return true; })()`);
+  for (let i = 0; i < 200; i++) {
+    const fired = await evalJs(`window.__run.boss.shadowStats.novas > window.__n0`);
+    if (fired) break;
+    await sleep(30);
+  }
+  await sleep(70);        // 閃光が引いて炎と環が読めるところ（0msは白飛びで何も見えない）
+  console.log('③大爆発の瞬間（+70ms）');
+  await snap('shadow-burst', 2);
   process.exit(0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
