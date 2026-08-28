@@ -20,7 +20,9 @@ export function createCapture(run) {
   const altarFired = BALANCE.altar.appearSecs.map(() => false);
   let msg = null;         // 「あと◯たい ひつよう」表示
   let msgT = 0;
-  let boltCoreGiven = false;   // R23: ビリッコのコアを配ったか（1ランに1回）
+  let boltCoreGiven = false;   // R23: ビリッコのコアを配ったか
+  let boltCore = null;         // R45: 置いたコアそのもの（拾われたか／消えたかを見る）
+  let boltRetryT = 0;          // R45: 取り逃したあと、置き直すまでの待ち秒
 
   // Wave R2: 経過時間で解禁される現在の公転スロット数（spawner.currentCap と同型）。
   // slotSchedule を走査し、maxSlots を絶対上限としてクランプする。
@@ -38,7 +40,9 @@ export function createCapture(run) {
       .setTint(int(def.color)).setScale(1.6);
     const spr = run.add.image(x, y, 'core').setDepth(12)
       .setTint(int(def.color)).setScale(1.6);
-    cores.push({ x, y, def, glow, spr, life: C.coreLifeSec });
+    const core = { x, y, def, glow, spr, life: C.coreLifeSec };
+    cores.push(core);
+    return core;
   }
 
   // 敵撃破時のドロップ抽選
@@ -93,8 +97,22 @@ export function createCapture(run) {
   // 実プレイFB由来の切り札（ボス戦の雷光弾）が、コア抽選の運で一度も見られないのは
   // 「入れていない」のと同じなので、抽選には委ねない。
   // ⚠️ 配る時刻は**3枠目が開く瞬間**にしてある。手持ちの攻撃役を降ろさずに載せられる唯一のタイミング。
-  function ensureBoltMobit() {
-    if (boltCoreGiven) return;
+  function ensureBoltMobit(dt) {
+    // ★R45 実プレイFB「ここ数日のプレイで、雷光弾や炎熱炸裂弾を渡されていないのだが。
+    //   そのモビットは実装から消されてないか？」→ 実装は消えていない（実測：自然プレイ315秒で
+    //   らいこうだんは5回配られた）。真因は**配り直しが無かった**こと：
+    //   旧実装は boltCoreGiven を**コアを出した時点で**立てていたので、置いたコアを
+    //   拾い損ねる（寿命10秒で消える）と、そのランでは二度とビリッコが来なかった。
+    //   1ランに1度きりの抽選を、拾えたかどうかで判定せずに閉じていた＝運が悪いと
+    //   「実装から消えている」のと区別がつかない。★拾われるまで置き直す。
+    if (boltCoreGiven) {
+      if (!boltCore) return;
+      if (run.party.some((pt) => pt.def && pt.def.id === 'biricco')) { boltCore = null; return; }
+      if (!boltCore.dead && boltCore.life > 0) return;   // まだ落ちている
+      boltCoreGiven = false; boltCore = null;            // 消えた＝取り逃した → もう一度置く
+      boltRetryT = C.ammoRetrySec == null ? 12 : C.ammoRetrySec;
+    }
+    if (boltRetryT > 0) { boltRetryT -= dt || 0; return; }
     // ★R33 旧実装は「3枠目が開く180秒」に配っていたが、開いた瞬間に落ちている通常コアが
     //   先に入って枠が埋まり、ビリッコのコアは10秒で消えてコインに化けていた（実測で確認）。
     //   ammoExtraSlots（弾配り役の特別枠）で取り合いが消えたので、1体目のボスに間に合わせる。
@@ -104,7 +122,7 @@ export function createCapture(run) {
     if (run.party.some((pt) => pt.def && pt.def.id === 'biricco')) return;   // もう持っている
     const def = MONSTERS.find((m) => m.id === 'biricco');
     if (!def) return;
-    makeCore(run.player.x + 26, run.player.y - 18, def);
+    boltCore = makeCore(run.player.x + 26, run.player.y - 18, def);
     Sound.sfx('draftReady');
     if (run.fx && run.fx.announce) run.fx.announce('ビリッコ の コア！ ボスに きく らしい', '#ffe14d');
   }
@@ -318,7 +336,7 @@ export function createCapture(run) {
   }
 
   function update(dt) {
-    ensureBoltMobit();
+    ensureBoltMobit(dt);
     updateCores(dt);
     updateAltar(dt);
     if (msg && msg.visible) {

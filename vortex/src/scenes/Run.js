@@ -105,6 +105,12 @@ export class RunScene extends Phaser.Scene {
     this._baseRadius = P.radius;
     this._sizeApplied = 1;     // 見た目スケールを毎フレーム書き戻すとtweenを潰すので、変化時だけ当てる
     this._buffMove = 1;        // ミニドリンクの移動倍率
+    // ★R45 モビットが配る2つの一時効果（マモリンの命の盾／ドリンゴの爆速ドリンク）。
+    //   どうくつのバフ（this.buffs）とは別枠にしてある：あちらはアイテムで買う超能力、
+    //   こちらは**仲間が勝手にくれる**もので、出所も継続時間の管理者も違う。
+    this._shieldT = 0;         // 命の盾ののこり秒（>0 のあいだ被弾を完全に無効化する）
+    this._speedT = 0;          // 爆速ドリンクののこり秒
+    this._speedMul = 1;        // そのときの移動倍率
     this.playerGlow = this.add.image(0, 0, 'glow').setBlendMode(ADD)
       .setDepth(8).setTint(0x4f8cff).setScale(2.2).setAlpha(0.55);   // R16: コバルトのオーラ（ブレイブギア配色）
     // R12b: 表示倍率2だと 12×14ドット＝24×28px で、なかま(16×16×2.5＝40×40px)より小さかった。
@@ -522,7 +528,87 @@ export class RunScene extends Phaser.Scene {
   }
 
   // ============ プレイヤー ============
+  // ============ R45 モビットがくれる一時効果（命の盾／爆速ドリンク）============
+  // ⚠️ 効果そのものと見た目は**主人公に付く**ので Run が持つ。orbit 側は「いつ配るか」だけを決める。
+  //    （HEAL が回復量を自分で足しているのと違い、こちらは無敵と移動倍率という
+  //      updatePlayer / hitPlayer の内側の値なので、あちらから触ると二重管理になる）
+
+  // 命の盾：durSec のあいだ被弾を完全に無効化する。
+  grantShield(sec, src) {
+    this._shieldT = Math.max(this._shieldT || 0, sec);
+    if (!this._shieldRings) {
+      // 二重の輪を逆回転させる＝「壁が回っている」＝止まっていない防御に見える
+      this._shieldRings = [
+        this.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(9).setTint(0x5ad0ff),
+        this.add.image(0, 0, 'w_ring').setBlendMode(ADD).setDepth(9).setTint(0xffffff),
+      ];
+    }
+    for (const r of this._shieldRings) r.setVisible(true);
+    Sound.sfx('lifeShield');
+    this.spawnParticles(this.player.x, this.player.y, 0x5ad0ff, 20);
+    this.floatText(this.player.x, this.player.y - 44, 'いのちの たて！', '#5ad0ff');
+    if (src && src.x != null) {
+      // 誰がくれたのかを線で見せる（HEAL の光の帯と同じ思想＝出所が分からない効果は入れない）
+      const beam = this.add.image(src.x, src.y, 'white').setOrigin(0, 0.5)
+        .setBlendMode(ADD).setDepth(9).setTint(0x5ad0ff);
+      const ang = Math.atan2(this.player.y - src.y, this.player.x - src.x);
+      const d = Math.hypot(this.player.x - src.x, this.player.y - src.y);
+      beam.setRotation(ang).setDisplaySize(d, 6).setAlpha(0.9);
+      this.tweens.add({ targets: beam, alpha: 0, displayHeight: 1, duration: 320,
+                        onComplete: () => beam.destroy() });
+    }
+  }
+
+  // 爆速ドリンク：durSec のあいだ移動だけが mul 倍になる（攻撃力は1も増えない）。
+  grantSpeed(mul, sec, src) {
+    this._speedMul = mul;
+    this._speedT = Math.max(this._speedT || 0, sec);
+    Sound.sfx('speedDrink');
+    this.spawnParticles(this.player.x, this.player.y, 0xff8a1f, 18);
+    this.floatText(this.player.x, this.player.y - 44,
+      'ばくそく ドリンク！ はやさ×' + mul, '#ff8a1f');
+  }
+
+  // 残り秒の管理と見た目。updatePlayer の先頭から毎フレーム呼ぶ。
+  updateAllyBuffs(dt) {
+    const p = this.player;
+    if (this._shieldFxT > 0) this._shieldFxT -= dt;
+    if (this._shieldT > 0) {
+      this._shieldT -= dt;
+      const rings = this._shieldRings;
+      if (rings) {
+        // 残り1秒で点滅＝「もうすぐ切れる」が読める（切れた瞬間に驚かせない）
+        const ending = this._shieldT <= 1;
+        const on = !ending || Math.floor(this._shieldT * 10) % 2 === 0;
+        const puls = 1 + Math.sin(this.elapsed * 9) * 0.06;
+        rings[0].setPosition(p.x, p.y).setScale(2.5 * puls)
+          .setRotation(this.elapsed * 1.6).setAlpha(on ? 0.85 : 0.2).setVisible(true);
+        rings[1].setPosition(p.x, p.y).setScale(2.0 * puls)
+          .setRotation(-this.elapsed * 2.3).setAlpha(on ? 0.45 : 0.1).setVisible(true);
+      }
+      if (this._shieldT <= 0) {
+        this._shieldT = 0;
+        if (rings) for (const r of rings) r.setVisible(false);
+        Sound.sfx('buffEnd');
+      }
+    }
+    if (this._speedT > 0) {
+      this._speedT -= dt;
+      // 速さは**足跡**で見せる。数字やアイコンではなく、走った跡が残るほうが体で分かる。
+      this._speedFxT = (this._speedFxT || 0) - dt;
+      if (this._speedFxT <= 0 && (p.vx || p.vy)) {
+        this._speedFxT = 0.045;
+        const t = this.add.image(p.x, p.y, 'glow').setBlendMode(ADD).setDepth(7)
+          .setTint(0xff8a1f).setScale(1.5).setAlpha(0.5);
+        this.tweens.add({ targets: t, alpha: 0, scale: 0.6, duration: 260,
+                          onComplete: () => t.destroy() });
+      }
+      if (this._speedT <= 0) { this._speedT = 0; this._speedMul = 1; Sound.sfx('buffEnd'); }
+    }
+  }
+
   updatePlayer(dt) {
+    this.updateAllyBuffs(dt);   // R45 命の盾／爆速ドリンクの残り秒と見た目
     // FB#5: レベル到達で主人公が変身（スターテイマー→ボルテックスマスター）
     const stage = this.level >= 10 ? 3 : this.level >= 5 ? 2 : 1;
     if (stage !== this.playerStage) this.transformPlayer(stage);
@@ -538,7 +624,8 @@ export class RunScene extends Phaser.Scene {
       const inv = 1 / Math.hypot(dx, dy);
       // R21W2: 硬直中は鈍る／R22: 溜め中も鈍る（_moveMul。②被弾の緊張感のアンカー）
       const sp = P.speed * this.stats.moveMult
-        * (this._strikeRecover > 0 ? 0.6 : 1) * (this._moveMul || 1) * (this._buffMove || 1);
+        * (this._strikeRecover > 0 ? 0.6 : 1) * (this._moveMul || 1) * (this._buffMove || 1)
+        * (this._speedT > 0 ? this._speedMul : 1);   // R45 爆速ドリンク（足だけが速くなる）
       this.player.x += dx * inv * sp * dt;
       this.player.y += dy * inv * sp * dt;
       // R21W3: 偏差射撃の予測に使う。ノックバックと踏み込みは自分の意思でない動きなので含めない。
@@ -644,6 +731,24 @@ export class RunScene extends Phaser.Scene {
   // 引数なしの旧呼び出しもそのまま動く（方向演出とノックバックが省かれるだけ）。
   hitPlayer(dmg, srcX, srcY) {
     if (this.player.invuln > 0 || this._strikeIfr > 0) return;   // R21W2: 踏み込み中は無敵
+    // ★R45 命の盾（マモリン）。ボス戦に1回だけ、HPが落ちた瞬間に張られる光の壁。
+    //   ⚠️ 無音・無表示で0にすると「当たったのに減らない＝バグ」に見える（[[1つの命中に判定を2つ]]
+    //      で踏んだのと同じ形）。**弾いた**ことを音・光・文字で必ず返す。
+    if (this._shieldT > 0) {
+      this.shieldBlocks = (this.shieldBlocks || 0) + 1;
+      // ⚠️ 実測：盾の6秒間で**1396回**弾いていた。接触ダメージは毎フレーム来るので、
+      //    普段は被弾後の無敵（invulnSec）が間引いている。盾はその無敵を立てないため、
+      //    演出をそのまま出すと音が毎フレーム重なり、文字で画面が埋まる。
+      //    ★弾いた事実は全部数えたうえで、**見せ方だけ**を間引く。
+      if ((this._shieldFxT || 0) <= 0) {
+        this._shieldFxT = 0.18;
+        Sound.sfx('shieldBlock');
+        this.spawnParticles(this.player.x, this.player.y, 0x5ad0ff, 10);
+        this.floatText(this.player.x, this.player.y - 34, 'いのちのたて！', '#5ad0ff');
+        this.shake(140, 4);
+      }
+      return;
+    }
     // R23 やしろ：防御力。被ダメージを割合で減らす（上限は shrine.defenseCap なので0にはならない）
     const cut = Math.min(BALANCE.shrine.defenseCap, this.stats.defenseCut || 0);
     if (cut > 0) dmg = Math.max(1, Math.round(dmg * (1 - cut)));

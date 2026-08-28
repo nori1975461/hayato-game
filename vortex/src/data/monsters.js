@@ -514,6 +514,207 @@ export const MONSTERS = [
       },
     },
   },
+  {
+    // ★R45 実プレイFB「①主人公を守る防御壁（名称：命の盾・ボス戦ごとに1回のみ）を
+    //   特殊能力でもつ」モビット。
+    // 3体目の非戦闘モビット。敵に触れず、主人公のHPが落ちた瞬間だけ光の壁を張る。
+    // ⚠️ 体色を水色＋白銀にしたのは、既存の非戦闘2体（マシュモ＝ミント／ビリッコ＝濃紺）
+    //    どちらとも色相で離すため。公転している輪の中で「誰が何の役か」を色で読ませる。
+    // 姿：白銀のかぶとをかぶり、自分の背丈より大きい光の盾を正面に構えた小さな衛兵。
+    id: 'mamorin',
+    name: 'マモリン',
+    rarity: 'R',
+    archetype: 'SHIELD',
+    color: '#5ad0ff',
+    baseDamage: 2,   // SHIELD は敵にダメージを与えないので未使用。データ検証のために持たせている
+    forms: [
+      { name: 'いのちのたて かまえ', kind: 'melee',  archetype: 'SHIELD', tex: 'w_ring',  sfx: 'lifeShield' },
+      { name: 'まもりのひかり',     kind: 'ranged', archetype: 'SHIELD', tex: 'w_drop',  sfx: 'lifeShield' },
+    ],
+    sprite: {
+      palette: { w: '#eef3ff', g: '#ffd23f', c: '#5ad0ff', k: '#1a2340' },
+      rows: [
+        '................',
+        '.....gg..gg.....',
+        '....wwwwwwww....',
+        '...wwwwwwwwww...',
+        '...wwkwwwwkww...',
+        '...wwwwwwwwww...',
+        '..gggggggggggg..',
+        '.gccccccccccccg.',
+        '.gccwwwwwwwwccg.',
+        '.gccwccccccwccg.',
+        '.gccwccccccwccg.',
+        '.gccwwwwwwwwccg.',
+        '..gcccccccccg...',
+        '...gccccccg.....',
+        '....gccccg......',
+        '.....gggg.......',
+      ],
+    },
+    // 進化＝盾が体を追い越して伸び、金の縁が上下へ広がる（守る面積そのものが増えた姿）。
+    evo: {
+      id: 'saintwall',
+      name: 'セイントウォール',
+      baseDamage: 3,
+      sprite: {
+        palette: { w: '#eef3ff', g: '#ffd23f', c: '#5ad0ff', k: '#1a2340' },
+        rows: [
+          '...g........g...',
+          '...gg.wwww.gg...',
+          '....wwwwwwww....',
+          '...wwwwwwwwww...',
+          '...wwkwwwwkww...',
+          '...wwwwwwwwww...',
+          '.gggggggggggggg.',
+          'gccccccccccccccg',
+          'gccwwwwwwwwwwccg',
+          'gccwccccccccwccg',
+          'gccwccccccccwccg',
+          'gccwwwwwwwwwwccg',
+          'gcccccccccccccg.',
+          '.gcccccccccccg..',
+          '..gcccccccccg...',
+          '...gggggggg.....',
+        ],
+      },
+    },
+  },
+  {
+    // ★R45 実プレイFB「②一時的に移動速度を1.5倍に上げる薬（爆速ドリンク・ボス戦ごとに
+    //   1回のみ）を注入するモビット」。
+    // 4体目の非戦闘モビット。⚠️ 上げるのは**足だけ**＝火力は1も増えない。
+    //    「避けきれなかった攻撃が避けられる」＝②被弾の緊張感の側を動かす薬になる。
+    // 姿：炭酸の瓶そのものが目と足を持った子。王冠のキャップ＋黄色のラベル。
+    id: 'doringo',
+    name: 'ドリンゴ',
+    rarity: 'R',
+    archetype: 'SPEED',
+    color: '#ff8a1f',
+    baseDamage: 2,   // SPEED は敵にダメージを与えないので未使用
+    forms: [
+      { name: 'ばくそくドリンク', kind: 'melee',  archetype: 'SPEED', tex: 'w_drop', sfx: 'pickup' },
+      { name: 'しゅわしゅわミスト', kind: 'ranged', archetype: 'SPEED', tex: 'w_bubble', sfx: 'pickup' },
+    ],
+    sprite: {
+      palette: { o: '#ff8a1f', d: '#c4400f', k: '#2a1408', w: '#ffffff', y: '#ffe14d' },
+      rows: [
+        '......kkkk......',
+        '......kwwk......',
+        '.......oo.......',
+        '......oooo......',
+        '....oooooooo....',
+        '...oooooooooo...',
+        '...ookooookoo...',
+        '...oowoooowoo...',
+        '...oooooooooo...',
+        '...ooyyyyyyoo...',
+        '...ooyddddyoo...',
+        '...ooyyyyyyoo...',
+        '...oooooooooo...',
+        '...oooooooooo...',
+        '....dddddddd....',
+        '.....d....d.....',
+      ],
+    },
+    // 進化＝瓶が一回り大きくなり、キャップから泡が吹き出したまま止まらない姿。
+    evo: {
+      id: 'hyperdoringo',
+      name: 'ハイパードリンゴ',
+      baseDamage: 3,
+      sprite: {
+        palette: { o: '#ff8a1f', d: '#c4400f', k: '#2a1408', w: '#ffffff', y: '#ffe14d' },
+        rows: [
+          '...y..kkkk..y...',
+          '....y.kwwk.y....',
+          '.......oo.......',
+          '.....oooooo.....',
+          '...oooooooooo...',
+          '..oooooooooooo..',
+          '..ookooooookoo..',
+          '..oowoooooowoo..',
+          '..oooooooooooo..',
+          '..ooyyyyyyyyoo..',
+          '..ooyddddddyoo..',
+          '..ooyyyyyyyyoo..',
+          '..oooooooooooo..',
+          '..oooooooooooo..',
+          '...dddddddddd...',
+          '....d......d....',
+        ],
+      },
+    },
+  },
+  {
+    // ★R45 実プレイFB「③ずっとなにもせずに欠伸ばかりして役に立たないが、軌道神核との戦闘に
+    //   入ると覚醒し、命の盾・爆速ドリンク・体力回復をランダムに行う。このモビットの時だけ、
+    //   ボス戦での使用上限なし。軌道神核との闘い以外では明らかに役に立ってないことを
+    //   プレーヤーがわかるようにして」。
+    //
+    // ⚠️ レアリティを **N（いちばん出やすい）** にしたのは意図。SR にすると一生仲間にならず、
+    //    「役立たずが最後に覚醒する」という体験そのものが発生しない（[[入れていないのと同じ]]）。
+    //    よく来る → また寝ている → ラスボスで起きる、という順番でこそ効く。
+    // 姿：目を閉じたまま（横線の目）あくびをしている、灰紫のかぶりものにクリーム色の丸い体。
+    id: 'nemukko',
+    name: 'ネムッコ',
+    rarity: 'N',
+    archetype: 'SLEEPY',
+    color: '#b0a8d8',
+    baseDamage: 2,   // SLEEPY は敵にダメージを与えないので未使用
+    forms: [
+      { name: 'すやすや',     kind: 'melee',  archetype: 'SLEEPY', tex: 'w_bubble', sfx: 'pickup' },
+      { name: 'ゆめみごこち', kind: 'ranged', archetype: 'SLEEPY', tex: 'w_star2',  sfx: 'pickup' },
+    ],
+    sprite: {
+      palette: { p: '#b0a8d8', c: '#f2e8c8', k: '#4a4470', m: '#6b3a5a', d: '#8b84b0' },
+      rows: [
+        '................',
+        '.....pppppp.....',
+        '....pppppppp....',
+        '...pppppppppp...',
+        '...pkkppppkkp...',
+        '...pppppppppp...',
+        '....ppmmmmpp....',
+        '....pppppppp....',
+        '...cccccccccc...',
+        '..cccccccccccc..',
+        '..cccccccccccc..',
+        '..cccccccccccc..',
+        '...cccccccccc...',
+        '....cccccccc....',
+        '.....dddddd.....',
+        '................',
+      ],
+    },
+    // 覚醒した姿。⚠️ これは進化（レベル）でも使うが、**軌道神核戦では進化していなくても
+    //    この姿へ切り替える**（orbit.js の覚醒処理）。目が開き、閉じた横線が金の光になる。
+    evo: {
+      id: 'mezamegami',
+      name: 'メザメガミ',
+      baseDamage: 3,
+      sprite: {
+        palette: { p: '#b0a8d8', c: '#f2e8c8', w: '#ffffff', y: '#ffe14d' },
+        rows: [
+          '.......y........',
+          '...y...y...y....',
+          '....pppppppp....',
+          '...pppppppppp...',
+          '...pwyppppywp...',
+          '...pppppppppp...',
+          '....ppyyyypp....',
+          '....pppppppp....',
+          '...wcccccccccw..',
+          '..wcccccccccccw.',
+          '..wcccccccccccw.',
+          '..wcccccccccccw.',
+          '...wccccccccw...',
+          '....wcccccw.....',
+          '.....yyyyyy.....',
+          '......y..y......',
+        ],
+      },
+    },
+  },
 ];
 
 // プレイヤー3段階。Lv5で player_2・Lv10で player_3 へテクスチャ差し替え。

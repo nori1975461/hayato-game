@@ -106,8 +106,9 @@ function assert(cond, msg) {
   assert(ids.length === 3 && unique, 'balance: rainbowUpgrades 3種の id が一意');
 }
 
-// --- MONSTERS が8種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ／R23: 弾薬役ビリッコ追加） ---
-assert(MONSTERS.length === 8, 'data: MONSTERS が8種');
+// --- MONSTERS が11種・ENEMIES が5種（Wave R1: ヴォイド・マキナ5種／R22: 回復役マシュモ／
+//     R23: 弾薬役ビリッコ／R45: マモリン・ドリンゴ・ネムッコを追加） ---
+assert(MONSTERS.length === 11, 'data: MONSTERS が11種');
 assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマンを追加）');
 
 // --- Wave R1: 新雑魚5種（gareon/chibit/bomba/snipa/turret）が存在 ---
@@ -139,7 +140,8 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
 
 // --- Wave R4: 武器フォームチェンジ。全なかまに forms が2つ・form0=melee/form1=ranged ---
 {
-  const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL', 'AMMO'];
+  const ARCHE = ['SLASH', 'SHOT', 'BEAM', 'FIELD', 'BOOMERANG', 'RINGWAVE', 'HEAL', 'AMMO',
+                 'SHIELD', 'SPEED', 'SLEEPY'];   // R45: 命の盾／爆速ドリンク／ネムッコ
   const allTwo = MONSTERS.every((m) => Array.isArray(m.forms) && m.forms.length === 2);
   assert(allTwo, 'data: 全なかまに forms が2つ定義されている');
   const meleeFirst = MONSTERS.every((m) => m.forms && m.forms[0] && m.forms[0].kind === 'melee');
@@ -298,7 +300,9 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
   // 1発の重さを見るこの判定からは除く（DPSは tickDamageAdd 側で伸びる）。
   // R22: HEAL型（マシュモ）は敵に一切ダメージを与えない回復専門なので、この判定から除く。
   //      除かずに baseDamage を見ると「最弱の攻撃役」に化けて、安全網の数値を偽って壊す。
-  const NON_HITTER = ['FIELD', 'HEAL', 'AMMO'];
+  // R45: SHIELD/SPEED/SLEEPY も敵に一切ダメージを与えない（命の盾・爆速ドリンク・ネムッコ）。
+  //      除かずに baseDamage を見ると「最弱の攻撃役」に化けて、安全網の数値を偽って壊す。
+  const NON_HITTER = ['FIELD', 'HEAL', 'AMMO', 'SHIELD', 'SPEED', 'SLEEPY'];
   const hitters = Object.values(MONSTERS).filter((m) => !NON_HITTER.includes(m.forms[0].archetype));
   const weakestBase = Math.min(...hitters.map((m) => m.baseDamage));
   const grown = weakestBase * (1 + BALANCE.weapon.damageAddPerLevel * (BALANCE.weapon.maxLevel - 1));
@@ -325,7 +329,7 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
     if (m.evo && m.evo.id) ids.push(m.evo.id);
   }
   const unique = new Set(ids).size === ids.length;
-  assert(ids.length === 16 && unique, 'data: MONSTERS 8種＋evo id を合わせて全 id が一意（16件）');
+  assert(ids.length === 22 && unique, 'data: MONSTERS 11種＋evo id を合わせて全 id が一意（22件）');
 }
 
 // --- 開始編成 starpuppy / pikabit の id が存在 ---
@@ -3306,6 +3310,111 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 }
 
 // --- 結果 ---
+// ============================================================================
+// R45 新モビット3体（マモリン＝命の盾／ドリンゴ＝爆速ドリンク／ネムッコ）
+//  ＋ 雷光弾の出処（ビリッコ）を取り逃しても配り直す
+// ============================================================================
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+  const runjs = fs.readFileSync(path.join(SRC, 'scenes/Run.js'), 'utf8');
+  const cap = fs.readFileSync(path.join(SRC, 'systems/capture.js'), 'utf8');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+  const A = BALANCE.archetypes;
+
+  // --- ① データ：3体が実在し、非戦闘で、ネムッコは「よく出る」---
+  const mamorin = MONSTERS.find((m) => m.id === 'mamorin');
+  const doringo = MONSTERS.find((m) => m.id === 'doringo');
+  const nemukko = MONSTERS.find((m) => m.id === 'nemukko');
+  assert(mamorin && doringo && nemukko, 'R45: マモリン・ドリンゴ・ネムッコが MONSTERS に実在する');
+  assert(mamorin.archetype === 'SHIELD' && doringo.archetype === 'SPEED'
+      && nemukko.archetype === 'SLEEPY', 'R45: 3体のアーキタイプが専用のもの');
+  for (const m of [mamorin, doringo, nemukko]) {
+    assert(m.forms.every((f) => f.archetype === m.archetype),
+      `R45: ${m.name} は両フォームとも非戦闘（近接帯だけ攻撃役に化ける、を防ぐ）`);
+    assert(!!m.evo && !!m.evo.sprite, `R45: ${m.name} に進化形のスプライトがある`);
+  }
+  // ★ネムッコが SR だと一生仲間にならず、「役立たずが最後に覚醒する」体験そのものが
+  //   発生しない（[[入れていないのと同じ]]）。よく来ることがこの子の設計の前提。
+  assert(nemukko.rarity === 'N',
+    'R45: ネムッコは N（いちばん出やすい）＝また寝ている→ラスボスで起きる、の順番が要る');
+
+  // --- ② 命の盾：引き金は「一度も出ない」と「常時出る」の間にある ---
+  assert(A.SHIELD.hpTrigger > 0.4 && A.SHIELD.hpTrigger < 0.9,
+    `R45: 盾の引き金 HP${Math.round(A.SHIELD.hpTrigger * 100)}%＝厳しすぎて不発でも、緩すぎて即発動でもない`);
+  assert(A.SHIELD.perBoss === 1 && A.SHIELD.perFinal === 1,
+    'R45: 命の盾はボス戦ごとに1回のみ（FBの指定どおり）');
+  assert(A.SHIELD.durSec >= 3 && A.SHIELD.durSec <= 8,
+    `R45: 盾は ${A.SHIELD.durSec}秒＝「ここぞ」で効き、無敵が戦闘を潰さない長さ`);
+  assert(/if \(this\._shieldT > 0\) \{/.test(runjs) && /hitPlayer\(dmg, srcX, srcY\) \{/.test(runjs),
+    'R45: hitPlayer が盾でダメージを無効化する');
+  // ★実測：盾の6秒で 2163回 弾いていた（接触ダメージは毎フレーム来る）。演出をそのまま
+  //   出すと音が毎フレーム重なり文字で画面が埋まる。**数は全部数え、見せ方だけ間引く**。
+  assert(/this\.shieldBlocks = \(this\.shieldBlocks \|\| 0\) \+ 1;/.test(runjs),
+    'R45: 弾いた回数は間引かずに全部数える（実測の土台）');
+  assert(/if \(\(this\._shieldFxT \|\| 0\) <= 0\) \{/.test(runjs),
+    'R45: 弾いた演出は間引く（毎フレーム鳴らすと爆音になる）');
+  assert(/^  shieldBlock\(/m.test(snd) && /^  lifeShield\(/m.test(snd),
+    'R45: 盾の音（張る／弾く）が実在する＝無音で0にすると「バグに見える」');
+
+  // --- ③ 爆速ドリンク：FB指定の1.5倍が式に残っている ---
+  assert(A.SPEED.moveMul === 1.5, `R45: 移動1.5倍（FBの指定そのもの）: ${A.SPEED.moveMul}`);
+  assert(A.SPEED.perBoss === 1 && A.SPEED.perFinal === 1,
+    'R45: 爆速ドリンクもボス戦ごとに1回のみ');
+  assert(/\* \(this\._speedT > 0 \? this\._speedMul : 1\)/.test(runjs),
+    'R45: 移動速度の式に実際に掛かっている（値だけ持って効かない、を防ぐ）');
+  // ★上げるのは足だけ。攻撃側の式に混ざっていたら火力過多になる
+  assert(!/_speedMul/.test(runjs.split('dealDamage')[1] || ''),
+    'R45: 爆速ドリンクは攻撃力に一切かからない（足だけが速くなる）');
+
+  // --- ④ ネムッコ：軌道神核でだけ覚醒し、上限がない ---
+  assert(/function isTrueMaou\(\)/.test(orbit) && /bs\.trueForm/.test(orbit),
+    'R45: 覚醒条件は**軌道神核（真の姿）**であって、マオウレクス戦全体ではない');
+  assert(/case 'SLEEPY':\s*updateSleepy/.test(orbit),
+    'R45: SLEEPY が update の分岐に繋がっている');
+  assert(A.SLEEPY.everySec > 0, 'R45: 覚醒後も**間隔**はある（無限バリアは②被弾の緊張感を消す）');
+  assert(!('perBoss' in A.SLEEPY) && !('perFinal' in A.SLEEPY),
+    'R45: ネムッコにだけ使用上限が無い（FBの指定どおり）');
+  assert(Array.isArray(A.SLEEPY.kinds) && A.SLEEPY.kinds.length === 3
+      && ['shield', 'speed', 'heal'].every((k) => A.SLEEPY.kinds.includes(k)),
+    'R45: 配るのは 命の盾／爆速ドリンク／体力回復 の3つ');
+  // ★実測で踏んだ：rebuild が走ると覚醒テクスチャが寝顔へ戻り、起きているのに寝顔で戦っていた。
+  assert(/if \(key && o\.spr\.texture\.key !== key && run\.textures\.exists\(key\)\) o\.spr\.setTexture\(key\)/.test(orbit),
+    'R45: 覚醒した姿を毎フレーム守る（rebuild で寝顔へ戻る回帰を殺す）');
+
+  // --- ⑤ 「役に立っていない」を絵で言い切る（何もしない＝何も描かない、にしない）---
+  assert(/function updateSleepPose/.test(orbit),
+    'R45: 寝姿の実装がある（FB「役に立ってないことをプレーヤーがわかるように」）');
+  assert(/setRotation\(Math\.PI \* 0\.5 \* tip\)/.test(orbit),
+    'R45: **横になる**（90度倒れる）');
+  assert(/o\.slBase \* \(1\.06 \+ br\), o\.slBase \* \(0\.78 - br\)/.test(orbit),
+    'R45: **体育座り**（縦に潰れて沈む＋呼吸）');
+  // ★💤 は絵文字テキストにしない。フォント依存でヘッドレスでは豆腐になり（実測）、
+  //   表示を検証できない＝子どものPCで同じことが起きても気づけない。
+  assert(/run\.textures\.exists\('deco_zzz'\)/.test(orbit),
+    'R45: 💤 はドット絵（deco_zzz）で内製する');
+  assert(!/add\.text\([^)]*'💤'/.test(orbit),
+    'R45: 💤 を絵文字テキストで描いていない（フォントが無い環境で豆腐になる）');
+  assert(/o\.zzz = run\.add\.image\(o\.x, o\.y - 20, 'deco_zzz'\)/.test(orbit)
+      && /if \(o\.zzz\) o\.zzz\.destroy\(\)/.test(orbit),
+    'R45: 💤 は生成も破棄もされる（パーティが変わったあとも残らない）');
+
+  // --- ⑥ 雷光弾の出処（ビリッコ）を取り逃しても配り直す ---
+  // ★FB「ここ数日のプレイで、雷光弾や炎熱炸裂弾を渡されていない。実装から消されてないか？」
+  //   → 実装は消えていない。真因は**1度きりで閉じていた**こと（拾えたかを見ずにフラグを立てる）。
+  assert(!!MONSTERS.find((m) => m.id === 'biricco'),
+    'R45: 雷光弾の出処ビリッコは実装から消えていない');
+  assert(!!ENEMIES.find((e) => e.id === 'magman') && BALANCE.rareEnemy.enemyId === 'magman',
+    'R45: 炎熱炸裂弾の出処マグマンも消えていない（こちらはモビットではなくレア雑魚）');
+  assert(/boltCoreGiven = false; boltCore = null;/.test(cap),
+    'R45: 取り逃した（コアが消えた）ら配り直す');
+  assert(/if \(boltRetryT > 0\) \{ boltRetryT -= dt \|\| 0; return; \}/.test(cap),
+    'R45: 置き直しには待ちがある（足元へ即再出現すると「拾えなかった」結果が消える）');
+  assert(BALANCE.capture.ammoRetrySec > 0,
+    `R45: 置き直しの待ち ${BALANCE.capture.ammoRetrySec}秒`);
+  assert(/return core;/.test(cap), 'R45: makeCore が置いたコアを返す（拾われたか追える）');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

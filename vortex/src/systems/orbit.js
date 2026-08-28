@@ -65,6 +65,7 @@ export function createOrbit(run) {
       const o = orbs.pop();
       o.glow.destroy();
       o.spr.destroy();
+      if (o.zzz) o.zzz.destroy();       // R45 ネムッコの💤
       if (o.aura) o.aura.destroy();
       if (o.weaponSpr) o.weaponSpr.destroy();
       disposeDeco(o);
@@ -139,6 +140,9 @@ export function createOrbit(run) {
       o.ammoRefill   = (ovr.refillSec     ?? A.AMMO.refillSec);
       o.ammoPerBoss  = (ovr.perBoss       ?? A.AMMO.perBoss);
       o.ammoPerFinal = (ovr.perFinal      ?? A.AMMO.perFinal);
+      // ★R45 SHIELD/SPEED/SLEEPY は**武器レベルでも合体でも一切伸びない**。
+      //   AMMO と同じ理由＝この子たちの価値は「量」ではなく「ボス戦に必ず1回ある」こと。
+      //   伸ばすと終盤ボスが一方的になる（無敵時間が積み上がって②被弾の緊張感が消える）。
 
       // 武器レベル成長（必ず最後に適用）。FB#2: 実効レベル el 基準（合成なかまは強く伸びる）。
       const wl = el - 1;
@@ -173,6 +177,13 @@ export function createOrbit(run) {
       const lvGrow = wl / (W.maxLevel - 1);     // 0..1。レベルが上がるほど僅かに大きく光る
       o.spr.setTexture('mon_' + o.textureId)
         .setScale((big ? F.spriteScale : 2.5) * (1 + lvGrow * 0.12)).clearTint();
+      // ★R45 ネムッコの寝姿はスケールと回転を毎フレーム触るので、基準をここで控える
+      //   （rebuild でしか決まらない値なので、寝姿が上書きしたまま戻せなくなるのを防ぐ）。
+      o.slBase = o.spr.scaleX;
+      if (o.archetype !== 'SLEEPY') {
+        if (o.zzz) { o.zzz.destroy(); o.zzz = null; }
+        o.spr.setRotation(0);
+      }
       // グローの基準スケール。脈動は updateDeco が glowBase×glowMul×鼓動 で毎フレーム上書きする
       o.glowBase = (fused ? F.glowScale : (big ? 1.9 : 1.5)) * (1 + lvGrow * 0.35);
       o.glow.setTint(o.color).setScale(o.glowBase);
@@ -265,6 +276,9 @@ export function createOrbit(run) {
         case 'RINGWAVE':  updateRingwave(o, dt); break;
         case 'HEAL':      updateHeal(o, dt); break;
         case 'AMMO':      updateAmmo(o, dt); break;
+        case 'SHIELD':    updateShield(o, dt); break;
+        case 'SPEED':     updateSpeed(o, dt); break;
+        case 'SLEEPY':    updateSleepy(o, dt); break;
       }
     }
   }
@@ -300,6 +314,155 @@ export function createOrbit(run) {
     o.ammoT = o.ammoRefill;
     const kind = (o.ammoQueue && o.ammoQueue.length) ? o.ammoQueue.shift() : 'bolt';
     bl.giveAmmo(o, kind);
+  }
+
+  // ============ R45 新モビット3体（命の盾／爆速ドリンク／ネムッコ）============
+  // 3つとも敵に触れない＝run.dealDamage を一度も呼ばない。決めるのは「いつ配るか」だけで、
+  // 効果そのもの（無敵・移動倍率）と見た目は Run.js が持つ（主人公に付くものなので）。
+
+  // 現在のボスが軌道神核（真マオウレクス第4形態）か。ネムッコの覚醒条件。
+  function isTrueMaou() {
+    const bs = run.boss;
+    return !!(bs && bs.active && bs.trueForm);
+  }
+
+  // ボスが変わったら在庫を作り直す共通処理（AMMO と同じ作法＝持ち越しを作らない）。
+  // 戻り値：ボス戦中でなければ false。
+  function bossStock(o, key, perBoss, perFinal) {
+    const bs = run.boss;
+    if (!bs || !bs.active) { o[key + 'BossId'] = null; return false; }
+    const ent = bs.entity;
+    if (!ent) return false;
+    if (o[key + 'BossId'] !== ent.id) {
+      o[key + 'BossId'] = ent.id;
+      o[key + 'Stock'] = (ent.def && ent.def.id === 'maou') ? perFinal : perBoss;
+      o[key + 'T'] = 0;
+    }
+    return true;
+  }
+
+  // ★①命の盾（マモリン）。FB「主人公を守る防御壁（名称：命の盾・ボス戦ごとに1回のみ）」。
+  // ⚠️ 引き金は**HPが落ちた瞬間**。ボス戦の開始と同時に張ると、いちばん安全な時間帯を
+  //    無敵で潰して終わる＝盾が1回も仕事をしない（守った実感が生まれない）。
+  function updateShield(o, dt) {
+    const S = BALANCE.archetypes.SHIELD;
+    if (!bossStock(o, 'sh', S.perBoss, S.perFinal)) return;
+    if (o.shStock <= 0) return;
+    const p = run.player;
+    if (!p || run.ended || run.cinematic) return;
+    if (p.hp > p.maxHp * S.hpTrigger) return;
+    o.shStock--;
+    run.grantShield(S.durSec, o);
+  }
+
+  // ★②爆速ドリンク（ドリンゴ）。FB「一時的に移動速度を1.5倍に上げる薬（ボス戦ごとに1回のみ）」。
+  // 注入はボス戦の開始から delaySec 後。登場カットシーンと名乗りが終わって、
+  // 実際に攻撃が始まる頃に効き始める＝薬が「効いている」時間が戦闘に重なる。
+  function updateSpeed(o, dt) {
+    const S = BALANCE.archetypes.SPEED;
+    if (!bossStock(o, 'sp', S.perBoss, S.perFinal)) return;
+    if (o.spStock <= 0) return;
+    if (run.cinematic) return;
+    o.spT = (o.spT || 0) + dt;
+    if (o.spT < S.delaySec) return;
+    o.spStock--;
+    run.grantSpeed(S.moveMul, S.durSec, o);
+  }
+
+  // ★③ネムッコ。FB「ずっとなにもせずに欠伸ばかりして役に立たないが、軌道神核との戦闘に
+  //   入ると覚醒し、命の盾・爆速ドリンク・体力回復をランダムに行う。このモビットの時だけ、
+  //   ボス戦での使用上限なし。軌道神核との闘い以外では明らかに役に立ってないことを
+  //   プレーヤーがわかるように」。
+  //
+  // ⚠️ 「何もしない」を**何も描かない**で実装すると、プレイヤーには「壊れている」としか
+  //    読めない。役立たずは**演出として積極的に見せる**必要がある（💤・体育座り・横になる）。
+  function updateSleepy(o, dt) {
+    const S = BALANCE.archetypes.SLEEPY;
+    const awake = isTrueMaou();
+    if (awake !== !!o.slAwake) { o.slAwake = awake; applySleepyLook(o, awake); }
+    if (!awake) { updateSleepPose(o, dt, S); return; }
+    // ★覚醒した姿を**毎フレーム守る**。⚠️ 実測で踏んだ：進化やフォーム帯の切替で rebuild が
+    //   走るとテクスチャが基本形（寝顔）へ戻り、起きているのに寝顔のまま戦っていた。
+    //   applySleepyLook は「覚醒した瞬間」にしか呼ばれないので、そこだけでは守れない。
+    const evo = o.def && o.def.evo;
+    const key = evo ? 'mon_' + evo.id : null;
+    if (key && o.spr.texture.key !== key && run.textures.exists(key)) o.spr.setTexture(key);
+    // 覚醒中：上限なし。everySec ごとに3つの効果からランダムで1つ。
+    o.slT = (o.slT || 0) - dt;
+    if (o.slT > 0) return;
+    const first = o.slFired == null;
+    if (first) { o.slFired = 0; o.slT = S.firstDelaySec; return; }
+    o.slT = S.everySec;
+    o.slFired++;
+    const kind = run.rng.pick(S.kinds);
+    if (kind === 'shield') {
+      run.grantShield(BALANCE.archetypes.SHIELD.durSec, o);
+    } else if (kind === 'speed') {
+      run.grantSpeed(BALANCE.archetypes.SPEED.moveMul, BALANCE.archetypes.SPEED.durSec, o);
+    } else {
+      const p = run.player;
+      if (!p) return;
+      const before = p.hp;
+      p.hp = Math.min(p.maxHp, p.hp + S.healAmount);
+      const got = Math.round(p.hp - before);
+      run.spawnParticles(p.x, p.y, 0x7dff8f, 14);
+      run.floatText(p.x, p.y - 34, got > 0 ? '+' + got + ' HP' : 'まんたん！', '#7dff8f');
+      Sound.sfx('heal');
+    }
+  }
+
+  // 寝ている姿。★ここがこのモビットの本体＝「役に立っていない」を絵で言い切る。
+  //   ①体育座り（縦に縮んで沈む） → ②横になる（90度倒れる） を poseSec ごとに往復
+  //   ③頭の上に 💤 を浮かべ、yawnSec ごとに大きくふくらませる（あくび）
+  function updateSleepPose(o, dt, S) {
+    if (!o.spr) return;
+    const ph = Math.floor(run.elapsed / S.poseSec) % 2;   // 0=体育座り／1=横になる
+    const k = (run.elapsed / S.poseSec) % 1;
+    if (ph === 0) {
+      // 体育座り：ひざを抱えて丸くなる＝縦に潰して下へ沈める。呼吸でゆっくり上下する。
+      const br = Math.sin(run.elapsed * 1.6) * 0.03;
+      o.spr.setRotation(0).setScale(o.slBase * (1.06 + br), o.slBase * (0.78 - br));
+      o.spr.y = o.y + o.slBase * 2.4;
+    } else {
+      // 横になる：完全に倒れる。起き上がる素振りも見せない（そこが可笑しい）。
+      const tip = Math.min(1, k * 4);                     // 倒れきるまで少しだけ間を置く
+      o.spr.setRotation(Math.PI * 0.5 * tip).setScale(o.slBase, o.slBase);
+      o.spr.y = o.y + o.slBase * 3.2 * tip;
+    }
+    // 💤（FB「眠そうな目で顔のうえに寝てる時の表示である💤という表示を出して」）。
+    // ⚠️ 絵文字テキストではなくドット絵（deco_zzz）。理由は ensureDecoTextures のコメント。
+    if (!o.zzz) {
+      o.zzz = run.add.image(o.x, o.y - 20, 'deco_zzz').setDepth(13).setTint(0xcfd6ff);
+    }
+    const yp = (run.elapsed % S.yawnSec) / S.yawnSec;     // 0→1 で浮かんで消える
+    o.zzz.setPosition(o.x + 12 + yp * 8, o.y - 20 - yp * 16)
+      .setAlpha(Math.max(0, 1 - yp) * 0.95)
+      .setScale(0.9 + yp * 0.7)
+      .setVisible(true);
+  }
+
+  // 覚醒／二度寝の切り替え。★見た目が変わらないと「起きた」が伝わらないので、
+  //   テクスチャそのものを覚醒形（メザメガミ）へ差し替える＝進化とは独立した切り替え。
+  function applySleepyLook(o, awake) {
+    if (!o.spr) return;
+    if (awake) {
+      if (o.zzz) { o.zzz.destroy(); o.zzz = null; }
+      o.spr.setRotation(0).setScale(o.slBase, o.slBase);
+      o.spr.y = o.y;
+      const evo = o.def && o.def.evo;
+      if (evo && run.textures.exists('mon_' + evo.id)) o.spr.setTexture('mon_' + evo.id);
+      // 目覚めの一撃：光と音と名乗りで「こいつ、起きた」を伝える
+      run.spawnParticles(o.x, o.y, 0xffe14d, 22);
+      Sound.sfx('nemukkoWake');
+      if (run.fx && run.fx.announce) {
+        run.fx.announce((evo ? evo.name : 'ネムッコ') + ' が めをさました！', '#ffe14d');
+      }
+      if (o.glow) o.glow.setTint(0xffe14d).setAlpha(0.9);
+    } else {
+      const base = o.def && o.def.id;
+      if (base && run.textures.exists('mon_' + base)) o.spr.setTexture('mon_' + base);
+      if (o.glow && o.def) o.glow.setTint(parseInt(o.def.color.slice(1), 16)).setAlpha(0.55);
+    }
   }
 
   // R22: 回復モビット（マシュモ）。実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。
@@ -561,6 +724,27 @@ export function createOrbit(run) {
       g.fillStyle(0xffffff, 1); g.fillPoints(pts, true);
       g.generateTexture(key, s, s); g.destroy();
     };
+    // ★R45 ネムッコの「💤」。FB は絵文字で指定されたが、**絵文字はフォント依存**で
+    //   Chrome のヘッドレスでは豆腐になり（実測：灰色の四角が1つ出ただけ）、私が
+    //   表示を検証できない。子どものPCで同じことが起きても気づけない。
+    //   そこで 💤 の形（右上へ小さくなっていく Z が3つ）を**ドット絵で描く**。
+    //   ドット絵のゲームに絵文字が1つだけ混ざる違和感も同時に消える。
+    if (!run.textures.exists('deco_zzz')) {
+      const g = G(); const s = 24;
+      g.fillStyle(0xffffff, 1);
+      // 大・中・小の Z を右上へ階段状に。Z は 上バー／斜め／下バー の3本で描く
+      const zed = (x, y, w, t) => {
+        g.fillRect(x, y, w, t);                       // 上のバー
+        g.fillRect(x, y + w - t, w, t);               // 下のバー
+        for (let i = 0; i < w; i++) {                 // 斜め（1ドットずつ置いて階段に）
+          g.fillRect(x + w - t - i * ((w - t) / (w - 1)), y + i * ((w - t) / (w - 1)), t, t);
+        }
+      };
+      zed(1, 13, 10, 2);
+      zed(11, 6, 7, 2);
+      zed(17, 1, 5, 1);
+      g.generateTexture('deco_zzz', s, s); g.destroy();
+    }
     star('deco_sat', 16, 5, 7.5, 3.2);    // ぷっくり5点の衛星星
     star('deco_spark', 14, 4, 6.5, 2.0);  // 4点きらきら
     star('deco_halo', 80, 16, 39, 12);    // 16条のサンバースト後光
@@ -851,6 +1035,17 @@ export function createOrbit(run) {
     get count() { return orbs.length; },
     // 検証用（R22）：回復モビットが実際に働いているかを外から観測するため。書き換え用ではない。
     get orbs() { return orbs; },
+    // 検証用（R45）：ネムッコの寝姿・💤・覚醒を外から測る。
+    // ⚠️ 「寝ている」は絵でしか確認できないので、絵を決めている値そのものを返す
+    //    （回転・沈み・テクスチャ）＝スクショの目視と数値の両方で判定できるようにする。
+    debugSleepy() {
+      const o = orbs.find((x) => x.archetype === 'SLEEPY');
+      if (!o) return null;
+      return { zzz: !!(o.zzz && o.zzz.visible), rot: +o.spr.rotation.toFixed(3),
+               sy: +(o.spr.y - o.y).toFixed(1), sx: +o.spr.scaleX.toFixed(2),
+               scy: +o.spr.scaleY.toFixed(2), tex: o.spr.texture.key,
+               awake: !!o.slAwake, fired: o.slFired || 0 };
+    },
     get weaponLevel() { return weaponLevel; },
     // R4: HUD 用。全なかま共通 weaponLevel なので先頭 orb の現フォームを代表として返す。
     // orb がまだ無い場合でも band から kind を算出して返す（表示が空にならないように）。

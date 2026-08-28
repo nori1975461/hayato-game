@@ -1517,6 +1517,64 @@ const SFX = {
     }
     noiseHit({ dur: 0.10, gain: 0.20 * vol, hpFreq: 190, lpFreq: 900 });
   },
+  // ============ R45 新モビット3体の音 ============
+  // ★4つとも「主人公に良いことが起きた」音なので、敵の音（歪み・低い・濁った）とは
+  //   反対側に置く＝澄んだ倍音・上行・長い残響。歪みバスは一切使わない。
+  //
+  // ①命の盾が張られる：ガラスの壁が立ち上がる。低い芯が**上へ**伸び、和音が開いて残る
+  //   （被弾音 hurt が下行なので、上行にすると「守られた」と反対の意味で読める）。
+  lifeShield(vol = 1) {
+    noiseHit({ dur: 0.05, gain: 0.22 * vol, hpFreq: 2600, lpFreq: 12000 });
+    tone({ type: 'sine', freq: 220, freqEnd: 660, dur: 0.30, gain: 0.42 * vol, attack: 0.004 });
+    // 完全5度＋オクターブ（440 : 660 : 880）＝澄んで揺るがない和音＝「壁」
+    tone({ type: 'triangle', freq: 440, dur: 0.85, gain: 0.26 * vol, attack: 0.01, verb: 0.75 });
+    tone({ type: 'triangle', freq: 660, dur: 0.85, gain: 0.20 * vol, attack: 0.012, verb: 0.75 });
+    tone({ type: 'sine',     freq: 880, dur: 0.70, gain: 0.14 * vol, attack: 0.014, verb: 0.75 });
+    noiseHit({ start: 0.03, dur: 0.55, gain: 0.10 * vol, hpFreq: 1800, lpFreq: 9000, lpEnd: 3200 });
+  },
+  // ②その盾が攻撃を弾いた瞬間。★ここが無音だと「当たったのに減らない＝バグ」に見える。
+  //   短く硬い「キン」＋わずかな残響だけ。頻度が高いので長い尾は付けない（濁る）。
+  shieldBlock(vol = 1) {
+    noiseHit({ dur: 0.03, gain: 0.26 * vol, hpFreq: 3200, lpFreq: 14000 });
+    tone({ type: 'square', freq: 1320, freqEnd: 880, dur: 0.10, gain: 0.20 * vol, attack: 0.001 });
+    tone({ type: 'sine',   freq: 1760, dur: 0.22, gain: 0.12 * vol, attack: 0.002, verb: 0.55 });
+  },
+  // ③爆速ドリンクを注入：栓が抜ける「ポン」→ 炭酸のしゅわしゅわ → 上がっていく回転数。
+  //   ⚠️ 上行グリッサンドを**止めずに切る**のがコツ。着地させると「終わった音」になり、
+  //      これから速く走るという予告にならない。
+  speedDrink(vol = 1) {
+    tone({ type: 'sine', freq: 700, freqEnd: 1500, dur: 0.07, gain: 0.30 * vol, attack: 0.001 });
+    noiseHit({ start: 0.05, dur: 0.42, gain: 0.20 * vol, hpFreq: 3800, lpFreq: 13000, lpEnd: 6000 });
+    tone({ type: 'triangle', freq: 330, freqEnd: 990, start: 0.06, dur: 0.34, gain: 0.30 * vol,
+           attack: 0.006 });
+    tone({ type: 'square', freq: 495, freqEnd: 1485, start: 0.06, dur: 0.30, gain: 0.14 * vol,
+           attack: 0.008 });
+    tone({ type: 'sine', freq: 1320, start: 0.30, dur: 0.26, gain: 0.16 * vol, attack: 0.004,
+           verb: 0.5 });
+  },
+  // ④ネムッコの覚醒。★この子の物語がここに全部乗る＝いちばん長くて派手にしてよい音。
+  //   眠りの中の低いうなり →（間）→ 目が開く鐘 → 上へ抜ける和音。
+  //   ⚠️ 軌道神核の名乗り（低く濁った側）と真正面からぶつける音にする＝味方の側の「神」。
+  nemukkoWake(vol = 1) {
+    // まだ眠っている低いうなり（ここで一度、耳が下を向く）
+    tone({ type: 'sine', freq: 110, freqEnd: 165, dur: 0.42, gain: 0.34 * vol, attack: 0.05 });
+    // 目が開く：金の鐘（非整数比を避けて澄ませる＝敵の金属音と正反対）
+    tone({ type: 'sine',     freq: 880,  start: 0.30, dur: 1.30, gain: 0.30 * vol,
+           attack: 0.003, verb: 0.85 });
+    tone({ type: 'triangle', freq: 1320, start: 0.30, dur: 1.10, gain: 0.20 * vol,
+           attack: 0.004, verb: 0.85 });
+    tone({ type: 'sine',     freq: 1760, start: 0.34, dur: 0.95, gain: 0.14 * vol,
+           attack: 0.005, verb: 0.85 });
+    noiseHit({ start: 0.30, dur: 0.10, gain: 0.20 * vol, hpFreq: 4000, lpFreq: 15000 });
+    // 上へ抜ける（起き上がった）
+    tone({ type: 'triangle', freq: 440, freqEnd: 1760, start: 0.52, dur: 0.55, gain: 0.24 * vol,
+           attack: 0.01 });
+    tone({ type: 'sine', freq: 660, freqEnd: 2640, start: 0.56, dur: 0.50, gain: 0.14 * vol,
+           attack: 0.012 });
+    // 余韻（BGMの上に残る光）
+    tone({ type: 'sine', freq: 2093, start: 0.85, dur: 1.40, gain: 0.10 * vol,
+           attack: 0.02, verb: 0.9 });
+  },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
     const D = sfxDistBus;
