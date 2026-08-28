@@ -22,12 +22,12 @@ node dev/smoke-test.js game.js           # 疑似DOMスモークテスト17項�
 node dev/validate-sprites.js game.js     # スプライト行長＋remap生存確認
 node dev/sigmund-death-test.js game.js   # 最終ボス撃破シネマティックの4シナリオ（実ダメージ経路）
 node dev/rairyu-death-test.js game.js    # ライリュウ撃破カットシーン（ジギムントとは別系統）
-node dev/stage-order-test.js game.js     # ボスの並び（難易度帯シャッフル・アンカー固定・全ボス到達可能）
+node dev/stage-order-test.js game.js     # ボスの並び（定義順で固定・アンカー・全ボス到達可能）
 ```
 
 - 構文チェックだけでは実行時エラーは捕まえられない（タイトル画面クラッシュの教訓）
 - 演出系は「発動するか」だけでなく「**見える位置で描画されるか**」まで検証する（空中トドメでシネマティックが画面外再生になったバグの教訓）
-- **テストで「ステージ番号＝特定のボス」を前提にしない**。ボスの並びはプレイごとにシャッフルされるので、`stageOrder.indexOf(BOSS_TYPES.findIndex(条件))+1` で目的のボスが居るステージを探す（固定するとランダムに落ちるフレーキーテストになる）
+- **ボスの並びは1面から定義順で固定**（2026-08-29にシャッフルを撤去＝息子さんに不評だったため）。ステージ→ボスの参照は `stageOrder` 経由のまま残してあるので、テストで目的のボスを探すときは `stageOrder.indexOf(BOSS_TYPES.findIndex(条件))+1` を使う（並びを変える実装が消えただけで、間かたちは生きている）
 - ボスプレビューは `node dev/make-preview.js`・主人公プレビューは `node dev/make-player-preview.js` で再生成
 
 ## ゲームバランスの恒久原則（ユーザー指示・変更時は要確認）
