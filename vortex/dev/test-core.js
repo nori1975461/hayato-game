@@ -3454,8 +3454,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //   作り直されない。実測（補充0発 vs 1発の引き算）＝**軌道神核戦で 0発 → 1発**。
   assert(AM.trueFormRefill > 0,
     `R46: 転生した瞬間に ${AM.trueFormRefill}発 補充する（0だと軌道神核戦で1発も来ない＝実測）`);
-  assert(AM.trueFormRefill < AM.perFinal,
-    'R46: 補充は perFinal より少ない（第4形態を別のボスとして数え直すと多すぎる）');
+  // ⚠️ R46 は「補充は perFinal より少ない」と縛っていたが、これは当時の私の判断で、
+  //    R49 のユーザー指示「軌道神核戦で特殊弾を＋2発にして」と正面から衝突した。
+  //    ガードは判断ではなく**壊れたら困るもの**を縛る。数の上限はユーザーが決める。
+  assert(AM.trueFormRefill === 3,
+    'R49: 転生の補充は3発（軌道神核戦は本編でいちばん長い＝ここは出し惜しみしない）');
   assert(/if \(bs\.trueForm && !o\.ammoTrueDone\) \{/.test(orbit)
       && /if \(!bs\.trueForm\) o\.ammoTrueDone = false;/.test(orbit),
     'R46: 補充は転生1回きり（毎フレーム足して無限に配る、を防ぐ）');

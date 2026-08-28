@@ -350,7 +350,13 @@ export function createOrbit(run) {
     if (!bl || !bl.canReceiveAmmo || !bl.canReceiveAmmo()) return;
     o.ammoStock--;
     o.ammoT = o.ammoRefill;
-    const kind = (o.ammoQueue && o.ammoQueue.length) ? o.ammoQueue.shift() : 'bolt';
+    // ★R49 在庫が種類数を超えるとキューが尽きる。軌道神核戦は 2発＋転生3発＝5発あるので、
+    //   尽きたぶんが全部 'bolt' に落ちて「最後の戦いだけ雷光弾ばかり」になっていた。
+    //   空になったら引き直す＝いちばん長い戦闘でも毎回ちがう弾が来る。
+    if (!o.ammoQueue || !o.ammoQueue.length) {
+      o.ammoQueue = run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice());
+    }
+    const kind = o.ammoQueue.shift() || 'bolt';
     bl.giveAmmo(o, kind);
   }
 
