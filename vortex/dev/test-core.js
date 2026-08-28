@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRng } from '../src/core/rng.js';
 import { BALANCE } from '../src/data/balance.js';
-import { MONSTERS } from '../src/data/monsters.js';
+import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
 
@@ -1880,7 +1880,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- 激化の器：ゲージ1本＝1段。配列がゲージ本数とズレると終盤の段が無言で欠ける ---
   assert(!!rg, 'R37: trueForm.rage が存在（65秒を同じ3種の繰り返しだけで埋めない）');
-  for (const k of ['idleMul', 'alignSecMul', 'sweepDegAdd', 'verseAdd', 'bulletMul', 'shadowAdd', 'spinMul']) {
+  for (const k of ['idleMul', 'alignSecMul', 'sweepDegAdd', 'verseAdd', 'bulletMul', 'lanesAdd', 'spinMul']) {
     assert(Array.isArray(rg[k]) && rg[k].length === tf.gaugeSegments,
       `R37: rage.${k} の長さがゲージ本数（${tf.gaugeSegments}）と一致`);
   }
@@ -1891,8 +1891,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   const up = (a) => a.every((v, i) => i === 0 || v >= a[i - 1]);
   const down = (a) => a.every((v, i) => i === 0 || v <= a[i - 1]);
   assert(down(rg.idleMul) && down(rg.alignSecMul), 'R37: 間合いと予告は段で縮む一方');
-  assert(up(rg.bulletMul) && up(rg.verseAdd) && up(rg.sweepDegAdd) && up(rg.shadowAdd) && up(rg.spinMul),
-    'R37: 弾速・密度・薙ぎ・影の数・公転は段で増える一方（wavesAdd は R44W5 で shadowAdd へ）');
+  assert(up(rg.bulletMul) && up(rg.verseAdd) && up(rg.sweepDegAdd) && up(rg.lanesAdd) && up(rg.spinMul),
+    'R37: 弾速・密度・薙ぎ・影の列・公転は段で増える一方（wavesAdd→R44W5 shadowAdd→R44W7 lanesAdd）');
 
   // --- 理不尽ガード（数で縛る）。緊張感は被弾量ではなく「避けた回数」で作る ---
   // ★R44W4 実プレイFB「せいくの弾のスピードを上げて」。旧ガード「最終弾速360以下＝雑魚
@@ -1928,7 +1928,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
   assert(Math.min(...rg.idleMul) >= 0.6 && Math.min(...rg.alignSecMul) >= 0.7,
     'R37: 間合いと予告の短縮に下限がある（読む時間を最後まで奪わない）');
-  assert(Math.max(...rg.shadowAdd) <= 2, 'R44W5: かげおにの追加は最大+2（旧 wavesAdd 上限+1 の後継）');
+  assert(Math.max(...rg.lanesAdd) <= 2, 'R44W7: かげおにの追加は最大+2列（旧 shadowAdd 上限+2 の後継）');
   assert(!Object.keys(rg).some((k) => /damage|dmg/i.test(k)),
     'R37: 激化に damage 系のキーが無い（[[feedback_tension_is_not_damage]]）');
 
@@ -1942,7 +1942,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //   結線先は聖句の1箇所になった（旧ガード「2箇所以上」を実装に合わせて反転）。
   assert((boss.match(/rageArr\('bulletMul', 1\)/g) || []).length >= 1,
     'R37/R44W5: 聖句の弾速に bulletMul が効く');
-  assert(boss.includes("rageArr('shadowAdd', 0)"), 'R44W5: かげおにの数に shadowAdd が効く');
+  assert(boss.includes("rageArr('lanesAdd', 0)"), 'R44W7: かげおにの列数に lanesAdd が効く（★rage に無いキーを読むと既定値0で無音の空振りになる）');
   assert(boss.includes("rageArr('spinMul', 1)"), 'R37: 環の公転に spinMul が効く＝激化が形で見える');
   // 整列の予告秒は 開始(startAttackByName)・進行(alignTele)・環の描画(updateTrueDisp) の
   // 3か所が同じ実効値を見る。1か所でも素の alignSec を読むと「揃いきる前に撃つ」嘘になる
@@ -2827,11 +2827,22 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   const tf = maou.trueForm;
   const sh = tf.shell.shadow;
 
-  // --- ① 数値の整合 ---
-  assert(sh.delaySec.length >= sh.count + Math.max(...tf.rage.shadowAdd),
-    `R44W5: 最終段の影の数（${sh.count + Math.max(...tf.rage.shadowAdd)}）ぶんディレイが定義されている（${sh.delaySec.length}）`);
-  assert(sh.delaySec.every((v, i) => i === 0 || v > sh.delaySec[i - 1]),
-    'R44W5: ディレイは昇順＝影は足あとの新しい順に並ぶ（同じ場所に重ならない）');
+  // --- ① 数値の整合（R44W7 で count/delaySec/gapStepSec → ranks×lanes の隊列へ）---
+  const lanesMax = sh.lanes + Math.max(...tf.rage.lanesAdd);
+  const bodies = sh.ranks * sh.lanes;
+  const bodiesMax = sh.ranks * lanesMax;
+  assert(bodies >= 10 && bodiesMax <= 20,
+    `R44W7: 影は10〜20体（初段${bodies}体・最終段${bodiesMax}体）＝FB「2体では怖さの演出として弱すぎる。10〜20体ぐらいに増やして」`);
+  assert(sh.ranks >= 3 && sh.lanes >= 3,
+    `R44W7: ${sh.ranks}段×${sh.lanes}列＝複数列（FB「後ろにずらっと並べるのでなく、複数列にして」）`);
+  assert(sh.laneGapPx > (sh.radius + BALANCE.player.radius) * 1.2,
+    `R44W7: 列の間隔${sh.laneGapPx}px ＞ 接触径${sh.radius + BALANCE.player.radius}px×1.2＝隣の列と重なって1体に見えない`);
+  assert(sh.rankSpreadSec > 0 && sh.rankGapSec > 0,
+    'R44W7: 段は「過去へずらして湧く」＋「追走の床も段ごとにずらす」＝縦にほどける（全員が1点に重なる実測バグの再発防止）');
+  assert(sh.speedMul >= 1.8,
+    `R44W7: 再生は実時間の${sh.speedMul}倍＝「かげは走って襲ってくる」（FB「移動スピードを速くして」）`);
+  assert(sh.ghostCount >= 2 && sh.ghostLagSec > 0 && sh.ghostLagSec < 0.1,
+    `R44W7: 分身${sh.ghostCount}枚・遅れ${sh.ghostLagSec}s＝走る姿がぶれる（FB「走る姿が分身する演出で速さおよび怖さを演出して」）`);
   assert(sh.riseSec < tf.shell.holdSec,
     `R44W5: 影は殻が閉じているうちに起き上がりきる（rise ${sh.riseSec}s ＜ hold ${tf.shell.holdSec}s）＝「神は祈り影が狩る」絵が成立`);
   assert(sh.lifeSec > tf.shell.holdSec + tf.shell.openSec,
@@ -2856,14 +2867,20 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const chargePx = BALANCE.player.speed * BALANCE.hero.billiard.moveMulWhileCharge * sh.minGapSec;
     assert(chargePx > touchPx,
       `R44W5: 溜め歩きの間合い（${chargePx.toFixed(0)}px）＞ 接触（${touchPx}px）＝動きながらの溜めと投げは安全・捕まるのは立ち止まりだけ`);
-    assert(typeof sh.gapStepSec === 'number' && sh.gapStepSec > 0,
-      'R44W5: 影ごとに床をずらす＝全員が1点に重なって1体に見える（実測）の再発防止');
+    assert(/const floor = sk\.minGapSec \+ s\.rank \* sk\.rankGapSec;/.test(boss),
+      'R44W7: 床は段ごとにずらす＝全員が1点に重なって1体に見える（実測）の再発防止');
+    // ★噛むのは先頭1体だけ（FB「主人公に追いつくのは常に先頭だけ」）。
+    //   15体ぶんの判定が重なると「やや理不尽」が「完全理不尽」に化ける。
+    assert(/if \(s\.biter\) \{[\s\S]{0,320}run\.hitPlayer\(sk\.damage/.test(boss),
+      'R44W7: 噛みつき判定は先頭（biter）だけ＝後続は速さと圧の演出に徹する');
+    assert((boss.match(/run\.hitPlayer\(sk\.damage/g) || []).length === 1,
+      'R44W7: 噛みつきの判定は1箇所＝[[feedback_one_hit_one_circle]]');
     // ★炸裂は静止してから：走者の背後（trail px）で爆ぜると回避不能（実測でB/Cが被弾した）。
     //   静止フレア中に走って離せる距離 ＞ 爆風、を式で縛る。
     const flarePx = BALANCE.player.speed * sh.flareSec;
     assert(flarePx > sh.novaRadius + BALANCE.player.radius,
       `R44W5: フレア中に走って離せる距離（${flarePx.toFixed(0)}px）＞ 爆風（${sh.novaRadius + BALANCE.player.radius}px）＝正しく走っていれば必ず躱せる`);
-    assert(/if \(s\.life > sk\.flareSec\) \{/.test(boss),
+    assert(/const flaring = s\.life <= sk\.flareSec;\s*\n\s*if \(!flaring\) \{/.test(boss),
       'R44W5: フレア中は影が静止する（時計を進めない）＝「立ち止まった＝爆ぜる」が身体で読める');
   }
 
@@ -2884,20 +2901,37 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R44W5: 足あとは上限つき＝無限に伸びない');
 
   // --- ⑤ 退廃の語彙の連続性（新しい語彙を持ち込まない）---
-  assert(/'player'\)\.setScale\(3\.0\)\.setFlipY\(true\)/.test(boss),
-    'R44W5: 影は主人公と同じテクスチャ・同じ縮尺・倒立（堕ちた聖句と同じ「倒立」の語彙）');
-  assert(/setScale\(3\.0\)/.test(run.match(/playerImg = [^\n]+/)[0]),
-    'R44W5: 主人公の実表示も3.0倍＝影と等身大（縮尺が違うと「本人の影」に見えない）');
+  // ★R44W7 実プレイFB「かげおには、主人公ではなく、モビットのほうがよい」。
+  //   いま連れているパーティの顔ぶれ（進化ずみなら進化形）をそのまま使う＝
+  //   「自分のなかまの堕ちた影に追われる」。倒立（flipY）は堕ちた聖句と同じ語彙なので維持。
+  assert(/function shadowTexKeys\(\)/.test(boss) && /'mon_' \+ src\.id/.test(boss),
+    'R44W7: 影の姿はモビット（mon_ テクスチャ）＝主人公ではない');
+  assert(!/run\.add\.image\(p\.x, p\.y, 'player'\)/.test(boss),
+    'R44W7: 影に主人公テクスチャを直接使っていない（旧実装の残りが無い）');
+  assert(/const tex = texKeys\[\(r \* lanes \+ l\) % texKeys\.length\];/.test(boss),
+    'R44W7: 顔ぶれは体ごとに巡回＝隊列がぜんぶ同じ顔にならない');
+  assert(/image\(p\.x, p\.y, tex\)[\s\S]{0,120}setFlipY\(true\)/.test(boss),
+    'R44W5/W7: 影は倒立（flipY）＝堕ちた聖句と同じ「倒立」の語彙');
+  {
+    // 画面上の背丈を主人公と揃える（モビットは16行・主人公は18行のグリッド）。
+    // ここがズレると「小さい何かがうろうろしている」に見えて怖さが出ない。
+    const SS = Number((boss.match(/const SHADOW_SCALE = ([\d.]+);/) || [])[1]);
+    const pScale = Number((run.match(/playerImg = [^\n]*setScale\(([\d.]+)\)/) || [])[1]);
+    const mobRows = MONSTERS[0].sprite.rows.length, heroRows = PLAYER_SPRITE.rows.length;
+    const ratio = (SS * mobRows) / (pScale * heroRows);
+    assert(SS > 0 && pScale > 0 && ratio > 0.9 && ratio < 1.1,
+      `R44W7: 影の背丈は主人公の${ratio.toFixed(2)}倍＝等身大（モビット${mobRows}行×${SS} / 主人公${heroRows}行×${pScale}）`);
+  }
   assert(/mixRgb\(VERSE_FALL_A, VERSE_FALL_B, pulse\)/.test(boss),
     'R44W5: 影の脈は堕ちた聖句と同じ紫→深紅（色の家族が同じ＝同じ「堕ちたもの」）');
   assert(/setTint\(0xd01228\)/.test((boss.match(/function spawnShadows[\s\S]*?\n  \}/) || [''])[0]),
     'R44W5: 空洞の眼＝深紅の光が下（倒立した頭）に灯る');
 
   // --- ⑥ 果てる瞬間：予告してから炸裂する ---
-  assert(/if \(s\.life <= sk\.flareSec\) \{/.test(boss),
+  assert(/if \(flaring\) \{\s*\n\s*const w = clamp01\(1 - s\.life \/ sk\.flareSec\);/.test(boss),
     'R44W5: 炸裂の flareSec 前から張りつめて膨らむ＝無予告の置き土産にしない');
-  assert(/spawnRingFx\(p\.x, p\.y, 0xc0102a, 6, sk\.novaRadius/.test(boss),
-    'R44W5: 炸裂は深紅の輪＝効果範囲が見える');
+  assert(/spawnRingFx\(p\.x, p\.y, 0xff8a1f, 10, sk\.novaRadius, /.test(boss),
+    'R44W7: 炸裂の環のひとつは**判定と同じ半径**＝爆風の本当の広さが学習できる');
 
   // --- ⑦ 音3点＝結線先の無い音・音の無い結線を両方殺す ---
   for (const k of ['shadowRise', 'shadowBite', 'shadowBurst']) {
@@ -2919,7 +2953,41 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/introText\('かげおに ―― とまるな！'/.test(boss),
     'R44W5: 技名と遊び方が1行で出る（かげおに＝名前がルール）');
 
-  // --- ⑨ 検証口 ---
+  // --- ⑨ 大爆発（R44W7「最後弾けるのも演出が地味。炎を出しながら大爆発して。
+  //     爆発音も派手に。爆風が主人公を襲う効果もいい。ただし範囲が広すぎるのはダメ」）---
+  {
+    const nova = (boss.match(/function shadowNova\([\s\S]*?\n  \}/) || [''])[0];
+    assert(/whiteFlash\(/.test(nova) && /run\.shake\(/.test(nova) && /run\.freezeT/.test(nova),
+      'R44W7: 大爆発は閃光＋画面ゆれ＋ヒットストップ（「地味」の反対＝身体で分かる3点）');
+    assert((nova.match(/spawnRingFx\(/g) || []).length >= 3 && /spawnPillarFx\(/.test(nova),
+      'R44W7: 白熱の芯→炎→衝撃波の3重の環＋炎柱＝炎を出しながら爆発する');
+    assert((nova.match(/run\.spawnParticles\(/g) || []).length >= 3,
+      'R44W7: 火の粉（白熱・炎・煤）を撒く');
+    assert(/run\.hitPlayer\(sk\.novaDamage, p\.x, p\.y\)/.test(nova),
+      'R44W7: 爆風は位置つきで当たる＝主人公が押し飛ばされる（「爆風が主人公を襲う」）');
+    assert((nova.match(/run\.hitPlayer\(/g) || []).length === 1 && /if \(s\.biter\) \{/.test(nova),
+      'R44W7: 爆風の判定は先頭1体の円ひとつだけ＝画面は大爆発・判定は1つ（範囲が広すぎない）');
+    assert(/novaFxBudget/.test(nova) && /novaFxBudget = \d+;/.test(boss),
+      'R44W7: 後続の炎は1フレーム予算つき＝20体が同時に果てても粒が暴れない');
+  }
+  {
+    const sb = (sound.match(/shadowBurst\(vol = 1, pitch = 1\)[\s\S]*?\n  \},/) || [''])[0];
+    assert(/duckBgm\(/.test(sb),
+      'R44W7: 爆発の瞬間はBGMを沈める（サイドチェイン）＝一撃が音の中で抜ける');
+    assert(/hpFreq: 3200/.test(sb),
+      'R44W7: 先行するクラック（ごく短い高域）がある＝これが無いと「遠い花火」に聞こえる');
+    assert(/lpEnd:/.test(sb) && /lpEnd = 0,/.test(sound),
+      'R44W7: 炎＝帯域が下へ落ちる掃引ノイズ（noiseHit の lpEnd。既定0で既存の音は不変）');
+    assert(/start: 0\.16/.test(sb) && /start: 0\.29/.test(sb),
+      'R44W7: 遅れて降るがれき＝時間差があると「大きいものが壊れた」に聞こえる');
+    const gains = (sb.match(/gain: ([\d.]+) \* vol/g) || []).map((m) => Number(m.match(/[\d.]+/)[0]));
+    assert(Math.max(...gains) >= 0.9,
+      `R44W7: 爆発の本体は旧実装（0.65）より大きい（${Math.max(...gains)}）＝「爆発音も派手に」`);
+    assert(/if \(!big\) return;/.test(sb),
+      'R44W7: 後続（vol小）は尾を鳴らさない＝15体ぶんの残響が重なって濁る（＝逆に小さく聞こえる）のを防ぐ');
+  }
+
+  // --- ⑩ 検証口 ---
   assert(/debugShadows\(\)/.test(boss) && /shadowHistLen/.test(boss),
     'R44W5: 影とその床（gap）を外から測れる');
 }
