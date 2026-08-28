@@ -11,6 +11,11 @@ const int = (c) => parseInt(c.slice(1), 16);
 // 全10色が画面へ散り、敵弾・拾い物と色が衝突して避けられなくなるため。
 // 体色は本体グロー（o.glow）と装飾だけに残し、誰の攻撃かは形で読ませる。
 const ALLY_ATK = 0xffe9a8;
+// ★R47 ラゴンの光の槍だけは金白ではない。FB「槍はライトセーバーのように青白く光る
+//   スタイリッシュな武器にして」＝**指定による唯一の例外**。
+// ⚠️ よろけの輪も青白（0x9fe8ff＝「これは自分の獲物」の語彙）なので、同じ色にすると
+//    2つの意味が1色に乗る。槍は**彩度を上げた濃い青**にして、淡い水色の輪と分ける。
+const LANCE_GLOW = 0x4aa8ff;
 const HEAL_FX_SEC = 0.35;   // R22: 回復の光の帯が残る時間
 
 // ── FB#4: 武器レベルアップの「まとう装飾」を段階的に派手化（HAYATO本体の40段階武器を参考）。
@@ -66,6 +71,7 @@ export function createOrbit(run) {
       o.glow.destroy();
       o.spr.destroy();
       if (o.zzz) o.zzz.destroy();       // R45 ネムッコの💤
+      if (o.lanceGlow) o.lanceGlow.destroy();   // R47 ラゴンの槍のグロー
       if (o.aura) o.aura.destroy();
       if (o.weaponSpr) o.weaponSpr.destroy();
       disposeDeco(o);
@@ -175,14 +181,26 @@ export function createOrbit(run) {
       o.shots = Math.min(W.shot.maxShots, 1 + Math.floor(wl / W.shot.extraShotEvery));
 
       const lvGrow = wl / (W.maxLevel - 1);     // 0..1。レベルが上がるほど僅かに大きく光る
+      // ★R47 ラゴンだけ基準スケールが大きい。FB「他のモビットより、一回り身体が大きく
+      //   筋肉もりもりの武闘派」＝ドット絵の造形だけでは伝わらない（16×16は全員同じ）ので、
+      //   **画面上の実寸**で差を付ける（2.5 → 3.3＝約1.3倍）。
+      const baseScale = o.archetype === 'LANCER'
+        ? (A.LANCER.spriteScale || 3.3) * (big ? 1.15 : 1)
+        : (big ? F.spriteScale : 2.5);
       o.spr.setTexture('mon_' + o.textureId)
-        .setScale((big ? F.spriteScale : 2.5) * (1 + lvGrow * 0.12)).clearTint();
+        .setScale(baseScale * (1 + lvGrow * 0.12)).clearTint();
       // ★R45 ネムッコの寝姿はスケールと回転を毎フレーム触るので、基準をここで控える
       //   （rebuild でしか決まらない値なので、寝姿が上書きしたまま戻せなくなるのを防ぐ）。
       o.slBase = o.spr.scaleX;
       if (o.archetype !== 'SLEEPY') {
         if (o.zzz) { o.zzz.destroy(); o.zzz = null; }
         o.spr.setRotation(0);
+      }
+      // ★R47 LANCER でなくなったら単独行動の残骸を必ず片付ける。lnBreath を残すと
+      //   公転に戻った子のスプライトだけが浮いたままになる（座標のズレは静かに残る）。
+      if (o.archetype !== 'LANCER') {
+        if (o.lanceGlow) { o.lanceGlow.destroy(); o.lanceGlow = null; }
+        o.lnBreath = 0; o.lnState = null;
       }
       // グローの基準スケール。脈動は updateDeco が glowBase×glowMul×鼓動 で毎フレーム上書きする
       o.glowBase = (fused ? F.glowScale : (big ? 1.9 : 1.5)) * (1 + lvGrow * 0.35);
@@ -258,11 +276,19 @@ export function createOrbit(run) {
     for (let i = 0; i < orbs.length; i++) {
       const o = orbs[i];
       const a = angle + (i / n) * Math.PI * 2;
-      const bob = Math.sin(run.elapsed * 4 + i * 1.3) * 2;   // ふわふわ浮遊
-      const ox = px + Math.cos(a) * radius;
-      const oy = py + Math.sin(a) * radius + bob;
-      o.x = ox; o.y = oy;
-      o.spr.setPosition(ox, oy);
+      // ★R47 ラゴン（LANCER）だけは公転しない。FB「ふつうモビットは主人公の近くを離れないが、
+      //   このモビットだけ単独行動して敵を攻撃しにいく」＝位置も攻撃も updateLancer が決める。
+      //   ここで呼ぶのは、この下の setPosition／武器の追従に**同じフレームの座標**を使うため。
+      if (o.archetype === 'LANCER') {
+        updateLancer(o, dt);
+      } else {
+        const bob = Math.sin(run.elapsed * 4 + i * 1.3) * 2;   // ふわふわ浮遊
+        o.x = px + Math.cos(a) * radius;
+        o.y = py + Math.sin(a) * radius + bob;
+      }
+      const ox = o.x, oy = o.y;
+      // lnBreath＝肩で息の上下（LANCER 以外では常に 0）
+      o.spr.setPosition(ox, oy + (o.lnBreath || 0));
       o.glow.setPosition(ox, oy);
       updateDeco(o, dt);     // まとう装飾を本体へ追従＋アニメ（グロー脈動もここ）
       updateWeaponVisual(o); // R4: フォームの武器テクスチャを本体へ追従（近接は振り／遠距離は携える）
@@ -279,6 +305,7 @@ export function createOrbit(run) {
         case 'SHIELD':    updateShield(o, dt); break;
         case 'SPEED':     updateSpeed(o, dt); break;
         case 'SLEEPY':    updateSleepy(o, dt); break;
+        case 'LANCER':    break;   // 上の位置決めと同時に済ませている（単独行動なので分けられない）
       }
     }
   }
@@ -474,6 +501,245 @@ export function createOrbit(run) {
       if (base && run.textures.exists('mon_' + base)) o.spr.setTexture('mon_' + base);
       if (o.glow && o.def) o.glow.setTint(parseInt(o.def.color.slice(1), 16)).setAlpha(0.55);
     }
+  }
+
+  // ============ R47 ラゴン（LANCER）＝単独行動する槍使い ============
+  // FB「ふつうモビットは主人公の近くを離れないが、このモビットだけ単独行動して敵を
+  //   攻撃しにいく。敵を気絶させて弾にするのではない。完全に倒す。（消滅させる）
+  //   しばらく戦ったら、疲れをいやすために主人公のもとに帰ってくる。その際に肩で息をする
+  //   行動をいれて。しばらくしたらまた戦いにいく。このモビットに体力ゲージは不要」。
+  //
+  // 3つの状態を往復するだけ：
+  //   hunt（狩り・huntSec）→ back（帰還）→ pant（肩で息・pantSec）→ hunt …
+  // ★体力ゲージは持たせない（FB指定）。そもそも公転仲間は敵から一切ダメージを受けない仕様なので、
+  //   ゲージを出すと「減らないゲージ」が画面に増えるだけになる。疲労は**時間**で表す。
+  // ⚠️ 狩りは主人公から huntRange 内に限る。ここを外すと R21W2 で潰した最悪の構造
+  //    （仲間が画面外まで掃除して、敵が主人公に届く前に消える）がこの子だけで再現する。
+  function updateLancer(o, dt) {
+    const L = A.LANCER;
+    const px = run.player.x, py = run.player.y;
+    if (o.lnState == null) {
+      o.x = px + 34; o.y = py - 6;
+      o.lnState = 'pant'; o.lnT = 1.2; o.lnBreath = 0; o.lnThrust = 0;
+      o.lnAim = 0; o.lnSlain = 0; o.lnBlade = 0;
+    }
+    // ★刃の伸び縮み。狩っている間だけ光の刃が出ていて、帰り道と休憩中はしまわれている。
+    //   FBの「ライトセーバーのように」を**動作**の側でも使う＝点火してから出かけ、
+    //   しまってから帰る。休んでいるラゴンが槍を構えたままだと「休んでいる」に見えない。
+    const wantBlade = (o.lnState === 'hunt') ? 1 : 0;
+    const bs = L.bladeSec || 0.35;
+    o.lnBlade = o.lnBlade == null ? 0
+      : Math.max(0, Math.min(1, o.lnBlade + (wantBlade ? dt / bs : -dt / bs)));
+
+    // 演出中・決着後は狩りに出ない（カットシーンの画面外で勝手に暴れないため）
+    if (run.ended || run.cinematic) { lancerHome(o, dt, px, py, L.returnSpeed); return; }
+
+    o.lnT -= dt;
+    if (o.lnState === 'hunt') {
+      lancerHunt(o, dt, px, py, L);
+      if (o.lnT <= 0) { o.lnState = 'back'; }
+    } else if (o.lnState === 'back') {
+      const home = lancerHome(o, dt, px, py, L.returnSpeed);
+      o.lnAim = Math.atan2(py - o.y, px - o.x);
+      if (home <= L.homeRadius) {
+        o.lnState = 'pant'; o.lnT = L.pantSec;
+        Sound.sfx('lancePant');
+        // 息が上がっている：口元から白い息が漏れる
+        run.spawnParticles(o.x, o.y + 6, 0xdfefff, 8);
+      }
+    } else {
+      // pant＝肩で息。★ここが「疲れた」を画面で言い切る唯一の場所なので、
+      //   止まって待つのではなく**大きく上下**させる（呼吸は縦の運動として読まれる）。
+      lancerHome(o, dt, px, py, L.moveSpeed * 0.5);
+      const br = Math.sin(run.elapsed * 7.5);
+      o.lnBreath = br * 3.2;
+      o.spr.setRotation(br * 0.06);
+      o.lnAim = -Math.PI / 2;                     // 槍は下ろして立てる
+      // 息のパフを 1.1 秒ごとに（吐くタイミングで音も1回だけ）
+      o.lnPuff = (o.lnPuff || 0) - dt;
+      if (o.lnPuff <= 0) {
+        o.lnPuff = 1.1;
+        run.spawnParticles(o.x + 8, o.y + 4, 0xdfefff, 5);
+        Sound.sfx('lancePant', 0.7);
+      }
+      if (o.lnT <= 0) {
+        o.lnState = 'hunt'; o.lnT = L.huntSec; o.lnBreath = 0;
+        o.spr.setRotation(0);
+        // ★出撃。休み明けは標的を探す前に**前線まで一気に出る**。
+        //   これが無いと、敵は主人公へ向かって集まる性質のせいで「中間で会う」だけになり、
+        //   狩っている間の主人公からの距離が平均68px（公転48pxの1.4倍）にしかならなかった＝実測。
+        //   「戦いに行く」も「帰ってくる」も、まず**離れていること**が前提になる。
+        o.lnSally = true;
+        o.lnSallyAng = sallyAngle(px, py, run.elapsed);
+        Sound.sfx('lanceIgnite');
+        run.spawnParticles(o.x, o.y, LANCE_GLOW, 12);
+      }
+    }
+  }
+
+  // 主人公のもとへ戻る。戻った距離を返す（呼び出し側が到着判定に使う）。
+  function lancerHome(o, dt, px, py, speed) {
+    const dx = px - o.x, dy = py - o.y;
+    const d = Math.hypot(dx, dy);
+    const stop = A.LANCER.homeRadius * 0.7;
+    if (d > stop) {
+      const k = Math.min(1, (speed * dt) / d);
+      o.x += dx * k; o.y += dy * k;
+    }
+    return d;
+  }
+
+  // 出撃していく向き。いちばん遠くにいる敵の方角＝「これから来る群れを迎え撃つ」向き。
+  // ⚠️ run.rng は使わない（autotest の乱数消費順が変わるとシード固定の検証が壊れる）。
+  function sallyAngle(px, py, t) {
+    let best = null, bestFar = -1;
+    for (const e of run.enemies) {
+      if (!e.active || e.stag || e.isBoss) continue;
+      const hx = e.x - px, hy = e.y - py;
+      const d2 = hx * hx + hy * hy;
+      if (d2 > bestFar) { bestFar = d2; best = e; }
+    }
+    return best ? Math.atan2(best.y - py, best.x - px) : t * 0.8;
+  }
+
+  // 狩っている間の立ち位置を minStandoff〜huntRange の帯へ押し戻す。
+  function lancerStandoff(o, px, py, L) {
+    const ox = o.x - px, oy = o.y - py;
+    const od = Math.hypot(ox, oy) || 1;
+    const lo = L.minStandoff || 0;
+    const clamped = od > L.huntRange ? L.huntRange : (od < lo ? lo : od);
+    if (clamped === od) return;
+    o.x = px + (ox / od) * clamped;
+    o.y = py + (oy / od) * clamped;
+  }
+
+  // 狩り。★1回の突きで1体だけ（範囲攻撃にしない）。掃除機になると②被弾の緊張感が消える。
+  function lancerHunt(o, dt, px, py, L) {
+    // 出撃中：前線（狩りの上限の8割）まで駆けていく。この間は敵を素通りする
+    if (o.lnSally) {
+      const od = Math.hypot(o.x - px, o.y - py);
+      if (od >= L.huntRange * 0.8) {
+        o.lnSally = false;
+      } else {
+        const ang = o.lnSallyAng || 0;
+        const k = L.sallySpeed * dt;
+        o.x += Math.cos(ang) * k; o.y += Math.sin(ang) * k;
+        o.lnAim = ang;
+        o.lnThrust = Math.max(0, (o.lnThrust || 0) - dt);
+        return;
+      }
+    }
+    // 標的＝主人公から huntRange 内にいる敵のうち、**主人公からいちばん遠い**1体。
+    // ⚠️ よろけ（青白い輪＝主人公の獲物）は狙わない。奪うとこのゲームの動詞が消える。
+    //
+    // ★実測で2回作り直した箇所。
+    //   1回目「ラゴンに近い順」→ 主人公からの距離が**平均49.5px**＝公転仲間(48px)と
+    //     区別がつかない。敵は主人公へ集まるので、近い順に潰すとずっと主人公の隣に立つ
+    //     （[[自分のキル圏の内側を判定に使う仕組みは成立しない]]と同じ形）。
+    //   2回目「毎フレーム最も遠い敵を選び直す」→ **消滅が53体→8体へ激減**。新しく湧いた敵が
+    //     常に最遠になるので標的が飛び続け、往復するだけで一度も間合いに入れなかった。
+    //   → 3回目＝**遠い敵を選び、決めたらロックして仕留めるまで追う**。
+    const rng2 = L.huntRange * L.huntRange;
+    let best = null;
+    if (o.lnTargetId != null) {
+      for (const e of run.enemies) {
+        if (e.id !== o.lnTargetId) continue;
+        const hx = e.x - px, hy = e.y - py;
+        if (e.active && !e.stag && !e.isBoss && hx * hx + hy * hy <= rng2) best = e;
+        break;
+      }
+    }
+    if (!best) {
+      let bestFar = -1;
+      for (const e of run.enemies) {
+        if (!e.active || e.stag || e.isBoss) continue;
+        const hx = e.x - px, hy = e.y - py;
+        const hd2 = hx * hx + hy * hy;
+        if (hd2 > rng2) continue;
+        if (hd2 > bestFar) { bestFar = hd2; best = e; }
+      }
+      o.lnTargetId = best ? best.id : null;
+    }
+    o.lnThrust = Math.max(0, (o.lnThrust || 0) - dt);
+    if (!best) {
+      // 獲物なし：主人公のずっと前を歩いて次を探す（棒立ちにしない）。
+      // 半径は狩りの上限の 0.72 倍＝公転(48px)とはっきり違う位置に居続ける
+      const a = run.elapsed * 1.1;
+      const rr = L.huntRange * 0.72;
+      const tx = px + Math.cos(a) * rr, ty = py + Math.sin(a) * rr;
+      const dx = tx - o.x, dy = ty - o.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, (L.moveSpeed * 0.7 * dt) / d);
+      o.x += dx * k; o.y += dy * k;
+      lancerStandoff(o, px, py, L);
+      o.lnAim = Math.atan2(dy, dx);
+      return;
+    }
+    const dx = best.x - o.x, dy = best.y - o.y;
+    const d = Math.hypot(dx, dy) || 1;
+    o.lnAim = Math.atan2(dy, dx);
+    const reach = L.reach + best.radius;
+    if (d > reach) {
+      const k = Math.min(1, (L.moveSpeed * dt) / d);
+      o.x += dx * k; o.y += dy * k;
+    }
+    // ★立ち位置を 70〜150px の帯に閉じ込める。外側は画面内保証（単独行動の唯一の鎖）、
+    //   内側は「主人公の周りには入らない」＝前線を守る役に徹する。
+    lancerStandoff(o, px, py, L);
+    if (d > reach) return;
+    // 間合いの中：突く
+    o.lnAtkT = (o.lnAtkT || 0) - dt;
+    if (o.lnAtkT > 0) return;
+    o.lnAtkT = L.thrustSec;
+    o.lnThrust = 0.2;
+    const dmg = memberDamage(o);
+    const alive = best.active;
+    run.dealDamage(best, dmg, LANCE_GLOW, 'lagon');
+    if (alive && !best.active) {
+      // ★消滅させた。突きの音とは別物を鳴らす＝**数えられる**ようにする。
+      o.lnSlain = (o.lnSlain || 0) + 1;
+      Sound.sfx('lanceSlay');
+      run.spawnParticles(best.x, best.y, LANCE_GLOW, 10);
+    } else {
+      Sound.sfx('lanceThrust');
+    }
+  }
+
+  // 光の槍の描画。★芯（白・細）＋グロー（青・太）の2枚重ねで発光体にする。
+  //   突きの瞬間だけ前へ伸びる＝「刺した」が形で分かる。
+  function updateLanceVisual(o) {
+    if (!o.weaponSpr) return;
+    if (!o.lanceGlow) {
+      o.lanceGlow = run.add.image(0, 0, 'w_lance_glow')
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(11).setTint(LANCE_GLOW);
+    }
+    const blade = o.lnBlade == null ? 1 : o.lnBlade;
+    if (blade <= 0.02) {
+      // しまわれている（帰り道と休憩中）。柄は本体の手に隠れるので何も描かない
+      o.weaponSpr.setVisible(false);
+      o.lanceGlow.setVisible(false);
+      return;
+    }
+    const ang = o.lnAim || 0;
+    const push = (o.lnThrust || 0) > 0 ? 12 * ((o.lnThrust || 0) / 0.2) : 0;
+    const bodyR = (o.spr.displayWidth * 0.5) || 24;
+    // ★握りの位置＝体の外。⚠️ 最初は中心（bodyR*0.5）に置いて origin も中央だったので、
+    //   実プレイの等倍で見ると**槍が体を横切り、半分が背中へ突き抜けていた**
+    //   （[[feedback_pixel_art_judge_at_play_zoom]]で撮って気づいた）。
+    //   origin を柄側（0.5, 0.86）にすると、そこが手の位置になって刃だけが前へ伸びる。
+    // +bodyR*0.22 は「手の高さ」。顔の真横から生えていると槍を担いでいるように見えない
+    const cx = o.x + Math.cos(ang) * (bodyR * 0.62 + push);
+    const cy = o.y + (o.lnBreath || 0) + bodyR * 0.22 + Math.sin(ang) * (bodyR * 0.62 + push);
+    const len = A.LANCER.reach * 2.0 * blade;   // 点火・格納は「長さ」で見せる
+    const rot = ang + Math.PI / 2;   // テクスチャは穂先が上向き
+    o.weaponSpr.setTexture('w_lance').setTint(0xffffff).setOrigin(0.5, 0.86)
+      .setPosition(cx, cy).setRotation(rot)
+      .setDisplaySize(5, len).setAlpha(0.85).setVisible(true)
+      .setBlendMode(Phaser.BlendModes.ADD).setDepth(12);
+    const pulse = 1 + Math.sin(run.elapsed * 16) * 0.06;
+    o.lanceGlow.setOrigin(0.5, 0.86).setPosition(cx, cy).setRotation(rot)
+      .setDisplaySize(12 * pulse, len * 1.03)
+      .setAlpha((0.5 + (o.lnThrust > 0 ? 0.28 : 0)) * blade).setVisible(true);
   }
 
   // R22: 回復モビット（マシュモ）。実プレイFB「体力を少しずつ回復してくれるモビットをいれて」。
@@ -972,6 +1238,8 @@ export function createOrbit(run) {
   function updateWeaponVisual(o) {
     const w = o.weaponSpr;
     if (!w || !o.form) return;
+    // ★R47 ラゴンの槍は「振る」のではなく「狙って突く」ので専用の追従にする
+    if (o.archetype === 'LANCER') { updateLanceVisual(o); return; }
     // R4: aurajelly の近接FIELDフォームは o.aura（泡の輪）が既に範囲を見せるので、同じ w_bubble の
     //     weaponSpr は隠して二重表示を避ける（遠距離など他フォームでは表示に戻す）。
     if (o.form.kind === 'melee' && o.archetype === 'FIELD') { w.setVisible(false); return; }
@@ -1013,6 +1281,8 @@ export function createOrbit(run) {
     for (const o of orbs) {
       o.glow.destroy();
       o.spr.destroy();
+      if (o.zzz) o.zzz.destroy();
+      if (o.lanceGlow) o.lanceGlow.destroy();
       if (o.aura) o.aura.destroy();
       if (o.weaponSpr) o.weaponSpr.destroy();
       disposeDeco(o);
@@ -1063,6 +1333,19 @@ export function createOrbit(run) {
                sy: +(o.spr.y - o.y).toFixed(1), sx: +o.spr.scaleX.toFixed(2),
                scy: +o.spr.scaleY.toFixed(2), tex: o.spr.texture.key,
                awake: !!o.slAwake, fired: o.slFired || 0 };
+    },
+    // 検証用（R47）：ラゴンの単独行動を外から測る。
+    // ⚠️ 「離れて戦っている」は距離でしか確かめられない（画面を見て「離れて見える」で
+    //    済ませると、公転半径48px と 60px の区別がつかないまま実装が終わる）。
+    debugLancer() {
+      const o = orbs.find((x) => x.archetype === 'LANCER');
+      if (!o) return null;
+      const p = run.player;
+      return { state: o.lnState, dist: +Math.hypot(o.x - p.x, o.y - p.y).toFixed(1),
+               slain: o.lnSlain || 0, breath: +(o.lnBreath || 0).toFixed(1),
+               thrust: +(o.lnThrust || 0).toFixed(2), t: +(o.lnT || 0).toFixed(1),
+               blade: +(o.lnBlade || 0).toFixed(2), sally: !!o.lnSally,
+               scale: +o.spr.scaleX.toFixed(2) };
     },
     get weaponLevel() { return weaponLevel; },
     // R4: HUD 用。全なかま共通 weaponLevel なので先頭 orb の現フォームを代表として返す。

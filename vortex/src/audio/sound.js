@@ -1575,6 +1575,61 @@ const SFX = {
     tone({ type: 'sine', freq: 2093, start: 0.85, dur: 1.40, gain: 0.10 * vol,
            attack: 0.02, verb: 0.9 });
   },
+  // ============ R47 ラゴン（単独行動の槍使い）の音 ============
+  // ★4音とも「ライトセーバー」を軸に組む。FBの指定は見た目（青白く光る槍）だけだが、
+  //   あの武器の正体は**うなり（ビート）**なので、音を外すと見た目だけの棒になる。
+  //   ⚠️ 歪みバスには入れない（味方の音＝澄んだ側／[[R42の教訓]]）。ザラつきは歪みではなく
+  //      **2本の近接した矩形波のうなり**で作る（174Hz と 179Hz ＝毎秒5回の脈）。
+  //   ⚠️ 芯を低域だけに置かない（子どものノートPCで鳴らない）。348/696Hz にも同じ形を重ねる。
+  //
+  // ①点火：主人公のもとを離れて狩りへ出る合図。低い立ち上がり →（うなりが乗る）→ 高い抜け。
+  lanceIgnite(vol = 1) {
+    // 刃が伸びる：短い上行。ここだけノイズを混ぜて「起動した」硬さを出す
+    noiseHit({ dur: 0.09, gain: 0.20 * vol, hpFreq: 1800, lpFreq: 12000, lpEnd: 5000 });
+    tone({ type: 'sine', freq: 120, freqEnd: 348, dur: 0.22, gain: 0.40 * vol, attack: 0.004 });
+    // ハム（うなり）。2本を5Hzずらして重ねる＝ライトセーバーの脈
+    tone({ type: 'square', freq: 174, dur: 0.95, gain: 0.15 * vol, attack: 0.03, verb: 0.35 });
+    tone({ type: 'square', freq: 179, dur: 0.95, gain: 0.15 * vol, attack: 0.03, verb: 0.35 });
+    tone({ type: 'triangle', freq: 348, dur: 0.85, gain: 0.13 * vol, attack: 0.035, verb: 0.4 });
+    tone({ type: 'triangle', freq: 696, dur: 0.60, gain: 0.07 * vol, attack: 0.04, verb: 0.4 });
+    // 抜けていく高音（「シュイン」の上側）
+    tone({ type: 'sine', freq: 520, freqEnd: 1760, start: 0.05, dur: 0.30, gain: 0.20 * vol,
+           attack: 0.006 });
+  },
+  // ②突き。0.62秒ごとに鳴るので**短く軽く**（長い尾を付けると連打で濁る）。
+  //   「ヒュン（空気を裂く）」＋「ジュッ（刃が触れた）」の2枚だけ。
+  lanceThrust(vol = 1, pitch = 1) {
+    noiseHit({ dur: 0.055, gain: 0.20 * vol, hpFreq: 2400 * pitch, lpFreq: 13000, lpEnd: 4200 });
+    tone({ type: 'square', freq: 880 * pitch, freqEnd: 420 * pitch, dur: 0.09,
+           gain: 0.16 * vol, attack: 0.001 });
+    tone({ type: 'sine', freq: 1760 * pitch, dur: 0.12, gain: 0.09 * vol, attack: 0.002, verb: 0.3 });
+  },
+  // ③消滅させた瞬間。★ここがこの子の快感の核＝**数えられる**ように、突きの音とはっきり別物にする。
+  //   刃が抜ける「シャッ」→ 相手が光になって散る高い和音 → 短い残響。
+  lanceSlay(vol = 1, pitch = 1) {
+    noiseHit({ dur: 0.07, gain: 0.26 * vol, hpFreq: 3000, lpFreq: 15000, lpEnd: 6000 });
+    tone({ type: 'square', freq: 1320 * pitch, freqEnd: 660 * pitch, dur: 0.11,
+           gain: 0.18 * vol, attack: 0.001 });
+    // 散る光（長3和音を上へ）＝「消えた」を明るい側で言い切る
+    tone({ type: 'sine', freq: 1046.5 * pitch, start: 0.04, dur: 0.30, gain: 0.13 * vol,
+           attack: 0.003, verb: 0.55 });
+    tone({ type: 'sine', freq: 1318.5 * pitch, start: 0.06, dur: 0.28, gain: 0.10 * vol,
+           attack: 0.003, verb: 0.55 });
+    tone({ type: 'sine', freq: 1568 * pitch, start: 0.08, dur: 0.24, gain: 0.08 * vol,
+           attack: 0.003, verb: 0.6 });
+  },
+  // ④肩で息。FB「その際に肩で息をする行動をいれて」。
+  //   ★息は音程を持たない＝**帯域が上下するノイズ**で作る（吸う＝上がる／吐く＝下がる）。
+  //   胸の鳴り（低い三角波）を薄く添えると「大きな体が息をしている」に読める。
+  lancePant(vol = 1) {
+    // 吸う（ヒュー）：帯域が上へ
+    noiseHit({ dur: 0.26, gain: 0.16 * vol, hpFreq: 700, lpFreq: 2600, lpEnd: 6000 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 190, dur: 0.24, gain: 0.10 * vol, attack: 0.06 });
+    // 吐く（ハァ）：帯域が下へ・少し長い
+    noiseHit({ start: 0.30, dur: 0.38, gain: 0.20 * vol, hpFreq: 500, lpFreq: 5200, lpEnd: 1400 });
+    tone({ type: 'triangle', freq: 190, freqEnd: 128, start: 0.30, dur: 0.34, gain: 0.12 * vol,
+           attack: 0.03 });
+  },
   // 裁きの環（殻の全方位波・波ごとに音程が昇る）：地の轟き＋金属の裂け＋高い光輪
   judgeWave(vol = 1, pitch = 1) {
     const D = sfxDistBus;

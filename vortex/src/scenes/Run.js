@@ -1947,7 +1947,7 @@ export class RunScene extends Phaser.Scene {
     // ボス倍率：全経路がここを通るので orbit.js を触らずに漏れなく効く。
     // 従来は仲間に倍率が無く主人公だけ半減という、方針と真逆の構造だった。
     if (e.isBoss) {
-      if (src === 'ally') dmg = Math.max(1, Math.round(dmg * BALANCE.orbit.bossMul));
+      if (src === 'ally' || src === 'lagon') dmg = Math.max(1, Math.round(dmg * BALANCE.orbit.bossMul));
       else if (src === 'manual' && this.boss && this.boss.staggered) {
         dmg = Math.round(dmg * BALANCE.hero.strike.bossBreakMul);
       }
@@ -2001,11 +2001,26 @@ export class RunScene extends Phaser.Scene {
         this._hitSparkT = this.elapsed;
         this.fx.hitSpark(e.x, e.y, color);
       }
+    } else if (src === 'lagon') {
+      // ★R47 ラゴンは自分の槍の音（lanceThrust／lanceSlay）を orbit.js 側で鳴らすので、
+      //   ここで allyHit を重ねない（1回の突きで2つ鳴ると「何の音か」が読めなくなる）。
+      //   火花だけは出す＝当たったことが画面で分かる。
+      if (this.fx && this.fx.hitSpark && this.elapsed - this._hitSparkT >= 0.03) {
+        this._hitSparkT = this.elapsed;
+        this.fx.hitSpark(e.x, e.y, color);
+      }
     }
 
     // ★とどめの関門。ボスと復帰体だけは例外（復帰体は詰み防止の安全弁）。
+    // ★R47 実プレイFB「（ラゴンは）敵を気絶させて弾にするのではない。完全に倒す。（消滅させる）」
+    //   ＝**指定によりこの関門を破る唯一の仲間**。ここに置くのは dealDamage が全経路の
+    //   合流点だから（orbit.js 側で killEnemy を直接呼ぶと、弱点コア・王冠無敵・よろけ判定を
+    //   全部すり抜ける別経路ができる）。
+    //   ⚠️ ボスは対象外。ボスのとどめは主人公のものであり、そこまで渡すと撃破シネマティックの
+    //      主語が変わってしまう（ボスHPは巨大なので実際には届かないが、原則として閉じておく）。
+    const lanceFinish = src === 'lagon' && !e.isBoss;
     if (willKill) {
-      if (src === 'manual' || e.isBoss || e.rebooted) this.killEnemy(e, color, src);
+      if (src === 'manual' || lanceFinish || e.isBoss || e.rebooted) this.killEnemy(e, color, src);
       else { e.hp = 1; this.enterStagger(e); }
     }
   }

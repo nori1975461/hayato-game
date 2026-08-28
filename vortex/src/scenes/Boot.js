@@ -76,6 +76,9 @@ export class BootScene extends Phaser.Scene {
     this.makeNote('w_note', 14);              // ピアニカのおんぷ（8分音符）
     this.makeDrop('w_drop', 12);              // みずでっぽうの水玉
     this.makeHeart('w_heart', 14);            // R22 回復モビットのハート（白＝実行時に tint）
+    // R47 ラゴンの光の槍。芯（細い白）とグロー（太い青）の2枚を重ねて発光体にする。
+    this.makeLance('w_lance', 12, 46, 2.4);
+    this.makeLance('w_lance_glow', 12, 46, 6.2);
 
     // --- 星空タイル（視差背景・決定的パターン） ---
     this.makeStarfield('stars1', 128, 34, 1, 0.9);
@@ -577,6 +580,37 @@ export class BootScene extends Phaser.Scene {
       const halfW = br * Math.max(0, frac);
       return Math.abs(x - c) <= halfW;
     });
+  }
+
+  // ★R47 ラゴンの光の槍。FB「槍はライトセーバーのように青白く光るスタイリッシュな武器にして」。
+  //   ⚠️ 1枚のテクスチャを tint しただけでは「光っている」に見えない。**細い白芯の外側へ、
+  //      太い同じ形を ADD で重ねたときだけ**発光体として読める（だから core を変えて2枚作る）。
+  //   縦向き（穂先が上）で作る。実行時に狙う向きへ回して使う。
+  makeLance(key, w, h, core) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cx = w / 2;
+    const tipY = h * 0.03;      // 穂先
+    const gripY = h * 0.76;     // 刃と握りの境（ここから下は柄）
+    const half = core * 0.5;
+    g.fillStyle(0xffffff, 1);
+    for (let y = 0; y < h; y++) {
+      let hw;
+      if (y < gripY) {
+        // 刃。付け根では太く、先端の1割で一気に絞る＝「鋭い」が等倍でも読める
+        const f = (y - tipY) / (gripY - tipY);
+        hw = half * Math.min(1, Math.max(0, f * 7));
+      } else {
+        hw = half * 0.7;        // 握り（刃より細い＝光る部分と持つ部分が分かれて見える）
+      }
+      if (hw <= 0.2) continue;
+      const x0 = Math.round(cx - hw);
+      g.fillRect(x0, y, Math.max(1, Math.round(hw * 2)), 1);
+    }
+    // 鍔。刃と握りの境に横棒を渡すと、ただの光の帯が「武器」になる
+    g.fillRect(Math.round(cx - core * 1.4), Math.round(gripY) - 1,
+      Math.max(2, Math.round(core * 2.8)), 2);
+    g.generateTexture(key, w, h);
+    g.destroy();
   }
 
   makeStarfield(key, size, count, dotSize, alpha) {
