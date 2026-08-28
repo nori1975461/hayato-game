@@ -308,33 +308,35 @@ export const MONSTERS = [
     // 新案＝**上下2対の大きな翅**を左右へ張り出し、胴を細くする＝蛾の輪郭そのものにする。
     //   翅の目玉模様（w）を4つ置いて「蛾」の記号を立てる。
     // ★R49「もっとキモカワにして」。触角の先を枝分かれさせてモサモサに、口からピンクの
-    //   口吻（ストロー）を下へ垂らした。
-    // ★R49W2「ネオンモスの翅を変えて。もっと可愛く」。睨む目玉（瞳入り）は**やめ**、
-    //   ピンクの水玉＋白のきらめきに置き換えて、翅の四隅を落として丸くした。
-    //   キモカワの担当は触角と口吻に残し、いちばん面積の大きい翅は可愛い側に振る。
+    //   口吻（ストロー）を下へ垂らした。キモカワの担当はこの2つに残す。
+    // ★R49W3「ネオンモスの翅の形と色をかわいくして」。
+    //   形＝上下おなじ大きさの塊をやめ、**上翅を大きく・下翅を小さく**した蝶の輪郭に。
+    //   色＝地味な淡橙（体と同系）をやめ、**上翅は淡いピンク・下翅は淡い藤**の2色に。
+    //   オレンジの体に寒色を1つ入れると翅が体から分かれて見える（1色だと塊に見える）。
     evo: {
       id: 'neonmoth',
       name: 'ネオンモス',
       baseDamage: 16,
       ovr: { hitRadius: 20, maxRadius: 115, expandSpeed: 260 },   // R4: neonwormのフォームは SLASH/RINGWAVE。近接hitRadius＋ねんどうりょくの輪(maxRadius/expandSpeed)を強化（旧 width は BEAM で読まれず死んでいた）
       sprite: {
-        palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9', g: '#ffe0b3' },
+        palette: { a: '#ff9e66', d: '#c9502a', w: '#ffffff', k: '#1b3b5f', p: '#ffb3d9',
+                   g: '#ffd4ea', v: '#c9b6ff' },
         rows: [
           '..d..........d..',
           '.ddd........ddd.',
           '.gg.aaaaaaaa.gg.',
-          'gggg.aaaaaa.gggg',
-          'gpgggaaaaaagggpg',
+          'ggggaaaaaaaagggg',
+          'ggwgaaaaaaaagwgg',
           'ggggawkaawkagggg',
-          'gwggakkaakkaggwg',
-          'ggg.paawwaapggg.',
-          'ggg.aaaaaaaa.ggg',
-          '.gg..aaaaaa..gg.',
-          'ggg..aaaaaa..ggg',
-          'gggg.aaaaaa.gggg',
-          'gpgg.aaaaaa.ggpg',
-          'gwgg..aaaa..ggwg',
-          '.gg...dddd...gg.',
+          'ggggakkaakkagggg',
+          'ggggpaawwaapgggg',
+          '.vvvaaaaaaaavvv.',
+          '.vvv.aaaaaa.vvv.',
+          '.vwv.aaaaaa.vwv.',
+          '..v..aaaaaa..v..',
+          '.....aaaaaa.....',
+          '.....aaaaaa.....',
+          '.....dddddd.....',
           '.....d.pp.d.....',
         ],
       },
@@ -737,24 +739,31 @@ export const MONSTERS = [
       id: 'mezamegami',
       name: 'メザメガミ',
       baseDamage: 3,
+      // ★R49W3 実プレイFB「メザメガミのビジュアルはかなりいい線いっているが、修正して。
+      //   この子は天使っぽい要素をいれたうえで覚醒感を強く」。
+      // ⚠️ 天使はハートエンジェルが先にいる。被らせないために役割を分けた：
+      //     ハートエンジェル … 羽根の翼＋頭上の光輪＝**かわいい天使**
+      //     メザメガミ       … 光でできた翼＋放射する後光＝**神々しい方の天使**
+      // 覚醒感は3つで出す：①上と左右へ伸びる後光の光条 ②体の左右に広がる金の光の翼
+      //   ③閉じていた横線の目が2×2に見開いて金色に光る（ネムッコは横線1本だった）。
       sprite: {
         palette: { p: '#b0a8d8', c: '#f2e8c8', w: '#ffffff', y: '#ffe14d' },
         rows: [
-          '.......y........',
-          '...y...y...y....',
+          '..y..wwwwww..y..',
+          '.y..ww....ww..y.',
           '....pppppppp....',
-          '...pppppppppp...',
-          '...pwyppppywp...',
-          '...pppppppppp...',
-          '....ppyyyypp....',
+          'y..pppppppppp..y',
+          '.y.pwyppppywp.y.',
+          'y..pyyppppyyp..y',
+          '.y..ppyyyypp..y.',
           '....pppppppp....',
-          '...wcccccccccw..',
-          '..wcccccccccccw.',
-          '..wcccccccccccw.',
-          '..wcccccccccccw.',
-          '...wccccccccw...',
-          '....wcccccw.....',
-          '.....yyyyyy.....',
+          'yy.cccccccccc.yy',
+          'yyyccccccccccyyy',
+          'yyyccccccccccyyy',
+          'yy.cccccccccc.yy',
+          '.y.cccccccccc.y.',
+          '....cccccccc....',
+          '.....wwwwww.....',
           '......y..y......',
         ],
       },
