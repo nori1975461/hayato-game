@@ -192,12 +192,12 @@ export const BALANCE = {
 |---|---|---|---|---|---|---|
 | starpuppy | スターパピー | N | SLASH | #7fd8ff | 4 | 星型の耳の子犬 |
 | togeron | トゲロン | N | BOOMERANG | #9dff70 | 5 | トゲトゲのやんちゃ坊主。クッキーブーメランを投げて戻す |
-| pikabit | ピカビット | N | SHOT | #ffe066 | 3 | 電気ウサギ。弾は黄色 |
+| terabit | テラビット | N | SHOT | #ffe066 | 3 | 電気ウサギ。弾は黄色 |
 | samet | サメット | R | RINGWAVE | #66a3ff | 5 | 小さなサメ。おんぷリングが広がる |
 | neonworm | ネオンワーム | R | BEAM | #ff9e66 | 8 | 発光する節を持つ虫 |
 | aurajelly | オーラジェリー | SR | FIELD | #ff6ec7 | — | FIELDはtickDamage=1固定＋減速。baseDamageは1を入れておく |
 
-- **開始編成**: starpuppy ＋ pikabit の2体
+- **開始編成**: starpuppy ＋ terabit の2体
 - 同種の重複編成OK（スターパピー2体なども可）
 
 ### 4.3 敵3種
@@ -317,7 +317,7 @@ movement仕様:
 - rng決定性: `createRng(42)` を2回作り、各100個の `random()` が完全一致
 - `range` / `int` の境界（intは両端を含む）・`chance(0)`=false・`chance(1)`=true・`shuffle` が元配列を破壊しない
 - upgrades 7種の id 一意
-- MONSTERS が6種・ENEMIES が3種・開始編成（starpuppy / pikabit）の id が存在（**v2で改訂: §10.8**）
+- MONSTERS が6種・ENEMIES が3種・開始編成（starpuppy / terabit）の id が存在（**v2で改訂: §10.8**）
 - spawnPhases の weights のキーが全て ENEMIES の id に存在
 - **v3追加**: weapon / special / autoUpgrade のキー検証・敵の量の上限検証・`levelupFlow` 廃止の検証（詳細は §10.8 / §11.7）
 
@@ -597,7 +597,7 @@ export const BALANCE = {
 
 ### ゆるふわ造形ルール（詳細は `dev/SPRITE_GUIDE.md`（新規）に完成グリッド例と共に記載）
 
-1. 輪郭は丸基調（角を'.'で落とす）2. 目は2×2以上の大きな黒目＋1pxハイライト 3. ほっぺ（ピンク系1〜2px）必須 4. 口は小さく（1〜2px）5. パステル基調＋白ハイライト 6. 手足は短く胴に密着。**敵の対比ルール**: ほっぺ無し・太まゆ/つり目で「かわいいがちょっと悪そう」に描き分ける。設計完成グリッド（starpuppy/pikabit/主人公Stage3）は設計書 design-visual.md にあり、実装時はSPRITE_GUIDE.mdへ転記する
+1. 輪郭は丸基調（角を'.'で落とす）2. 目は2×2以上の大きな黒目＋1pxハイライト 3. ほっぺ（ピンク系1〜2px）必須 4. 口は小さく（1〜2px）5. パステル基調＋白ハイライト 6. 手足は短く胴に密着。**敵の対比ルール**: ほっぺ無し・太まゆ/つり目で「かわいいがちょっと悪そう」に描き分ける。設計完成グリッド（starpuppy/terabit/主人公Stage3）は設計書 design-visual.md にあり、実装時はSPRITE_GUIDE.mdへ転記する
 
 ### 新敵2種（movementは既存実装を流用・データ追加のみ）
 
@@ -618,7 +618,7 @@ export const BALANCE = {
 |---|---|---|---|---|
 | starpuppy | comethound | コメットハウンド | 4→9 | hitRadius: 20 |
 | togeron | togeking | トゲキング（金王冠） | 5→11 | hitRadius: 20 |
-| pikabit | thunderbit | サンダービット | 3→7 | intervalSec: 0.55 |
+| terabit | thunderbit | サンダービット | 3→7 | intervalSec: 0.55 |
 | samet | megasamet | メガサメット | 5→11 | expandSpeed: 300 |
 | neonworm | neonmoth | ネオンモス | 8→16 | width: 10 |
 | aurajelly | aurorajelly | オーロラジェリー | FIELD | tickDamage: 2, radius: 80 |
@@ -1024,7 +1024,7 @@ R3 までボスを厚くしたが、なかまの攻撃は「各自の固定 arch
 - 各なかま（monsters.js）に `forms:[{name,kind:'melee',archetype,tex,sfx}, {name,kind:'ranged',...}]` の2フォーム。**form0=必ず近接・form1=必ず遠距離**。
 - 帯計算 `formIndexFor(lv)=Math.floor((lv-1)/2)%2`。帯0(Lv1-2)=近接／帯1(Lv3-4)=遠距離／帯2(Lv5-6)=近接…と2Lv刻みで交互。全なかま共通 weaponLevel なので帯上昇で6体同時切替。
 - orbit.js `rebuild()` で従来固定の `o.archetype=base.archetype` を `o.form=forms[formIndexFor(weaponLevel)]; o.archetype=o.form.archetype` へ動的化。攻撃機構（SLASH/SHOT/BEAM/FIELD/BOOMERANG/RINGWAVE）は既存を再利用し、テクスチャ・SFX・武器名で差別化。各orbに持続 `weaponSpr`（近接=弧を描いて振る／遠距離=脇で浮遊）。
-- なかま別: starpuppy=グーパンチ(SLASH)/おもちゃ投げ(SHOT)・togeron=巨大ハンマー(SLASH)/ケーキ投げ(BOOMERANG)・pikabit=ビンタ(SLASH)/ピカピカビーム(BEAM)・samet=ピアニカ(SLASH)/水鉄砲(SHOT)・neonworm=頭突き(SLASH)/念動力(RINGWAVE)・aurajelly=スポンジ(FIELD)/なわとび(RINGWAVE)。新テクスチャ `w_toy/w_hammer/w_note/w_drop`（Boot.js内製）＋新SFX `punch/hammer/note/water/psychic`（sound.js・LCG決定・Sound.sfxは未知キー無視で安全）。
+- なかま別: starpuppy=グーパンチ(SLASH)/おもちゃ投げ(SHOT)・togeron=巨大ハンマー(SLASH)/ケーキ投げ(BOOMERANG)・terabit=ビンタ(SLASH)/ピカピカビーム(BEAM)・samet=ピアニカ(SLASH)/水鉄砲(SHOT)・neonworm=頭突き(SLASH)/念動力(RINGWAVE)・aurajelly=スポンジ(FIELD)/なわとび(RINGWAVE)。新テクスチャ `w_toy/w_hammer/w_note/w_drop`（Boot.js内製）＋新SFX `punch/hammer/note/water/psychic`（sound.js・LCG決定・Sound.sfxは未知キー無視で安全）。
 
 ## 15.2 主人公スターオーラ＋ショット強化（要望#4/#8）
 
@@ -1036,7 +1036,7 @@ R3 までボスを厚くしたが、なかまの攻撃は「各自の固定 arch
 form-mechanism／hero-aura-shot／completeness-integration の3次元でレビューし敵対的検証（確定9・**critical 0**）。4テーマを修正:
 
 - **【major】フォーム帯切替でブーメラン/リング波が固着＋リーク**：`rebuild()` の再割り当てループが `releaseWeaponVisuals` を呼ばず、遠距離帯→近接帯（Lv4→5・8→9）で archetype が変わると飛翔中の boomerang/ringwave スプライトが孤児化（どの update からも参照されず画面固着＋GameObjectリーク＝制約「リーク厳禁」抵触）。→ 再割り当てループで `prevArch !== o.archetype` の時 `releaseWeaponVisuals(o)`。
-- **【minor】進化ovrがフォームarchetypeと不一致で3体の進化強化が死ぬ**：thunderbit(intervalSec→pikabitはSLASH/BEAM)・megasamet(expandSpeed→sametはSLASH/SHOT)・neonmoth(width→neonwormはSLASH/RINGWAVE)。→ 各 ovr を実フォームのパラメータへ振り直し（近接hitRadius＋各遠距離キー length/width・bulletSpeed/intervalSec・maxRadius/expandSpeed）。
+- **【minor】進化ovrがフォームarchetypeと不一致で3体の進化強化が死ぬ**：thunderbit(intervalSec→terabitはSLASH/BEAM)・megasamet(expandSpeed→sametはSLASH/SHOT)・neonmoth(width→neonwormはSLASH/RINGWAVE)。→ 各 ovr を実フォームのパラメータへ振り直し（近接hitRadius＋各遠距離キー length/width・bulletSpeed/intervalSec・maxRadius/expandSpeed）。
 - **【nit】hero.twinLevel/tripleLevel 死に設定残置**：shotByStage へ移行済み。→ 削除。
 - **【nit】aurajelly近接FIELDで w_bubble が aura と weaponSpr 二重表示**：→ FIELD近接時 weaponSpr 非表示（他フォームで復帰）。
 
@@ -1054,7 +1054,7 @@ form-mechanism／hero-aura-shot／completeness-integration の3次元でレビ�
 ## 16.1 手応え・バランス調整（FB#1/#3/#4）
 
 - **#1 必殺技**: `special.maxUses 3→5`・`killsPerCharge 26→18`（約3割速い）・`startCharge 0.6→0.7`。test-core の回帰ガードも 3→5 へ更新。
-- **#3 雑魚3発撃破**: 「当初5発で不満」の主因 gareon を中心にHPを下げ、序盤(weaponLevel=1)の近接1ヒット（starpuppy4/pikabit3）で概ね3ヒット撃破へ。gareon 42→14・chibit 6→4・bomba 9→8・snipa 12→9・turret 16→12。攻撃力/頻度は据え置き（脅威は維持）。
+- **#3 雑魚3発撃破**: 「当初5発で不満」の主因 gareon を中心にHPを下げ、序盤(weaponLevel=1)の近接1ヒット（starpuppy4/terabit3）で概ね3ヒット撃破へ。gareon 42→14・chibit 6→4・bomba 9→8・snipa 12→9・turret 16→12。攻撃力/頻度は据え置き（脅威は維持）。
 - **#4 弾を速く・数を1割減**: プレイヤー hero.bulletSpeed 300→360・intervalSec 1.4→1.55、SHOT 260→315・0.8→0.88。ボス6段の弾速+20%（ring/vulcan/missile/machinegun/cutter/armslam）・発射数-約1割（ring.count/count2・vulcan.perBurst 10→9・missile 5→4・cutter 3→2・armslam.shockCount 10→9）。雑魚 snipa 240→288・turret 150→180。ビーム系(laser/wavecannon)は弾速概念なしで据え置き。
 
 ## 16.2 爽快感の可視化（FB#2/#5/#6/#7）

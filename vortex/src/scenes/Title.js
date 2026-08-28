@@ -49,7 +49,7 @@ export class TitleScene extends Phaser.Scene {
     //   同じ地面に立って正面を向く。動きは呼吸だけ（振幅2px・位相をずらす）。
     const demo = this.add.image(W / 2, 236, 'player_1').setScale(3.2);
     this.squad = [];
-    const SQUAD = ['mon_togeron', 'mon_starpuppy', 'mon_pikabit', 'mon_samet'];
+    const SQUAD = ['mon_togeron', 'mon_starpuppy', 'mon_terabit', 'mon_samet'];
     const SQUAD_X = [-122, -64, 64, 122];
     for (let i = 0; i < SQUAD.length; i++) {
       const x = W / 2 + SQUAD_X[i];

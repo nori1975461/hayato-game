@@ -58,14 +58,14 @@ const MOB_KEYS = ['enemy_gareon', 'enemy_chibit', 'enemy_bomba',
 const MOBIT_LINE = [
   { base: 'mon_starpuppy', evo: 'mon_comethound' },
   { base: 'mon_togeron', evo: 'mon_togeking' },
-  { base: 'mon_pikabit', evo: 'mon_thunderbit' },
+  { base: 'mon_terabit', evo: 'mon_thunderbit' },
   { base: 'mon_samet', evo: 'mon_megasamet' },
   { base: 'mon_neonworm', evo: 'mon_neonmoth' },
 ];
 // Title の最終フレームと一致させるための隊列パラメータ。
 // ★R44W2 で Title の公転（連れて回るマスコットの絵）を隊列へ変えたので、こちらも合わせる。
 //   ここがズレると Opening→Title の切り替わりで相棒だけが跳ぶ（R41 で自機が跳ねていた事故と同じ）。
-const TITLE_SQUAD = { keys: ['mon_togeron', 'mon_starpuppy', 'mon_pikabit', 'mon_samet'],
+const TITLE_SQUAD = { keys: ['mon_togeron', 'mon_starpuppy', 'mon_terabit', 'mon_samet'],
   xs: [-122, -64, 64, 122], y: 248, scale: 2.0 };
 
 export class OpeningScene extends Phaser.Scene {

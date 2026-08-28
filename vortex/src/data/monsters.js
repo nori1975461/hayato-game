@@ -140,8 +140,8 @@ export const MONSTERS = [
   },
   {
     // たまご型の電気ウサギ。長い耳と赤い電気ほっぺ。弾は黄色。開始編成の1体。
-    id: 'pikabit',
-    name: 'ピカビット',
+    id: 'terabit',
+    name: 'テラビット',
     rarity: 'N',
     archetype: 'SHOT',
     color: '#ffe066',
@@ -178,7 +178,7 @@ export const MONSTERS = [
       id: 'thunderbit',
       name: 'サンダービット',
       baseDamage: 7,
-      ovr: { hitRadius: 20, length: 190, width: 9 },   // R4: pikabitのフォームは SLASH/BEAM。近接hitRadius＋ピカピカビームの length/width を強化（旧 intervalSec は BEAM で読まれず死んでいた）
+      ovr: { hitRadius: 20, length: 190, width: 9 },   // R4: terabitのフォームは SLASH/BEAM。近接hitRadius＋ピカピカビームの length/width を強化（旧 intervalSec は BEAM で読まれず死んでいた）
       sprite: {
         palette: { a: '#ffe066', d: '#d8a838', w: '#ffffff', k: '#1b3b5f', p: '#ff5e5e',
                    o: '#ff9e66', y: '#fffbe0' },
@@ -497,7 +497,7 @@ export const MONSTERS = [
     // R23（実プレイFB「特殊弾を生成してくれるモビットもいれて。…イナズマが迸る雷光弾。
     //   ボス戦でのみ。1ボスに対して1弾。マオウレクス戦では2弾」）。
     // 2体目の非戦闘モビット。敵に触れず、ボス戦のあいだだけ主人公へ「らいこうだん」を手渡す。
-    // ⚠️ 濃紺の雷雲の体に電光の黄を差す配色にしたのは、同じ雷系のサンダービット（ピカビットの進化形）と
+    // ⚠️ 濃紺の雷雲の体に電光の黄を差す配色にしたのは、同じ雷系のサンダービット（テラビットの進化形）と
     //    見分けるため。あちらは全身が明るい光、こちらは「雲の中で光る」。
     id: 'biricco',
     name: 'ビリッコ',

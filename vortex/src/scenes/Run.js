@@ -39,7 +39,7 @@ const FOE_BULLET_SHAPE = {
   orb:   { tex: 'foe_orb',   baseRadius: 4, w: 12, h: 12, glowW: 18, glowH: 10 },
 };
 
-const START_PARTY = ['starpuppy', 'pikabit'];
+const START_PARTY = ['starpuppy', 'terabit'];
 
 export class RunScene extends Phaser.Scene {
   constructor() {

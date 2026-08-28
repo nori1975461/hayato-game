@@ -39,7 +39,7 @@ const PRAISE = {
   comethound:  'ほしを けって かけぬけた！',
   togeron:     'ハンマーで みちを ひらいた！',
   togeking:    'でっかい ハンマーで ぜんぶ ふきとばした！',
-  pikabit:     'ビリビリで めを くらませた！',
+  terabit:     'ビリビリで めを くらませた！',
   thunderbit:  'かみなりで そらを わった！',
   samet:       'みずでっぽうで えんごしてくれた！',
   megasamet:   'おおなみで まとめて おしながした！',

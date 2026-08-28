@@ -336,10 +336,10 @@ assert(ENEMIES.length === 6, 'data: ENEMIES が6種（R24: レア役マグマン
   assert(ids.length === 24 && unique, "data: MONSTERS 12種＋evo id を合わせて全 id が一意（24件）");
 }
 
-// --- 開始編成 starpuppy / pikabit の id が存在 ---
+// --- 開始編成 starpuppy / terabit の id が存在 ---
 {
   const ids = new Set(MONSTERS.map((m) => m.id));
-  assert(ids.has('starpuppy') && ids.has('pikabit'), 'data: 開始編成 starpuppy/pikabit が存在');
+  assert(ids.has('starpuppy') && ids.has('terabit'), 'data: 開始編成 starpuppy/terabit が存在');
 }
 
 // --- BOSS export の存在（id='uzuking'） ---
@@ -1125,7 +1125,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `R34: イラストの使用文字がすべてパレットにある（欠け: ${[...missing].join(',') || 'なし'}）`);
   // 主人公・なかま3体・敵が全部いること＝「一緒に戦っている絵」であることの最低条件
   const flat = ENDING_ART.rows.join('');
-  const WHO = [['b', '主人公の装甲'], ['y', 'スターパピー'], ['n', 'ピカビット'],
+  const WHO = [['b', '主人公の装甲'], ['y', 'スターパピー'], ['n', 'テラビット'],
     ['m', 'トゲロン'], ['P', 'マオウレクス']];
   for (const [ch, who] of WHO) {
     assert(flat.indexOf(ch) >= 0, `R34: イラストに ${who} が描かれている`);
