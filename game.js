@@ -2568,6 +2568,10 @@ window.addEventListener('keydown', (e) => {
       state = 'zukan';
       beep(700, 0.07, 'triangle', 0.05);
     }
+    if (e.key === 'r' || e.key === 'R') {
+      startRairyuTrial(); // ライリュウ戦おためし（低情報モードの比較用。記録は残さない）
+      beep(880, 0.09, 'triangle', 0.05);
+    }
   } else if (state === 'playing') {
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     if (e.key === 'i' || e.key === 'I') toggleLowInfo(); // I=じょうほう ひかえめ（表示だけを間引く）
@@ -2603,7 +2607,7 @@ window.addEventListener('keydown', (e) => {
   } else if (state === 'gameover') {
     // スペース＝コンティニュー（死んだ直後にスペース連打していても進行が消えない配置）
     if ((e.key === ' ' || e.key === 'c' || e.key === 'C') && continuesLeft > 0) continueGame();
-    else if (e.key === 'Enter') state = 'title';
+    else if (e.key === 'Enter') { trialMode = false; state = 'title'; }
   }
 });
 
@@ -2739,6 +2743,10 @@ let highScore = Number(localStorage.getItem('hayato-highscore') || 0);
 let defeatedBosses = new Set(JSON.parse(localStorage.getItem('hayato-bosszukan') || '[]'));
 let zukanCursor = 0; // 図鑑画面で選択中のボスindex（BOSS_TYPESの添字）
 let debugStage = 1; // タイトル画面の◀▶で選ぶデバッグ用開始ステージ（Bキーでそのボス戦へ直行）
+// おためしモード（タイトルでRキー）: ライリュウ戦だけをすぐ遊ぶための使い捨てプレイ。
+// 低情報モード（Iキー）のON/OFFを同じ相手で比べるための機能なので、進行データは一切汚さない
+// ＝ずかんの撃破記録・ハイスコアを保存せず、終わったらけっさん/おみせを飛ばしてタイトルへ戻る。
+let trialMode = false;
 function recordBossDefeat(idx) {
   if (idx < 0 || idx >= BOSS_TYPES.length || defeatedBosses.has(idx)) return;
   defeatedBosses.add(idx);
@@ -2816,9 +2824,40 @@ function startGame() {
   lastTallyScore = 0;
   pendingTally = 0;
   finalClear = false;
+  trialMode = false;
   musicFrame = 0;
   musicStep = 0;
   state = 'playing';
+}
+
+// タイトルのRキー: ライリュウ戦おためしモード。28面まで到達しなくてもすぐ最終ボスと戦える。
+// 装備が貧弱だと比較にならないので、姿の最終進化（FORM_SCORESの最後）に届くスコアから始める。
+const TRIAL_SCORE = 238000; // FORM_SCORESの最終しきい値ぴったり＝すがた・ゆうしゃLvともに最終形態
+function startRairyuTrial() {
+  startGame();
+  trialMode = true;
+  stage = stageOrder.indexOf(LAST_STAGE - 1) + 1; // ライリュウ（BOSS_TYPESの最後）が置かれたステージへ
+  score = TRIAL_SCORE;
+  weaponIdx = weaponForScore(score);
+  formIdx = formForScore(score);
+  checkHeroLevel(true); // ゆうしゃLvもスコア相当まで一気に上げる（演出は出さない）
+  lives = maxLives();
+  nextBossScore = score; // 開始直後にWARNING（120フレーム）→ライリュウ出現
+  bannerText = 'おためし：Iキーで じょうほうひかえめ';
+  bannerTimer = 180;
+}
+
+// おためしモードの終了。けっさん・おみせ・エンディングには進まず、記録も残さずタイトルへ戻る
+function endTrial() {
+  trialMode = false;
+  finalClear = false;
+  pendingTally = 0;
+  bossEvent = null;
+  bannerText = '';
+  bannerTimer = 0;
+  musicFrame = 0;
+  musicStep = 0;
+  state = 'title';
 }
 
 function playerCenter() {
@@ -3259,12 +3298,13 @@ function checkWeaponEvolve() {
 
 // ---------- ゆうしゃレベルのチェック（毎フレーム呼ばれる） ----------
 // スコアがしきい値を超えていれば、たまっている分だけまとめてレベルアップする
-function checkHeroLevel() {
+// silent=true は演出なし（おためしモードの初期化で一気に上げるとき用）
+function checkHeroLevel(silent = false) {
   while (hero.level - 1 < HERO_LV.length && score >= HERO_LV[hero.level - 1].score) {
     const lv = HERO_LV[hero.level - 1];
     lv.apply(hero);
     hero.level++;
-    heroLevelUp(lv);
+    if (!silent) heroLevelUp(lv);
   }
 }
 
@@ -3378,7 +3418,8 @@ function killEnemy(e, lightningDepth = 2) {
         bossActive = false;
         nextBossScore = Math.max(nextBossScore + 4000 + stage * 200, score + 3000);
         const cleared = stage;
-        recordBossDefeat(stageOrder[Math.min(cleared, LAST_STAGE) - 1]); // 並びが変わるのでステージ番号ではなく実際のボスindexで記録する
+        // 並びが変わるのでステージ番号ではなく実際のボスindexで記録する。おためしモードはずかんに残さない
+        if (!trialMode) recordBossDefeat(stageOrder[Math.min(cleared, LAST_STAGE) - 1]);
         if (cleared >= LAST_STAGE) {
           finalClear = true;
           pendingTally = 110;
@@ -3583,7 +3624,7 @@ function hurtPlayer(dmg = 1, sx = null, sy = null) {
       return;
     }
     state = 'gameover';
-    if (score > highScore) {
+    if (!trialMode && score > highScore) { // おためしモードのスコアはハイスコアに残さない
       highScore = score;
       localStorage.setItem('hayato-highscore', String(highScore));
     }
@@ -3748,7 +3789,11 @@ function update() {
   // けっさんへの移行待ち（ボス撃破の余韻のあとに開く）
   if (pendingTally > 0) {
     pendingTally--;
-    if (pendingTally === 0) { startTally(); return; }
+    if (pendingTally === 0) {
+      if (trialMode) { endTrial(); return; } // おためしモードはけっさんへ進まずタイトルへ
+      startTally();
+      return;
+    }
   }
 
   // プレイヤー移動（ブーツで速く、凍ると遅い）
@@ -8702,10 +8747,13 @@ function renderTitle() {
   drawText(`C  いろ: ${OUTFITS[outfitIdx].name}`, W / 2 - 138, 285, '#94b0c2', 11);
   drawText(`N  なまえ: ${playerName || 'なし'}`, W / 2 + 17, 285, '#94b0c2', 11);
 
+  // ライリュウ戦おためし（低情報モードの比較用。記録は残らない）
+  drawCenteredText('R: ライリュウせん おためし（たたかい中 Iキーで じょうほうひかえめ）', 305, '#94b0c2', 11);
+
   // デバッグ用ステージスキップ（◀▶で選択、Bキーでそのボス戦へ直行）。本番では非表示（先にボスの姿を見せないため）
   if (isDevEnv) {
     const bt = BOSS_TYPES[Math.min(debugStage, LAST_STAGE) - 1];
-    drawCenteredText(`◀▶ ボステスト: St.${debugStage} ${bt.name}　[Bキー]`, 314, '#566c86', 11);
+    drawCenteredText(`◀▶ ボステスト: St.${debugStage} ${bt.name}　[Bキー]`, 320, '#566c86', 11);
   }
 
   // ハイスコアのピル（右上）
@@ -9155,7 +9203,9 @@ function renderGameover() {
   drawCenteredText(`${playerName ? playerName + 'の ' : ''}スコア: ${score}`, 148, '#f4f4f4', 16);
   drawCenteredText(`さいだいコンボ: ${maxCombo}  とうたつぶき: ${WEAPONS[weaponIdx].name}`, 175, '#94b0c2', 12);
   drawCenteredText(`ステージ${stage}/${LAST_STAGE}まで とうたつ  たおしたボス: ${bossCount}たい`, 195, '#94b0c2', 12);
-  if (score >= highScore && score > 0) {
+  if (trialMode) {
+    drawCenteredText('おためしモード（きろくは のこりません）', 226, '#94b0c2', 13);
+  } else if (score >= highScore && score > 0) {
     drawCenteredText('★ハイスコアこうしん！★', 226, RAINBOW[Math.floor(gframe / 8) % RAINBOW.length], 18);
   } else {
     drawCenteredText(`ハイスコア: ${highScore}`, 226, '#ff77a8', 13);
