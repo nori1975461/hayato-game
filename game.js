@@ -2832,10 +2832,11 @@ function startGame() {
 
 // タイトルのRキー: ライリュウ戦おためしモード。28面まで到達しなくてもすぐ最終ボスと戦える。
 // 装備が貧弱だと比較にならないので、姿の最終進化（FORM_SCORESの最後）に届くスコアから始める。
-const TRIAL_SCORE = 238000; // FORM_SCORESの最終しきい値ぴったり＝すがた・ゆうしゃLvともに最終形態
+const TRIAL_SCORE = 271500; // ロケットパンチ真のしきい値ぴったり（すがた・ゆうしゃLvは238000で既に最終）
 function startRairyuTrial() {
   startGame();
   trialMode = true;
+  continuesLeft = 6; // おためしはA/B比較が目的なので通常の3回より多めに戦い直せるように
   stage = stageOrder.indexOf(LAST_STAGE - 1) + 1; // ライリュウ（BOSS_TYPESの最後）が置かれたステージへ
   score = TRIAL_SCORE;
   weaponIdx = weaponForScore(score);
