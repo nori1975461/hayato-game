@@ -1,7 +1,7 @@
 // ============================================================
 // HAYATO - 360度回転武器アクション
 // 操作: 矢印キー（またはWASD）= 移動 / スペース = 必殺技（ゲージ満タン時）
-//       Mキー = おんがくON/OFF / タイトルで C = いろかえ, N = なまえ
+//       Mキー = おんがくON/OFF / Iキー = じょうほう ひかえめ ON/OFF / タイトルで C = いろかえ, N = なまえ
 // 武器はスコアで30段階進化（ナイフ→…→ライトセーバー）
 // ステージは全27種、ボスは神話・伝説の魔物たち27体
 // 5ステージごとに「けっさん」→ ゴールドで おみせ（防具10種）
@@ -2570,6 +2570,7 @@ window.addEventListener('keydown', (e) => {
     }
   } else if (state === 'playing') {
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
+    if (e.key === 'i' || e.key === 'I') toggleLowInfo(); // I=じょうほう ひかえめ（表示だけを間引く）
     if (!paused && e.key === ' ' && specialGauge >= 100) trySpecial();
   } else if (state === 'tally') {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -2696,6 +2697,13 @@ let combo, comboTimer, maxCombo;
 let bossActive, nextBossScore, bossCount, warningTimer;
 let stage, specialGauge, playerSlowT;
 let paused = false;
+// 低情報モード（Iキーで切り替え）: 「情報量が多くて処理しきれない」への対策。
+// 変えるのは表示だけ＝攻撃頻度・予告の本数や時間・当たり判定・ダメージ・SFXには一切触れない。
+// 予告（落雷リング・電気フェンス・ノヴァ・レーザー予告線・ふみつけ影・WARNING・変身/激怒バナー）は
+// 「見て動くための情報」なので低情報モードでも残し、減らすのはフィードバック文字と飾りだけ。
+let lowInfoMode = false;
+let lastKakinFrame = -999;      // カキン！を最後に出したフレーム（スロットル用）
+const KAKIN_INTERVAL = 45;      // カキン！はこのフレーム数に1回まで
 const BOSS_SPECIAL_LIMIT = 5; // 同じボス戦の中で必殺技を使える回数
 let bossSpecialsUsed = 0;
 let gold, gear, lastTallyScore, pendingTally, finalClear;
@@ -3068,8 +3076,51 @@ function rainbowBurst(x, y, count = 30, speed = 2.5, decorative = false) {
   }
 }
 
-function addPopup(x, y, text, color = '#ffcd75', size = 11) {
+// ボスの予告が進行しているか（この瞬間は飾りを重ねない）。
+// 判定はゲーム本体の状態そのもの（strikes/novas/act）を読む＝条件式を作り直さない
+function bossTelegraphing() {
+  if (strikes.length > 0) return true;
+  for (const nv of novas) if (nv.delay > 0 || nv.tel > 0) return true;
+  for (const e of enemies) if (e.boss && e.act && e.act.telOn) return true;
+  return false;
+}
+// ボス戦中で予告が進行中＝③装飾を出さないタイミング
+function lowInfoHideDecor() {
+  return lowInfoMode && bossActive && bossTelegraphing();
+}
+// ③装飾のポップアップ（見なくても困らないフィードバック文字）
+const LOW_INFO_DECOR_POPUPS = ['かいしん！', 'ガード！', 'すずのバリア！', 'とげ はんげき！', 'はじいた！', 'かいふく！', 'ひっさつわざ！！'];
+function lowInfoDropPopup(text) {
+  // カキン！はコア外に当てるたび毎回出て最多（1戦600回超）。狙い直しの合図は残しつつ間引く
+  if (text === 'カキン！') {
+    if (gframe - lastKakinFrame < KAKIN_INTERVAL) return true;
+    lastKakinFrame = gframe;
+    return false;
+  }
+  if (!bossActive) return false;
+  if (!LOW_INFO_DECOR_POPUPS.includes(text) && !/^\+\d+$/.test(text)) return false;
+  return bossTelegraphing();
+}
+
+// keep=true はゲーム進行の合図（弾かれた・技名など）で、低情報モードでも必ず出す
+function addPopup(x, y, text, color = '#ffcd75', size = 11, keep = false) {
+  if (lowInfoMode && !keep && lowInfoDropPopup(text)) return;
   popups.push({ x, y, text, color, size, life: 45 });
+}
+
+// ③のバナー（HUDにも同じ情報が常時出ているもの）。低情報モードのボス戦では出さない
+function setDecorBanner(text, timer) {
+  if (lowInfoMode && bossActive) return;
+  bannerText = text;
+  bannerTimer = timer;
+}
+
+// Iキーで低情報モードを切り替え（プレイ中いつでも。リロードで元に戻る＝保存しない）
+function toggleLowInfo() {
+  lowInfoMode = !lowInfoMode;
+  const pc = playerCenter();
+  addPopup(pc.x, pc.y - 28, lowInfoMode ? 'じょうほう ひかえめ ON' : 'じょうほう ひかえめ OFF', '#73eff7', 13, true);
+  beep(lowInfoMode ? 520 : 760, 0.08, 'triangle', 0.05);
 }
 
 // 広がる衝撃波リング（攻撃のインパクト演出）
@@ -3117,7 +3168,7 @@ function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
   if (!ignoreDefense) {
     // 盾ギミック: シールド展開中はすべてガード
     if (e.type.gimmicks.includes('shield') && bossShielded(e)) {
-      addPopup(hitX, hitY, 'ガード！', '#41a6f6', 12);
+      addPopup(hitX, hitY, 'ガード！', '#41a6f6', 12, true); // 攻撃が通らない合図なので常に出す
       SFX.guard();
       burst(hitX, hitY, PALETTE.C, 4, 1.2);
       return 0;
@@ -3139,7 +3190,8 @@ function damageBoss(e, dmg, hitX, hitY, ignoreDefense = false) {
   const gained = Math.round(dmg * 10);
   score += gained;
   e.hitCount = (e.hitCount || 0) + 1;
-  if (e.hitCount % 4 === 0) addPopup(hitX, hitY - 8, `+${gained}`, '#ffcd75', 9);
+  // 低情報モードのボス戦ではスコアはHUDだけで足りるので出さない
+  if (e.hitCount % 4 === 0 && !(lowInfoMode && bossActive)) addPopup(hitX, hitY - 8, `+${gained}`, '#ffcd75', 9);
   checkWeaponEvolve();
   return dmg;
 }
@@ -3186,8 +3238,7 @@ function splitBoss(e) {
 function checkWeaponEvolve() {
   const newIdx = weaponForScore(score);
   if (newIdx <= weaponIdx) return false;
-  bannerText = `ぶきしんか！ ${WEAPONS[weaponIdx].name} → ${WEAPONS[newIdx].name}`;
-  bannerTimer = 150;
+  setDecorBanner(`ぶきしんか！ ${WEAPONS[weaponIdx].name} → ${WEAPONS[newIdx].name}`, 150);
   weaponIdx = newIdx;
   angleHist = []; // 前の武器の角度履歴で残像斬りが暴発しないようクリア
   orbitAngle = 0;
@@ -3199,8 +3250,7 @@ function checkWeaponEvolve() {
   const nf = formForScore(score);
   if (nf > formIdx) {
     formIdx = nf;
-    bannerText = `すがたしんか！ ${FORMS[nf].name}に なった！`;
-    bannerTimer = 180;
+    setDecorBanner(`すがたしんか！ ${FORMS[nf].name}に なった！`, 180);
     rainbowBurst(pc.x, pc.y, 70, 4);
     flashTimer = 22;
   }
@@ -3225,8 +3275,7 @@ function heroLevelUp(lv) {
   addShockwave(pc.x, pc.y, lv.color, 14, 6, 24, 5);
   addShockwave(pc.x, pc.y, '#f4f4f4', 8, 8, 20, 3);
   addPopup(pc.x, pc.y - 22, `ゆうしゃLv${hero.level}！`, lv.color, 14);
-  bannerText = `ゆうしゃレベル${hero.level}！ ${lv.label}`;
-  bannerTimer = 170;
+  setDecorBanner(`ゆうしゃレベル${hero.level}！ ${lv.label}`, 170);
   flashTimer = 18;
   SFX.fanfare();
 }
@@ -4795,6 +4844,7 @@ function runBossAct(e, pc, ecx, ecy) {
     const tel = dash ? 30 : 35;         // ため（予備動作。描画側で大きくのけぞる）
     const dur = dash ? 42 : 26;         // 突進時間
     const spd = dash ? 8.5 : 6.5;
+    a.telOn = a.t < tel;                // 予告中かの記録（低情報モードの判定用。挙動には影響しない）
     if (a.t === 1) { addPopup(ecx, e.y - 12, dash ? 'たいあたり！！' : 'パンチ！！', '#ef7d57', 15); SFX.warn(); }
     if (a.t < tel) {
       e.hitTimer = 2; // 白く点滅して予告
@@ -4838,6 +4888,7 @@ function runBossAct(e, pc, ecx, ecy) {
   } else if (a.kind === 'tail') {
     const tel = 30;
     const dur = 45;
+    a.telOn = a.t < tel;
     if (a.t === 1) { addPopup(ecx, e.y - 12, 'なぎはらい！！', '#ef7d57', 15); SFX.warn(); }
     if (a.t < tel) {
       if (a.t % 5 === 0) burst(ecx, ecy, e.type.aura, 6, 2);
@@ -4862,6 +4913,7 @@ function runBossAct(e, pc, ecx, ecy) {
     const hover = 55;   // 影がプレイヤーを追う時間
     const landT = crouch + rise + hover;
     const lockT = landT - 12; // 着地点が確定する瞬間
+    a.telOn = a.t < landT;    // 着地予告の影が出ているあいだ＝予告中
     if (a.t === 1) {
       addPopup(ecx, e.y - 12, 'ふみつけ！！', '#ef7d57', 15);
       SFX.warn();
@@ -4916,6 +4968,7 @@ function runBossAct(e, pc, ecx, ecy) {
     const bcol = e.type.breathColors;
     const tel = 35;
     const dur = 68;
+    a.telOn = a.t < tel;
     const mouthX = ecx;
     const mouthY = e.y + e.size * 0.32;
     if (a.t === 1) { addPopup(ecx, e.y - 12, e.type.breathName || 'ほのおのブレス！！', bcol ? bcol[1] : '#ef7d57', 17); SFX.warn(); SFX.giantCharge(); }
@@ -4957,8 +5010,12 @@ function runBossAct(e, pc, ecx, ecy) {
     const ox = ecx;
     const oy = e.y + e.size * 0.40;
     a.ox = ox; a.oy = oy; a.bcol = bcol;
+    a.telOn = a.t < tel;
     if (a.t === 1) {
-      addPopup(ecx, e.y - 14, a.gaze ? 'まがんのぎょうし！！' : (e.type.breathName || 'らいこうレーザー'), bcol[1], 17);
+      // 技名: ぎょうし＝バロール専用 / useBreathName＝ティアマトのブレス流用（updateBossBreath）/
+      // それ以外＝ライリュウのらいこうレーザー。炎ブレスと同じ文言を出すと技が区別できなくなる
+      const beamName = a.gaze ? 'まがんのぎょうし！！' : (a.useBreathName && e.type.breathName ? e.type.breathName : 'らいこうレーザー！！');
+      addPopup(ecx, e.y - 14, beamName, bcol[1], 17);
       SFX.warn(); SFX.giantCharge();
       a.aimAng = Math.atan2(pc.y - oy, pc.x - ox);
     }
@@ -6137,7 +6194,7 @@ function updateBossBreath(e, pc, ecx, ecy) {
   e.breathBeamT = (e.breathBeamT == null ? 420 : e.breathBeamT) - 1;    // 初回420f: vortex初動とずらして技ラッシュを防ぐ
   if (e.breathBeamT <= 0 && !e.act && e.giantCharge === 0 && e.y > 0) {
     e.breathBeamT = e.form2 ? 300 : 400;
-    e.act = { kind: 'beam', t: 0 };
+    e.act = { kind: 'beam', t: 0, useBreathName: true }; // ティアマトは技名がブレス名（こんとんのブレス）
   }
 }
 
@@ -8274,7 +8331,7 @@ function render() {
   if (bossEvent) drawBossEventWindow();
 
   // BGM A/B比較用テストコード（選定後削除予定）: ライリュウ戦中は現在の案を画面右上に表示
-  if (state === 'playing' && bossActive && enemies.some((en) => en.boss && en.type.bossBgm === 'rairyu')) {
+  if (state === 'playing' && bossActive && !lowInfoMode && enemies.some((en) => en.boss && en.type.bossBgm === 'rairyu')) {
     drawText(`BGM案:${bgmTestVariant} (1=A疾走 2=B重厚)`, 6, 100, '#73eff7', 11);
   }
 
@@ -8338,7 +8395,7 @@ function renderHUD() {
   }
 
   // コンボ表示
-  if (combo >= 2 && comboTimer > 0) {
+  if (combo >= 2 && comboTimer > 0 && !lowInfoHideDecor()) {
     const pulse = 16 + Math.sin(gframe * 0.3) * 2;
     drawCenteredText(`${combo} コンボ！`, 30, RAINBOW[combo % RAINBOW.length], pulse);
   }
