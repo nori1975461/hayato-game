@@ -520,14 +520,11 @@ export function createBilliard(run) {
     Sound.sfx('boltCharge');
     // ★R49 名前は**渡してきた本人**から取る。「ビリッコ」で固定していたので、進化して
     //   ライジンガーになっても画面には「ビリッコ」と出ていた＝進化した実感を打ち消していた。
-    // ★R50 o が null＝ビリッコ不在ランへの保証弾（orbit.js のフォールバック）。
-    //   居ないビリッコの名を出すと嘘になるので、名指しなしの文にする。
     const who = (o && o.def)
       ? ((o.evolved && o.def.evo) ? o.def.evo.name : o.def.name)
-      : null;
+      : 'ビリッコ';
     if (run.fx && run.fx.announce) {
-      const nm = HANDED_NAME[k] || 'とくべつな たま';
-      run.fx.announce(who ? who + ' が ' + nm + ' を つくった！' : nm + ' を さずかった！', S.color);
+      run.fx.announce(who + ' が ' + (HANDED_NAME[k] || 'とくべつな たま') + ' を つくった！', S.color);
     }
     screenFlash(0.32, S.color);
   }

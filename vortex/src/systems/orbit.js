@@ -272,7 +272,6 @@ export function createOrbit(run) {
     // rebuild 内の releaseWeaponVisuals（archetype が変わったら破棄）がそのまま担う。
     const ph = Math.floor(run.elapsed / BALANCE.orbit.formCycleSec);
     if (ph !== formPhase) { formPhase = ph; rebuild(); }
-    updateTrueFormAmmoFallback(dt);   // R50 ビリッコ不在でも軌道神核戦は特殊弾2発を保証
     const px = run.player.x, py = run.player.y;
     const angMult = run.stats.angularMult;
     const radius = BALANCE.orbit.baseRadius * run.stats.radiusMult;
@@ -372,29 +371,9 @@ export function createOrbit(run) {
     bl.giveAmmo(o, kind);
   }
 
-  // ★R50 軌道神核戦の特殊弾保証（ビリッコ不在のランだけ）。実プレイFB「軌道神核戦だけで
-  //   特殊弾をふたつ」。弾配りはビリッコの専売なので、引きの巡り合わせでビリッコが居ない
-  //   ランは切り札0発のまま本編最長の戦闘に入っていた。渡し方（canReceiveAmmo を待つ・
-  //   間隔を空ける）は updateAmmo と同じ作法にそろえる＝手がふさがった瞬間に上書きしない。
-  let tfAmmo = null;
-  function updateTrueFormAmmoFallback(dt) {
-    const bs = run.boss;
-    if (!bs || !bs.active || !bs.trueForm) { tfAmmo = null; return; }
-    if (orbs.some((x) => x.archetype === 'AMMO')) return;   // ビリッコ持ちは従来経路（3発）
-    if (!tfAmmo) {
-      tfAmmo = { left: A.AMMO.trueFormNoMobit || 0,
-                 t: A.AMMO.trueFormDelaySec || 5,
-                 queue: run.rng.shuffle((BALANCE.hero.billiard.ammoKinds || ['bolt']).slice()) };
-    }
-    if (tfAmmo.left <= 0) return;
-    tfAmmo.t -= dt;
-    if (tfAmmo.t > 0) return;
-    const bl = run.billiard;
-    if (!bl || !bl.canReceiveAmmo || !bl.canReceiveAmmo()) return;
-    tfAmmo.left--;
-    tfAmmo.t = A.AMMO.refillSec || 16;
-    bl.giveAmmo(null, tfAmmo.queue.shift() || 'bolt');
-  }
+  // ★R50追記: ビリッコ不在ランへ軌道神核戦だけ特殊弾を保証するフォールバックを一度
+  //   実装したが、ユーザー判断で撤回（「ビリッコの存在価値が薄れる」）。特殊弾は
+  //   ビリッコの専売のまま＝弾配りの経路は updateAmmo の1本だけにしておく。
 
   // ============ R45 新モビット3体（命の盾／爆速ドリンク／ネムッコ）============
   // 3つとも敵に触れない＝run.dealDamage を一度も呼ばない。決めるのは「いつ配るか」だけで、

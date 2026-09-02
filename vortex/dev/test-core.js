@@ -3806,17 +3806,15 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/ぜんかいふく/.test(tfBlock),
     'R50: 全回復したことが画面の文字で分かる（黙って回復すると「なぜか満タン」になる）');
 
-  // --- ② ビリッコ不在でも軌道神核戦は特殊弾を保証する ---
-  assert(typeof BALANCE.archetypes.AMMO.trueFormNoMobit === 'number'
-      && BALANCE.archetypes.AMMO.trueFormNoMobit >= 2,
-    'R50: 保証発数 trueFormNoMobit が2発以上（実プレイFB「ふたつ」）');
-  assert(/updateTrueFormAmmoFallback/.test(orbit)
-      && /orbs\.some\(\(x\) => x\.archetype === 'AMMO'\)/.test(orbit),
-    'R50: フォールバックはビリッコ不在のときだけ働く（持ちランと重ね取りしない）');
-  assert(/canReceiveAmmo/.test(orbit.slice(orbit.indexOf('updateTrueFormAmmoFallback'))),
-    'R50: 保証弾も手がふさがっている間は渡さない（掴んだ獲物を上書きしない）');
-  assert(/nm \+ ' を さずかった！'/.test(bil),
-    'R50: 渡し主がいない保証弾は名指しなしの文で知らせる（居ないビリッコの名を出さない）');
+  // --- ② 特殊弾はビリッコの専売のまま（ユーザー判断で保証弾を撤回・2026-09-02）---
+  //   「ビリッコ引けなかったランでは特殊弾は不要。ビリッコの存在価値が薄れる」。
+  //   撤回が中途半端に残ると「配られたり配られなかったり」になるので、痕跡ごと消えたことを固定する。
+  assert(!('trueFormNoMobit' in BALANCE.archetypes.AMMO),
+    'R50: 保証発数 trueFormNoMobit は撤回済み（ビリッコの専売を守る）');
+  assert(!/updateTrueFormAmmoFallback\(/.test(orbit.replace(/\/\/[^\n]*/g, '')),
+    'R50: フォールバック経路は撤回済み（弾配りは updateAmmo の1本だけ）');
+  assert(/giveAmmo\(o, kind\)/.test(bil) && !/giveAmmo\(null/.test(orbit),
+    'R50: giveAmmo の呼び出し元は常にビリッコ本人');
 
   // --- ③ スーパーボールは画面の縁で反射し、跳ね先も画面内の敵に限る ---
   const wallBlock = bil.slice(bil.indexOf("if (s.spec === 'superball') {\n        const L = SPEC('superball');\n        const cam"));
