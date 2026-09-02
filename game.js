@@ -2706,6 +2706,10 @@ let paused = false;
 // 予告（落雷リング・電気フェンス・ノヴァ・レーザー予告線・ふみつけ影・WARNING・変身/激怒バナー）は
 // 「見て動くための情報」なので低情報モードでも残し、減らすのはフィードバック文字と飾りだけ。
 let lowInfoMode = false;
+// 表示切りかえの段階。0=ふつう / 1=ひかえめ / 2=ひかえめ＋こうげき整理。
+// lowInfoMode は常に「infoLevel >= 1」と同じ値に保つ（表示間引きの判定はすべて lowInfoMode を見ているため）。
+// ★レベル2はおためしモード（trialMode）専用。通常プレイでは絶対にここへ入らない＝本番の遊びは一切変わらない。
+let infoLevel = 0;
 let lastKakinFrame = -999;      // カキン！を最後に出したフレーム（スロットル用）
 const KAKIN_INTERVAL = 45;      // カキン！はこのフレーム数に1回まで
 const BOSS_SPECIAL_LIMIT = 5; // 同じボス戦の中で必殺技を使える回数
@@ -2825,6 +2829,8 @@ function startGame() {
   pendingTally = 0;
   finalClear = false;
   trialMode = false;
+  trialSlotFreeAt = 0;
+  clampInfoLevel(); // レベル2はおためし専用。前回のおためしから通常プレイへ持ち越さない
   musicFrame = 0;
   musicStep = 0;
   state = 'playing';
@@ -2844,13 +2850,15 @@ function startRairyuTrial() {
   checkHeroLevel(true); // ゆうしゃLvもスコア相当まで一気に上げる（演出は出さない）
   lives = maxLives();
   nextBossScore = score; // 開始直後にWARNING（120フレーム）→ライリュウ出現
-  bannerText = 'おためし：Iキーで じょうほうひかえめ';
+  bannerText = 'おためし：Iキーで ひょうじ切りかえ（3だんかい）';
   bannerTimer = 180;
 }
 
 // おためしモードの終了。けっさん・おみせ・エンディングには進まず、記録も残さずタイトルへ戻る
 function endTrial() {
   trialMode = false;
+  trialSlotFreeAt = 0;
+  clampInfoLevel(); // おためしを抜けたら「こうげき ひとつずつ」は解除（通常プレイに漏らさない）
   finalClear = false;
   pendingTally = 0;
   bossEvent = null;
@@ -3155,12 +3163,48 @@ function setDecorBanner(text, timer) {
   bannerTimer = timer;
 }
 
-// Iキーで低情報モードを切り替え（プレイ中いつでも。リロードで元に戻る＝保存しない）
+// Iキーで表示の段階を切り替え（プレイ中いつでも。リロードで元に戻る＝保存しない）。
+// 通常プレイは 0⇔1 の2段階、おためしモード中だけ 0→1→2→0 の3段階。
+const INFO_LEVEL_LABEL = ['じょうほう ふつう', 'じょうほう ひかえめ', 'こうげき ひとつずつ'];
+// レベル2をおためしモードの外へ持ち出さないための正規化。lowInfoModeも必ず同期させる
+function clampInfoLevel() {
+  if (!trialMode && infoLevel > 1) infoLevel = 1;
+  lowInfoMode = infoLevel >= 1;
+}
 function toggleLowInfo() {
-  lowInfoMode = !lowInfoMode;
+  clampInfoLevel();
+  infoLevel = (infoLevel + 1) % (trialMode ? 3 : 2);
+  lowInfoMode = infoLevel >= 1;
   const pc = playerCenter();
-  addPopup(pc.x, pc.y - 28, lowInfoMode ? 'じょうほう ひかえめ ON' : 'じょうほう ひかえめ OFF', '#73eff7', 13, true);
-  beep(lowInfoMode ? 520 : 760, 0.08, 'triangle', 0.05);
+  addPopup(pc.x, pc.y - 28, INFO_LEVEL_LABEL[infoLevel], '#73eff7', 13, true);
+  beep([760, 520, 420][infoLevel], 0.08, 'triangle', 0.05);
+}
+
+// ---------- おためしモード限定「こうげき ひとつずつ」（infoLevel=2） ----------
+// 混雑の主犯は攻撃予告の同時数（落雷11本＋電気柵＋ノヴァ＋レーザーが同時に出る）。
+// そこで「予告が画面に出ているあいだは次の大技を始めない」＝開始タイミングだけを直列化する。
+// 攻撃の中身（本数・ダメージ・速度・予告の長さ）は一切変えない。なかまよび・通常射撃は対象外。
+// ★trialHoldAttack() の1行目で trialMode/infoLevel を見て即 false を返すので、本番はこの仕組みに触れない。
+const TRIAL_SLOT_GAP = 45;  // 予告が空いてから次の大技を許可するまでの間（フレーム）
+let trialSlotFreeAt = 0;    // この gframe を過ぎたら次の大技を出してよい
+
+// いま「予告」が出ているか。判定はゲーム本体の状態そのもの（条件式を作り直さない）
+function trialTelegraphBusy() {
+  if (strikes.length > 0) return true;                    // 落雷の赤リング（45f・着弾で消える）
+  for (const fc of fences) if (fc.t > 0) return true;     // いかずちのかごの破線（通電前）
+  for (const nv of novas) if (nv.delay > 0 || nv.tel > 0) return true; // ばんらいノヴァの起動待ち＋予告
+  for (const e of enemies) {
+    if (!e.boss) continue;
+    if (e.giantCharge > 0) return true;                   // 巨大弾チャージ（！！！）
+    if (e.act && e.act.telOn !== false) return true;      // dive/tail/stomp/breath/beam の予告段階
+  }
+  return false;
+}
+// 大技の開始を待たせるか。各技のタイマーは進めたままなので、スロットが空いた瞬間に発火する
+function trialHoldAttack() {
+  if (!trialMode || infoLevel < 2) return false;
+  if (trialTelegraphBusy()) { trialSlotFreeAt = gframe + TRIAL_SLOT_GAP; return true; }
+  return gframe < trialSlotFreeAt;
 }
 
 // 広がる衝撃波リング（攻撃のインパクト演出）
@@ -3781,6 +3825,9 @@ function update() {
   }
   if (state !== 'playing') return;
   frame++;
+  // おためしの「こうげき ひとつずつ」: 予告が出ているあいだスロットを埋め続ける
+  // （大技のタイマーが誰も切れていないフレームでも間合いを正しく数えるため。本番はこのifに入らない）
+  if (trialMode && infoLevel >= 2 && trialTelegraphBusy()) trialSlotFreeAt = gframe + TRIAL_SLOT_GAP;
 
   // ジギムント撃破後の会話イベント（playing内カットシーン。敵AI・当たり判定は止め、演出だけ進める）
   if (bossEvent) { updateBossEvent(); return; }
@@ -4314,7 +4361,7 @@ function updateBoss(e, pc, ecx, ecy) {
   // 雷嵐ギミック(ライリュウ専用): 周期的に全画面へ巨大な赤い落雷を予告 → 45フレーム後に落とす
   if (gm.includes('storm')) {
     e.stormT = (e.stormT == null ? 140 : e.stormT) - 1;
-    if (e.stormT <= 0) {
+    if (e.stormT <= 0 && !trialHoldAttack()) {
       const n = e.form2 ? 11 : 8;             // 画面いっぱいに雷が乱れ飛ぶ（大幅増）
       const pts = [];
       for (let i = 0; i < n; i++) {
@@ -4411,7 +4458,7 @@ function updateBoss(e, pc, ecx, ecy) {
   if (type.big && !e.act && e.y > 0) {
     // 第2形態はブレス間隔を1.25倍短縮（既存の激怒係数と乗算）。予告フレームは削らない
     e.breathT = (e.breathT == null ? 180 : e.breathT) - (e.raged ? 1.6 : 1) * (e.form2 ? 1.25 : 1);
-    if (e.breathT <= 0) {
+    if (e.breathT <= 0 && !trialHoldAttack()) {
       e.act = { kind: 'breath', t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
       e.breathT = 250 + Math.random() * 90;
     }
@@ -4423,7 +4470,7 @@ function updateBoss(e, pc, ecx, ecy) {
     return; // 技の最中は通常の移動・射撃をしない
   }
   e.meleeTimer -= e.raged ? 1.6 : 1;
-  if (e.meleeTimer <= 0 && type.melee.length > 0 && e.y > 0) {
+  if (e.meleeTimer <= 0 && type.melee.length > 0 && e.y > 0 && !trialHoldAttack()) {
     const kind = type.melee[Math.floor(Math.random() * type.melee.length)];
     e.act = { kind, t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
     // 第2形態は近接クールダウンを0.85倍短縮（既存の激怒係数と乗算）
@@ -4486,6 +4533,8 @@ function updateBoss(e, pc, ecx, ecy) {
     });
   }
   if (e.fireTimer <= 0) {
+    // おためしの「ひとつずつ」: 巨大弾チャージは大技あつかい。予告がふさがっている間は待つ（通常射撃は対象外）
+    if ((e.shotsFired + 1) % 5 === 0 && trialHoldAttack()) { e.fireTimer = 6; return; }
     e.shotsFired++;
     // 5回に1回はド派手な巨大攻撃のチャージに入る
     if (e.shotsFired % 5 === 0) {
@@ -5785,7 +5834,7 @@ function updateRairyuSpecials(e, pc, ecx, ecy) {
   // らいこうレーザー: 周期到達で act に beam をセット（act状態機械が拾って実行）
   e.beamT++;
   const beamCycle = f2 ? 340 : 420;
-  if (e.beamT >= beamCycle && !e.act && e.giantCharge === 0 && e.y > 0) {
+  if (e.beamT >= beamCycle && !e.act && e.giantCharge === 0 && e.y > 0 && !trialHoldAttack()) {
     e.beamT = 0;
     e.act = { kind: 'beam', t: 0, tx: 0, ty: 0, vx: 0, vy: 0, sweep: 0 };
   }
@@ -5794,7 +5843,7 @@ function updateRairyuSpecials(e, pc, ecx, ecy) {
   if (e.hp <= e.maxHp * 0.8) {
     e.cageT++;
     const cageCycle = f2 ? 430 : 560;
-    if (e.cageT >= cageCycle && fences.length === 0) {
+    if (e.cageT >= cageCycle && fences.length === 0 && !trialHoldAttack()) {
       e.cageT = 0;
       spawnCage(pc, f2);
     }
@@ -5803,7 +5852,7 @@ function updateRairyuSpecials(e, pc, ecx, ecy) {
   // ばんらいノヴァ: 第2形態のみ。広がる電気リング3連（1枚目の切れ目はプレイヤー方向）
   if (f2) {
     e.novaT++;
-    if (e.novaT >= 480 && novas.length === 0) {
+    if (e.novaT >= 480 && novas.length === 0 && !trialHoldAttack()) {
       e.novaT = 0;
       spawnNovas(ecx, ecy, pc);
     }
