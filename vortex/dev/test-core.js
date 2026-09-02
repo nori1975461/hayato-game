@@ -3827,6 +3827,111 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R50: 跳ね先の敵は画面内に限る（画面外の敵を追って弾ごと消えない）');
 }
 
+// ============ R51 1めんボスおためし＋情報レベル3段階 ============
+// 実プレイFB「画面内に情報量が多くて処理しきれない」への対処。実測（dev/info-load-probe.mjs）で
+// 主犯は③装飾252件/分（ダメージ数字＋全画面フラッシュ約91回/ラン）と分かったので、
+// **短いループで見比べられる場所**と**段階的に情報を減らす切替**を足した。
+// ⚠️ここで縛る一番大事なことは「本番が1ピクセルも変わっていない」＝すべて trialMode / infoLevel の
+//   ゲートの内側にあること。ゲートが外れたら本番の見え方が黙って変わるので、そこを検査する。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const title = fs.readFileSync(path.join(SRC, 'scenes/Title.js'), 'utf8');
+  const runjs = fs.readFileSync(path.join(SRC, 'scenes/Run.js'), 'utf8');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const bil = fs.readFileSync(path.join(SRC, 'systems/billiard.js'), 'utf8');
+  const hud = fs.readFileSync(path.join(SRC, 'ui/hud.js'), 'utf8');
+  const fx = fs.readFileSync(path.join(SRC, 'systems/fx.js'), 'utf8');
+
+  // --- ① タイトルの入口（既存の T キーと同じ作法＝once・_startedガード）---
+  assert(/keydown-R'\s*,\s*\(\)\s*=>\s*\{[\s\S]{0,200}?bossTrial: true/.test(title),
+    'R51: タイトルの R キーで { bossTrial: true } の Run に入る');
+  assert(/keydown-R'[\s\S]{0,120}?if \(this\._started\) return;/.test(title),
+    'R51: R キーも _started ガードを通る（SPACE/T との二重発火でシーンが二度走らない）');
+  assert(/keydown-R'[\s\S]{0,160}?Sound\.init\(\)/.test(title),
+    'R51: R キーでも Sound.init() する（ユーザー操作の中でしか音は起こせない）');
+  assert(/R キー で 1めんボス おためし/.test(title) && /I キーで じょうほうりょう きりかえ/.test(title),
+    'R51: 入口と切替キーが両方タイトルに書いてある（本編を1周しないと気づけない作りにしない）');
+  const autotestBlock = title.slice(title.indexOf('if (V.autotest)'), title.indexOf('const begin ='));
+  assert(!/bossTrial/.test(autotestBlock),
+    'R51: autotest はおためしに入らない（計測器が測るのは常に本番のまま）');
+
+  // --- ② ボスの前倒しは run.trialMode でゲートされている ---
+  assert(/const trialOver = run\.trialMode && ti >= 1;/.test(boss),
+    'R51: おためしでは tier 0 を倒したら以降のボスを1体も出さない');
+  assert(/!run\.practiceMode && !allDone && !boss && !trialOver && ti < tiers\.length/.test(boss),
+    'R51: その打ち切りが tier スケジューラの入口条件に入っている');
+  assert(/const warnSec = run\.trialMode \? TR\.warnSec : t\.warnSec;/.test(boss)
+      && /const spawnSec = run\.trialMode \? TR\.spawnSec : t\.spawnSec;/.test(boss),
+    'R51: 前倒しの時刻は run.trialMode のときだけ差し替わる（本番の 58/60 秒は不変）');
+  assert(/run\.elapsed >= warnSec/.test(boss) && /run\.elapsed >= spawnSec/.test(boss),
+    'R51: 読み替えた値が実際に使われている（定数を置いただけで終わらせない）');
+
+  // --- ③ 情報レベルのゲート（ここが外れると本番の③装飾が黙って減る）---
+  assert(/if \(this\.infoLevel >= 1 && \/\^\[0-9\]\+\$\/\.test\(text\)\)/.test(runjs),
+    'R51: ダメージ数字の間引きは floatText の入口1か所で、数字だけのテキストに限る');
+  assert(/this\.elapsed - this\._infoDmgT < INFO_DMG_TEXT_SEC/.test(runjs),
+    'R51: 間引きは最短間隔（INFO_DMG_TEXT_SEC）で数える');
+  assert(/if \(run\.infoLevel >= 1 && alpha < 0\.35\) return;/.test(bil),
+    'R51: 全画面フラッシュは弱いもの（alpha<0.35）だけ捨てる＝溜め切り0.45などの大技は残る');
+  const flashFn = bil.slice(bil.indexOf('function screenFlash('), bil.indexOf('function screenFlash(') + 900);
+  assert(/setDisplaySize\(V\.width, V\.height\)/.test(flashFn),
+    'R51: そのゲートは screenFlash 本体の中にある（呼び出し側50か所に散らさない）');
+  assert(!/infoLevel/.test(fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8')
+    .replace(/\/\/[^\n]*/g, '')),
+    'R51: ボス側の閃光（警告・撃破）は間引かない（あれは①行動要求の信号）');
+  assert(/const tidy = run\.infoLevel >= 2;/.test(hud),
+    'R51: HUDの整理はレベル2から');
+  for (const keep of ['bar.fillRect(8, 8, hpW * hpRatio, 10)', 'bossBar.fillRect(bx, by, bw * ratio, 8)',
+    'timeText.setText', 'bar.fillRect(8, 48, spW * spRatio, 6)']) {
+    assert(hud.includes(keep) && !new RegExp(keep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^\n]*tidy').test(hud),
+      `R51: HP/ボスHP/タイマー/ひっさつゲージは消さない（${keep.slice(0, 24)}…）`);
+  }
+  assert(/coinText\.setText\('C ' \+ run\.coins\)\.setVisible\(!tidy\)/.test(hud),
+    'R51: レベル2で消えるのはコイン表示など「読まなくてよい行」だけ');
+  assert(/run\.practiceMode \|\| tidy \? ''/.test(hud),
+    'R51: 左下の開発用の数字（FPS/敵/弾/seed）もレベル2で消える');
+  assert(/if \(run\.infoLevel >= 2\)/.test(fx) && /hidden = new Set\(ids\.slice\(2\)\)/.test(fx),
+    'R51: 誘導矢印はレベル2で近い順2本まで');
+
+  // --- ④ balance.js に設定がある（マジックナンバーをコードに埋めない）---
+  const TR = BALANCE.trial;
+  assert(TR && TR.warnSec > 0 && TR.spawnSec > TR.warnSec,
+    `R51: BALANCE.trial に予告 ${TR && TR.warnSec}秒 → 出現 ${TR && TR.spawnSec}秒 がある`);
+  assert(TR.spawnSec < BALANCE.boss.tiers[0].spawnSec,
+    `R51: おためしの出現 ${TR.spawnSec}秒 は本番の ${BALANCE.boss.tiers[0].spawnSec}秒 より早い＝待たずに何度も比べられる`);
+  assert(TR.weaponLevel >= 1 && TR.weaponLevel <= BALANCE.weapon.maxLevel,
+    `R51: 開始装備 ぶきLv${TR.weaponLevel} が武器レベルの範囲内`);
+  assert(TR.endWaitSec > 0, 'R51: 撃破アナウンスを見せてからタイトルへ戻るまでの秒数がある');
+  assert(BALANCE.boss.tiers[0].bossId === 'korotama',
+    'R51: おためしで出るのは tier 0 ＝コロガンナー（1面ボス）');
+
+  // --- ⑤ Run 側の既定値と、I キーが trialMode 中しか効かないこと ---
+  assert(/this\.trialMode = !!\(data && data\.bossTrial\);/.test(runjs),
+    'R51: おためしの入口は scene のデータ1本（window.VORTEX を見ない＝抜けられなくならない）');
+  assert(/this\.infoLevel = 0;/.test(runjs),
+    'R51: infoLevel の既定は 0 ＝通常スタート／れんしゅうじょう／autotest は従来と完全に同じ');
+  assert(/keydown-I'[\s\S]{0,160}?if \(!this\.trialMode \|\| this\.paused \|\| this\.ended\) return;/.test(runjs),
+    'R51: I キーはおためし中だけ効く（本番で誤爆しても何も起きない）');
+  assert(/this\.infoLevel = \(this\.infoLevel \+ 1\) % INFO_LEVELS\.length;/.test(runjs)
+      && /INFO_LEVELS = \[[\s\S]{0,400}?\];/.test(runjs),
+    'R51: 0→1→2→0 と巡回する');
+  assert(/'じょうほう ふつう'[\s\S]{0,60}'じょうほう ひかえめ'[\s\S]{0,60}'がめん すっきり'/.test(runjs),
+    'R51: 3段階の名前がこの順で並んでいる');
+  assert(/#94b0c2[\s\S]{0,80}#73eff7[\s\S]{0,80}#ffcd75/.test(runjs),
+    'R51: 段階の色は HAYATO の3段階と同じ（親子で同じ言葉と色で話せる）');
+  assert(/setScrollFactor\(0\)\.setDepth\(2200\)/.test(runjs),
+    'R51: インジケータは画面固定・最前面（何段階目を見ているか常に読める）');
+  assert(/if \(this\.trialMode\) \{[\s\S]{0,240}?setWeaponLevel\(BALANCE\.trial\.weaponLevel\)/.test(runjs),
+    'R51: 開始装備の底上げも trialMode の内側だけ');
+  assert(/bossTrial: this\.trialMode/.test(runjs),
+    'R51: ポーズ中の R（やりなおし）でおためしが引き継がれる');
+  assert(/if \(!this\.boss \|\| this\.boss\.clearedTiers < 1\) return;/.test(runjs)
+      && /get clearedTiers\(\) \{ return ti; \}/.test(boss),
+    'R51: 終了判定は「tier が1つ畳まれた」＝撃破シネマもごほうびも終わってから');
+  assert(/おためし おわり！ おつかれさま！/.test(runjs) && /this\.scene\.start\('Title'\)/.test(runjs),
+    'R51: 撃破したらアナウンスを出してタイトルへ戻る');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

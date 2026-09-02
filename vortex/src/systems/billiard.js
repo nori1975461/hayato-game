@@ -422,6 +422,11 @@ export function createBilliard(run) {
   // ★R28 ms を足した。200ms固定だと「一瞬光って終わり」で、等倍で見ると光った実感が残らない。
   //   大きな着弾だけ長く（400ms前後）残す。
   function screenFlash(alpha, color, ms) {
+    // ★情報レベル1以上：弱い閃光だけを捨てる。実測で全画面フラッシュは1ランに約91回＝
+    //   飛行中の明滅(0.04〜0.08)・手渡し(0.32)・投げの弱い明滅が数の大半で、
+    //   これが「画面が忙しい」の正体だった。溜め切り(0.45)や特殊弾の締めなど**滅多に出ない大技**は
+    //   閾値0.35の上に残る＝派手さの山は削らずに、地面のノイズだけを下げる。
+    if (run.infoLevel >= 1 && alpha < 0.35) return;
     const V = BALANCE.view;
     const f = run.add.image(V.width / 2, V.height / 2, 'white').setScrollFactor(0)
       .setBlendMode(ADD).setDepth(60).setTint(color).setAlpha(alpha)

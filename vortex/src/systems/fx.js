@@ -149,8 +149,25 @@ export function createFx(run) {
 
   function updateTargets(dt) {
     const margin = 18;
+    // ★情報レベル2（がめん すっきり）：同時に出す誘導矢印を2本までにする。
+    //   祭壇・どうくつ・レア雑魚が重なると画面の縁が矢印だらけになり、
+    //   「どれを見ればいいか」が読めなくなる。近い順＝いま行ける場所を残す。
+    let hidden = null;
+    if (run.infoLevel >= 2) {
+      const ids = Object.keys(targets);
+      if (ids.length > 2) {
+        ids.sort((a, b) =>
+          Math.hypot(targets[a].wx - run.player.x, targets[a].wy - run.player.y)
+          - Math.hypot(targets[b].wx - run.player.x, targets[b].wy - run.player.y));
+        hidden = new Set(ids.slice(2));
+      }
+    }
     for (const id in targets) {
       const t = targets[id];
+      const show = !(hidden && hidden.has(id));
+      t.arrow.setVisible(show);
+      if (t.text) t.text.setVisible(show);
+      if (!show) continue;
       const s = worldToScreen(t.wx, t.wy);
       const ang = Math.atan2(s.y - H / 2, s.x - W / 2);
       const ax = Math.max(margin, Math.min(W - margin, s.x));

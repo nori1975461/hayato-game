@@ -41,6 +41,18 @@ const FOE_BULLET_SHAPE = {
 
 const START_PARTY = ['starpuppy', 'terabit'];
 
+// おためしモードの情報レベル（Iキーで巡回）。実測（dev/info-load-probe.mjs）で
+// vortex の情報過多の主犯は③装飾＝252件/分（ダメージ数字＋全画面フラッシュ）だったので、
+// 1段目で③を間引き、2段目で②HUDと誘導矢印まで減らす。色はHAYATO側の3段階と同じ。
+const INFO_LEVELS = [
+  { label: 'じょうほう ふつう', color: '#94b0c2' },
+  { label: 'じょうほう ひかえめ', color: '#73eff7' },
+  { label: 'がめん すっきり', color: '#ffcd75' },
+];
+// 情報レベル1以上でのダメージ数字の最短間隔（秒）。0.3秒＝1分あたり最大200件だが、
+// 実際は数字が出るのが連続する瞬間だけなので、実測252件/分の大半がここで落ちる。
+const INFO_DMG_TEXT_SEC = 0.3;
+
 export class RunScene extends Phaser.Scene {
   constructor() {
     super('Run');
@@ -53,6 +65,15 @@ export class RunScene extends Phaser.Scene {
     // ⚠️ 入口は scene のデータ1本にする。window.VORTEX を直接見ると、URLに ?practice=1 を
     //    付けたときタイトルへ戻っても抜けられなくなる（実際に踏んだ）。
     this.practiceMode = !!(data && data.practice);
+    // ★1めんボスおためし（タイトルの R キー）。実プレイFB「画面内に情報量が多くて処理しきれない」を
+    //   親子で比べるための短いループ＝10秒でコロガンナーが出て、倒したらタイトルへ戻る。
+    //   ⚠️ここも入口は scene のデータ1本（practiceMode と同じ理由。URLパラメータは持たせない）。
+    this.trialMode = !!(data && data.bossTrial);
+    this._trialDone = false;   // シーンは再利用されるので再入のたびに戻す
+    this._infoDmgT = null;     // 数字間引きの時計も戻す（elapsed が巻き戻るので、残すと数字が長く消える）
+    // 情報レベル。0=ふつう（従来と完全に同じ）／1=ひかえめ（③装飾を間引く）／2=すっきり（②HUDも整理）。
+    // ⚠️ おためしモード以外では 0 から動かない＝本番の見え方は1ドットも変わらない。
+    this.infoLevel = 0;
     const V = window.VORTEX || {};
     this.seed = V.seed || 20260720;
     this.rng = createRng(this.seed);
@@ -231,6 +252,35 @@ export class RunScene extends Phaser.Scene {
       this.stats.damageMult = 0;
       this.practice = createPractice(this);
     }
+    if (this.trialMode) {
+      // 素の Lv1 だとコロガンナー(HP1800)を削りきる前に飽きるので、少しだけ上げて始める
+      this.orbit.setWeaponLevel(BALANCE.trial.weaponLevel);
+      this.createInfoIndicator();
+    }
+  }
+
+  // ============ おためしモードの情報レベル ============
+  // 画面下の常時インジケータ。「いま何段階目を見ているか」が画面に出ていないと、
+  // A/Bの答え合わせができない（どちらを見て「見やすい」と言ったのか分からなくなる）。
+  createInfoIndicator() {
+    this._infoText = this.add.text(this.scale.width / 2, 348, '', {
+      fontFamily: 'monospace', fontSize: '11px', color: INFO_LEVELS[0].color,
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(2200);
+    this.refreshInfoIndicator();
+  }
+
+  refreshInfoIndicator() {
+    if (!this._infoText) return;
+    const L = INFO_LEVELS[this.infoLevel] || INFO_LEVELS[0];
+    this._infoText.setText('ひょうじ: ' + L.label + '（Iキー）').setColor(L.color);
+  }
+
+  cycleInfoLevel() {
+    this.infoLevel = (this.infoLevel + 1) % INFO_LEVELS.length;
+    this.refreshInfoIndicator();
+    Sound.sfx('select');
+    if (this.fx) this.fx.announce(INFO_LEVELS[this.infoLevel].label, INFO_LEVELS[this.infoLevel].color);
   }
 
   // ============ 入力 ============
@@ -282,6 +332,12 @@ export class RunScene extends Phaser.Scene {
     kb.on('keydown-T', () => { if (!this.paused && !this.practiceMode) this.spawner.spawnBurst(300); });
     kb.on('keydown-G', () => { if (!this.paused) this.capture.forceDropCore(); });
     kb.on('keydown-SPACE', () => { if (!this.paused && !this.ended) this.special.fire(); });
+    // ★情報レベルの切替。おためしモード中だけ効く＝本番で誤爆しても何も起きない
+    //   （本番の見え方を変える手段を残すと「いつのまにか薄い画面で遊んでいた」が起こる）。
+    kb.on('keydown-I', () => {
+      if (!this.trialMode || this.paused || this.ended) return;
+      this.cycleInfoLevel();
+    });
 
     // R21: 打撃感プリセットの即時切替（テスト用）。好みは文章で決められないので、
     // 実プレイ中に 1〜4 で切り替えて体感で選ぶ。選ばれた番号を既定値にして確定させる。
@@ -351,7 +407,8 @@ export class RunScene extends Phaser.Scene {
 
   restartRun() {
     if (this.withAudio) Sound.stopBgm();
-    this.scene.restart({ withAudio: this.withAudio, practice: this.practiceMode });
+    this.scene.restart({ withAudio: this.withAudio, practice: this.practiceMode,
+      bossTrial: this.trialMode });
   }
 
   // v3でドラフトUIは廃止（★は自動強化）。外部参照の保険として no-op で残す。
@@ -457,6 +514,23 @@ export class RunScene extends Phaser.Scene {
 
     // クリアはボス撃破のみ（時間切れ敗北なし）。シネマ中は敗北判定を保留（撃破クリアを先取りさせる）。
     if (!this.cinematic && this.player.hp <= 0) this.endRun(false);
+
+    this.updateTrial();
+  }
+
+  // おためしモードの終わり。コロガンナーは「小ボス」なので撃破しても endRun は走らない
+  // （finishMini が endFight を呼んでプレイ続行になる）。そこで tier が1つ進んだこと＝
+  // 撃破シネマもごほうびも終わったことを見て、ここで終わらせる。
+  // ★死んだ場合は従来どおり endRun(false)→Result。記録は何も残らないので本番は汚れない。
+  updateTrial() {
+    if (!this.trialMode || this._trialDone) return;
+    if (!this.boss || this.boss.clearedTiers < 1) return;
+    this._trialDone = true;
+    if (this.fx) this.fx.announce('おためし おわり！ おつかれさま！', '#ffd23f');
+    this.time.delayedCall(BALANCE.trial.endWaitSec * 1000, () => {
+      Sound.stopBgm();
+      this.scene.start('Title');
+    });
   }
 
   compact(arr, onDead) {
@@ -2548,6 +2622,14 @@ export class RunScene extends Phaser.Scene {
 
   // ============ フロートテキスト・シェイク ============
   floatText(x, y, text, colorString) {
+    // ★情報レベル1以上：ダメージ数字だけを間引く。実測で③装飾252件/分の最大の出所がここで、
+    //   しかも「数字そのもの」は読まなくても困らない（減っていることはHPバーと手応えで分かる）。
+    //   ⚠️ 数字だけのものに限る＝'+30 HP' や '3体 いっき！' は意味のある文なので残す。
+    //   呼び出し元は50か所以上あるので、捨てる判断はこの入口1か所に集める。
+    if (this.infoLevel >= 1 && /^[0-9]+$/.test(text)) {
+      if (this._infoDmgT != null && this.elapsed - this._infoDmgT < INFO_DMG_TEXT_SEC) return;
+      this._infoDmgT = this.elapsed;
+    }
     const t = this.add.text(x, y, text, {
       fontFamily: 'monospace', fontSize: '12px', color: colorString || '#ffffff',
       stroke: '#000000', strokeThickness: 3,

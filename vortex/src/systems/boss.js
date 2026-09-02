@@ -3750,16 +3750,23 @@ export function createBoss(run) {
   // ============ 毎フレーム ============
   function update(dt) {
     // ★れんしゅうじょうでは時間で自動的にボスを出さない（practiceSpawn で名指しで出す）。
-    if (!run.practiceMode && !allDone && !boss && ti < tiers.length) {
+    // ★1めんボスおためし：コロガンナー(tier 0)だけを前倒しで出し、倒したあとは1体も出さない。
+    //   tier の中身（HP・攻撃・ごほうび）は本番と同じものをそのまま使う＝
+    //   「おためしでは起きるのに本番では起きない」を作らない（れんしゅうじょうと同じ方針）。
+    const trialOver = run.trialMode && ti >= 1;
+    if (!run.practiceMode && !allDone && !boss && !trialOver && ti < tiers.length) {
       const t = tiers[ti];
-      if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
+      const TR = BALANCE.trial;
+      const warnSec = run.trialMode ? TR.warnSec : t.warnSec;
+      const spawnSec = run.trialMode ? TR.spawnSec : t.spawnSec;
+      if (!warnedArr[ti] && run.elapsed >= warnSec) {
         warnedArr[ti] = true;
         if (run.withAudio) Sound.stopBgm();
         Sound.sfx('warning');
         if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
         else run.shake(400, 3);
       }
-      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= t.spawnSec) {
+      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= spawnSec) {
         spawnedArr[ti] = true;
         spawnFight(t);
       }
@@ -3840,6 +3847,9 @@ export function createBoss(run) {
     update, onBossKilled, destroy,
     get active() { return !!(boss && boss.active); },
     get warned() { return warnedArr.some(Boolean); },
+    // 撃破して endFight まで終わった tier の数。おためしモードの終了判定が読む
+    //（小ボスは撃破しても endRun が走らないので、Run 側からは「戦闘が畳まれた」ことしか見えない）
+    get clearedTiers() { return ti; },
     get entity() { return boss; },
     // R21W2: 予告ブレイク（Run.doStrike が呼ぶ）
     breakTelegraph,

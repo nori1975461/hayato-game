@@ -290,10 +290,17 @@ export function createHud(run) {
       timeText.setText(mm + ':' + (ss < 10 ? '0' + ss : ss)).setColor('#ffffff');
     }
 
-    coinText.setText('C ' + run.coins);
+    // ★情報レベル2（がめん すっきり）：常時出ているが「初見が読まなくてよい行」を消す。
+    //   消すのはコインとバフ行と左下の開発用の数字だけ＝HP／ボスHP／タイマー／ひっさつゲージは
+    //   最後まで残す（これらは①行動要求と②自分の生死に直結していて、消すと遊べなくなる）。
+    const tidy = run.infoLevel >= 2;
+
+    coinText.setText('C ' + run.coins).setVisible(!tidy);
 
     // ★R32 効いているどうくつのバフ。のこり2秒を切ったら点滅させて「そろそろ終わる」を知らせる。
-    {
+    if (tidy) {
+      for (let i = 0; i < BUFF_ROWS; i++) buffTexts[i].setVisible(false);
+    } else {
       const CB = BALANCE.cave.buffs;
       const rows = [];
       if (run.sunaShots > 0) {
@@ -366,7 +373,7 @@ export function createHud(run) {
 
     // ★れんしゅうじょうでは開発用の数字を消す。下段の帯（コース名・ヒント・成績）と
     //   左下で重なって、肝心の成績が読めなくなる（④の画面で実測）。
-    overlayText.setText(run.practiceMode ? ''
+    overlayText.setText(run.practiceMode || tidy ? ''
       : `FPS ${fps} | 敵 ${run.enemies.length} | 弾 ${run.bullets.length} | seed ${run.seed}`);
   }
 

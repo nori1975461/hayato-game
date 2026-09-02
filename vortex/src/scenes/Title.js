@@ -59,8 +59,14 @@ export class TitleScene extends Phaser.Scene {
       this.squad.push({ g, spr, x, y: 248, phase: i * 1.3 });
     }
 
-    this.add.text(W / 2, 336, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
+    this.add.text(W / 2, 324, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#7fffcf',
+    }).setOrigin(0.5);
+    // ★おためしモードの入口。実プレイFB「画面内に情報量が多くて処理しきれない」を
+    //   短いループで比べるための場所なので、切替キー(I)まで含めてここに書いておく
+    //   （本編を1周してから気づく作りだと、比べる前に疲れる）。
+    this.add.text(W / 2, 340, 'R キー で 1めんボス おためし（I キーで じょうほうりょう きりかえ）', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
     }).setOrigin(0.5);
 
     // 版番号。実プレイFB「私が見てるURLが違うのか？」への恒久対策。
@@ -95,6 +101,14 @@ export class TitleScene extends Phaser.Scene {
       this._started = true;
       Sound.init();
       this.scene.start('Run', { withAudio: true, practice: true });
+    });
+    // 1めんボスおためし：コロガンナーだけを10秒で出して、倒したらタイトルへ戻る短いループ。
+    //   情報量の A/B は「同じ場面を続けて2回見る」ことでしか比べられないので専用の入口を作る。
+    this.input.keyboard.once('keydown-R', () => {
+      if (this._started) return;
+      this._started = true;
+      Sound.init();
+      this.scene.start('Run', { withAudio: true, bossTrial: true });
     });
     this.time.delayedCall(450, () => { this.input.once('pointerdown', begin); });   // R21W2: 残クリック対策
   }
