@@ -253,8 +253,9 @@ export class RunScene extends Phaser.Scene {
       this.practice = createPractice(this);
     }
     if (this.trialMode) {
-      // 素の Lv1 だとコロガンナー(HP1800)を削りきる前に飽きるので、少しだけ上げて始める
-      this.orbit.setWeaponLevel(BALANCE.trial.weaponLevel);
+      // ⚠️装備・出現時刻は本番と完全に同じにする（ユーザー指示「短縮版にしないで。
+      //   通常版の一面を通して情報量を比べたい」）。おためしの違いは
+      //   「Iキーで情報レベルを切り替えられる」「コロガンナー撃破で終わる」の2点だけ。
       this.createInfoIndicator();
     }
   }

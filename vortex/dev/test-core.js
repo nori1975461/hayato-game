@@ -3855,16 +3855,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(!/bossTrial/.test(autotestBlock),
     'R51: autotest はおためしに入らない（計測器が測るのは常に本番のまま）');
 
-  // --- ② ボスの前倒しは run.trialMode でゲートされている ---
+  // --- ② おためしは「通常版の一面をそのまま通す」（ユーザー指示 2026-09-02）---
+  //   当初は10秒前倒しで実装したが「短縮版にしないで。通常版の一面を通して比べたい」で撤回。
+  //   おためし固有の挙動は「tier 0 撃破で打ち切り」だけ＝出現時刻の読み替えが復活したら NG。
   assert(/const trialOver = run\.trialMode && ti >= 1;/.test(boss),
     'R51: おためしでは tier 0 を倒したら以降のボスを1体も出さない');
   assert(/!run\.practiceMode && !allDone && !boss && !trialOver && ti < tiers\.length/.test(boss),
     'R51: その打ち切りが tier スケジューラの入口条件に入っている');
-  assert(/const warnSec = run\.trialMode \? TR\.warnSec : t\.warnSec;/.test(boss)
-      && /const spawnSec = run\.trialMode \? TR\.spawnSec : t\.spawnSec;/.test(boss),
-    'R51: 前倒しの時刻は run.trialMode のときだけ差し替わる（本番の 58/60 秒は不変）');
-  assert(/run\.elapsed >= warnSec/.test(boss) && /run\.elapsed >= spawnSec/.test(boss),
-    'R51: 読み替えた値が実際に使われている（定数を置いただけで終わらせない）');
+  assert(/run\.elapsed >= t\.warnSec/.test(boss) && /run\.elapsed >= t\.spawnSec/.test(boss),
+    'R51: 出現時刻は本番の tier 定義をそのまま読む（前倒しの読み替えは撤回済み）');
+  assert(!/TR\.warnSec/.test(boss) && !/TR\.spawnSec/.test(boss),
+    'R51: おためし用の時刻差し替えコードが残っていない（短縮版に戻さない）');
 
   // --- ③ 情報レベルのゲート（ここが外れると本番の③装飾が黙って減る）---
   assert(/if \(this\.infoLevel >= 1 && \/\^\[0-9\]\+\$\/\.test\(text\)\)/.test(runjs),
@@ -3895,13 +3896,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- ④ balance.js に設定がある（マジックナンバーをコードに埋めない）---
   const TR = BALANCE.trial;
-  assert(TR && TR.warnSec > 0 && TR.spawnSec > TR.warnSec,
-    `R51: BALANCE.trial に予告 ${TR && TR.warnSec}秒 → 出現 ${TR && TR.spawnSec}秒 がある`);
-  assert(TR.spawnSec < BALANCE.boss.tiers[0].spawnSec,
-    `R51: おためしの出現 ${TR.spawnSec}秒 は本番の ${BALANCE.boss.tiers[0].spawnSec}秒 より早い＝待たずに何度も比べられる`);
-  assert(TR.weaponLevel >= 1 && TR.weaponLevel <= BALANCE.weapon.maxLevel,
-    `R51: 開始装備 ぶきLv${TR.weaponLevel} が武器レベルの範囲内`);
-  assert(TR.endWaitSec > 0, 'R51: 撃破アナウンスを見せてからタイトルへ戻るまでの秒数がある');
+  assert(TR && TR.endWaitSec > 0, 'R51: 撃破アナウンスを見せてからタイトルへ戻るまでの秒数がある');
+  assert(!('warnSec' in TR) && !('spawnSec' in TR) && !('weaponLevel' in TR),
+    'R51: 前倒し時刻・装備底上げの設定は撤回済み（おためしは本番の一面と同条件）');
   assert(BALANCE.boss.tiers[0].bossId === 'korotama',
     'R51: おためしで出るのは tier 0 ＝コロガンナー（1面ボス）');
 
@@ -3921,8 +3918,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R51: 段階の色は HAYATO の3段階と同じ（親子で同じ言葉と色で話せる）');
   assert(/setScrollFactor\(0\)\.setDepth\(2200\)/.test(runjs),
     'R51: インジケータは画面固定・最前面（何段階目を見ているか常に読める）');
-  assert(/if \(this\.trialMode\) \{[\s\S]{0,240}?setWeaponLevel\(BALANCE\.trial\.weaponLevel\)/.test(runjs),
-    'R51: 開始装備の底上げも trialMode の内側だけ');
+  assert(!/setWeaponLevel\(BALANCE\.trial/.test(runjs),
+    'R51: 開始装備の底上げは撤回済み（おためしは素の Lv1 から＝本番の一面と同条件）');
   assert(/bossTrial: this\.trialMode/.test(runjs),
     'R51: ポーズ中の R（やりなおし）でおためしが引き継がれる');
   assert(/if \(!this\.boss \|\| this\.boss\.clearedTiers < 1\) return;/.test(runjs)

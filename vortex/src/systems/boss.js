@@ -3750,23 +3750,21 @@ export function createBoss(run) {
   // ============ 毎フレーム ============
   function update(dt) {
     // ★れんしゅうじょうでは時間で自動的にボスを出さない（practiceSpawn で名指しで出す）。
-    // ★1めんボスおためし：コロガンナー(tier 0)だけを前倒しで出し、倒したあとは1体も出さない。
-    //   tier の中身（HP・攻撃・ごほうび）は本番と同じものをそのまま使う＝
-    //   「おためしでは起きるのに本番では起きない」を作らない（れんしゅうじょうと同じ方針）。
+    // ★1めんボスおためし：コロガンナー(tier 0)を倒したあとは1体も出さない。
+    //   出現時刻・tier の中身（HP・攻撃・ごほうび）は本番とまったく同じものをそのまま使う＝
+    //   ユーザー指示「短縮版にしないで。通常版の一面（開始〜コロガンナー撃破）を通して比べたい」
+    //   （2026-09-02。当初は10秒前倒しで実装したが、比較対象が本番でなくなるため撤回）。
     const trialOver = run.trialMode && ti >= 1;
     if (!run.practiceMode && !allDone && !boss && !trialOver && ti < tiers.length) {
       const t = tiers[ti];
-      const TR = BALANCE.trial;
-      const warnSec = run.trialMode ? TR.warnSec : t.warnSec;
-      const spawnSec = run.trialMode ? TR.spawnSec : t.spawnSec;
-      if (!warnedArr[ti] && run.elapsed >= warnSec) {
+      if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
         warnedArr[ti] = true;
         if (run.withAudio) Sound.stopBgm();
         Sound.sfx('warning');
         if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
         else run.shake(400, 3);
       }
-      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= spawnSec) {
+      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= t.spawnSec) {
         spawnedArr[ti] = true;
         spawnFight(t);
       }
