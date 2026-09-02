@@ -3790,6 +3790,45 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R48: 一瞬だけ時間が止まる（進化した瞬間に画面を見る理由をつくる）');
 }
 
+// ============ R50 軌道神核戦の3点（全回復・特殊弾保証・スーパーボール画面内跳ね）============
+// 実プレイFB「軌道神核戦の前に体力全回復させて／軌道神核戦だけで特殊弾をふたつ／
+// スーパーボール弾は画面内だけで跳ねるようにして。画面外に消えて跳ねる爽快感がない」。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const orbit = fs.readFileSync(path.join(SRC, 'systems/orbit.js'), 'utf8');
+  const bil = fs.readFileSync(path.join(SRC, 'systems/billiard.js'), 'utf8');
+
+  // --- ① 転生（trueForm = true）の同じ関数内で主人公を全回復する ---
+  const tfBlock = boss.slice(boss.indexOf('trueForm = true;'), boss.indexOf('trueForm = true;') + 2200);
+  assert(/run\.player\.hp = run\.player\.maxHp/.test(tfBlock),
+    'R50: 転生の瞬間に主人公のHPを全回復している');
+  assert(/ぜんかいふく/.test(tfBlock),
+    'R50: 全回復したことが画面の文字で分かる（黙って回復すると「なぜか満タン」になる）');
+
+  // --- ② ビリッコ不在でも軌道神核戦は特殊弾を保証する ---
+  assert(typeof BALANCE.archetypes.AMMO.trueFormNoMobit === 'number'
+      && BALANCE.archetypes.AMMO.trueFormNoMobit >= 2,
+    'R50: 保証発数 trueFormNoMobit が2発以上（実プレイFB「ふたつ」）');
+  assert(/updateTrueFormAmmoFallback/.test(orbit)
+      && /orbs\.some\(\(x\) => x\.archetype === 'AMMO'\)/.test(orbit),
+    'R50: フォールバックはビリッコ不在のときだけ働く（持ちランと重ね取りしない）');
+  assert(/canReceiveAmmo/.test(orbit.slice(orbit.indexOf('updateTrueFormAmmoFallback'))),
+    'R50: 保証弾も手がふさがっている間は渡さない（掴んだ獲物を上書きしない）');
+  assert(/nm \+ ' を さずかった！'/.test(bil),
+    'R50: 渡し主がいない保証弾は名指しなしの文で知らせる（居ないビリッコの名を出さない）');
+
+  // --- ③ スーパーボールは画面の縁で反射し、跳ね先も画面内の敵に限る ---
+  const wallBlock = bil.slice(bil.indexOf("if (s.spec === 'superball') {\n        const L = SPEC('superball');\n        const cam"));
+  assert(/s\.vx = -s\.vx/.test(wallBlock) && /s\.vy = -s\.vy/.test(wallBlock),
+    'R50: 画面の縁でX/Yとも速度を反転して跳ね返る');
+  assert(/cam\.right/.test(wallBlock) && /cam\.bottom/.test(wallBlock),
+    'R50: 反射の基準はカメラの現在視界（worldView）＝スクロールしても画面の縁が壁になる');
+  const nbt = bil.slice(bil.indexOf('function nextBounceTarget'), bil.indexOf('function superballHit'));
+  assert(/cam\.right/.test(nbt) && /continue/.test(nbt),
+    'R50: 跳ね先の敵は画面内に限る（画面外の敵を追って弾ごと消えない）');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

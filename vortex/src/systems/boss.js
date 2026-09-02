@@ -1553,6 +1553,17 @@ export function createBoss(run) {
     run.shake(520, 12);
     Sound.sfx('thunder');
     Sound.sfx('elite');
+    // ★R50 実プレイFB「軌道神核戦の前に体力全回復させて。かなり強いので全回復しないと
+    //   とても戦えない」。第3形態までの消耗を持ち込ませない＝最終戦は満タン同士の勝負にする。
+    if (run.player) {
+      const got = Math.round(run.player.maxHp - run.player.hp);
+      run.player.hp = run.player.maxHp;
+      if (got > 0) {
+        run.floatText(run.player.x, run.player.y - 34, 'たいりょく ぜんかいふく！！', '#7dff8f');
+        run.spawnParticles(run.player.x, run.player.y, 0x7dff8f, 14);
+        Sound.sfx('healTick');
+      }
+    }
     run.spawnParticles(boss.x, boss.y, int(tf.glowInner), 40);
     // ★R44W10 実プレイFB「【真マオウレクス 軌道神核】のメッセージと**一緒に**コメントが
     //   出てくる。**メッセージの後に**表示させて。一緒だとコメントが目立たない」。

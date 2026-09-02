@@ -520,11 +520,14 @@ export function createBilliard(run) {
     Sound.sfx('boltCharge');
     // ★R49 名前は**渡してきた本人**から取る。「ビリッコ」で固定していたので、進化して
     //   ライジンガーになっても画面には「ビリッコ」と出ていた＝進化した実感を打ち消していた。
+    // ★R50 o が null＝ビリッコ不在ランへの保証弾（orbit.js のフォールバック）。
+    //   居ないビリッコの名を出すと嘘になるので、名指しなしの文にする。
     const who = (o && o.def)
       ? ((o.evolved && o.def.evo) ? o.def.evo.name : o.def.name)
-      : 'ビリッコ';
+      : null;
     if (run.fx && run.fx.announce) {
-      run.fx.announce(who + ' が ' + (HANDED_NAME[k] || 'とくべつな たま') + ' を つくった！', S.color);
+      const nm = HANDED_NAME[k] || 'とくべつな たま';
+      run.fx.announce(who ? who + ' が ' + nm + ' を つくった！' : nm + ' を さずかった！', S.color);
     }
     screenFlash(0.32, S.color);
   }
@@ -954,9 +957,14 @@ export function createBilliard(run) {
   // 快感は振幅ではなく数えられること。1発を大きくするのではなく、跳ね返りを積み上げる。
   // ⚠️ 一度当てた相手は s.hit に入るので二度は狙わない＝同じ敵で無限に跳ねる事故が起きない。
   function nextBounceTarget(s, range) {
+    // ★R50 跳ね先は**画面内の敵だけ**。画面外の敵を追うと弾ごと画面外へ消えて、
+    //   「跳ねている」がプレイヤーから見えなくなる（縁の反射とセットの制約）。
+    const cam = run.cameras.main.worldView;
     let best = null, bd = range * range;
     for (const e of run.enemies) {
       if (!e.active || s.hit.has(e.id)) continue;
+      if (e.x < cam.x - 10 || e.x > cam.right + 10 ||
+          e.y < cam.y - 10 || e.y > cam.bottom + 10) continue;
       const dx = e.x - s.x, dy = e.y - s.y;
       const d2 = dx * dx + dy * dy;
       if (d2 < bd) { bd = d2; best = e; }
@@ -1433,6 +1441,28 @@ export function createBilliard(run) {
         }
       }
       s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+      // ★R50 スーパーボールは画面の縁で跳ね返る。実プレイFB「画面外に消えて跳ねる爽快感が
+      //   ない」＝狙った敵が死ぬ・外すなどで向きを失うと、そのまま画面外へ飛んで寿命切れの
+      //   締め（21行の大技）が**誰も見ていない場所**で再生されていた。本物のスーパーボール
+      //   らしく壁で反射し、締めも必ず見える位置で起きる。
+      if (s.spec === 'superball') {
+        const L = SPEC('superball');
+        const cam = run.cameras.main.worldView;
+        const m = s.radius;
+        let wall = false;
+        if (s.x < cam.x + m && s.vx < 0) { s.x = cam.x + m; s.vx = -s.vx; wall = true; }
+        else if (s.x > cam.right - m && s.vx > 0) { s.x = cam.right - m; s.vx = -s.vx; wall = true; }
+        if (s.y < cam.y + m && s.vy < 0) { s.y = cam.y + m; s.vy = -s.vy; wall = true; }
+        else if (s.y > cam.bottom - m && s.vy > 0) { s.y = cam.bottom - m; s.vy = -s.vy; wall = true; }
+        if (wall) {
+          // 壁は敵ではないのでカウント（bounced）は進めない＝威力の積み上げは敵ヒット限定のまま
+          Sound.sfx(L.bounceSfx || 'counter', 0.45, 0.85);
+          shockRing(s.x, s.y, 26, L.color);
+          run.spawnParticles(s.x, s.y, L.coreColor, 3);
+          const t = nextBounceTarget(s, L.bounceRange || 300);
+          s.bTarget = t ? t.id : null;   // 反射した先で次の相手を狙い直す
+        }
+      }
       // ゆらぎ：当てた直後だけ弾の「絵」が進行方向と直角に振れる。当たり判定(s.x,s.y)はぶらさない。
       let ox = 0, oy = 0;
       if (s.wob > 0) {
