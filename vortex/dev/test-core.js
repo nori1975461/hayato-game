@@ -4339,6 +4339,187 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 }
 
+// ============ R54 通常ボス5体の特徴攻撃に「音・速さ・エフェクト」を張り付ける ============
+// 実プレイFB「コロガンナーのころがり攻撃に派手な効果音をいれて。転がるスピードもUPして。
+// エフェクトも工夫して。他の４体のボスも同様に。せっかくの各ボスの特徴的な攻撃が、効果音や
+// エフェクトが小さいもしくはなければ、なんの迫力も緊張も生み出さない。」
+// ⚠️ 縛るのは5つ：①専用の効果音が実在して各攻撃から鳴る ②速度が上がっている
+//    ③**予告と回避窓は1つも変わっていない**（速くする代わりに読みは維持＝公平性の設計）
+//    ④テロップ／全画面フラッシュを1つも足していない（③装飾が飽和側＝252件/分）
+//    ⑤生成したFXに破棄経路がある。派手さそのものは実プレイでしか測れない。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const snd = read('audio/sound.js');
+  const byId = {};
+  for (const t of BALANCE.boss.tiers) byId[t.bossId] = t;
+
+  // --- ① 専用SFXが実在し、対応する攻撃から鳴っている（既存音の使い回しをやめた）---
+  const NEWSFX = ['rollRumble', 'rollLunge', 'rollSlam', 'jetScream', 'vulcanRoar',
+                  'waveCrash', 'barrageAlarm', 'bombWhistle', 'blastHeavy'];
+  for (const nm of NEWSFX) {
+    assert(new RegExp(`\\n  ${nm}\\(`).test(snd),
+      `R54: 専用SFX ${nm} が sound.js の SFX 表にある`);
+    assert(new RegExp(`Sound\\.sfx\\('${nm}'`).test(boss),
+      `R54: ${nm} が boss.js から実際に鳴らされている（定義だけで未接続にしない）`);
+  }
+  // 持続音は「尺を渡して1回で鳴らし切る」（毎フレーム呼ぶと潰れる／止め忘れが残る）
+  assert(/Sound\.sfx\('rollRumble', total, 1\)/.test(boss),
+    'R54: ローリングラッシュのゴロゴロは突進3回ぶんの総尺を渡して1回だけ鳴らす');
+  assert(/if \(rushIdx === 0\) \{/.test(boss),
+    'R54: ゴロゴロを鳴らすのは1回目の踏み出しだけ（毎レッグ鳴らして重ねない）');
+  assert(/Sound\.sfx\('vulcanRoar', cfg\.spiral\.durationSec, 1\)/.test(boss),
+    'R54: うずまきバルカンの駆動音は掃射の尺ぶんを1回で鳴らし切る');
+  assert(/Sound\.sfx\('bombWhistle', bg\.warnSec, 0\.85\)/.test(boss),
+    'R54: 落下ホイッスルの尺は着弾予告 warnSec と同じ（音と絵の時計を合わせる）');
+  // 使い回しをやめた3か所（汎用音がその場に残っていないこと）
+  assert(!/Sound\.sfx\('rush'/.test(boss),
+    'R54: ボスの突進/通過から汎用 rush（引数を無視する上昇アルペジオ）を外した');
+  assert(!/Sound\.sfx\('ringwave'\);/.test(boss),
+    'R54: つなみウェーブの ringwave（おんぷの「ぽわ〜ん」）を専用の waveCrash へ交代した');
+  assert(!/Sound\.sfx\('bigBoom', 0\.5\)/.test(boss),
+    'R54: 着弾爆発の bigBoom(0.5) 流用を専用の blastHeavy へ交代した');
+  // 音量の上限：新SFXの1レイヤは bigBoom の低域(0.34)帯を超えない＝BGMと喧嘩させない
+  {
+    const grab = (name) => (snd.match(new RegExp(`^  ${name}\\([^)]*\\) \\{[\\s\\S]*?^  \\},`, 'm')) || [''])[0];
+    const maxGain = (blk) => Math.max(0, ...[...blk.matchAll(/gain: (\d+(?:\.\d+)?)/g)].map((m) => +m[1]));
+    for (const nm of NEWSFX) {
+      const blk = grab(nm);
+      assert(blk.length > 0, `R54: ${nm} の本体を読める`);
+      assert(maxGain(blk) <= 0.36,
+        `R54: ${nm} の1レイヤ最大音量が bigBoom 帯（<=0.36）に収まる（実測 ${maxGain(blk)}）`);
+      // 引数（音量・尺）を実際に使っている＝warning/rush と同じ「引数を無視する音」を増やさない
+      assert(/\* g\b|\* p\b|vol == null|sec == null|power == null/.test(blk),
+        `R54: ${nm} は渡された音量／尺を実際に使う（引数を無視する音を新しく作らない）`);
+    }
+    // 持続音は BGM を沈めてから通す（R44の教訓＝細かい音は周りが引かないと聞こえない）
+    for (const nm of ['rollRumble', 'vulcanRoar', 'waveCrash', 'jetScream', 'barrageAlarm', 'rollSlam']) {
+      assert(/duckBgm\(/.test(grab(nm)),
+        `R54: ${nm} は duckBgm で周りを沈める（同時に鳴るボスBGMに埋もれさせない）`);
+    }
+    // 持続音は 0.6秒のノイズバッファを継ぎ足して尺ぶん敷き詰める（1発では尺が足りない）
+    for (const nm of ['rollRumble', 'vulcanRoar']) {
+      assert(/for \(let t = 0; t < d; t \+=/.test(grab(nm)),
+        `R54: ${nm} は尺 d のぶんだけ短い音を敷き詰める（ノイズバッファは0.6秒しかない）`);
+    }
+  }
+
+  // --- ② 速度：R54 以前の値（左）→ 現行（右）。⚠️ 旧値そのものをアンカーにする ---
+  const SPD = [
+    ['korotama', 'rollrush', 'speed', 420, 510],
+    ['korotama', 'rollbomb', 'speed', 220, 265],
+    ['jetviper', 'flypass', 'speed', 560, 650],
+    ['uzuking', 'spiral', 'bulletSpeed', 165, 195],
+    ['wavelord', 'tsunami', 'bulletSpeed', 165, 190],
+  ];
+  for (const [id, atk, key, old, now] of SPD) {
+    assert(byId[id][atk][key] === now,
+      `R54: ${id}.${atk}.${key} が ${old} → ${now}（実測 ${byId[id][atk][key]}）`);
+  }
+  // 弾幕のテンポ（打ち上げ間隔は短いほど速い＝ここだけ不等号が逆）
+  assert(byId.missilga.barrage.launchInterval === 0.060,
+    `R54: missilga.barrage.launchInterval が 0.075 → 0.060（実測 ${byId.missilga.barrage.launchInterval}）`);
+  // 射程（速度×寿命）は据え置き＝速くしたぶん lifeSec を縮めてある
+  for (const [id, atk, was] of [['uzuking', 'spiral', 429], ['wavelord', 'tsunami', 462]]) {
+    const a = byId[id][atk];
+    const range = a.bulletSpeed * a.lifeSec;
+    assert(Math.abs(range - was) <= was * 0.05,
+      `R54: ${id}.${atk} の射程は据え置き（旧 ${was}px / 現 ${Math.round(range)}px）`);
+  }
+
+  // --- ③ 予告と回避窓は1つも変えていない（速くする代わりに読みは維持する）---
+  const KEEP = [
+    ['korotama', 'rollrush', 'telegraphSec', 0.5], ['korotama', 'rollrush', 'gapSec', 0.16],
+    ['korotama', 'rollrush', 'durationSec', 0.30], ['korotama', 'rollrush', 'count', 3],
+    ['korotama', 'rollbomb', 'telegraphSec', 0.7], ['korotama', 'rollbomb', 'warnSec', 0.55],
+    ['korotama', 'rollbomb', 'decel', 2.2], ['korotama', 'rollbomb', 'blastRadius', 64],
+    ['jetviper', 'flypass', 'backSec', 0.55], ['jetviper', 'flypass', 'backSpeed', 300],
+    ['jetviper', 'flypass', 'durationSec', 0.7], ['jetviper', 'flypass', 'dropInterval', 0.07],
+    ['uzuking', 'spiral', 'telegraphSec', 0.7], ['uzuking', 'spiral', 'durationSec', 2.1],
+    ['uzuking', 'spiral', 'shotInterval', 0.055], ['uzuking', 'spiral', 'stepDeg', 15],
+    ['wavelord', 'tsunami', 'telegraphSec', 0.9], ['wavelord', 'tsunami', 'gapDeg', 54],
+    ['wavelord', 'tsunami', 'gapSpinDeg', 47], ['wavelord', 'tsunami', 'waveInterval', 0.55],
+    ['missilga', 'barrage', 'telegraphSec', 1.0], ['missilga', 'barrage', 'warnSec', 0.9],
+    ['missilga', 'barrage', 'count', 12], ['missilga', 'barrage', 'blastRadius', 62],
+  ];
+  for (const [id, atk, key, v] of KEEP) {
+    assert(byId[id][atk][key] === v,
+      `R54: ${id}.${atk}.${key} は不変（${v} / 実測 ${byId[id][atk][key]}）`);
+  }
+  // ダメージも1点も上げていない（緊張感は被弾量ではなく「避けた回数」で作る）
+  for (const [id, atk, d] of [['korotama', 'rollrush', 20], ['korotama', 'rollbomb', 26],
+                              ['jetviper', 'flypass', 15], ['uzuking', 'spiral', 14],
+                              ['wavelord', 'tsunami', 20], ['missilga', 'barrage', 30]]) {
+    assert(byId[id][atk].damage === d,
+      `R54: ${id}.${atk}.damage は据え置き（${d} / 実測 ${byId[id][atk].damage}）`);
+  }
+  assert(byId.jetviper.flypass.bodyDamage === 32,
+    'R54: フライパスの体当たりダメージも据え置き（速い＝重い、を数字では足さない）');
+  // ローリングラッシュの公平性：1サイクルで主人公が横へ動ける距離 ＞ 当たらないのに要る距離
+  {
+    const rr = byId.korotama.rollrush;
+    const cycle = rr.durationSec + rr.gapSec;
+    const side = BALANCE.player.speed * cycle;
+    const need = byId.korotama.radius + BALANCE.player.radius;
+    assert(side > need,
+      `R54: 突進を横へ走って外せる（1サイクル${cycle.toFixed(2)}秒で${Math.round(side)}px ＞ 必要${need}px）`);
+  }
+
+  // --- ④ 文字も全画面フラッシュも1つも足していない ---
+  for (const nm of ['ローリングラッシュ', 'ころがり', 'ソニックブーム', 'つなみ', 'ぜんだんはっしゃ']) {
+    assert(!new RegExp(`(introText|announce)\\([^)]*${nm}`).test(boss),
+      `R54: 「${nm}」を新しいテロップとして足していない（予告は形と色と音で読ませる）`);
+  }
+  // floatText（画面に出る文字）を1本も増やしていない＝R53 時点と同数
+  assert((boss.match(/run\.floatText\(/g) || []).length === 9,
+    `R54: floatText の本数は R53 時点と同数（実測 ${(boss.match(/run\.floatText\(/g) || []).length}本）`);
+  // 頻発する署名攻撃で whiteFlash（全画面）を使っていない
+  for (const fn of ['rushRollFx', 'flypassFx', 'fireSpiralShot', 'fireTsunamiWave',
+                    'fireBarrageOne', 'explodeStrike', 'fireRollBombs']) {
+    const i = boss.indexOf(`function ${fn}(`);
+    assert(i > 0, `R54: ${fn} が実装されている`);
+    const body = boss.slice(i, boss.indexOf('\n  }', i));
+    assert(!/whiteFlash\(/.test(body),
+      `R54: ${fn} は全画面フラッシュを使わない（頻発イベントで画面を白く飛ばさない）`);
+  }
+
+  // --- ⑤ 新FXは fxList（clearFx が確実に破棄する）に載る＝リークを作らない ---
+  assert(/function spawnStreakFx\(/.test(boss) && /function spawnGhostFx\(/.test(boss),
+    'R54: スピードラインと残像のヘルパーがある');
+  for (const kind of ['streak', 'ghost']) {
+    assert(new RegExp(`kind: '${kind}'`).test(boss) && new RegExp(`f\\.kind === '${kind}'`).test(boss),
+      `R54: ${kind} が fxList に載り updateFx が寿命を持つ（tween 任せにしない）`);
+  }
+  assert(/function clearFx\(\)\s*\{\s*\n\s*for \(const f of fxList\) f\.img\.destroy\(\);/.test(boss),
+    'R54: clearFx が fxList の全FXを破棄する（撃破・シーン遷移で残さない）');
+  // 深度：攻撃に張り付くFXは弾(11)より下へ置く＝弾を隠さない
+  assert(/function spawnRingFx\(x, y, tint, r0, r1, sec, a0 = 0\.85, depth = 12\)/.test(boss),
+    'R54: spawnRingFx が depth を受け取る（既定12＝従来の呼び出しは不変）');
+  assert(/setDepth\(5\)\s*\n?\s*\.setTint\(tint\)\.setOrigin\(0, 0\.5\)/.test(boss),
+    'R54: スピードラインは depth 5（弾より下）');
+  assert((boss.match(/, 5\);\n/g) || []).length >= 5,
+    'R54: 新しいリングは depth 5 を明示して呼ばれている');
+  // 間引き：転がりの土煙とシェイクは毎フレームではない
+  assert(/rushDustT = 0\.07;/.test(boss) && /rushShakeT = 0\.11;/.test(boss),
+    'R54: 土煙0.07秒・微振動0.11秒で間引く（毎フレーム撒くと弾が読めなくなる）');
+  assert(/flyGhostT = 0\.055;/.test(boss),
+    'R54: 残像は0.055秒おき（本体パーツ全部の複製ではなく胴1枚）');
+  assert(/const p = disp\.parts\.find\(\(q\) => q\.role === 'body'\) \|\| disp\.parts\[0\];/.test(boss),
+    'R54: 残像に使うのは胴1枚だけ（9パーツ×十数枚で100枚超を作らない）');
+
+  // --- ⑥ マオウレクス（final）と軌道神核には一切触っていない ---
+  const maou = BALANCE.boss.tiers.find((t) => t.final);
+  assert(maou.missile.speed === 480 && maou.nova.bulletSpeed === 265
+      && maou.vulcan.bulletSpeed === 340 && maou.ring.bulletSpeed === 240
+      && maou.knuckle.bulletSpeed === 320,
+    'R54: maou の弾速は1つも変えていない（依頼は通常ボス5体の特徴攻撃）');
+  for (const nm of NEWSFX) {
+    assert(!new RegExp(`${nm}[\\s\\S]{0,80}(trueForm|TF\\(\\))`).test(boss),
+      `R54: ${nm} を最終ボス／軌道神核の経路に混ぜていない`);
+  }
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

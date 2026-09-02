@@ -136,6 +136,16 @@ export function createBoss(run) {
   // ★R52b 通常ボスの署名攻撃②（マオウレクスには一切入れない）。
   let rushIdx = 0;                  // ローリングラッシュ：いま何回目の突進か（コロガンナー）
   let rollSpin = 0;                 // 同上：転がりの回転角（updateDisp が全パーツへ足す）
+  // ★R54 署名攻撃の「音と絵」を攻撃そのものへ張り付けるための間引きタイマー群。
+  //   実プレイFB「せっかくの各ボスの特徴的な攻撃が、効果音やエフェクトが小さいもしくはなければ、
+  //   なんの迫力も緊張も生み出さない」。⚠️ どれも**攻撃中しか進まない**値なので、
+  //   攻撃が終われば resetAttackVars / endAttackChase で自然に止まる（残り火を作らない）。
+  let rushDustT = 0;                // ローリングラッシュ：土煙トレイルの間引き
+  let rushShakeT = 0;               // 同上：転がり中の微振動シェイクの間引き
+  let flyGhostT = 0;                // フライパス：残像＋スピードラインの間引き
+  let flyBoomed = false;            // 同上：ソニックブームを1回だけ鳴らす印
+  let flyLastD = 1e9;               // 同上：最接近（距離が増えに転じた瞬間）を見つけるための前フレーム距離
+  let spiralAng = 0;                // うずまきバルカン：いま腕が向いている角（砲身の回転を絵に出す）
   let pinAngs = null;               // ペンシルレーザー：固定した射線（ジェットバイパー）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
@@ -361,7 +371,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; destroyAnchor(); clearLock(); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; rushDustT = 0; rushShakeT = 0; flyGhostT = 0; flyBoomed = false; flyLastD = 1e9; spiralAng = 0; destroyAnchor(); clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -552,10 +562,18 @@ export function createBoss(run) {
       case 'summon':     state = 'summonTele'; stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon(); break;
       // ★R29 署名攻撃（通常ボス5体に1種類ずつ）。どれも「飛んでくる弾を避ける」以外の遊びを1つ足す。
       case 'rollbomb':   state = 'rollTele';   stateT = cfg.rollbomb.telegraphSec; break;
-      case 'flypass':    state = 'flyBack';    stateT = cfg.flypass.backSec; Sound.sfx('warning'); break;
+      // ★R54 助走（backSec）は「遠くでエンジンが唸っている」＝小さく低い jetScream を重ねる。
+      //   ⚠️ 警報（warning）は残す＝プレイヤーが憶えた「来るぞ」の合図を取り上げない。
+      case 'flypass':    state = 'flyBack';    stateT = cfg.flypass.backSec;
+                         Sound.sfx('warning'); Sound.sfx('jetScream', 0.42, 0.6); break;
       case 'spiral':     state = 'spiralTele'; stateT = cfg.spiral.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'tsunami':    state = 'tsuTele';    stateT = cfg.tsunami.telegraphSec; Sound.sfx('specialCharge'); break;
-      case 'barrage':    state = 'barTele';    stateT = cfg.barrage.telegraphSec; Sound.sfx('warning'); break;
+      // ★R54 予告の1秒は「発射警報（クラクション）」で埋める。warning は他の場面と共用の汎用音で、
+      //   しかも引数を無視する（既知の作り）ので、絨毯爆撃の予告として何も伝えていなかった。
+      case 'barrage':    state = 'barTele';    stateT = cfg.barrage.telegraphSec;
+                         Sound.sfx('barrageAlarm', 1);
+                         spawnRingFx(boss.x, boss.y, 0xff6a2a, boss.radius * 1.9, boss.radius * 0.7,
+                           cfg.barrage.telegraphSec, 0.6, 5); break;
       // ★R52b 署名攻撃②（通常ボス5体に1種ずつ）。予告はどれも**形と色で読める**ものだけにして、
       //   文字（テロップ）は1つも足していない（vortex の情報負荷は③装飾が飽和側＝252件/分）。
       case 'rollrush':   state = 'rushTele';   stateT = cfg.rollrush.telegraphSec; rushIdx = 0; rollSpin = 0;
@@ -1121,7 +1139,13 @@ export function createBoss(run) {
         if (stateT <= 0) {
           lockX = nx; lockY = ny;                                // 助走の終点で進路を固定
           state = 'flypass'; stateT = fp.durationSec; shotAcc = 0; shotIdx = 0;
-          Sound.sfx('rush'); run.shake(120, 3);
+          flyGhostT = 0; flyBoomed = false; flyLastD = 1e9;
+          // ★R54 突っ切りの開始音を専用の「ジェットの悲鳴」へ（rush＝汎用の上昇アルペジオから交代）。
+          Sound.sfx('jetScream');
+          run.shake(160, 4);
+          // 加速の衝撃波を1枚（弾より下＝これから撒かれる弾を隠さない）
+          spawnRingFx(boss.x, boss.y, int(cfg.glowInner), boss.radius * 0.5, boss.radius * 2.2,
+            0.34, 0.75, 5);
         }
         break;
       }
@@ -1133,6 +1157,7 @@ export function createBoss(run) {
           shotAcc -= fp.dropInterval;
           dropFlypassBullets(fp);
         }
+        flypassFx(dt, fp);
         if (stateT <= 0) afterAttack();
         break;
       }
@@ -1141,11 +1166,20 @@ export function createBoss(run) {
       case 'spiralTele':
         if (stateT <= 0) {
           state = 'spiralFire'; stateT = cfg.spiral.durationSec; shotAcc = 0; shotIdx = 0;
-          run.shake(90, 3);
+          spiralAng = 0;
+          // ★R54 掃射のあいだ鳴り続けるガトリング駆動音。尺ぶんを1回で鳴らし切る
+          //   （毎フレーム鳴らすと音が潰れるうえ、止め忘れると攻撃が終わっても鳴り続ける）。
+          Sound.sfx('vulcanRoar', cfg.spiral.durationSec, 1);
+          run.shake(140, 4);
+          spawnRingFx(boss.x, boss.y, int(cfg.bulletTint), boss.radius * 0.4, boss.radius * 1.9,
+            0.32, 0.7, 5);
         }
         break;
       case 'spiralFire': {
         const sp = cfg.spiral;
+        // ★R54 腕の回転を絵に出す。弾の並び（stepDeg / shotInterval）と**同じ角速度**で回すので、
+        //   「回っている腕から弾が出ている」が見た目で一致する（絵と実装を別に持たない）。
+        spiralAng += dt * (sp.stepDeg * D2R) / sp.shotInterval;
         shotAcc += dt;
         while (shotAcc >= sp.shotInterval) {
           shotAcc -= sp.shotInterval;
@@ -1205,7 +1239,13 @@ export function createBoss(run) {
         const rr = cfg.rollrush;
         rollSpin += dt * rr.spinSpeed;
         moveBoss(lockX * rr.speed, lockY * rr.speed, dt);
+        rushRollFx(dt);                                   // R54 土煙・火花・微振動（転がっている実感）
         if (stateT <= 0) {
+          // ★R54 突進が止まった瞬間の「ズシン」。速さは止まったときの重さで初めて伝わる。
+          Sound.sfx('rollSlam', 0.9);
+          run.shake(200, 6);
+          spawnRingFx(boss.x, boss.y, 0xffd9a0, boss.radius * 0.6, boss.radius * 2.0, 0.30, 0.7, 5);
+          run.spawnParticles(boss.x, boss.y, 0xffc46a, 8);
           rushIdx++;
           if (rushIdx >= rr.count) { afterAttack(); break; }
           state = 'rushGap'; stateT = rr.gapSec;          // 向き直しの間（ここが避ける窓）
@@ -2327,8 +2367,14 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * rb.speed, Math.sin(a) * rb.speed,
         { radius: 7, damage: 0, life: rb.fuseSec, kind: 'bomb', decel: rb.decel, noHit: true });
     }
-    Sound.sfx('metalSlam', 0.4, 1.6);
+    // ★R54 「ころがり攻撃」なので突進と同じゴロゴロを、爆弾が止まるまでの尺だけ小さく鳴らす
+    //   （metalSlam の流用＝拳の着弾音だったので、転がっているように聞こえていなかった）。
+    Sound.sfx('rollRumble', rb.fuseSec, 0.55);
+    Sound.sfx('rollLunge', 0.7, 1.35);          // 撒き出す一撃
+    run.shake(120, 3);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
+    spawnRingFx(boss.x, boss.y, int(cfg.bulletTint), boss.radius * 0.5, boss.radius * 1.6,
+      0.26, 0.65, 5);
     recoil(aim);
   }
 
@@ -2342,6 +2388,12 @@ export function createBoss(run) {
         { radius: fp.bulletRadius, damage: fp.damage, life: fp.lifeSec });
     }
     if (shotIdx % 3 === 0) Sound.sfx('shoot');
+    // ★R54 撒いた瞬間のマズルフラッシュ（左右の真横＝弾が出た向きが光る）。プール再利用なので
+    //   0.07秒ごとに2枚出しても負荷は増えない（fx.muzzleFlash は使い回しのプール実装）。
+    if (run.fx && run.fx.muzzleFlash) {
+      for (const s of [1, -1]) run.fx.muzzleFlash(boss.x, boss.y, base + s * (Math.PI / 2),
+        int(cfg.bulletTint));
+    }
     run.spawnParticles(boss.x - lockX * 14, boss.y - lockY * 14, int(cfg.bulletTint), 3);
     shotIdx++;
   }
@@ -2355,7 +2407,21 @@ export function createBoss(run) {
       spawnBullet2(boss.x, boss.y, Math.cos(a) * sp.bulletSpeed, Math.sin(a) * sp.bulletSpeed,
         { radius: sp.bulletRadius, damage: sp.damage, life: sp.lifeSec });
     }
-    if (i % 4 === 0) { Sound.sfx('shoot'); run.shake(40, 2); }
+    // ★R54 存在感を上げる：発射音は4発に1回→3発に1回、揺れも一段強く。腕ごとのマズルフラッシュを
+    //   足して「3本の腕から出ている」を目で数えられるようにする（快感は数えられること）。
+    //   ⚠️ 弾1発ごとには何も出さない（18発/秒 ×3本＝54枚/秒 になり弾が読めなくなる）。
+    if (i % 3 === 0) {
+      Sound.sfx('shoot');
+      run.shake(70, 3);
+      if (run.fx && run.fx.muzzleFlash) {
+        for (let k = 0; k < sp.arms; k++) {
+          const a = base + (Math.PI * 2 * k) / sp.arms;
+          const d = boss.radius * 0.95;
+          run.fx.muzzleFlash(boss.x + Math.cos(a) * d, boss.y + Math.sin(a) * d, a,
+            int(cfg.bulletTint));
+        }
+      }
+    }
   }
 
   // つなみウェーブ（ウェイブロード）：全方位の壁を1枚。ただし gapDeg 分だけ穴を空ける。
@@ -2371,9 +2437,15 @@ export function createBoss(run) {
     }
     // 抜け道の方向にだけ光の筋を出す＝穴の位置を目で探せるようにする（理不尽にしない）
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
-    Sound.sfx('ringwave');
-    run.shake(90, 3);
+    // ★R54 音を ringwave（おんぷの「ぽわ〜ん」）から専用の大波へ。1枚ごとに砕けるので
+    //   「壁が3枚来た」が耳で数えられる（快感も緊張も、数えられることから生まれる）。
+    Sound.sfx('waveCrash', 1);
+    run.shake(150, 4);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
+    // 波の前面と同じ速さで広がる水色のリング＝弾の壁がどこまで来ているかが一目で分かる
+    const ringSec = 0.5;
+    spawnRingFx(boss.x, boss.y, 0x8fe8ff, boss.radius * 0.9,
+      boss.radius * 0.9 + tw.bulletSpeed * ringSec, ringSec, 0.6, 5);
   }
 
   // ぜんだんはっしゃ（ミサイルガ）：背中のラックからミサイルを1発ずつ真上へ打ち上げ、
@@ -2389,17 +2461,28 @@ export function createBoss(run) {
     const ty = run.player.y + (run.player.vy || 0) * lead + (i === 0 ? 0 : run.rng.range(-bg.spread, bg.spread));
     spawnStrike(tx, ty, bg.warnSec, bg.blastRadius, bg.damage);
     Sound.sfx('missileLaunch', 0.7, 1 + (i % 3) * 0.05);
-    if (i % 3 === 0) run.shake(50, 2);
+    // ★R54 着弾までの落下ホイッスル。⚠️ 12発ぶん鳴らすと轟音になって1発も聞こえないので
+    //   3発に1回だけ＝「まだ降ってくる」が途切れずに続く最小の本数にする。
+    if (i % 3 === 0) Sound.sfx('bombWhistle', bg.warnSec, 0.85);
+    if (i % 3 === 0) run.shake(70, 3);
     recoil(aim);
   }
 
   // 打ち上げの見た目だけの1発（判定なし）。上へ加速しながら小さくなって消える。
+  // ★R54 噴射の煙トレイルを足す。tween の onUpdate から数フレームおきに撒くので、
+  //   tween が終われば自然に止まる（別の寿命管理を増やさない）。
   function launchVisual(x, y) {
     const img = run.add.image(x, y, 'boss_missile').setDepth(11).setTint(int(cfg.bulletTint))
       .setDisplaySize(14, 26).setRotation(Math.PI);       // 頭を上へ
+    let puff = 0;
     run.tweens.add({
       targets: img, y: y - 190, scaleX: 0.4, scaleY: 0.4, alpha: 0,
-      duration: 480, ease: 'Cubic.in', onComplete: () => img.destroy(),
+      duration: 480, ease: 'Cubic.in',
+      onUpdate: () => {
+        if (++puff % 5 !== 0 || !img.scene) return;
+        spawnGhostFx('glow', img.x, img.y + 12, 0, 0.30, 0.30, 0xffb884, 0.34, 0.4);
+      },
+      onComplete: () => img.destroy(),
     });
     run.spawnParticles(x, y, 0xffb020, 4);
   }
@@ -2420,11 +2503,71 @@ export function createBoss(run) {
     const d = Math.hypot(dx, dy) || 1;
     lockX = dx / d; lockY = dy / d;
     state = 'rushGo'; stateT = rr.durationSec;
-    // 回を追うごとに音程が上がる＝「まだ来る・さらに速い」が耳で分かる
-    Sound.sfx('rush', 0.9, 1.1 + rushIdx * 0.1);
-    run.shake(110, 4);
+    rushDustT = 0; rushShakeT = 0;
+    // ★R54 1回目の踏み出しで、突進全体（3回ぶん＋向き直しの間）の尺を持つゴロゴロ音を
+    //   1回だけ鳴らし切る。⚠️ 毎レッグ鳴らすと3枚重なって轟音になり、逆に何も聞こえなくなる。
+    if (rushIdx === 0) {
+      const total = rr.count * rr.durationSec + (rr.count - 1) * rr.gapSec;
+      Sound.sfx('rollRumble', total, 1);
+    }
+    // 回を追うごとに音程が上がる＝「まだ来る・さらに速い」が耳で分かる。
+    // ⚠️ 旧実装は汎用の rush を使っていたが、rush(vol,pitch) は引数を無視する（既知の作り）ので
+    //    3回とも**まったく同じ音**が鳴っていた＝加速が耳に届いていなかった。専用音へ交代。
+    Sound.sfx('rollLunge', 1, 1.0 + rushIdx * 0.14);
+    run.shake(150, 5);
     run.spawnParticles(boss.x - lockX * boss.radius, boss.y - lockY * boss.radius,
       int(cfg.bulletTint), 6);
+    // 踏み出しの衝撃波リング1枚＋進行方向の逆へ伸びる砂煙の筋（どっちへ来るかが形で読める）
+    spawnRingFx(boss.x, boss.y, int(cfg.glowInner), boss.radius * 0.55, boss.radius * 2.1,
+      0.28, 0.8, 5);
+    const back = Math.atan2(-lockY, -lockX);
+    for (const s of [-0.22, 0, 0.22]) {
+      spawnStreakFx(boss.x - lockX * boss.radius * 0.8, boss.y - lockY * boss.radius * 0.8,
+        back + s, boss.radius * 1.6, 0xffc46a, 0.26, 0.6, 3);
+    }
+  }
+
+  // ★R54 突進中の手触り。土煙（後方へ）・火花（接地点）・微振動を**攻撃中だけ**出す。
+  //   ⚠️ 間引きは必須：60fpsで毎フレーム撒くと粒が画面を埋めて、避けるべき弾が読めなくなる
+  //      （vortex の情報負荷は③装飾が飽和側＝252件/分）。土煙0.07秒／シェイク0.11秒に絞る。
+  function rushRollFx(dt) {
+    const bx = boss.x - lockX * boss.radius * 0.85, by = boss.y - lockY * boss.radius * 0.85;
+    rushDustT -= dt;
+    if (rushDustT <= 0) {
+      rushDustT = 0.07;
+      run.spawnParticles(bx, by, 0xbfae94, 2);                 // 土煙（削れた地面の色）
+      run.spawnParticles(bx, by, int(cfg.glowInner), 1);       // 火花（本体の発光色）
+      spawnStreakFx(bx, by, Math.atan2(-lockY, -lockX), boss.radius * 1.3,
+        0xffd9a0, 0.20, 0.45, 2);
+    }
+    rushShakeT -= dt;
+    if (rushShakeT <= 0) { rushShakeT = 0.11; run.shake(120, 2); }   // 転がる質量の地響き
+  }
+
+  // ★R54 フライパス中の手触り。残像＋スピードライン＋最接近のソニックブーム。
+  //   ⚠️ 残像は**1枚だけ**（本体パーツ全部を複製すると1回で100枚を超える）。胴の絵を使う。
+  function flypassFx(dt, fp) {
+    flyGhostT -= dt;
+    if (flyGhostT <= 0 && disp && disp.parts.length) {
+      flyGhostT = 0.055;
+      const p = disp.parts.find((q) => q.role === 'body') || disp.parts[0];
+      spawnGhostFx(p.img.texture.key, p.img.x, p.img.y, p.img.rotation,
+        p.img.scaleX, p.img.scaleY, int(cfg.glowInner), 0.24, 0.4);
+      const back = Math.atan2(-lockY, -lockX);
+      for (const s of [-0.3, 0.3]) {
+        spawnStreakFx(boss.x, boss.y, back + s, boss.radius * 2.2, 0x9fe8ff, 0.22, 0.55, 2);
+      }
+    }
+    // 最接近＝距離が減少から増加へ転じた瞬間。すれ違いざまに1回だけソニックブームを鳴らす
+    //（避けた／かすった、が耳で分かる＝緊張感は被弾量ではなく「避けた回数」で作る）。
+    const d = Math.hypot(run.player.x - boss.x, run.player.y - boss.y);
+    if (!flyBoomed && d > flyLastD && flyLastD < boss.radius * 4) {
+      flyBoomed = true;
+      Sound.sfx('bigBoom', 0.42);
+      run.shake(200, 5);
+      spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 0.4, boss.radius * 2.6, 0.26, 0.6, 5);
+    }
+    flyLastD = d;
   }
 
   // ペンシルレーザー（ジェットバイパー）：射線は**予告の開始時点で固定**する。
@@ -2666,11 +2809,19 @@ export function createBoss(run) {
     run.spawnParticles(s.x, s.y, s.color, 16);
     run.spawnParticles(s.x, s.y, 0xffe24a, 10);
     if (run.fx && run.fx.hitSpark) run.fx.hitSpark(s.x, s.y, 0xffffff);
+    // ★R54 爆風のリングと飛び散る破片の筋。1発ぶんが「炸裂した」と分かる形にする
+    //   （粒だけだと同時多発したときに全部が同じ色の靄になる）。
+    spawnRingFx(s.x, s.y, 0xffd9a0, s.radius * 0.35, s.radius * 1.5, 0.30, 0.8, 5);
+    spawnRingFx(s.x, s.y, s.color, s.radius * 0.15, s.radius * 1.1, 0.22, 0.7, 5);
+    for (let k = 0; k < 6; k++) {
+      spawnStreakFx(s.x, s.y, (Math.PI * 2 * k) / 6, s.radius * 1.2, 0xffe24a, 0.24, 0.6, 2);
+    }
     // 爆発は同時多発するので、音と揺れだけ間引く（渋滞させると1発も感じられなくなる）
     if (run.elapsed - strikeSfxT >= 0.11) {
       strikeSfxT = run.elapsed;
-      Sound.sfx('bigBoom', 0.5);
-      run.shake(120, 4);
+      // ★R54 bigBoom(0.5) の流用から専用の重い炸裂音へ。半径で重さを変える＝規模が耳で分かる。
+      Sound.sfx('blastHeavy', Math.max(0.55, Math.min(1.2, s.radius / 62)));
+      run.shake(170, 5);
     }
   }
   function destroyStrike(s) {
@@ -3172,10 +3323,26 @@ export function createBoss(run) {
   // ============ R40 ワンショットFX（環・光柱） ============
   // 転移の座・魔法陣・裁きの環の「広がる/すぼまる輪」と「立ち上る光柱」。
   // tween ではなく fxList で寿命管理する＝ボス破棄時に確実に消せる（リークを作らない）。
-  function spawnRingFx(x, y, tint, r0, r1, sec, a0 = 0.85) {
-    const img = run.add.image(x, y, 'w_ring').setBlendMode(ADD).setDepth(12)
+  // ★R54 depth を渡せるようにした（既定12＝従来どおり）。攻撃に張り付く新FXは弾(11)より
+  //   **下**（5）へ置く＝弾を隠さない。UI（1400以上）より下なのは全FX共通。
+  function spawnRingFx(x, y, tint, r0, r1, sec, a0 = 0.85, depth = 12) {
+    const img = run.add.image(x, y, 'w_ring').setBlendMode(ADD).setDepth(depth)
       .setTint(tint).setDisplaySize(r0 * 2, r0 * 2).setAlpha(a0);
     fxList.push({ img, t: 0, sec, r0, r1, a0, kind: 'ring' });
+  }
+  // ★R54 スピードライン（進行方向の後ろへ伸びる光の筋）。長さは伸びながら消える。
+  //   ⚠️ tween ではなく fxList で寿命を持つ＝撃破・シーン遷移で clearFx が確実に消す。
+  function spawnStreakFx(x, y, ang, len, tint, sec, a0 = 0.7, thick = 2) {
+    const img = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(5)
+      .setTint(tint).setOrigin(0, 0.5).setRotation(ang)
+      .setDisplaySize(len * 0.4, thick).setAlpha(a0);
+    fxList.push({ img, t: 0, sec, a0, len, thick, kind: 'streak' });
+  }
+  // ★R54 残像（本体の絵をその場に置いて薄れさせる）。速さは「同じ絵が後ろに何枚残るか」で見える。
+  function spawnGhostFx(tex, x, y, rot, sw, sh, tint, sec, a0 = 0.45) {
+    const img = run.add.image(x, y, tex).setBlendMode(ADD).setDepth(5)
+      .setTint(tint).setRotation(rot).setScale(sw, sh).setAlpha(a0);
+    fxList.push({ img, t: 0, sec, a0, kind: 'ghost' });
   }
   function spawnPillarFx(x, y, tint, w, h, sec, a0 = 0.75) {
     const img = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(12)
@@ -3191,6 +3358,10 @@ export function createBoss(run) {
       if (f.kind === 'ring') {
         const r = f.r0 + (f.r1 - f.r0) * e;
         f.img.setDisplaySize(r * 2, r * 2).setAlpha(f.a0 * (1 - p));
+      } else if (f.kind === 'streak') {
+        f.img.setDisplaySize(f.len * (0.4 + 0.6 * e), f.thick).setAlpha(f.a0 * (1 - p));
+      } else if (f.kind === 'ghost') {
+        f.img.setAlpha(f.a0 * (1 - p) * (1 - p));   // 二乗で消す＝直近の1枚だけがはっきり見える
       } else {
         f.img.setDisplaySize(f.w * (1 - p * 0.5), 8 + (f.h - 8) * e).setAlpha(f.a0 * (1 - p));
       }
@@ -3951,6 +4122,8 @@ export function createBoss(run) {
       armPose = lerp(0, -0.8, clamp01(1 - stateT / cfg.minirobo.telegraphSec));
     }
     if (state === 'vulcanTele' || state === 'vulcanFire') upperSpin = Math.sin(run.elapsed * 18) * 0.12;
+    // ★R54 うずまきバルカン：上体そのものが回っている（＝渦の出どころ）。振れ幅は vulcan より大きく。
+    if (state === 'spiralFire') upperSpin = Math.sin(run.elapsed * 26) * 0.22;
     if (state === 'novaTele' || state === 'novaFire') upperSpin = Math.sin(run.elapsed * 24) * 0.16;
     // 機関銃：連射中は上体を小刻みに反動させ、腕を前へ構える（撃つ動き）
     if (state === 'mgFire') { upperSpin = Math.sin(run.elapsed * 40) * 0.06; if (armPose === 0) armPose = -0.5; }
@@ -4005,7 +4178,9 @@ export function createBoss(run) {
           if (isMaou && state === 'slamHit') py += bodySink * 0.6;   // 叩きつけで拳も前方へ沈む（殴る手応え）
           break;
         }
-        case 'cannon': rot = aim - tilt; break;
+        // ★R54 うずまきバルカンの掃射中だけ、砲身は主人公ではなく**弾と同じ角**を向いて回る
+        //   ＝「主人公を狙っていない技」であることが姿勢で分かる（この技だけの読み筋）。
+        case 'cannon': rot = (state === 'spiralFire' && cfg.spiral) ? spiralAng : aim - tilt; break;
         // ミサイルキャリアの発射ポッド。missile 予告中にせり上がる（発射管を立てる動き）。
         case 'rack': {
           if (state === 'missileTele' && cfg.missile) {
@@ -4058,6 +4233,11 @@ export function createBoss(run) {
     // ★R52b ローリングラッシュの予告だけ**赤熱**させる（白の点滅と交互）。震え＋赤熱＝
     //   「エンジンをふかしている」＝次に来るのは弾ではなく体当たり、を色で区別する。
     else if (state === 'rushTele') tint = (Math.floor(run.elapsed * 20) % 2 === 0) ? 0xffffff : 0xff5a2a;
+    // ★R54 突進中は赤熱が**脈打つ**（点滅ではなく往復）。予告の点滅＝「来る」、突進中の脈＝
+    //   「いま轢きに来ている」。同じ赤でも動きが違うので、どちらの段かが色の動きで読める。
+    else if (state === 'rushGo' || state === 'rushGap') {
+      tint = mixRgb(0xffb08a, 0xff3a10, 0.5 + 0.5 * Math.sin(run.elapsed * 26));
+    }
     else if (isTelegraph(state)) {
       // R34→R36W2: かつては消灯側も紫 tint で塗っていた（素に戻すと赤へ剥がれたため）。
       //   いまは**テクスチャそのものが紫**なので、素（null）に戻しても紫のまま＝白の点滅だけで足りる。

@@ -1872,6 +1872,143 @@ const SFX = {
     noiseHit({ dur: 0.10, gain: 0.22, hpFreq: 120, lpFreq: 8000 });
     noiseHit({ start: 0.05, dur: 0.75, gain: 0.13, hpFreq: 90, lpFreq: 2400 });
   },
+
+  // ============ R54 通常ボス5体の「特徴攻撃」専用音 ============
+  // 実プレイFB「せっかくの各ボスの特徴的な攻撃が、効果音やエフェクトが小さいもしくはなければ、
+  // なんの迫力も緊張も生み出さない」。今まで5体の署名攻撃は shoot / ringwave / metalSlam など
+  // **他の場面と共用の音**しか鳴っておらず、耳では「いま何をされているか」が区別できなかった。
+  // ⚠️ 音量の上限は bigBoom（低域 0.34）と同じ帯に揃える。BGM（オーケストラルロック）と
+  //    同時に鳴るので、目立たせたい音は**音量ではなく帯域と持続**で分ける（R44の教訓）。
+  // ⚠️ 持続音（rollRumble / vulcanRoar）はノイズバッファが0.6秒しかないので、短いバーストを
+  //    尺のぶんだけ並べて敷き詰める（wireWinch のラチェットと同じ作法）。呼び出しは攻撃1回に
+  //    つき1度きり＝毎フレーム鳴らさない。
+
+  // コロガンナー：転がり続けるゴロゴロ。sec＝鳴らし切る尺、vol＝音量倍率（既定1）。
+  // 「重い球が地面を削って転がる」＝低いノイズの敷き詰め＋わずかにずれた低オシレータのうなり。
+  rollRumble(sec, vol) {
+    const d = Math.max(0.2, Math.min(3.0, sec == null ? 1.2 : sec));
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.62, d * 0.45, 0.24);          // 転がっている間だけ周りを沈める＝地響きが通る
+    for (let t = 0; t < d; t += 0.15) {
+      const w = 1 + 0.22 * Math.sin(t * 11);   // うねり＝同じ音が続かない（機械的に聞こえない）
+      noiseHit({ start: t, dur: 0.21, gain: 0.20 * g * w, hpFreq: 40, lpFreq: 460 });  // 地響き
+      noiseHit({ start: t + 0.04, dur: 0.11, gain: 0.055 * g, hpFreq: 900, lpFreq: 4600 }); // 砂利
+      tone({ start: t, type: 'sawtooth', freq: 58 * w, freqEnd: 72 * w, dur: 0.20,
+             gain: 0.16 * g, attack: 0.02, dest: sfxDistBus });
+      tone({ start: t, type: 'sine', freq: 41, freqEnd: 50, dur: 0.22, gain: 0.24 * g, attack: 0.02 });
+    }
+  },
+  // コロガンナー：1回ぶんの突進の踏み出し。「ギュルルッ」＝空転してから食いつく。
+  // ⚠️ ここを既存 rush（上昇アルペジオ）に頼っていたが、rush は vol/pitch を無視するので
+  //    3回とも同じ音量・同じ音程で鳴っていた＝「2回目・3回目のほうが速い」が耳に届かなかった。
+  rollLunge(vol, pitch) {
+    const g = vol == null ? 1 : vol;
+    const p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.05, gain: 0.24 * g, hpFreq: 200, lpFreq: 7000 });                 // 蹴り出し
+    noiseHit({ start: 0.02, dur: 0.26, gain: 0.13 * g, hpFreq: 500 * p, lpFreq: 5200 * p, lpEnd: 900 });
+    tone({ type: 'sawtooth', freq: 150 * p, freqEnd: 780 * p, dur: 0.30, gain: 0.20 * g,
+           attack: 0.006, dest: sfxDistBus });                                          // 空転→加速
+    tone({ type: 'square', freq: 300 * p, freqEnd: 1240 * p, dur: 0.26, gain: 0.10 * g, detune: 14 });
+    tone({ type: 'sine', freq: 96, freqEnd: 46, dur: 0.16, gain: 0.26 * g, attack: 0.001 }); // 踏み込みの重さ
+  },
+  // コロガンナー：突進が止まった瞬間の「ズシン」。metalSlam の流用をやめて低域を一段深くする。
+  rollSlam(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.44, 0.10, 0.24);
+    tone({ type: 'sine', freq: 210, freqEnd: 22, dur: 0.44, gain: 0.36 * g, attack: 0.001 });
+    tone({ type: 'triangle', freq: 104, freqEnd: 18, dur: 0.40, gain: 0.18 * g, attack: 0.001 });
+    noiseHit({ dur: 0.05, gain: 0.20 * g, hpFreq: 110, lpFreq: 6000 });      // 着地のアタック
+    noiseHit({ start: 0.02, dur: 0.30, gain: 0.13 * g, hpFreq: 90, lpFreq: 2200 }); // 土煙の胴鳴り
+    tone({ type: 'square', freq: 620, freqEnd: 120, dur: 0.10, gain: 0.08 * g });
+  },
+
+  // ジェットバイパー：フライパスの開始＝ジェットの悲鳴。高域から落ちるピッチベンド＋
+  // ノイズのドップラー。「離れた機体が向き直って突っ込んでくる」を1つの音で伝える。
+  jetScream(vol, pitch) {
+    const g = vol == null ? 1 : vol;
+    const p = pitch == null ? 1 : pitch;
+    duckBgm(0.50, 0.12, 0.28);
+    tone({ type: 'sawtooth', freq: 2400 * p, freqEnd: 420 * p, dur: 0.42, gain: 0.24 * g,
+           attack: 0.004, dest: sfxDistBus });
+    tone({ type: 'sawtooth', freq: 2430 * p, freqEnd: 415 * p, dur: 0.42, gain: 0.15 * g,
+           attack: 0.004, detune: 20, dest: sfxDistBus });
+    tone({ type: 'square', freq: 3600 * p, freqEnd: 900 * p, dur: 0.30, gain: 0.08 * g });
+    // 吸気の轟音（帯域が下へ落ちる＝近づいて通り過ぎる）
+    noiseHit({ dur: 0.44, gain: 0.16 * g, hpFreq: 600, lpFreq: 12000, lpEnd: 1200 });
+    tone({ type: 'sine', freq: 120, freqEnd: 54, dur: 0.34, gain: 0.22 * g, attack: 0.01 });
+  },
+
+  // ウズバルカン：うずまきバルカンの駆動音。速いパルス列＝**銃身が回っている**ことを耳で出す。
+  // sec ぶん鳴らし切る（発射のたびに呼ばない＝1回の攻撃につき1度）。
+  vulcanRoar(sec, vol) {
+    const d = Math.max(0.2, Math.min(3.2, sec == null ? 2.1 : sec));
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.60, d * 0.4, 0.26);
+    // ガトリングの1発1発（0.075秒＝13発/秒。実際の発射間隔より粗くして音が潰れないようにする）
+    for (let t = 0; t < d; t += 0.075) {
+      tone({ start: t, type: 'square', freq: 190, freqEnd: 96, dur: 0.035, gain: 0.15 * g, attack: 0.0006 });
+      noiseHit({ start: t, dur: 0.028, gain: 0.11 * g, hpFreq: 700, lpFreq: 9000 });
+    }
+    // 駆動モーターのうなり（回転が上がって落ちる＝掃射の始まりと終わりが分かる）
+    for (let t = 0; t < d; t += 0.24) {
+      const up = t < d * 0.5;
+      tone({ start: t, type: 'sawtooth', freq: up ? 82 : 96, freqEnd: up ? 96 : 78, dur: 0.30,
+             gain: 0.18 * g, attack: 0.03, dest: sfxDistBus });
+      tone({ start: t, type: 'sine', freq: 48, freqEnd: 44, dur: 0.30, gain: 0.20 * g, attack: 0.03 });
+    }
+  },
+
+  // ウェイブロード：つなみウェーブ1枚ぶんの「大波が砕ける」音。ringwave（ぽわ〜ん）から交代。
+  // スウェル（寄せる）→クラッシュ（砕ける）→引き波、の3段で1枚を数えられるようにする。
+  waveCrash(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.48, 0.10, 0.30);
+    // 寄せ（帯域が上がってくる）
+    noiseHit({ dur: 0.20, gain: 0.10 * g, hpFreq: 200, lpFreq: 1400 });
+    tone({ type: 'sine', freq: 60, freqEnd: 96, dur: 0.20, gain: 0.16 * g, attack: 0.06 });
+    // 砕け（低域の一撃＋広いノイズ）
+    tone({ start: 0.18, type: 'sine', freq: 180, freqEnd: 24, dur: 0.46, gain: 0.34 * g, attack: 0.002 });
+    tone({ start: 0.18, type: 'triangle', freq: 92, freqEnd: 20, dur: 0.42, gain: 0.17 * g, attack: 0.002 });
+    noiseHit({ start: 0.18, dur: 0.06, gain: 0.20 * g, hpFreq: 150, lpFreq: 9000 });
+    noiseHit({ start: 0.20, dur: 0.42, gain: 0.15 * g, hpFreq: 260, lpFreq: 5200, lpEnd: 700 });
+    // 引き波（泡が退いていく高域）
+    noiseHit({ start: 0.34, dur: 0.34, gain: 0.07 * g, hpFreq: 3200, lpFreq: 14000 });
+  },
+
+  // ミサイルガ：ぜんだんはっしゃの直前に鳴る発射警報（クラクション）。
+  // 2音の交代＝現実の警報と同じ形。ここだけは「音程を持つ」ので弾幕の轟音と混ざらない。
+  barrageAlarm(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.55, 0.30, 0.26);
+    for (let i = 0; i < 3; i++) {
+      const t = i * 0.19;
+      const f = i % 2 === 0 ? 520 : 392;
+      tone({ start: t, type: 'square', freq: f, dur: 0.15, gain: 0.20 * g, attack: 0.006 });
+      tone({ start: t, type: 'square', freq: f * 1.5, dur: 0.15, gain: 0.10 * g, attack: 0.006 });
+      tone({ start: t, type: 'sawtooth', freq: f * 0.5, dur: 0.15, gain: 0.09 * g, attack: 0.008 });
+    }
+    tone({ type: 'sine', freq: 70, freqEnd: 58, dur: 0.60, gain: 0.16 * g, attack: 0.05 });
+  },
+  // ミサイルガ：着弾予告のあいだ落ちてくるミサイルのホイッスル。sec＝着弾までの秒数。
+  // ⚠️ ピッチは**下降**（近づくのに上がるのは打ち上げ側の音）。着弾の瞬間に最低音へ着く。
+  bombWhistle(sec, vol) {
+    const d = Math.max(0.25, Math.min(2.0, sec == null ? 0.9 : sec));
+    const g = vol == null ? 1 : vol;
+    tone({ type: 'sine', freq: 1750, freqEnd: 300, dur: d, gain: 0.13 * g, attack: 0.05 });
+    tone({ type: 'triangle', freq: 2620, freqEnd: 450, dur: d, gain: 0.06 * g, attack: 0.07 });
+    noiseHit({ dur: d, gain: 0.045 * g, hpFreq: 2600, lpFreq: 12000, lpEnd: 2000 });
+  },
+  // 着弾爆発（ローリングボム／ぜんだんはっしゃ 共用）。bigBoom(0.5) の流用をやめ、
+  // 腹に来る低域と長い残響を持たせる＝「足元が塗り潰される」怖さを音でも出す。
+  blastHeavy(power) {
+    const p = power == null ? 1 : Math.max(0.2, Math.min(1.4, power));
+    tone({ type: 'sine', freq: 230, freqEnd: 18, dur: 0.58 * p, gain: 0.36 * p, attack: 0.001 });
+    tone({ type: 'triangle', freq: 112, freqEnd: 16, dur: 0.52 * p, gain: 0.19 * p, attack: 0.001 });
+    noiseHit({ dur: 0.045, gain: 0.24 * p, hpFreq: 180, lpFreq: 11000 });               // 炸裂
+    noiseHit({ start: 0.02, dur: 0.40 * p, gain: 0.16 * p, hpFreq: 120, lpFreq: 3000, lpEnd: 320 });
+    noiseHit({ start: 0.03, dur: 0.15, gain: 0.10 * p, hpFreq: 4200, lpFreq: 15000 });  // 破片
+    tone({ type: 'square', freq: 760, freqEnd: 84, dur: 0.16, gain: 0.09 * p });
+  },
 };
 
 // ================= BGM =================

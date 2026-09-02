@@ -1084,11 +1084,20 @@ export const BALANCE = {
         //      主人公は1サイクル(0.46秒)で 68px 横へ動けるので、本体半径52＋主人公7＝59px を
         //      超える＝**横へ走り続ければ必ず外れる**。逆に立ち止まると3回とも当たる。
         //      予告0.5秒は本体が震えて赤熱する（形と色で読める＝文字を増やさない）。
-        rollrush: { telegraphSec: 0.5, count: 3, speed: 420, durationSec: 0.30, gapSec: 0.16,
+        //   ★R54 speed 420→510（+21%）。実プレイFB「転がるスピードもUPして」。
+        //   ⚠️ 上げたのは**速さだけ**：予告 telegraphSec 0.5／向き直しの窓 gapSec 0.16／
+        //      1回の尺 durationSec 0.30／ダメージ20 は1つも変えていない。1サイクル(0.46秒)は
+        //      不変なので、上の公平性の算定（主人公は 68px 横へ動ける ＞ 59px 必要）もそのまま
+        //      成立する。速くなったぶん1回で進む距離が 126px→153px へ伸びる＝**踏み込みが深い**。
+        rollrush: { telegraphSec: 0.5, count: 3, speed: 510, durationSec: 0.30, gapSec: 0.16,
                     damage: 20, spinSpeed: 26 },
         // ★署名攻撃（R29）：ローリングボム。転がる爆弾を扇状にばらまき、止まった場所で予告円→爆発。
         //   コロガンナー＝球体なので「転がす」。撃つ弾（即着弾）と違い、置かれた爆弾から**逃げる**遊びになる。
-        rollbomb: { telegraphSec: 0.7, count: 3, spreadDeg: 36, speed: 220, decel: 2.2,
+        //   ★R54 speed 220→265（+20%）。転がる爆弾も「ころがり攻撃」なので同じ幅で上げる。
+        //   ⚠️ 逃げる猶予（warnSec 0.55）・爆発半径64・ダメージ26は不変。減速 decel 2.2 も
+        //      据え置きなので、止まるまでの距離が 85px→102px へ伸びるだけ＝置かれる位置が
+        //      少し遠くなる（＝プレイヤーに不利にはならない）。
+        rollbomb: { telegraphSec: 0.7, count: 3, spreadDeg: 36, speed: 265, decel: 2.2,
                     fuseSec: 0.85, warnSec: 0.55, blastRadius: 64, damage: 26 },
         dash: { telegraphSec: 1.0, speed: 300, durationSec: 0.7, damage: 20 },
         // R52b: 120→156（+30%）。射程は据え置き（120×3.0＝360px → 156×2.4＝374px）。
@@ -1129,7 +1138,11 @@ export const BALANCE = {
         // R52b: 104→158（+52%）。⚠️ +30%（135）では**まだ主人公(148)より遅い**＝撒かれた弾から
         //   歩いて逃げ切れる＝この技が存在しないのと同じだった（R35で最終ボスに見つけた逆転と同型）。
         //   「主人公より速い」を下限にしてから+30%を当てる。射程は据え置き（270px → 158×1.7＝269px）。
-        flypass: { backSec: 0.55, backSpeed: 300, speed: 560, durationSec: 0.7,
+        // ★R54 speed 560→650（+16%）。実プレイFB「他の4体も同様に（スピードUP）」。
+        //   ⚠️ 助走＝予告の backSec 0.55／backSpeed 300／弾のばら撒き間隔 dropInterval 0.07／
+        //      bodyDamage 32 は不変。速くしたのは**通過そのもの**だけなので、
+        //      「離れていく機体を見たら横へ逃げる」という読み筋は 0.55秒のまま変わらない。
+        flypass: { backSec: 0.55, backSpeed: 300, speed: 650, durationSec: 0.7,
                    dropInterval: 0.07, bulletSpeed: 158, bulletRadius: 4, damage: 15,
                    lifeSec: 1.7, sideDeg: 62, bodyDamage: 32 },
         dash: { telegraphSec: 0.9, speed: 340, durationSec: 0.75, damage: 28 },
@@ -1172,8 +1185,11 @@ export const BALANCE = {
         //   立ち止まらず渦の隙間を縫って走り続けることが正解になる。
         // R52b: 128→165（+29%）。渦は速いほど「腕が回っている」線に見える。
         //   射程据え置き（128×3.4＝435px → 165×2.6＝429px）。
+        // ★R54 165→195（+18%）。渦は速いほど「腕が回っている」線に見える。
+        //   ⚠️ 射程は据え置き（165×2.6＝429px → 195×2.2＝429px）＝速くしたぶん lifeSec を縮める。
+        //      予告 telegraphSec 0.7／掃射の尺 durationSec 2.1／発射間隔 0.055／ダメージ14は不変。
         spiral: { telegraphSec: 0.7, durationSec: 2.1, shotInterval: 0.055, arms: 3, stepDeg: 15,
-                  bulletSpeed: 165, bulletRadius: 4, damage: 14, lifeSec: 2.6 },
+                  bulletSpeed: 195, bulletRadius: 4, damage: 14, lifeSec: 2.2 },
         // R52b: 衝撃波 144→185（+28%）。boss.js に直書きだった寿命2.5秒を shockLifeSec へ出して
         //   射程を据え置く（144×2.5＝360px → 185×2.0＝370px）。
         armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 185, shockLifeSec: 2.0,
@@ -1222,8 +1238,12 @@ export const BALANCE = {
         //   ⚠️ 壁の切れ目（gapDeg 54°＝距離200pxで188pxの穴）は不変。速くなっても抜け道は同じ
         //      大きさで、探して走る時間が 1.85秒→1.21秒 に縮むだけ（その間に179px動けるので
         //      穴までは十分届く）。射程は据え置き（108×4.2＝454px → 165×2.8＝462px）。
+        // ★R54 165→190（+15%）。射程は据え置き（165×2.8＝462px → 190×2.4＝456px）。
+        //   ⚠️ 抜け道（gapDeg 54°）と穴の回り方（gapSpinDeg 47）は1度も変えていない＝
+        //      壁の穴の大きさは同じまま、探して走る時間だけが 1.21秒→1.05秒 に縮む
+        //      （その間に主人公は155px 動けるので、距離200pxの穴（188px幅）までは届く）。
         tsunami: { telegraphSec: 0.9, waves: 3, waveInterval: 0.55, count: 22, gapDeg: 54,
-                   gapSpinDeg: 47, bulletSpeed: 165, bulletRadius: 5, damage: 20, lifeSec: 2.8 },
+                   gapSpinDeg: 47, bulletSpeed: 190, bulletRadius: 5, damage: 20, lifeSec: 2.4 },
         armslam: { telegraphSec: 0.7, slamSec: 0.5, shockCount: 9, shockSpeed: 185, shockLifeSec: 2.0,
                    shockRadius: 5, shockDamage: 20, meleeRadius: 46, meleeDamage: 34 },
         dash: { telegraphSec: 0.85, speed: 370, durationSec: 0.8, damage: 40 },
@@ -1267,7 +1287,11 @@ export const BALANCE = {
         //   真上へ打ち上げ、主人公の周りへ着弾予告マーカーが次々に降り、時間差で爆発する絨毯爆撃。
         //   実プレイFB「ビジュアルでミサイルを搭載しているのだから、それを活かした攻撃を」への回答。
         //   狙いは**足元を塗り潰される怖さ**なので、着弾点は主人公の"進む先"へ寄せる（leadSec）。
-        barrage: { telegraphSec: 1.0, count: 12, launchInterval: 0.075, spread: 132, leadSec: 0.55,
+        // ★R54 launchInterval 0.075→0.060（弾幕のテンポ+25%）。実プレイFB「スピードUP」。
+        //   ⚠️ 逃げる猶予 warnSec 0.9／予告 telegraphSec 1.0／着弾半径62／ダメージ30は不変。
+        //      速くなったのは**打ち上げの連射**だけ＝12発を撃ち終わるまでが 0.90秒→0.72秒。
+        //      1発ごとの「予告円が縮む0.9秒」は変わらないので、避ける難しさは上げていない。
+        barrage: { telegraphSec: 1.0, count: 12, launchInterval: 0.060, spread: 132, leadSec: 0.55,
                    warnSec: 0.9, blastRadius: 62, damage: 30 },
         // R52b: 138→180（+30%。ウズバルカンと同値）。射程据え置き（442px → 450px）。
         vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 14, bulletSpeed: 180,
