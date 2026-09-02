@@ -1,6 +1,6 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_FISTS } from '../data/monsters.js';
-import { ENEMIES, BOSSES } from '../data/enemies.js';
+import { ENEMIES, BOSSES, MINIROBO } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { ENDING_ART } from '../data/ending_art.js';
 import { createRng } from '../core/rng.js';
@@ -20,6 +20,10 @@ export class BootScene extends Phaser.Scene {
       if (m.evo) this.makeGrid('mon_' + m.evo.id, m.evo.sprite);   // 進化形態
     }
     for (const e of ENEMIES) this.makeGrid('enemy_' + e.id, e.sprite);
+    // R52b: ミサイルガが放出する極小ロボ（8×8）。ENEMIES に入れると湧きプール／重み検証を
+    //   汚すので別 export（BOSSES と同じ扱い）。テクスチャ名だけ enemy_ 系に揃えて
+    //   Run.spawnEnemy（'enemy_' + def.id を貼る）へそのまま乗せる。
+    this.makeGrid('enemy_' + MINIROBO.id, MINIROBO.sprite);
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));
@@ -53,6 +57,10 @@ export class BootScene extends Phaser.Scene {
     //   ボス本体は radius 82 なのに弾は 16×10px しかなく、**巨体から砂粒が出ている**構図だった。
     //   30×16 の彗星型（後ろへ長く尾を引き、先端に白熱の芯）にして、最終ボスの一撃に見合う質量を出す。
     this.makeFoeComet('boss_comet', 30, 16);
+    // R52b: 通常ボスの署名弾2種。実プレイFB「弾のエフェクトを尖った大きめの弾にするとか、
+    //   アンカーを射出してぶつけてきたりとか」への回答。どちらも「丸い点」の語彙を使わない。
+    this.makeFoeDrill('boss_drill', 32, 20);   // ウズバルカン ドリルシェル（+Xが進行方向）
+    this.makeAnchor('boss_anchor', 20, 20);    // ウェイブロード アンカーショット（+Yが進行方向）
     // R40: 軌道神核（第4形態）の専用弾2種。実プレイFB「せいくかいほうがしょぼい／青の炸裂弾は
     //   全くダメ」＝神核の攻撃なのに弾が第3形態の水色彗星のままだった。
     //   聖句＝文字（ルーン十字）・裁き＝光輪（スポーク付きの車輪）。どちらも回転しながら飛ぶ。
@@ -313,6 +321,79 @@ export class BootScene extends Phaser.Scene {
     for (const [pts, a] of facets) {
       g.fillStyle(0xffffff, a);
       g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // ★R52b ウズバルカンのドリルシェル。実プレイFB「弾のエフェクトを尖った大きめの弾にする」。
+  //   boss_bolt（16×10の鏃）の2倍の面積で、輪郭が**後ろから前へ単調に細る**円錐＝
+  //   「刺さりに来ている」が等倍でも読める。dart/shell/bolt/comet と同じ「+Xが進行方向」。
+  //   ⚠️ 見た目（32×20）と当たり判定（radius 9＝直径18）の乖離は縦で1.1倍・横で1.8倍。
+  //      横に長いのは「進行方向の長さ」であって太さではない＝すれ違いざまに当たる方向の
+  //      寸法（縦20 vs 判定18）で±20%以内に収めてある。
+  makeFoeDrill(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    // ⚠️ 螺旋の刃は座標を手で置くと必ず円錐からはみ出す（最初の版がそうなって「縞のある棒」に
+    //    見えた）。錐の半径 halfAt(x) から算出する＝どの位置でも必ず輪郭の内側に収まる。
+    //    等倍の焼き上がりは vortex/scratchpad/render-r52b-tex.mjs で確認できる。
+    const cy = h / 2, back = 6, tipX = w - 0.5, halfBack = h / 2 - 3;
+    const halfAt = (x) => (x <= back ? halfBack : halfBack * (1 - (x - back) / (tipX - back)));
+    const facets = [
+      // ① 全形＝後端の駆動部（太い箱）から先端まで**単調に細る**円錐。これが「尖っている」の芯。
+      [[0, cy - halfBack, back, cy - halfBack, tipX, cy, back, cy + halfBack, 0, cy + halfBack], 0.34],
+      // ② 錐の受光面。①との差が金属の照りになる。
+      [[back, cy - halfBack * 0.72, tipX - 2.5, cy, back, cy + halfBack * 0.72], 0.55],
+    ];
+    // ③ 螺旋の刃＝斜めの帯3枚。下端を後ろへずらす（xb）と、ねじれて奥へ続く溝に見える。
+    for (let i = 0; i < 3; i++) {
+      const xa = back + 3.6 + i * 7.4, xb = xa - 5.2;
+      const ha = halfAt(xa) * 0.94, hb = halfAt(xb) * 0.94;
+      facets.push([[xa, cy - ha, xa + 2.2, cy - ha, xb + 2.2, cy + hb, xb, cy + hb], 0.86]);
+    }
+    // ④ 駆動部のリング（後端の1本帯）。ここだけ明るいと「回している根元」が分かる。
+    facets.push([[1.2, cy - halfBack + 0.6, 4.2, cy - halfBack + 0.6,
+                  4.2, cy + halfBack - 0.6, 1.2, cy + halfBack - 0.6], 0.7]);
+    // ⑤ 切っ先の白熱。台形にして2行を確実に踏ませる（三角だと等倍で切っ先が暗く落ちる）。
+    facets.push([[tipX - 7, cy - 1.9, tipX, cy - 0.7, tipX, cy + 0.7, tipX - 7, cy + 1.9], 1.0]);
+    for (const [pts, a] of facets) {
+      g.fillStyle(0xffffff, a);
+      g.fillPoints(P(pts), true);
+    }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // ★R52b ウェイブロードのアンカー（錨）。実プレイFB「アンカーを射出してぶつけてきたり」。
+  //   海の王の道具なので、弾ではなく**道具の形**で描く：上のリング＋横木（ストック）＋
+  //   縦の軸（シャンク）＋下の両腕とツメ（フルーク）。ツメを先頭にして飛ぶので +Y が進行方向
+  //   （tomahawk / missile と同じ回転規約＝boss.js の rot0 がそのまま使える）。
+  //   ⚠️ makeMask は正方形専用なので、縦長のこれだけは自前の1px走査で焼く（makeLance と同じ作法）。
+  makeAnchor(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cx = w / 2 - 0.5;
+    const on = (x, y) => {
+      const dx = x - cx, ax = Math.abs(dx);
+      // リング（上端の輪＝鎖をつなぐ環）
+      const ry = y - 2.8, rd = dx * dx + ry * ry;
+      if (rd <= 2.6 * 2.6 && rd >= 1.3 * 1.3) return true;
+      // シャンク（縦の軸）
+      if (ax <= 1.0 && y >= 4 && y <= 19) return true;
+      // ストック（横木）
+      if (Math.abs(y - 6.8) <= 0.9 && ax <= 6.2) return true;
+      // 腕＝軸の根元から左右へ開くU字の弧。半径で切り出すと1本の曲がった腕になる。
+      const by = y - 11.8, ad = dx * dx + by * by;
+      if (by >= 0 && ad <= 7.8 * 7.8 && ad >= 6.2 * 6.2) return true;
+      // ツメ（フルーク）。腕の外端から内へ向かって太る楔＝これが無いとただのU字に見える。
+      if (ax >= 6.0 && ax <= 9.0 && y <= 12.0 && y >= 12.0 - (ax - 6.0) * 1.35) return true;
+      return false;
+    };
+    g.fillStyle(0xffffff, 1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (on(x + 0.5, y + 0.5)) g.fillRect(x, y, 1, 1);
+      }
     }
     g.generateTexture(key, w, h);
     g.destroy();

@@ -47,6 +47,10 @@ export function createCapture(run) {
 
   // 敵撃破時のドロップ抽選
   function onEnemyKilled(e) {
+    // ★R52b ミニロボ（ミサイルガの手下）からはコアが落ちない。ユーザー指定「倒すだけ／報酬なし」。
+    //   killEnemy 側の noReward でも弾かれるが、ここにも書く＝「捕獲の入口」を読んだ人が
+    //   仕様を1か所で確認できる（弾になる経路の除外を3か所とも明示する）。
+    if (e.minion) return;
     const rate = e.isElite ? C.eliteDropRate : C.dropRate;
     // ほかくアップ（captureAdd）はドロップ率に加算
     if (!run.rng.chance(rate + run.stats.captureAdd)) return;

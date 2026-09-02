@@ -4,7 +4,7 @@
 // 見た目は def.rig で組み、本体そのものが動く。FB#8 で rig 構造をボディタイプ別（UFO/戦闘機/多脚/戦車/
 // ミサイルキャリア/大型人型）に作り分けたため、role も型ごとに増えている（dome/wing/qleg/track/rack/pod/base/thruster）。
 import { BALANCE } from '../data/balance.js';
-import { BOSSES, ENEMIES } from '../data/enemies.js';
+import { BOSSES, ENEMIES, MINIROBO } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
@@ -133,6 +133,13 @@ export function createBoss(run) {
   // R31: ロケットパンチの飛来音。拳が近づくほど音程を上げて鳴らす（マッハ2で迫る恐怖）。
   let punchFlyT = 0;
   let wire = null;                  // ワイヤーアーム（両拳＋ワイヤー）の表示状態。攻撃終了/撃破で必ず destroy
+  // ★R52b 通常ボスの署名攻撃②（マオウレクスには一切入れない）。
+  let rushIdx = 0;                  // ローリングラッシュ：いま何回目の突進か（コロガンナー）
+  let rollSpin = 0;                 // 同上：転がりの回転角（updateDisp が全パーツへ足す）
+  let pinAngs = null;               // ペンシルレーザー：固定した射線（ジェットバイパー）
+  let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
+  let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
+  const minions = [];               // ミニロボ（ミサイルガ）。run.enemies に載せるが寿命はここで管理
   let recoilT = 0, recoilAng = 0;   // 発射反動（のけぞり）
   // R21W2: 予告を主人公の一撃で割られた直後の隙。recoilT は描画オフセット専用で state を止めない
   // ため、スタンの代用にはならない。別変数として持つ。
@@ -354,7 +361,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; clearLock(); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; destroyAnchor(); clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -549,6 +556,18 @@ export function createBoss(run) {
       case 'spiral':     state = 'spiralTele'; stateT = cfg.spiral.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'tsunami':    state = 'tsuTele';    stateT = cfg.tsunami.telegraphSec; Sound.sfx('specialCharge'); break;
       case 'barrage':    state = 'barTele';    stateT = cfg.barrage.telegraphSec; Sound.sfx('warning'); break;
+      // ★R52b 署名攻撃②（通常ボス5体に1種ずつ）。予告はどれも**形と色で読める**ものだけにして、
+      //   文字（テロップ）は1つも足していない（vortex の情報負荷は③装飾が飽和側＝252件/分）。
+      case 'rollrush':   state = 'rushTele';   stateT = cfg.rollrush.telegraphSec; rushIdx = 0; rollSpin = 0;
+                         Sound.sfx('specialCharge', 0.6, 1.4); break;
+      case 'pinlaser':   state = 'pinTele';    stateT = cfg.pinlaser.telegraphSec; lockPinAngs();
+                         Sound.sfx('relock'); break;
+      case 'drill':      state = 'drillTele';  stateT = cfg.drill.telegraphSec;
+                         Sound.sfx('specialCharge', 0.7, 0.8); break;
+      case 'anchor':     state = 'anchorTele'; stateT = cfg.anchor.telegraphSec;
+                         Sound.sfx('metalSlam', 0.5, 0.7); break;
+      case 'minirobo':   state = 'roboTele';   stateT = cfg.minirobo.telegraphSec;
+                         Sound.sfx('warning', 0.7, 1.25); break;
       default:           afterAttack(); break;
     }
   }
@@ -591,6 +610,7 @@ export function createBoss(run) {
   }
 
   function endAttackChase() {
+    rollSpin = 0;    // R52b: 転がりの回転は攻撃が終わったら素の姿勢へ戻す（回ったまま歩かない）
     state = 'chase';
     stateT = idleDur(idleFor(attackIdx)) * (phase3 && cfg.merge ? cfg.merge.idleMul : 1);
     attackIdx = (attackIdx + 1) % attackList().length;
@@ -638,6 +658,7 @@ export function createBoss(run) {
 
   function clearLock() {
     lockAng = null;
+    pinAngs = null;   // R52b: ペンシルレーザーの射線も lockGfx に描いている＝同じ経路で必ず消す
     if (lockGfx) { lockGfx.clear(); }
   }
 
@@ -1172,6 +1193,69 @@ export function createBoss(run) {
         if (shotIdx >= bg.count && stateT <= 0) afterAttack();
         break;
       }
+
+      // ---- R52b コロガンナー：ローリングラッシュ（震えて赤熱→短い急加速を3回・毎回向き直し）----
+      case 'rushTele':
+        rollSpin += dt * cfg.rollrush.spinSpeed * 0.45;   // 溜めの間から少しずつ回り始める
+        if (stateT <= 0) startRushLeg();
+        break;
+      case 'rushGo': {
+        const rr = cfg.rollrush;
+        rollSpin += dt * rr.spinSpeed;
+        moveBoss(lockX * rr.speed, lockY * rr.speed, dt);
+        if (stateT <= 0) {
+          rushIdx++;
+          if (rushIdx >= rr.count) { afterAttack(); break; }
+          state = 'rushGap'; stateT = rr.gapSec;          // 向き直しの間（ここが避ける窓）
+        }
+        break;
+      }
+      case 'rushGap':
+        rollSpin += dt * cfg.rollrush.spinSpeed * 0.5;
+        if (stateT <= 0) startRushLeg();
+        break;
+
+      // ---- R52b ジェットバイパー：ペンシルレーザー（細い照準線→瞬間照射）----
+      case 'pinTele':
+        drawPinLines(false);
+        if (stateT <= 0) firePinLasers();
+        break;
+      case 'pinFire':
+        drawPinLines(true);
+        if (stateT <= 0) { pinAngs = null; if (lockGfx) lockGfx.clear(); afterAttack(); }
+        break;
+
+      // ---- R52b ウズバルカン：ドリルシェル（尖った大弾を時間差で3発）----
+      case 'drillTele':
+        if (stateT <= 0) {
+          state = 'drillFire'; stateT = cfg.drill.count * cfg.drill.shotInterval + 0.1;
+          shotAcc = cfg.drill.shotInterval; shotIdx = 0;   // 1発目は即発射
+        }
+        break;
+      case 'drillFire': {
+        const dk = cfg.drill;
+        shotAcc += dt;
+        while (shotAcc >= dk.shotInterval && shotIdx < dk.count) {
+          shotAcc -= dk.shotInterval;
+          fireDrillOne(dk, shotIdx);
+          shotIdx++;
+        }
+        if (shotIdx >= dk.count && stateT <= 0) afterAttack();
+        break;
+      }
+
+      // ---- R52b ウェイブロード：アンカーショット（射出→止まる→鎖を巻き取って戻る）----
+      case 'anchorTele':
+        if (stateT <= 0) startAnchor();
+        break;
+      case 'anchorFly':
+        updateAnchor(dt);
+        break;
+
+      // ---- R52b ミサイルガ：ミニロボほうしゅつ（極小ロボを大量に放出）----
+      case 'roboTele':
+        if (stateT <= 0) { spawnMinirobos(); afterAttack(); }
+        break;
 
       default:
         break;
@@ -2316,6 +2400,236 @@ export function createBoss(run) {
     run.spawnParticles(x, y, 0xffb020, 4);
   }
 
+  // ============ R52b 署名攻撃②（通常ボス5体・1体につき1種類） ============
+  // 実プレイFB「マオウレクス以外のボスの攻撃をバラエティー豊かにして。（略）プレーヤーが
+  // ワクワクする攻撃を創造して」。5種とも**動詞が他とかぶらない**ことだけを条件にした：
+  //   コロガンナー＝急加速して轢く／ジェットバイパー＝細い線で刺す／ウズバルカン＝大きな錐を撃つ／
+  //   ウェイブロード＝錨を投げて巻き取る／ミサイルガ＝手下をばら撒く。
+  // ⚠️ どれも予告は**形と色**で読める（震え／照準線／砲身の充填／鎖の巻き上げ／ハッチの点滅）。
+  //    テロップは1文字も足していない＝vortex の情報負荷は③装飾が飽和側（252件/分）なので、
+  //    ここで文字を増やすと「弾は速くなったが読めない」に直結する。
+
+  // ローリングラッシュ（コロガンナー）：1回ぶんの突進を始める。向きは**毎回**取り直す。
+  function startRushLeg() {
+    const rr = cfg.rollrush;
+    const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
+    const d = Math.hypot(dx, dy) || 1;
+    lockX = dx / d; lockY = dy / d;
+    state = 'rushGo'; stateT = rr.durationSec;
+    // 回を追うごとに音程が上がる＝「まだ来る・さらに速い」が耳で分かる
+    Sound.sfx('rush', 0.9, 1.1 + rushIdx * 0.1);
+    run.shake(110, 4);
+    run.spawnParticles(boss.x - lockX * boss.radius, boss.y - lockY * boss.radius,
+      int(cfg.bulletTint), 6);
+  }
+
+  // ペンシルレーザー（ジェットバイパー）：射線は**予告の開始時点で固定**する。
+  // ⚠️ 発射の瞬間に主人公の正面へ引き直すと、予告は「来る」しか伝えず「どこへ」を伝えない
+  //    ＝走っても当たる（R43でレーザー全般が理不尽だった原因そのもの）。ここは最初から固定。
+  function lockPinAngs() {
+    const pk = cfg.pinlaser;
+    const t = tip();
+    const mid = (pk.count - 1) / 2;
+    const step = pk.count > 1 ? (pk.spreadDeg * D2R) / (pk.count - 1) : 0;
+    const angs = [];
+    for (let i = 0; i < pk.count; i++) angs.push(aim + (i - mid) * step);
+    pinAngs = { ox: t.x, oy: t.y, angs };
+  }
+  // 予告＝細い点滅線／照射＝太い線＋白熱の芯。同じ線をなぞるので「予告どおり来た」が読める。
+  function drawPinLines(solid) {
+    if (!pinAngs) return;
+    if (!lockGfx) lockGfx = run.add.graphics().setDepth(13 + INTRO_LIFT);
+    const pk = cfg.pinlaser, tint = int(cfg.bulletTint);
+    lockGfx.clear();
+    const pulse = 0.35 + 0.4 * (Math.sin(run.elapsed * 30) * 0.5 + 0.5);
+    for (const a of pinAngs.angs) {
+      const ex = pinAngs.ox + Math.cos(a) * pk.beamLength;
+      const ey = pinAngs.oy + Math.sin(a) * pk.beamLength;
+      if (solid) {
+        lockGfx.lineStyle(pk.beamWidth, tint, 0.9);
+        lockGfx.beginPath(); lockGfx.moveTo(pinAngs.ox, pinAngs.oy); lockGfx.lineTo(ex, ey);
+        lockGfx.strokePath();
+        lockGfx.lineStyle(2, 0xffffff, 1);
+        lockGfx.beginPath(); lockGfx.moveTo(pinAngs.ox, pinAngs.oy); lockGfx.lineTo(ex, ey);
+        lockGfx.strokePath();
+      } else {
+        lockGfx.lineStyle(1, tint, pulse);
+        lockGfx.beginPath(); lockGfx.moveTo(pinAngs.ox, pinAngs.oy); lockGfx.lineTo(ex, ey);
+        lockGfx.strokePath();
+      }
+    }
+  }
+  // 線分と主人公の距離で判定する。⚠️ 見せている線と**同じ式**で当てる（判定と絵を別に持たない）。
+  function segHit(x0, y0, ang, len, px, py, half) {
+    const dx = Math.cos(ang), dy = Math.sin(ang);
+    const t = Math.max(0, Math.min(len, (px - x0) * dx + (py - y0) * dy));
+    const ddx = px - (x0 + dx * t), ddy = py - (y0 + dy * t);
+    return ddx * ddx + ddy * ddy <= half * half;
+  }
+  function firePinLasers() {
+    if (!pinAngs) { afterAttack(); return; }   // 予告を割られた直後などで射線が消えていたら撃たない
+    const pk = cfg.pinlaser;
+    const half = pk.beamWidth * 0.5 + run.player.radius;
+    let hit = false;
+    for (const a of pinAngs.angs) {
+      if (!hit && segHit(pinAngs.ox, pinAngs.oy, a, pk.beamLength, run.player.x, run.player.y, half)) {
+        hit = true;                     // 何本に触れても1回ぶん（3本で3倍は理不尽になる）
+        run.hitPlayer(pk.damage, pinAngs.ox, pinAngs.oy);
+      }
+      for (let k = 1; k <= 4; k++) {    // 射線に沿った火花＝当たらなくても「通った」が見える
+        const d = (pk.beamLength * k) / 5;
+        run.spawnParticles(pinAngs.ox + Math.cos(a) * d, pinAngs.oy + Math.sin(a) * d,
+          int(cfg.bulletTint), 1);
+      }
+    }
+    whiteFlash(0.18, int(cfg.bulletTint), 140);
+    Sound.sfx('darkLaser', 0.5, 1.7);   // 太い波動砲と同じ音を高く短く＝「同じ武器の細い版」
+    run.shake(150, 5);
+    recoil(pinAngs.angs[(pk.count - 1) >> 1]);
+    state = 'pinFire'; stateT = pk.activeSec;
+  }
+
+  // ドリルシェル（ウズバルカン）：尖った大弾を時間差で撃つ。1発ずつ音と反動を出す
+  // （同時発射だと「大きい弾を3発撃った」が数えられない＝快感は数えられること）。
+  function fireDrillOne(dk, i) {
+    const mid = (dk.count - 1) / 2;
+    const a = aim + (i - mid) * (dk.spreadDeg * D2R);
+    const t = tip();
+    spawnBullet2(t.x, t.y, Math.cos(a) * dk.speed, Math.sin(a) * dk.speed,
+      { radius: dk.radius, damage: dk.damage, life: dk.lifeSec, kind: 'drill',
+        spin: dk.spinSpeed, bendAt: dk.bendAtSec, bendDeg: dk.bendDeg });
+    Sound.sfx('shoot', 0.85, 0.62);     // 低く鳴らす＝小粒のバルカンと聞き分く
+    Sound.sfx('metalSlam', 0.3, 1.5);
+    run.shake(80, 3);
+    run.spawnParticles(t.x, t.y, int(cfg.bulletTint), 5);
+    recoil(aim);
+  }
+
+  // アンカーショット（ウェイブロード）：錨を射出→最大距離で一瞬止まる→鎖を巻き取って戻る。
+  // 往路と復路のそれぞれで1回ずつ当たる（同じ線を2度通るので、避けたあとも線から離れ続ける必要がある）。
+  function startAnchor() {
+    const ak = cfg.anchor;
+    const t = tip();
+    // ⚠️ len は**本体中心からの距離**。0 から始めると絵が砲口から中心へ1フレーム飛ぶので、
+    //    砲口の距離（tip と同じ 1.05×radius）から始める。
+    anchorSt = { ang: aim, len: boss.radius * 1.05, phase: 0, t: 0, hit: false };
+    anchorSt.img = run.add.image(t.x, t.y, 'boss_anchor').setDepth(11)
+      .setTint(int(cfg.bulletTint)).setDisplaySize(ak.radius * 2, ak.radius * 2)
+      .setRotation(aim + Math.PI / 2);   // +Y が進行方向（tomahawk と同じ規約）
+    state = 'anchorFly';
+    // 安全弁の尺（往路＋停止＋復路に余白）。実際の終了は updateAnchor が長さで決める。
+    stateT = ak.maxLen / ak.outSpeed + ak.holdSec + ak.maxLen / ak.backSpeed + 0.5;
+    Sound.sfx('wireCannon');
+    run.shake(160, 5);
+    recoil(aim);
+  }
+  function updateAnchor(dt) {
+    const ak = cfg.anchor, a = anchorSt;
+    if (!a) { afterAttack(); return; }
+    if (a.phase === 0) {
+      a.len += ak.outSpeed * dt;
+      if (a.len >= ak.maxLen) {
+        a.len = ak.maxLen; a.phase = 1; a.t = ak.holdSec;
+        Sound.sfx('metalSlam', 0.7, 1.2);   // 鎖が張り切る「ガキン」
+        run.shake(180, 6);
+        run.spawnParticles(boss.x + Math.cos(a.ang) * a.len,
+          boss.y + Math.sin(a.ang) * a.len, int(cfg.bulletTint), 8);
+      }
+    } else if (a.phase === 1) {
+      a.t -= dt;
+      if (a.t <= 0) { a.phase = 2; a.hit = false; Sound.sfx('wireWinch'); }
+    } else {
+      a.len -= ak.backSpeed * dt;
+      if (a.len <= boss.radius * 0.5) { destroyAnchor(); afterAttack(); return; }   // 肩まで戻ったら収納
+    }
+    const x = boss.x + Math.cos(a.ang) * a.len, y = boss.y + Math.sin(a.ang) * a.len;
+    // 戻りは錨がひっくり返る＝「巻き取られている」が向きで分かる
+    a.img.setPosition(x, y).setRotation(a.ang + Math.PI / 2 + (a.phase === 2 ? Math.PI : 0));
+    drawChain(x, y, ak);
+    if (!a.hit) {
+      const rr = run.player.radius + ak.radius;
+      const dx = run.player.x - x, dy = run.player.y - y;
+      if (dx * dx + dy * dy <= rr * rr) {
+        a.hit = true;
+        run.hitPlayer(ak.damage, x, y);
+        Sound.sfx('rocketHit');
+        run.spawnParticles(x, y, 0xffe24a, 10);
+      }
+    }
+    if (stateT <= 0) { destroyAnchor(); afterAttack(); }
+  }
+  // 鎖＝本体と錨を結ぶ点線。線1本にすると「ビーム」に見えるので、必ず粒に切って描く。
+  function drawChain(x, y, ak) {
+    if (!anchorGfx) anchorGfx = run.add.graphics().setDepth(10);
+    anchorGfx.clear();
+    const n = ak.chainDots;
+    anchorGfx.fillStyle(int(cfg.bulletTint), 0.9);
+    for (let i = 1; i <= n; i++) {
+      const t = i / (n + 1);
+      anchorGfx.fillCircle(boss.x + (x - boss.x) * t, boss.y + (y - boss.y) * t, 2.2);
+    }
+  }
+  function destroyAnchor() {
+    if (anchorSt && anchorSt.img) anchorSt.img.destroy();
+    anchorSt = null;
+    if (anchorGfx) anchorGfx.clear();
+  }
+
+  // ミニロボほうしゅつ（ミサイルガ）：極小ロボを ringRadius の輪に並べて放出する。
+  // ⚠️ ユーザー指定「倒すだけ。ビリヤード弾にできない」。それを支えるのは minion フラグ1つで、
+  //    弾になる経路（Run.enterStagger／capture.onEnemyKilled／billiard.press）が全部これを弾く。
+  //    ここで別配列に持たない理由は逆で、run.enemies に載せないと**倒せなくなる**から
+  //    （武器・突き・投げの当たり判定はすべて run.enemies を走査している）。
+  function spawnMinirobos() {
+    const mk = cfg.minirobo;
+    // spawnEnemy が要求する最小の器。ENEMIES には入れない（湧きプールを汚さない）。
+    const mdef = { id: MINIROBO.id, name: MINIROBO.name, color: mk.tint,
+                   movement: MINIROBO.movement, hp: 1, speed: mk.speed,
+                   damage: mk.damage, radius: mk.radius };
+    let made = 0;
+    for (let i = 0; i < mk.count; i++) {
+      const a = (Math.PI * 2 * i) / mk.count;
+      const x = boss.x + Math.cos(a) * mk.ringRadius;
+      const y = boss.y + Math.sin(a) * mk.ringRadius;
+      const m = run.spawnEnemy(mdef, x, y, false, 1);
+      if (!m) break;                  // enemyCap に当たったら諦める（上限は破らない）
+      m.minion = true;
+      m.noReward = true;              // 倒しても報酬なし（ここが稼ぎ場になると投げの意味が薄まる）
+      m.hp = 1; m.maxHp = 1;          // HP1＝武器でも突きでも一撃で消える
+      m.life = mk.lifeSec;            // 溜めない：寿命で必ず自壊する
+      m.tint = int(mk.tint);
+      m.baseScale = mk.scale;
+      m.spr.setScale(mk.scale);
+      m.glow.setScale(0.8);
+      minions.push(m);
+      run.spawnParticles(x, y, m.tint, 4);
+      made++;
+    }
+    if (made > 0) {
+      Sound.sfx('elite', 0.7, 1.4);
+      Sound.sfx('missileLaunch', 0.5, 1.5);
+      run.shake(180, 5);
+      run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 14);
+    }
+  }
+  function updateMinions(dt) {
+    for (let i = minions.length - 1; i >= 0; i--) {
+      const m = minions[i];
+      if (!m.active) { minions.splice(i, 1); continue; }
+      m.life -= dt;
+      if (m.life <= 0) {
+        // 'expire' は無音・無報酬の静かな消滅（よろけの時間切れと同じ扱い）
+        run.killEnemy(m, m.tint, 'expire');
+        run.spawnParticles(m.x, m.y, m.tint, 3);
+        minions.splice(i, 1);
+      }
+    }
+  }
+  function clearMinions() {
+    for (const m of minions) { if (m.active) m.active = false; }
+    minions.length = 0;
+  }
+
   // ============ 着弾予告→爆発（ローリングボム／ぜんだんはっしゃ が共用） ============
   // 予告円が縮んで着弾点へ収束し、0になった瞬間に爆発する。ボス弾と違い**位置が先に見える**ので、
   // 「避ける」ではなく「そこに居ないようにする」遊びになる。生成物は必ず clearStrikes で破棄する。
@@ -2369,8 +2683,10 @@ export function createBoss(run) {
     const sk = cfg.armslam;
     for (let i = 0; i < sk.shockCount; i++) {
       const a = (Math.PI * 2 * i) / sk.shockCount;
+      // R52b: 寿命は balance の shockLifeSec（旧実装は 2.5 の直書き）。速くしたぶん縮めて
+      //   射程を据え置く＝マジックナンバーを残さないためにも data 側へ出す。
       spawnBullet2(boss.x, boss.y, Math.cos(a) * sk.shockSpeed, Math.sin(a) * sk.shockSpeed,
-        { radius: sk.shockRadius, damage: sk.shockDamage, life: 2.5 });
+        { radius: sk.shockRadius, damage: sk.shockDamage, life: sk.shockLifeSec || 2.5 });
     }
     const d = Math.hypot(run.player.x - boss.x, run.player.y - boss.y);
     if (d <= sk.meleeRadius + run.player.radius) run.hitPlayer(sk.meleeDamage, boss.x, boss.y);
@@ -3075,21 +3391,25 @@ export function createBoss(run) {
     const isComet = kind === 'comet';                                // R35: マオウレクス専用
     const isGlyph = kind === 'glyph';                                // R40: 聖句の文字弾（軌道神核）
     const isJudge = kind === 'judge';                                // R40: 裁きの輪弾（軌道神核）
-    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb && !isGlyph && !isJudge;
+    const isDrill = kind === 'drill';                                // R52b: ウズバルカンのドリルシェル
+    const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb && !isGlyph
+      && !isJudge && !isDrill;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
       : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : isComet ? 'boss_comet'
-      : isGlyph ? 'verse_glyph' : isJudge ? 'judge_orb' : 'boss_bolt';
+      : isGlyph ? 'verse_glyph' : isJudge ? 'judge_orb' : isDrill ? 'boss_drill' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
     // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
     // R35: 彗星は30×16比率（r=8のとき30.4×16）。ボルトより横も縦も大きい＝巨体から出る弾の質量。
     // R40: 文字弾/輪弾は正方形＝向きは進行方向ではなく spin（回転しながら飛ぶ）が担う
+    // R52b: ドリルは 32×20 の錐（r=9 のとき 32.4×19.8）。判定は r そのもの（＝直径18）なので、
+    //   すれ違いざまに当たる方向の寸法（縦19.8 vs 18）は±20%以内で一致している。
     const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isComet ? r * 3.8
-      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isOrb ? r * 4.0 : r * 3.0;
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 3.6 : isOrb ? r * 4.0 : r * 3.0;
     const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isComet ? r * 2.0
-      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isOrb ? r * 2.5 : r * 3.0;
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 2.2 : isOrb ? r * 2.5 : r * 3.0;
     const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
-      : isOrb ? Math.atan2(vy, vx) : 0;                              // ボルト／彗星は+Xが先端＝オフセットなし
+      : (isOrb || isDrill) ? Math.atan2(vy, vx) : 0;                 // ボルト／彗星／錐は+Xが先端
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
       .setDisplaySize(dispW, dispH).setPosition(x, y).setRotation(rot0);
     // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
@@ -3103,6 +3423,10 @@ export function createBoss(run) {
       //   （モーションブラーと同じ原理）。ボルトの 4.6×2.6 に対して 8.4×3.2 と一段大きい。
       d.glow.setVisible(true).setDepth(10).setTint(0xff6a1f).setAlpha(0.9)
         .setRotation(ta).setDisplaySize(r * 8.4, r * 3.2).setPosition(x, y);
+    } else if (isDrill) {
+      // R52b: 錐の後ろへ長く伸びる噴射グロウ。ボルト(4.6×2.6)の倍近い 5.4×3.0 で「重い大弾」を出す。
+      d.glow.setVisible(true).setDepth(10).setTint(0xff5a1f).setAlpha(0.9)
+        .setRotation(ta).setDisplaySize(r * 5.4, r * 3.0).setPosition(x, y);
     } else if (isGlyph || isJudge) {
       // R40: 神核の弾は光背（丸いハロー）を弾色でまとう＝金と紫の弾幕が「神の火」に見える。
       //   熱の色（赤縁）ではなく光の色＝敵弾識別は大きさと形（回転する文字/輪）が担う。
@@ -3118,6 +3442,8 @@ export function createBoss(run) {
       maxTurn: opts.maxTurn || 0, spd: Math.hypot(vx, vy) || 1, cruise: opts.speed || 0,
       blast: opts.blast || 0, age: 0, trailT: 0,
       decel: opts.decel || 0, noHit: !!opts.noHit,   // R29: 転がって止まる爆弾（触れても爆ぜない＝時間で爆発）
+      // R52b: ドリルシェルが**1回だけ**曲がるための3点（bendAt 秒後に最大 bendDeg まで向き直す）
+      bendAt: opts.bendAt || 0, bendMax: (opts.bendDeg || 0) * D2R, bent: false,
       life: opts.life != null ? opts.life : 3,
       dmg: opts.damage != null ? opts.damage : 10,
       // R44W4: 聖句の文字が堕ちるまでの秒数（0なら堕ちない＝他の弾は無関係）
@@ -3210,6 +3536,29 @@ export function createBoss(run) {
           b.trailT = 0.10; trailBudget--;
           run.spawnParticles(b.x - b.vx * 0.03, b.y - b.vy * 0.03, 0xff8a2a, 1);
         }
+      } else if (b.kind === 'drill') {
+        // R52b: ドリルは「回転しながら飛ぶ」。⚠️ 2Dで軸回転は描けないので、進行方向を保ったまま
+        //   ①わずかな首振り ②縦の伸び縮み の2つで表す（単純に rotation を回すと錐の向きが崩れて
+        //   「何が刺さりに来ているか」が読めなくなる）。
+        b.age += dt;
+        // ★1回だけ曲がる。追い続けるホーミングにはしない＝曲がり切ったのを見てから避けられる。
+        if (!b.bent && b.bendAt > 0 && b.age >= b.bendAt) {
+          b.bent = true;
+          const desired = Math.atan2(py - b.y, px - b.x);
+          let cur = Math.atan2(b.vy, b.vx);
+          const diff = Phaser.Math.Angle.Wrap(desired - cur);
+          cur += Math.max(-b.bendMax, Math.min(b.bendMax, diff));
+          const sp = Math.hypot(b.vx, b.vy) || 1;
+          b.vx = Math.cos(cur) * sp; b.vy = Math.sin(cur) * sp;
+          run.spawnParticles(b.x, b.y, 0xffe24a, 4);   // 曲がった瞬間だけ火花＝「今ねじれた」
+          Sound.sfx('tick', 0, 0.8);
+        }
+        const da = Math.atan2(b.vy, b.vx);
+        b.spr.setRotation(da + Math.sin(b.age * b.spin) * 0.10);
+        b.spr.setDisplaySize(b.r * 3.6, b.r * 2.2 * (0.80 + 0.20 * Math.abs(Math.cos(b.age * b.spin))));
+        b.glow.setRotation(da);
+        b.trailT -= dt;
+        if (b.trailT <= 0) { b.trailT = 0.07; run.spawnParticles(b.x, b.y, 0xff8a2a, 1); }
       } else if (b.kind === 'bomb') {
         // 転がりながら減速して止まる。回転させて「転がっている」ことを見せる（導火線口が回る）。
         const k = Math.max(0, 1 - b.decel * dt);
@@ -3264,7 +3613,10 @@ export function createBoss(run) {
       } else {
         // R35: 彗星弾は見た目が30×16と大きいが、当たり判定は**白熱の芯**に合わせて5pxに留める。
         //   外形（炎）の大きさで当てると「かすってもいないのに当たった」になる＝絵と判定は別物。
-        const rr = run.player.radius + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : 6);
+        // R52b: ドリルだけは「見た目どおり大きい」＝判定も b.r（9）を使う。見た目 32×20 に対して
+        //   縦19.8 なので、すれ違う方向の寸法と判定直径18は±20%以内で一致する。
+        const rr = run.player.radius
+          + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : b.kind === 'drill' ? b.r : 6);
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
           run.hitPlayer(b.dmg, b.x, b.y); b.active = false;
@@ -3455,7 +3807,16 @@ export function createBoss(run) {
     // 粉砕中は位置を tween に任せる（毎フレーム setPosition で上書きすると破片が飛ばない）
     if (awakening && cineStage >= 1) return;
     const s = disp.spriteScale;
-    const cx = boss.x, cy = boss.y;
+    // ★R52b ローリングラッシュの予告＝**本体が震える**。溜めが進むほど震幅が大きくなるので、
+    //   「そろそろ来る」が数字ではなく揺れの大きさで読める（文字を足さずに予告を強くする）。
+    let jx = 0, jy = 0;
+    if (state === 'rushTele' && cfg.rollrush) {
+      const k = clamp01(1 - stateT / cfg.rollrush.telegraphSec);
+      const amp = 1 + k * 4;
+      jx = Math.sin(run.elapsed * 62) * amp;
+      jy = Math.cos(run.elapsed * 74) * amp;
+    }
+    const cx = boss.x + jx, cy = boss.y + jy;
     const bob = Math.sin(run.elapsed * 2) * 1.5;         // 全体の浮遊
     const tilt = Math.sin(run.elapsed * 1.5) * 0.04;     // 機体の傾き
 
@@ -3509,6 +3870,15 @@ export function createBoss(run) {
     } else if (state === 'wireShot' || state === 'wireBack') {
       // 射出中：両腕を前方へ突き出す（拳を撃ち出した姿勢）
       armPose = 1.0;
+    } else if (state === 'drillTele' && cfg.drill) {
+      // R52b ドリルシェル：砲塔をせり上げて充填する（大弾が出てくる予感を姿勢で出す）
+      armPose = lerp(0, -1.2, clamp01(1 - stateT / cfg.drill.telegraphSec));
+    } else if (state === 'anchorTele' && cfg.anchor) {
+      // R52b アンカー：鎖を巻き上げるように砲身を引き絞る
+      armPose = lerp(0, -1.5, clamp01(1 - stateT / cfg.anchor.telegraphSec));
+    } else if (state === 'roboTele' && cfg.minirobo) {
+      // R52b ミニロボ：ハッチ（ラック）を開ける＝下の rack 分岐が読む
+      armPose = lerp(0, -0.8, clamp01(1 - stateT / cfg.minirobo.telegraphSec));
     }
     if (state === 'vulcanTele' || state === 'vulcanFire') upperSpin = Math.sin(run.elapsed * 18) * 0.12;
     if (state === 'novaTele' || state === 'novaFire') upperSpin = Math.sin(run.elapsed * 24) * 0.16;
@@ -3571,10 +3941,18 @@ export function createBoss(run) {
           if (state === 'missileTele' && cfg.missile) {
             py -= clamp01(1 - stateT / cfg.missile.telegraphSec) * 3;
           }
+          // R52b ミニロボほうしゅつ：ラックが**下がって開く**（ミサイルの上昇と逆向き＝
+          //   同じパーツで「上げる＝撃つ／下げる＝出す」を区別する）
+          if (state === 'roboTele' && cfg.minirobo) {
+            py += clamp01(1 - stateT / cfg.minirobo.telegraphSec) * 3;
+          }
           rot = tilt; break;
         }
         default: rot = tilt; break;
       }
+      // ★R52b 転がりの回転。ローリングラッシュ中だけ全パーツを同じ角で回す＝円盤そのものが
+      //   ゴロゴロ回って突っ込んでくる（加速したことが「回転が速くなった」で分かる）。
+      if (rollSpin) rot += rollSpin;
       if (introFx) {
         py += introFx.drop;
         p.img.setAlpha(introFx.alpha).setScale((p.mirror ? -1 : 1) * s * introFx.scale, s * introFx.scale);
@@ -3607,6 +3985,9 @@ export function createBoss(run) {
     // R21W2: 予告を割った直後の追撃窓（bossBreakSec）。倍率2.4が効いているのに見た目が
     // 変わらず「今だけ大きい」が伝わっていなかった。よろけと同じ青白で塗って記号を揃える。
     else if (bossStagT > 0) tint = BALANCE.stagger.tint;
+    // ★R52b ローリングラッシュの予告だけ**赤熱**させる（白の点滅と交互）。震え＋赤熱＝
+    //   「エンジンをふかしている」＝次に来るのは弾ではなく体当たり、を色で区別する。
+    else if (state === 'rushTele') tint = (Math.floor(run.elapsed * 20) % 2 === 0) ? 0xffffff : 0xff5a2a;
     else if (isTelegraph(state)) {
       // R34→R36W2: かつては消灯側も紫 tint で塗っていた（素に戻すと赤へ剥がれたため）。
       //   いまは**テクスチャそのものが紫**なので、素（null）に戻しても紫のまま＝白の点滅だけで足りる。
@@ -3668,6 +4049,8 @@ export function createBoss(run) {
     boss.active = false;
     const x = boss.x, y = boss.y;
     clearBullets();
+    clearMinions();     // R52b 撃破の瞬間に手下も消える（勝った画面に取り巻きを残さない）
+    destroyAnchor();
     Sound.sfx('bossdown');
     awardKillRewards(x, y);
     startDeathSpin();
@@ -3737,6 +4120,9 @@ export function createBoss(run) {
     destroyIntroDim();   // 同上：暗幕を確実に破棄（depth 戻し漏れ/リーク防止）
     destroyWire();       // ワイヤーアームの拳/ケーブルを確実に破棄（リーク防止）
     destroyWeak();       // 弱点コアの表示を確実に破棄（リーク防止）
+    destroyAnchor();     // R52b アンカー本体（射出の途中で撃破/破棄されても必ず消す）
+    clearMinions();      // R52b ミニロボ（戦闘が畳まれたら残さない）
+    if (anchorGfx) { anchorGfx.destroy(); anchorGfx = null; }   // R52b 鎖の点線
     if (trueCrack) { trueCrack.destroy(); trueCrack = null; }   // 転生カットシーンの亀裂
     clearShards();                                              // R43 粉砕の小片
     if (lockGfx) { lockGfx.destroy(); lockGfx = null; }         // R43 射線プレビュー
@@ -3875,8 +4261,10 @@ export function createBoss(run) {
           .setScale(cfg.glowScale * 0.9 * (1 + Math.sin(run.elapsed * 4) * 0.12));
       }
       // 突進中/フライパス通過中は体当たりのダメージが上がる（速い＝重い、が体で分かる）
+      // R52b: ローリングラッシュの轢きも同じ扱い（本体が武器になる技はここで一括）。
       const dmg = (state === 'dash') ? cfg.dash.damage
         : (state === 'flypass') ? cfg.flypass.bodyDamage
+        : (state === 'rushGo') ? cfg.rollrush.damage
         : trueForm ? boss.damage : cfg.bodyDamage;
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
@@ -3892,6 +4280,7 @@ export function createBoss(run) {
     }
 
     updateShadows(dt);        // R44W5: 影は殻が開いても lifeSec まで残る＝boss の state に縛らない
+    updateMinions(dt);        // R52b: ミニロボの寿命（ボスが消えても残りは自壊まで面倒を見る）
     updateBullets(dt);
     updateStrikes(dt);      // R29: ボスが消えた後も残った着弾は最後まで爆発させる（bullets と同じ扱い）
     if (beam) updateBeam(dt);
@@ -3939,6 +4328,18 @@ export function createBoss(run) {
           minD: a.minD == null ? null : Math.round(a.minD), whooshed: !!a.whooshed })) } : null;
     },
     get beamActive() { return !!beam; },
+    // R52b 検証用：署名攻撃②の観測（読み取り専用）。発動回数は state 遷移を CDP から数える。
+    get minionCount() { let n = 0; for (const m of minions) if (m.active) n++; return n; },
+    debugMinions() {
+      return minions.filter((m) => m.active).map((m) => ({
+        x: Math.round(m.x), y: Math.round(m.y), hp: m.hp, minion: !!m.minion,
+        stag: !!m.stag, noReward: !!m.noReward, life: +(m.life || 0).toFixed(2) }));
+    },
+    debugAnchor() {
+      return anchorSt ? { phase: anchorSt.phase, len: Math.round(anchorSt.len),
+        ang: +anchorSt.ang.toFixed(3), hit: !!anchorSt.hit } : null;
+    },
+    debugPins() { return pinAngs ? pinAngs.angs.map((a) => +a.toFixed(3)) : null; },
     // R43 検証用：いま張られているビームの向きと太さ（射線から主人公が何px離れているかを外から測る）
     debugBeam() {
       if (!beam) return null;

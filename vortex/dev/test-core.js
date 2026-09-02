@@ -3626,7 +3626,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ④ 「完全に倒す（消滅させる）」＝とどめの関門の唯一の例外 ---
   assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs),
     'R47: ラゴンだけ「よろけ」を経由せずに撃破できる（FB「気絶させて弾にするのではない」）');
-  assert(/if \(src === 'manual' \|\| lanceFinish \|\| e\.isBoss \|\| e\.rebooted\)/.test(runjs),
+  // R52b: 同じ行に e.minion（ミニロボ＝よろけない敵）の例外が増えたので、先頭の追加条件は
+  //   許して「ラゴンの例外が合流点にある」ことだけを縛る（縛りの意図は順番ではなく置き場所）。
+  assert(/if \((?:[\w.]+ \|\| )*src === 'manual' \|\| lanceFinish \|\| e\.isBoss \|\| e\.rebooted\)/.test(runjs),
     'R47: その例外が dealDamage の**合流点**に置かれている（個別経路で killEnemy を直接'
     + '呼ぶと弱点コア・王冠無敵・よろけ判定を全部すり抜ける）');
   assert(/!e\.isBoss/.test(runjs.match(/const lanceFinish[^\n]*/)[0]),
@@ -4025,6 +4027,188 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R52a: 最終ボスのBGMは遅延なしで即時（maouIntro が音の間を持っている）');
   assert(/state = 'maouIntro';\s*\n\s*stateT = MAOU_INTRO\.dur;/.test(boss),
     'R52a: maouIntro（暗幕＋セリフ2行＋テロップ）の入口はそのまま');
+}
+
+// ============ R52b 通常ボス5体の「弾速」と「攻撃のバラエティ」 ============
+// 実プレイFB「マオウレクス以外のボスの攻撃がぬる過ぎる。弾のスピードを速くして」＋
+// 「攻撃をバラエティー豊かにして（尖った大きめの弾／アンカー射出／細いレーザー砲／
+// 極小の小型ロボを大量に排出／突然の加速）。プレーヤーがワクワクする攻撃を創造して」。
+// ⚠️ 縛るのは4つ：①弾が旧値より速い ②新攻撃が表に載っている ③ミニロボが弾にならない
+//    ④マオウレクスに触っていない。手触りそのもの（ワクワクするか）は実プレイでしか測れない。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const boss = read('systems/boss.js');
+  const boot = read('scenes/Boot.js');
+  const runjs = read('scenes/Run.js');
+  const bil = read('systems/billiard.js');
+  const cap = read('systems/capture.js');
+  const tiers = BALANCE.boss.tiers;
+  const byId = {};
+  for (const t of tiers) byId[t.bossId] = t;
+  const pSpd = BALANCE.player.speed;
+
+  // --- ① 弾速：R52b 以前の値（左）より速い（右が現行の下限）---
+  //     ⚠️ アンカーにするのは「旧値そのもの」。相対値(1.3倍など)で書くと、次に誰かが
+  //        少し下げても通ってしまう＝「ぬるくなった」を検出できない。
+  const OLD = [
+    ['korotama', 'machinegun', 'bulletSpeed', 264],
+    ['korotama', 'ring', 'bulletSpeed', 120],
+    ['jetviper', 'cutter', 'speed', 180],
+    ['jetviper', 'flypass', 'bulletSpeed', 104],
+    ['jetviper', 'ring', 'bulletSpeed', 132],
+    ['uzuking', 'vulcan', 'bulletSpeed', 138],
+    ['uzuking', 'spiral', 'bulletSpeed', 128],
+    ['uzuking', 'armslam', 'shockSpeed', 144],
+    ['uzuking', 'ring', 'bulletSpeed', 132],
+    ['wavelord', 'tsunami', 'bulletSpeed', 108],
+    ['wavelord', 'armslam', 'shockSpeed', 144],
+    ['wavelord', 'ring', 'bulletSpeed', 142],
+    ['missilga', 'missile', 'speed', 300],
+    ['missilga', 'vulcan', 'bulletSpeed', 138],
+    ['missilga', 'ring', 'bulletSpeed', 144],
+  ];
+  for (const [id, atk, key, old] of OLD) {
+    const now = byId[id] && byId[id][atk] && byId[id][atk][key];
+    assert(typeof now === 'number' && now > old,
+      `R52b: ${id}.${atk}.${key} が旧値より速い（${old} → ${now}）`);
+  }
+  // 遅い弾ほど大きく上げる（100〜150台は+25%以上・既に速い machinegun/missile は+5%以上）
+  for (const [id, atk, key, old] of OLD) {
+    const now = byId[id][atk][key];
+    const min = old <= 200 ? 1.25 : 1.05;
+    assert(now >= old * min,
+      `R52b: ${id}.${atk}.${key} の上げ幅が方針どおり（×${(now / old).toFixed(2)} >= ×${min}）`);
+  }
+  // 主人公(148px/s)より遅い弾を1つも残さない＝歩いて追い抜ける弾を作らない（R35の教訓）
+  for (const [id, atk, key] of OLD) {
+    assert(byId[id][atk][key] > pSpd,
+      `R52b: ${id}.${atk}.${key} が主人公(${pSpd})より速い（${byId[id][atk][key]}）`);
+  }
+  // 射程（速度×寿命）は据え置き＝速くしたぶん画面外まで飛び続ける弾を増やしていない
+  for (const [id, atk] of [['korotama', 'ring'], ['jetviper', 'flypass'], ['uzuking', 'vulcan'],
+                           ['uzuking', 'spiral'], ['wavelord', 'tsunami'], ['missilga', 'ring']]) {
+    const a = byId[id][atk];
+    const range = a.bulletSpeed * a.lifeSec;
+    assert(range >= 250 && range <= 620,
+      `R52b: ${id}.${atk} の射程が据え置きの範囲（${Math.round(range)}px）`);
+  }
+  // 速くしたぶんダメージは1点も上げていない（緊張感は被弾量ではなく「避けた回数」で作る）
+  const DMG = [['korotama', 'machinegun', 6], ['korotama', 'ring', 12], ['jetviper', 'cutter', 20],
+               ['jetviper', 'flypass', 15], ['uzuking', 'vulcan', 15], ['uzuking', 'spiral', 14],
+               ['wavelord', 'tsunami', 20], ['missilga', 'missile', 24], ['missilga', 'vulcan', 15]];
+  for (const [id, atk, d] of DMG) {
+    assert(byId[id][atk].damage === d,
+      `R52b: ${id}.${atk}.damage は据え置き（${d} / 実測 ${byId[id][atk].damage}）`);
+  }
+  // armslam の衝撃波は寿命を data 側へ出した（boss.js の直書き 2.5 を撤去）
+  for (const id of ['uzuking', 'wavelord']) {
+    assert(typeof byId[id].armslam.shockLifeSec === 'number',
+      `R52b: ${id}.armslam.shockLifeSec が balance にある（マジックナンバーをコードに残さない）`);
+  }
+  assert(/life: sk\.shockLifeSec \|\| 2\.5/.test(boss),
+    'R52b: doSlam が shockLifeSec を読む（直書きの 2.5 は互換のフォールバックだけ）');
+
+  // --- ② 新攻撃5種が表に載っていて、待ち時間の数と一致している ---
+  const NEW = [['korotama', 'rollrush'], ['jetviper', 'pinlaser'], ['uzuking', 'drill'],
+               ['wavelord', 'anchor'], ['missilga', 'minirobo']];
+  for (const [id, atk] of NEW) {
+    const t = byId[id];
+    assert(t.attacks.includes(atk),
+      `R52b: ${id} の attacks に ${atk} が載っている（${t.attacks.join('/')}）`);
+    assert(t[atk] && typeof t[atk] === 'object',
+      `R52b: ${id}.${atk} の設定ブロックがある（値は balance が正典）`);
+    assert(t.idleSec.betweenAttacks.length === t.attacks.length,
+      `R52b: ${id} の betweenAttacks 長が attacks 長と一致（${t.idleSec.betweenAttacks.length}/${t.attacks.length}）`);
+    // 出番があること＝表の2番目に置いた（1周目で必ず見える。R34「4番目のミサイルは0回」の教訓）
+    assert(t.attacks.indexOf(atk) === 1,
+      `R52b: ${id} の新攻撃は表の2番目（1周で必ず1回は出る位置）`);
+  }
+  // 予告を必ず持つ（予告なしの攻撃を1つも作らない＝理不尽な即死を出さない）
+  for (const [id, atk] of NEW) {
+    const tele = byId[id][atk].telegraphSec;
+    assert(typeof tele === 'number' && tele >= 0.4,
+      `R52b: ${id}.${atk} に 0.4秒以上の予告がある（${tele}）`);
+  }
+  // ダメージは各ボスの既存攻撃と同水準（新技だけ突出させない）
+  for (const [id, atk] of NEW) {
+    const t = byId[id];
+    const others = t.attacks.filter((a) => a !== atk && t[a] && typeof t[a].damage === 'number')
+      .map((a) => t[a].damage);
+    const d = t[atk].damage;
+    assert(d <= Math.max(...others, t.bodyDamage) * 1.35,
+      `R52b: ${id}.${atk}.damage ${d} が既存攻撃（最大 ${Math.max(...others, t.bodyDamage)}）と同水準`);
+  }
+  // 実装：5種とも state と発火経路がある（データだけ足して動かない、を通さない）
+  for (const [st, fn] of [["case 'rollrush'", 'function startRushLeg'],
+                          ["case 'pinlaser'", 'function firePinLasers'],
+                          ["case 'drill'", 'function fireDrillOne'],
+                          ["case 'anchor'", 'function startAnchor'],
+                          ["case 'minirobo'", 'function spawnMinirobos']]) {
+    assert(boss.includes(st) && boss.includes(fn),
+      `R52b: ${st} が startAttackByName にあり ${fn} が実装されている`);
+  }
+  // 予告テロップ（文字）は1つも足していない＝③装飾が飽和側の vortex で情報量を増やさない
+  for (const nm of ['ローリングラッシュ', 'ペンシルレーザー', 'ドリルシェル',
+                    'アンカーショット', 'ミニロボ']) {
+    assert(!new RegExp(`(introText|floatText|announce)\\([^)]*${nm}`).test(boss),
+      `R52b: 「${nm}」を画面の文字として出していない（予告は形と色で読ませる）`);
+  }
+  // 見た目：尖った大弾と錨のテクスチャが新設されている（既存弾の流用ではない）
+  assert(/makeFoeDrill\(/.test(boot) && /this\.makeFoeDrill\('boss_drill', 32, 20\)/.test(boot),
+    'R52b: ドリル弾の専用テクスチャ（32×20）がある＝boss_bolt(16×10) の流用ではない');
+  assert(/makeAnchor\(/.test(boot) && /this\.makeAnchor\('boss_anchor', 20, 20\)/.test(boot),
+    'R52b: アンカーの専用テクスチャ（20×20）がある');
+  assert(/'boss_drill'/.test(boss) && /'boss_anchor'/.test(boss),
+    'R52b: boss.js が新テクスチャを実際に貼っている');
+  // 判定と見た目の乖離を作らない：ドリルは b.r で当てる（見た目だけ大きい弾にしない）
+  assert(/b\.kind === 'drill' \? b\.r/.test(boss),
+    'R52b: ドリルの当たり判定は半径 b.r（見た目 32×20・縦19.8 と直径18＝±20%以内）');
+  // 曲がるのは1回だけ（追い続けるホーミングにはしない）
+  assert(/if \(!b\.bent && b\.bendAt > 0 && b\.age >= b\.bendAt\)/.test(boss),
+    'R52b: ドリルが曲がるのは1回だけ（bent のフラグで二度目を封じている）');
+
+  // --- ③ ミニロボは「倒すだけ」＝ stagger / capture / billiard の全経路で対象外 ---
+  assert(/export const MINIROBO = \{/.test(read('data/enemies.js')),
+    'R52b: ミニロボは ENEMIES 配列に入れず別 export（湧きプール／重み検証を汚さない）');
+  assert(ENEMIES.length === 6, 'R52b: ENEMIES は6種のまま（ミニロボを湧きプールへ混ぜていない）');
+  assert(/enterStagger\(e\) \{[\s\S]{0,420}?if \(e\.minion\) return;/.test(runjs),
+    'R52b: よろけの入口 Run.enterStagger が minion を弾く（＝弾にならない）');
+  assert(/function onEnemyKilled\(e\) \{[\s\S]{0,300}?if \(e\.minion\) return;/.test(cap),
+    'R52b: capture.onEnemyKilled が minion を弾く（コアを落とさない）');
+  assert((bil.match(/!e\.isBoss && !e\.minion/g) || []).length >= 2,
+    'R52b: billiard.press の掴み候補（通常と紫の窓の両方）から minion を外している');
+  assert(/if \(e\.minion \|\| src === 'manual'/.test(runjs),
+    'R52b: minion は誰が倒してもその場で消える（よろけへ落ちて不死身にならない）');
+  assert(/const noDrop = quiet \|\| !!e\.minion;/.test(runjs)
+      && /if \(!noDrop\) this\.spawnGem/.test(runjs) && /if \(!noDrop\) this\.maybeCrown/.test(runjs),
+    'R52b: 倒しても報酬なし（ジェルも王冠も出さない）＝稼ぎ場にならない');
+  const mb = BALANCE.boss.tiers.find((t) => t.bossId === 'missilga').minirobo;
+  assert(mb.count >= 8 && mb.count <= 10, `R52b: ミニロボは8〜10体（${mb.count}）`);
+  assert(mb.radius >= 5 && mb.radius <= 6, `R52b: 極小（radius ${mb.radius}）`);
+  assert(mb.lifeSec >= 6 && mb.lifeSec <= 8, `R52b: 寿命6〜8秒で自壊する（${mb.lifeSec}）＝画面に溜めない`);
+  assert(mb.speed < pSpd, `R52b: ミニロボは主人公より遅い（${mb.speed} < ${pSpd}）＝走れば引き離せる`);
+  assert(/m\.minion = true;/.test(boss) && /m\.hp = 1; m\.maxHp = 1;/.test(boss),
+    'R52b: 放出時に minion フラグと HP1 が立つ（武器でも突きでも一撃で消える）');
+  assert(/function clearMinions\(\)/.test(boss) && /clearMinions\(\);\s*\/\/ R52b 撃破の瞬間/.test(boss),
+    'R52b: 撃破・破棄で手下を必ず片付ける（勝った画面に取り巻きを残さない）');
+
+  // --- ④ マオウレクス（final）には一切触っていない ---
+  const maou = tiers.find((t) => t.final);
+  assert(maou.attacks.join('/') === 'missile/wirearm/vulcan/knuckle/nova',
+    `R52b: maou の attacks は不変（${maou.attacks.join('/')}）`);
+  assert(maou.attacksSplit.join('/') === 'laser/wirearm/knuckle/laser/nova'
+      && maou.attacksP3.join('/') === 'chestLaser/wirearm/knuckle/chestLaser/missile',
+    'R52b: maou の分離中／再合体後の表も不変');
+  assert(maou.missile.speed === 480 && maou.nova.bulletSpeed === 265
+      && maou.vulcan.bulletSpeed === 340 && maou.ring.bulletSpeed === 240
+      && maou.knuckle.bulletSpeed === 320,
+    'R52b: maou の弾速は1つも変えていない（依頼は「マオウレクス以外」）');
+  for (const a of ['rollrush', 'pinlaser', 'drill', 'anchor', 'minirobo']) {
+    assert(!maou.attacks.includes(a) && !maou.attacksSplit.includes(a)
+        && !maou.attacksP3.includes(a) && !(a in maou),
+      `R52b: 新攻撃 ${a} を maou に混ぜていない`);
+  }
 }
 
 if (failures > 0) {

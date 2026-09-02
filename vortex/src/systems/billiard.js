@@ -1916,14 +1916,17 @@ export function createBilliard(run) {
     //   ここを開けたままだと予告23回中19回が掴みで消えて発火9%になっていた。
     // ★R29W2 掴める獲物が居なくても、手が届く範囲に**紫の獲物**が居るなら弾き返す。
     //   旧実装は候補から外すだけで突きに落ちていた＝「掴めなかった」瞬間が体験として存在しなかった。
+    // ★R52b ミニロボ（e.minion）は掴めない。ユーザー指定「倒すだけ。ビリヤード弾にできない」。
+    //   よろけない子なので stagOnly=true の時点で候補には入らないが、**掴みの入口に明示的に
+    //   書いておく**（よろけの実装が変わった日に、ここが黙って開くのを防ぐ）。
     const prey = run.nearestEnemy(grabReach(), 0, true,
-      (e) => !e.isBoss && !(e.throe && e.guardT > 0));
+      (e) => !e.isBoss && !e.minion && !(e.throe && e.guardT > 0));
     if (prey) { grab(prey); return; }
     // ★1回のミスにつき罰は1回だけ。同じ紫の窓で2度3度しびれると、押しっぱなしのプレイヤー
     //   （＝小さい子）が動けない時間だけを積む。実測でボットは 5.8〜11.1回/分 弾かれており、
     //   0.30秒×その頻度＝プレイ時間の3〜6%が上限。ここを1窓1回に抑えて天井を下げる。
     const guarded = run.nearestEnemy(grabReach(), 0, true,
-      (e) => !e.isBoss && e.throe && e.guardT > 0 && !e.grabBlocked);
+      (e) => !e.isBoss && !e.minion && e.throe && e.guardT > 0 && !e.grabBlocked);
     if (guarded && blockedGrab(guarded)) return;
     jab();
   }

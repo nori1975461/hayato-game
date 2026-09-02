@@ -247,6 +247,33 @@ export const ENEMIES = [
   },
 ];
 
+// ★R52b ミニロボ（ミサイルガの署名攻撃「ミニロボほうしゅつ」で出てくる極小の兵隊）。
+//   ⚠️ **ENEMIES には入れない**（BOSS と同じ理由＝出現プール／重み検証を汚さない）。
+//      湧きは boss.js だけが行い、数と寿命は BALANCE.boss.tiers[].minirobo が正典。
+//   ⚠️ ユーザー指定「倒すだけ。ビリヤード弾にできない」＝よろけ(stagger)にも掴みにも入らない
+//      （フラグ minion を Run.enterStagger / capture.onEnemyKilled / billiard.press が弾く）。
+//   8×8 は雑魚（12×12）よりさらに小さい＝「大量に出ても盤面が読める」を大きさで守る。
+//   バイザーだけミサイルガの弾色 #ff8a3d ＝「あいつが出した子」が色で分かる。
+export const MINIROBO = {
+  id: 'minirobo',
+  name: 'ミニロボ',
+  color: '#ff8a3d',
+  movement: 'chase',
+  sprite: {
+    palette: { k: '#171b24', g: '#67748c', s: '#c8d6ea', r: '#ff8a3d' },
+    rows: [
+      '..gggg..',
+      '.gssssg.',
+      '.grrrrg.',
+      '.gssssg.',
+      'ggkggkgg',
+      '.gssssg.',
+      '..k..k..',
+      '..k..k..',
+    ],
+  },
+};
+
 // === ボス群（Wave R3→FB#8：ロボット6体・ボディタイプ別リグ） ===
 // FB#8「6体が似すぎ」への対応。共通7パーツ人型リグをやめ、各ボスの rig 構造そのものを
 // ボディタイプ別に作り分けてシルエットを別物にする（UFO/戦闘機/多脚/戦車/ミサイルキャリア/大型人型）。

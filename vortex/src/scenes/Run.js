@@ -1136,6 +1136,11 @@ export class RunScene extends Phaser.Scene {
   grade(e) { return BALANCE.hero.billiard.grades[this.gradeIdx(e)]; }
 
   enterStagger(e) {
+    // ★R52b ミニロボ（ミサイルガの手下）は**よろけない**＝弾にならない。ユーザー指定
+    //   「倒すだけ。ビリヤード弾にできない」。ここに置くのは、よろけを作る経路（突き／ホイッスル／
+    //   ブラックホール／装甲片／スターダスト／ビッグ／れんしゅうじょう）が**全部この1関数**を
+    //   通るから（攻撃側に散らすと必ず漏れる＝dealDamage に弱点コアを置いたのと同じ理由）。
+    if (e.minion) return;
     const G = BALANCE.stagger;
     const gr = this.grade(e);
     e.stag = true;
@@ -2109,7 +2114,9 @@ export class RunScene extends Phaser.Scene {
     //      主語が変わってしまう（ボスHPは巨大なので実際には届かないが、原則として閉じておく）。
     const lanceFinish = src === 'lagon' && !e.isBoss;
     if (willKill) {
-      if (src === 'manual' || lanceFinish || e.isBoss || e.rebooted) this.killEnemy(e, color, src);
+      // ★R52b ミニロボは e.minion＝よろけを持たないので、誰が倒しても**その場で消える**。
+      //   ここを通さないと「HP1だがよろけない敵」が不死身になる（enterStagger が空振りする）。
+      if (e.minion || src === 'manual' || lanceFinish || e.isBoss || e.rebooted) this.killEnemy(e, color, src);
       else { e.hp = 1; this.enterStagger(e); }
     }
   }
@@ -2161,14 +2168,17 @@ export class RunScene extends Phaser.Scene {
     // R25: 王冠持ちは見返りも大きい（リスクに見合う報酬）。格のジェル倍率を掛ける。
     const gemMul = ((by === 'manual' && wasStag) ? BALANCE.stagger.gemMul : 1)
       * ((by === 'manual' || by === 'grab') ? (this.grade(e).gemMul || 1) : 1);
-    if (!quiet) this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
+    // ★R52b ミニロボは「倒すだけ」（ユーザー指定）＝ジェルも王冠もコアも出さない。
+    //   潰す手応え（粒とポン）は残す＝報酬ゼロでも叩く気持ちよさは削らない。
+    const noDrop = quiet || !!e.minion;
+    if (!noDrop) this.spawnGem(e.x, e.y, gemBase * gemMul, e.isElite);
     if (rewarded) {
       this.capture.onEnemyKilled(e);   // スターコア抽選
       this.rollHealDrop(e);            // FB#1: 回復ハート抽選（run.rng を使う）
     }
     if (!quiet) this.popFx(e.x, e.y, e.color, e.spr && e.spr.texture ? e.spr.texture.key : null, e.baseScale || 2);
     // R25: 王冠。近くで仲間が倒れた敵が怒って格上げされる（密集を掃除するほど強い獲物が生まれる）。
-    if (!quiet) this.maybeCrown(e.x, e.y);
+    if (!noDrop) this.maybeCrown(e.x, e.y);
     // 分裂（モチモ）。分裂で生まれた子はもう分裂しない＝無限増殖を防ぐ（§3.2）
     const sp = e.def && e.def.split;
     if (sp && !e.noSplit && !e.isElite) {
