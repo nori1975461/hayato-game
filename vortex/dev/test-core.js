@@ -3929,6 +3929,104 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R51: 撃破したらアナウンスを出してタイトルへ戻る');
 }
 
+// ============ R52a 共通ボスBGMの作り直し＋ボス出現の迫力 ============
+// 実プレイFB「ボス戦用のBGMを作成して。各ボス個別に作成する必要はない。マオウレクスより前の
+// ボス共通のBGMを作成して」＋「各ボス出現時に、音楽、効果音、エフェクトを駆使して、ボス出現の
+// 迫力と緊張感を出して」。
+// ⚠️ 共通ボス曲は前からあった（boss.js が startBgm('boss') 済み）ので、依頼の実態は
+//    「鳴っている曲がボス戦に聞こえない」＝作り直し。原因は F-G-Em-Am の長調ポップで、
+//    battle（Cメジャー150）と同族に聞こえること。ここで縛るのは「調と音色が変わったか」で、
+//    テンポは軸にしない（テンポ違いの作り直しは HAYATO 側で2回続けて不採用になっている）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+
+  // --- ① 曲そのもの：短調の新しい和音列に置き換わっている ---
+  const cb = snd.slice(snd.indexOf('const CHORDS_BOSS = ['), snd.indexOf('const MELODY_BOSS = ['));
+  const basses = [...cb.matchAll(/bass: NOTE\.(\w+)/g)].map((m) => m[1]).join('-');
+  assert(basses !== 'F2-G2-E2-A2-F2-G2-C3-G2',
+    'R52a: 旧 F-G-Em-Am / F-G-C-C（長調ポップ）の和音列ではない');
+  assert(basses === 'E2-F2-E2-As2-A2-C3-D3-B2',
+    'R52a: Eマイナー（Em-F-Em-Bb / Am-C-D-B7）＝♭II の半音とトライトーンを骨にした進行');
+  assert(/NOTE\.Ds4/.test(cb) && /NOTE\.B2/.test(cb),
+    'R52a: 終止は B7（D# を含むハーモニックマイナーのドミナント）＝長調へ解決させない');
+  const mb = snd.slice(snd.indexOf('const MELODY_BOSS = ['), snd.indexOf('const CHORDS_MAOU = ['));
+  assert(/\[NOTE\.B5, -1, -1, -1, NOTE\.F5, -1, -1, -1, NOTE\.B5,/.test(mb),
+    'R52a: 1小節目の頭が B5⇄F5（増4度＝トライトーンのサイレン）＝曲の0秒目で battle/maou と聞き分く');
+  assert(/NOTE\.Ds6, -1, NOTE\.D6, -1, NOTE\.Cs6, -1, NOTE\.C6, -1, NOTE\.B5,/.test(mb),
+    'R52a: 折り返しは半音だけで降りる下行（機械が軋みながら降りてくる）');
+  const bossSong = snd.match(/boss:\s*\{ bpm: (\d+), bars: (\d+), chords: CHORDS_BOSS,\s*melody: MELODY_BOSS,\s*style: 'boss'/);
+  assert(!!bossSong && Number(bossSong[2]) === 8,
+    'R52a: SONGS.boss は 8小節で CHORDS_BOSS / MELODY_BOSS / style boss を使う');
+  // テンポは差別化の主役にしないので「別世界に居ること」だけを範囲で縛る（battle 150 / maou 178）
+  assert(Number(bossSong[1]) >= 140 && Number(bossSong[1]) <= 180,
+    'R52a: bpm は常識的な範囲（テンポは軸ではないので値そのものは縛らない）');
+
+  // --- ② 音色：ポップスの材料が外れ、金属・警報・重い打撃に入れ替わっている ---
+  const bs = snd.slice(snd.indexOf("} else if (song.style === 'boss') {"),
+                       snd.indexOf("} else if (song.style === 'maou') {"));
+  // ⚠️ 解説コメントに旧実装の名前が出るので、判定は**鳴らしている値**だけで行う
+  assert(!/hpFreq: 1600, lpFreq: 8500/.test(bs) && !/start: 0\.026, dur: 0\.06/.test(bs),
+    'R52a: 手拍子3枚重ね（明るさの正体）は鳴らしていない');
+  assert(/hpFreq: 5200, lpFreq: 15000/.test(bs),
+    'R52a: 2拍4拍は鉄板を叩いた金属の長い尾に置き換わっている');
+  assert(!/if \(inBar % 4 === 0 \|\| inBar === 14\) \{/.test(bs)
+      && /inBar === 0 \|\| inBar === 6 \|\| inBar === 8 \|\| inBar === 14/.test(bs),
+    'R52a: 四つ打ち（踊る曲）をやめて 0・6・8・14 の重い刻み（踏み込む曲）にしている');
+  assert(/noteFreq\(chord\.bass \+ semi\)/.test(bs) && /\[18, /.test(bs),
+    'R52a: 警報スタブ＝根音の増4度（+18半音＝トライトーン）を刺す声部がある');
+  assert(/hpFreq: 9500/.test(bs),
+    'R52a: 打楽器は highpass 9500 の金属（ハットではなく金属を弾く音）');
+  assert(/type: 'sawtooth', freq: mf,/.test(bs) && !/type: 'sine', freq: mf \* 2/.test(bs),
+    'R52a: リードは のこぎり波の刃（オクターブ上の sine ベル＝きらめきは外した）');
+  assert(/inBar % 2 === 0 \|\| inBar === 3 \|\| inBar === 11/.test(bs),
+    'R52a: 3・11 の食い込みは残す（battle と共通のノリ＝シリーズの統一感）');
+  // 他の曲へ手を出していないこと（battle/maou/ending/result の入口が全部そのまま在る）
+  for (const st of ["style === 'battle'", "style === 'maou'", "style === 'ending'", "style === 'result'"]) {
+    assert(snd.includes(st), `R52a: 他の曲の style 分岐に触っていない（${st}）`);
+  }
+
+  // --- ③ 出現演出：警報の繰り返し・赤い周縁・着地の衝撃（非finalの5体） ---
+  assert(/bossAlarm\(step\) \{/.test(snd) && /noteFreq\(i % 2 === 0 \? NOTE\.E4 : NOTE\.As4\)/.test(snd),
+    'R52a: 出現専用の警報 bossAlarm があり、音程はBGM1小節目と同じトライトーン');
+  assert(/hpFreq: 40, lpFreq: 260/.test(snd),
+    'R52a: 警報の下に lowpass ノイズの地鳴りが敷いてある');
+  assert(/Sound\.sfx\('warning'\) \{|warning\(\) \{[\s\S]{0,420}?noiseHit\(\{ dur: 0\.5, gain: 0\.1, hpFreq: 60, lpFreq: 500 \}\);/.test(snd),
+    'R52a: 汎用の warning() は無改造（本編12か所で鳴っているので出現専用の音を別に作った）');
+  assert(/Sound\.sfx\('bossAlarm', 0\);/.test(boss)
+      && /delayedCall\(700, \(\) => Sound\.sfx\('bossAlarm', 1\)\)/.test(boss)
+      && /delayedCall\(1400, \(\) => Sound\.sfx\('bossAlarm', 2\)\)/.test(boss),
+    'R52a: 警報は1回で終わらせず 0.7秒間隔で3回（回ごとに音程が上がる）');
+  const warnFn = boss.slice(boss.indexOf('function bossWarnCharge()'), boss.indexOf('function clearWarnEls()'));
+  assert(/0xff2b2b/.test(warnFn) && /setDepth\(2071\)/.test(warnFn) && /repeat: 2/.test(warnFn),
+    'R52a: 画面の縁が赤く3回脈打つ（中央は塞がない＝低HP警告と同じ作法）');
+  assert(/alpha: 0\.22/.test(warnFn),
+    'R52a: 周縁の濃さは子ども安全の範囲（alpha < 0.5）');
+  assert(/function clearFx\(\)[\s\S]{0,260}?clearWarnEls\(\);/.test(boss),
+    'R52a: 赤い周縁は出現の瞬間に必ず消える（戦闘中まで残る常時エフェクトを増やさない）');
+  const arr = boss.slice(boss.indexOf('function bossArrival(x, y)'), boss.indexOf('// ============ R40'));
+  assert(/whiteFlash\(0\.30\)/.test(arr) && /run\.shake\(420, 9\)/.test(arr)
+      && /run\.slowMotion\(0\.2, 0\.35\)/.test(arr),
+    'R52a: 出現の瞬間は 白閃＋強いシェイク＋一瞬のスロー（0.2秒）');
+  assert(/Sound\.sfx\('metalSlam'\)/.test(arr) && /Sound\.sfx\('bigBoom', 0\.85\)/.test(arr),
+    'R52a: 着地音は金属＋低音の2枚（既存SFXの組み合わせ）');
+  assert((arr.match(/spawnRingFx\(/g) || []).length === 3,
+    'R52a: 着地点から衝撃波リングが3枚、時間差で広がる');
+  assert(/delayedCall\(380, \(\) => \{ if \(boss && boss\.active\) Sound\.startBgm\('boss'\); \}\)/.test(boss),
+    'R52a: BGMは着地の衝撃が収まってから入る（0.38秒。同時に鳴らすと両方ぼやける）');
+
+  // --- ④ マオウレクス（final）の登場経路には一切手を入れていない ---
+  assert(/if \(t\.final\) Sound\.sfx\('warning'\);\s*\n\s*else bossWarnCharge\(\);/.test(boss),
+    'R52a: 最終ボスの警告は従来どおり warning 1回（強化は非finalの側にだけ入っている）');
+  assert(/if \(cfg\.final\) Sound\.sfx\('bigBoom'\);[\s\S]{0,260}?else bossArrival\(x, y\);/.test(boss),
+    'R52a: 最終ボスの登場音は従来どおり bigBoom（着地演出は非finalの側にだけ入っている）');
+  assert(/if \(cfg\.final\) Sound\.startBgm\('maou'\);/.test(boss),
+    'R52a: 最終ボスのBGMは遅延なしで即時（maouIntro が音の間を持っている）');
+  assert(/state = 'maouIntro';\s*\n\s*stateT = MAOU_INTRO\.dur;/.test(boss),
+    'R52a: maouIntro（暗幕＋セリフ2行＋テロップ）の入口はそのまま');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

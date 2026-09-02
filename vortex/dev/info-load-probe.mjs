@@ -268,10 +268,11 @@ function pageProbe(cfg) {
   }
 
   // ===== 毎フレームの数え上げ =====
-  const prev = { lowHp: 0, hurtFx: 0, flash: 0 };
+  const prev = { lowHp: 0, hurtFx: 0, flash: 0, bossVig: 0 };
   function sample() {
     const it = {}, L = { 1: 0, 2: 0, 3: 0 };
     const add = (key, layer, n) => { if (n > 0) { it[key] = (it[key] || 0) + n; L[layer] += n; } };
+    let bossVig = 0;
 
     // --- HUD（常時ぶんは定数。bar 1枚に4本のゲージが描かれているので個数で数える） ---
     add('HUD:HPバー', 2, 1);
@@ -305,6 +306,8 @@ function pageProbe(cfg) {
       if (d === 13 && o.type === 'Text') { add('ワールドラベル', 1, 1); continue; }
       if (d >= 1990 && d <= 1992) { if (o.type === 'Text') add('ボス名乗り', 1, 1); continue; }
       if (d === 2070) { lowHp = 1; continue; }
+      // R52 ボス出現の警告フェーズだけ出る赤い周縁（4枚の帯＝低HP警告と同じ作法なので1件に数える）
+      if (d === 2071) { bossVig = 1; continue; }
       if (d === 2080 || d === 2081) { hurtFx = 1; continue; }
       if (d >= 2050 && d <= 2064) { cine = 1; continue; }
       if (d === 60 || d === 2091 || d === 2092 || d === 2099 || d === 2100) { flash = 1; continue; }
@@ -312,13 +315,15 @@ function pageProbe(cfg) {
     }
     add('ゆうどう矢印', 1, guideArrows);
     add('ていHP周縁けいこく', 1, lowHp);
+    add('ボス出現けいこく周縁', 1, bossVig);   // ①＝これから起きることへ備えろ、の信号
     add('被弾フラッシュ/方向帯', 2, hurtFx);
     add('シネマ演出', 3, cine);
     // 状態のエッジで拾うイベント（同じ瞬間に複数オブジェクトが生まれる要素は、表示物ではなく状態で1件に数える）
     if (lowHp && !prev.lowHp) bumpEvent('ていHP周縁けいこく', 1);
+    if (bossVig && !prev.bossVig) bumpEvent('ボス出現けいこく周縁', 1);
     if (hurtFx && !prev.hurtFx) bumpEvent('プレイヤー被弾', 2);
     if (flash && !prev.flash) bumpEvent('全画面フラッシュ', 3);
-    prev.lowHp = lowHp; prev.hurtFx = hurtFx; prev.flash = flash;
+    prev.lowHp = lowHp; prev.hurtFx = hurtFx; prev.flash = flash; prev.bossVig = bossVig;
     add('全画面フラッシュ', 3, flash);
     add('リップル', 3, ripple);
 

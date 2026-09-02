@@ -321,6 +321,30 @@ const SFX = {
     }
     noiseHit({ dur: 0.5, gain: 0.1, hpFreq: 60, lpFreq: 500 });
   },
+  // ★R52 ボス出現の警報（マオウレクスより前の5体・警告フェーズの2秒で3回鳴らす）。
+  //   実プレイFB「各ボス出現時に、音楽、効果音、エフェクトを駆使して、ボス出現の迫力と
+  //   緊張感を出して」。従来はここが warning 1回きり＝1.1秒鳴って、残り0.9秒は無音だった。
+  //   ⚠️ 汎用の warning() は本編の12か所（攻撃の予告・激怒・オープニング）で鳴っているので
+  //     触らない。出現専用の音を別に作って、そちらだけを段階的に上げていく。
+  //   step（0,1,2）で音程が上がる＝「近づいてくる」を音程の上昇で表す。
+  //   ・クラクション：E4 と A#4（増4度＝トライトーン）の交互。**ボス戦BGMの1小節目と同じ音程**で、
+  //     警報から曲へそのまま繋がる（音の主題を先出しする）。
+  //   ・地鳴り：lowpass を 260Hz まで絞ったノイズ＋55Hzの低い唸り＝床が震えている音。
+  bossAlarm(step) {
+    const s = Math.max(0, Math.min(2, step || 0));
+    const p = [1, 1.09, 1.19][s];
+    const g = [1, 0.95, 0.92][s];
+    for (let i = 0; i < 3; i++) {
+      const f = noteFreq(i % 2 === 0 ? NOTE.E4 : NOTE.As4) * p;
+      const t = i * 0.22;
+      tone({ type: 'sawtooth', freq: f, start: t, dur: 0.15, gain: 0.20 * g });
+      tone({ type: 'square', freq: f * 2, start: t, dur: 0.13, gain: 0.07 * g, detune: 10 });
+      noiseHit({ start: t, dur: 0.03, gain: 0.05 * g, hpFreq: 4000, lpFreq: 13000 }); // 金属の当たり
+    }
+    // 低い地鳴り（lowpassノイズ＋唸り）。警報の下にずっと敷いて「逃げ場がない」を作る。
+    noiseHit({ dur: 0.75, gain: 0.09 * g, hpFreq: 40, lpFreq: 260 });
+    tone({ type: 'sine', freq: 55 * p, freqEnd: 44 * p, dur: 0.8, gain: 0.11 * g, attack: 0.06 });
+  },
   // ボス撃破：特大ドーン→上昇ファンファーレ→到達和音（約1.4秒・派手に）
   bossdown() {
     noiseHit({ dur: 0.4, gain: 0.22, hpFreq: 100, lpFreq: 1400 });
@@ -1880,31 +1904,55 @@ const BASS_STEPS = [0, 3, 6, 8, 11, 14];
 // コードスタブは8分裏（&）に置く
 const STAB_STEPS = [2, 6, 10, 14];
 
-// --- 曲2: ボス戦 boss（172BPM・8小節・王道進行 F-G-Em-Am / F-G-C-C）---
-// 実プレイFB（2026-08-23）「ボス戦はポップに」。従来は Am 4小節のマイナー曲で、
-// 通常戦闘(battle)より暗く短く、周回するとすぐ飽きた。ここを**明るい長調のポップス**へ全面刷新する。
-// 差別化は「暗さ」ではなく **速さ（150→172BPM）・跳ね（16分の食い込み）・厚いコーラス**で作る。
-// 最後の2小節が C（トニック）へ解決するので、ループしても「サビが戻ってきた」と感じられる。
+// --- 曲2: ボス戦 boss（★R52 で作曲からやり直し・Eマイナー・160BPM・8小節）---
+// マオウレクスより前の5体（コロガンナー／ジェットバイパー／ウズキング／ウェーブロード／
+// ミサイルガ）が共通で使う曲。boss.js が非finalのボス出現で startBgm('boss') する。
+//
+// ★経緯：2026-08-23 の実プレイFB「ボス戦はポップに」で F-G-Em-Am の**長調ポップ**にしたが、
+//   2026-09-02 に「ボス戦用のBGMを作成して」と再依頼が来た。つまり**曲が無かったのではなく、
+//   鳴っている曲がボス戦に聞こえていなかった**。原因は調と音色で、Cメジャー150BPMの
+//   battle と同族＝「雑魚が増えただけ」に聞こえる。ポップ化の判断ごと差し戻す。
+//
+// ★作り直しの軸は **①調 ②音色** の2つだけ（テンポは軸にしない）。
+//   HAYATO側でテンポ違いの作り直しが2回続けて不採用になっている＝速さを変えても
+//   「別の曲」にはならない、が実測済みの結論。172→160BPM は「地を這う駆動」を作った結果で
+//   あって差別化の主役ではない。
+//
+// ★和音：Eマイナー。フリジアン（♭II＝F）とトライトーン（♭V＝Bb）を骨にして、
+//   終止だけハーモニックマイナーのドミナント B7（D# を含む）で振り出しへ噛ませる。
+//     Em - F - Em - Bb ｜ Am - C - D - B7
+//   前半4小節は E と F の**半音**で押し合う（＝機械の要塞に踏み込んだ圧）。
+//   後半4小節（サビ）はベースが A2→C3→D3→B2 と**短調のまま上昇**して視界が開ける。
+// ★battle（Cメジャー150・手拍子）とも maou（Cマイナー178・歪みギターの壁）とも、
+//   **曲の0秒目**で聞き分けられること：1小節目の頭がいきなり B5⇄F5 のトライトーン＝サイレン。
 const CHORDS_BOSS = [
-  { arp: [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F5], stab: [NOTE.F4, NOTE.A4, NOTE.C5], bass: NOTE.F2 }, // F
-  { arp: [NOTE.G4, NOTE.B4, NOTE.D5, NOTE.G5], stab: [NOTE.G4, NOTE.B4, NOTE.D5], bass: NOTE.G2 }, // G
-  { arp: [NOTE.E4, NOTE.G4, NOTE.B4, NOTE.E5], stab: [NOTE.E4, NOTE.G4, NOTE.B4], bass: NOTE.E2 }, // Em
-  { arp: [NOTE.A4, NOTE.C5, NOTE.E5, NOTE.A5], stab: [NOTE.A4, NOTE.C5, NOTE.E5], bass: NOTE.A2 }, // Am
-  { arp: [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F5], stab: [NOTE.F4, NOTE.A4, NOTE.C5], bass: NOTE.F2 }, // F
-  { arp: [NOTE.G4, NOTE.B4, NOTE.D5, NOTE.G5], stab: [NOTE.G4, NOTE.B4, NOTE.D5], bass: NOTE.G2 }, // G
-  { arp: [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], stab: [NOTE.C5, NOTE.E5, NOTE.G5], bass: NOTE.C3 }, // C
-  { arp: [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6], stab: [NOTE.G4, NOTE.C5, NOTE.E5], bass: NOTE.G2 }, // C/G
+  { arp: [NOTE.E4, NOTE.G4, NOTE.B4, NOTE.E5], stab: [NOTE.E4, NOTE.G4, NOTE.B4], bass: NOTE.E2 },  // Em
+  { arp: [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F5], stab: [NOTE.F4, NOTE.A4, NOTE.C5], bass: NOTE.F2 },  // F   ♭II（ナポリ＝半音上の圧）
+  { arp: [NOTE.E4, NOTE.G4, NOTE.B4, NOTE.E5], stab: [NOTE.E4, NOTE.G4, NOTE.B4], bass: NOTE.E2 },  // Em
+  { arp: [NOTE.As3, NOTE.D4, NOTE.F4, NOTE.As4], stab: [NOTE.D4, NOTE.F4, NOTE.As4], bass: NOTE.As2 }, // Bb  ♭V（E から見たトライトーン＝警報の色）
+  { arp: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4], stab: [NOTE.E4, NOTE.A4, NOTE.C5], bass: NOTE.A2 },  // Am  サビ頭
+  { arp: [NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5], stab: [NOTE.E4, NOTE.G4, NOTE.C5], bass: NOTE.C3 },  // C   短調の中で唯一ひらける長三和音
+  { arp: [NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.D5], stab: [NOTE.D4, NOTE.Fs4, NOTE.A4], bass: NOTE.D3 }, // D   ♭VII
+  { arp: [NOTE.B3, NOTE.Ds4, NOTE.Fs4, NOTE.A4], stab: [NOTE.B3, NOTE.Ds4, NOTE.Fs4], bass: NOTE.B2 }, // B7  ハーモニックマイナーのドミナント
 ];
-// 16分解像度の跳ねるリード。付点8分（3ステップ）の食い込みを軸に、サビ頭は高いC6で抜ける。
+// 16分解像度のリード（-1＝休符）。1小節4〜8音まで減らして「長い音と休符」を残す
+// ＝音符で枡を埋めると旋律ではなく分散和音の壁になる（R35 の教訓をボス曲にも適用）。
 const MELODY_BOSS = [
-  [NOTE.C6, -1, -1, NOTE.A5, -1, -1, NOTE.C6, -1, NOTE.D6, -1, NOTE.C6, -1, NOTE.A5, -1, -1, -1],
-  [NOTE.B5, -1, -1, NOTE.D6, -1, -1, NOTE.B5, -1, NOTE.G5, -1, NOTE.B5, -1, NOTE.D6, -1, NOTE.B5, -1],
-  [NOTE.E5, -1, NOTE.G5, -1, NOTE.B5, -1, -1, NOTE.G5, -1, NOTE.E5, -1, -1, NOTE.G5, -1, -1, -1],
-  [NOTE.A5, -1, -1, NOTE.C6, -1, -1, NOTE.E6, -1, NOTE.C6, -1, NOTE.A5, -1, NOTE.B5, -1, NOTE.C6, -1],
-  [NOTE.F6, -1, -1, NOTE.C6, -1, -1, NOTE.A5, -1, NOTE.C6, -1, NOTE.F6, -1, -1, -1, -1, -1],
-  [NOTE.E6, -1, -1, NOTE.B5, -1, -1, NOTE.G5, -1, NOTE.B5, -1, NOTE.D6, -1, NOTE.E6, -1, NOTE.D6, -1],
-  [NOTE.C6, -1, -1, NOTE.E6, -1, -1, NOTE.G6, -1, NOTE.E6, -1, NOTE.C6, -1, NOTE.G5, -1, -1, -1],
-  [NOTE.E6, -1, NOTE.D6, -1, NOTE.C6, -1, NOTE.B5, -1, NOTE.C6, -1, NOTE.D6, -1, NOTE.E6, -1, -1, -1],
+  // 段1 警報：B5⇄F5（増4度＝トライトーン）を4分音符で交互に。ここが曲の顔で、0秒目の判別点。
+  [NOTE.B5, -1, -1, -1, NOTE.F5, -1, -1, -1, NOTE.B5, -1, -1, -1, NOTE.F5, -1, -1, -1],
+  // ♭II へ滑り落ちる（A5→G5→F5→E5）。長い E5 で一度置く＝歌える呼吸を作る。
+  [NOTE.A5, -1, NOTE.G5, -1, NOTE.F5, -1, -1, -1, NOTE.E5, -1, -1, -1, -1, -1, NOTE.F5, -1],
+  // 警報の再提示。3拍目に C6 を刺して半音（B-C）の軋みを足す＝2度目は一段きつく。
+  [NOTE.B5, -1, -1, -1, NOTE.F5, -1, -1, -1, NOTE.B5, -1, NOTE.C6, -1, NOTE.B5, -1, -1, -1],
+  // トライトーンの和音を駆け上がる（D5→F5→Bb5→D6）。サビへの助走。
+  [NOTE.D5, -1, NOTE.F5, -1, NOTE.As5, -1, -1, -1, NOTE.D6, -1, NOTE.As5, -1, NOTE.F5, -1, -1, -1],
+  // 段2 サビ：短調のまま上昇する鋭いリード。Am の上を A5→C6→E6 と昇る。
+  [NOTE.A5, -1, -1, NOTE.C6, -1, -1, NOTE.E6, -1, NOTE.C6, -1, NOTE.B5, -1, NOTE.A5, -1, -1, -1],
+  [NOTE.C6, -1, -1, NOTE.E6, -1, -1, NOTE.G6, -1, NOTE.E6, -1, NOTE.C6, -1, NOTE.D6, -1, -1, -1],
+  [NOTE.D6, -1, -1, NOTE.A5, -1, NOTE.C6, -1, -1, NOTE.D6, -1, -1, -1, NOTE.E6, -1, -1, -1],
+  // 段3 折り返し：最高音 E6 から**半音で滑り落ちて** B（属音）へ着地し、そのまま Em へ戻る。
+  // 半音だけで降りる下行＝機械が軋みながら降りてくる音。長調の解決感を最後まで作らない。
+  [NOTE.E6, -1, NOTE.Ds6, -1, NOTE.D6, -1, NOTE.Cs6, -1, NOTE.C6, -1, NOTE.B5, -1, NOTE.As5, -1, NOTE.B5, -1],
 ];
 
 // --- 曲4: 最終ボス maou（84BPM・8小節・Am-F-C-G / Am-F-E-A／荘厳＋光）---
@@ -2093,7 +2141,7 @@ const MELODY_END = [
 // 曲テーブル。style で声部・ドラムパターンを分岐する。
 const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
-  boss:   { bpm: 172, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
+  boss:   { bpm: 160, bars: 8, chords: CHORDS_BOSS,   melody: MELODY_BOSS,   style: 'boss'   },
   // ★R35: 好みの判定は文章で議論せず**ゲーム内で切り替えて選んでもらう**（CLAUDE.md の方針）。
   // R34W4 は「テンポとドラムの重さ」だけを変えた3つを並べて、3つとも「違う」と言われた。
   // ＝**テンポは軸ではなかった**。今回は同じ作曲（和音・主題）を、**まったく別の編成**で鳴らす。
@@ -2269,79 +2317,111 @@ function playBgmStep(step) {
              gain: 0.09, dest: bgmGain, attack: 0.003 });
     }
   } else if (song.style === 'boss') {
-    // ★ポップなボス戦（172BPM）。狙いは「怖い」ではなく「アガる」。
-    //   ベースは8分＋16分の食い込みで跳ねさせ、コードは裏拍のスタブ、上物はきらめくベル。
-    // ベース：跳ねるパターン（3・11の食い込みが battle と共通のノリ＝シリーズの統一感）
+    // ★R52 ボス戦（Eマイナー・160BPM）。狙いは「アガる」ではなく**機械の要塞に踏み込んだ**圧。
+    //   声部は6つ：①地を這う駆動ベース ②要塞のうなり ③警報スタブ（トライトーン）
+    //   ④金属パーカッション ⑤重い打撃（キック／鉄板スネア） ⑥短調のまま上昇する鋭いリード。
+    //   ポップスの材料（ハンドクラップ3枚重ね・四つ打ち・オクターブ上のベル・キラキラの
+    //   16分アルペジオ）は全部外した＝battle と同じ気分に聞こえていた原因はここだった。
+    const bassF = noteFreq(chord.bass);
+
+    // ① 地を這う駆動ベース：8分キープ＋3・11の食い込み（この食い込みだけは battle と共通＝
+    //    シリーズの統一感。ノリの骨は残したまま音色と調で別物にする）。
+    //    食い込みは5度でうなり、小節末（14）だけオクターブ上へ跳ねて次の小節へ渡す。
     if (inBar % 2 === 0 || inBar === 3 || inBar === 11) {
-      const oct = (inBar === 6 || inBar === 14) ? 12 : 0;
-      tone({ type: 'triangle', freq: noteFreq(chord.bass + oct), dur: stepSec * 1.6,
-             gain: 0.20, dest: bgmGain, attack: 0.004 });
-      tone({ type: 'square', freq: noteFreq(chord.bass + oct) * 2, dur: stepSec * 1.1,
-             gain: 0.05, dest: bgmGain, attack: 0.004 });
+      const f = (inBar === 3 || inBar === 11) ? bassF * 1.4983    // 1.4983 = 完全5度
+        : (inBar === 14) ? bassF * 2 : bassF;
+      tone({ type: 'sawtooth', freq: f, dur: stepSec * 1.5,
+             gain: 0.19, dest: bgmGain, attack: 0.003 });
+      // ⚠️重ねはオクターブ**上**（下へ重ねても子どものノートPCのスピーカーでは鳴らない）
+      tone({ type: 'square', freq: f * 2, dur: stepSec * 1.0,
+             gain: 0.055, dest: bgmGain, attack: 0.003 });
     }
-    // コードスタブ：8分裏に和音を短く刺す（ポップスの推進力はここで出る）
-    if (inBar % 4 === 2) {
+    // ② 要塞のうなり：小節頭に長い持続を2枚、±14セントずらして重ねる。ずれた2音が干渉して
+    //    唸る＝機械が回り続けている床。単音を伸ばすだけでは出ない音。
+    if (inBar === 0) {
+      for (const det of [-14, 14]) {
+        tone({ type: 'sawtooth', freq: bassF * 2, dur: stepSec * 15,
+               gain: 0.026, dest: bgmGain, attack: 0.06, detune: det });
+      }
+    }
+    // ③ 警報スタブ：根音のオクターブ上と、そのさらに増4度（トライトーン）を同時に刺す。
+    //    和音の外の音なので必ず不協和になる＝どの小節でも「警報」の色が消えない。
+    if (inBar === 6 || (inBar === 14 && bar < 4)) {
+      for (const [semi, g] of [[12, 0.045], [18, 0.038]]) {
+        tone({ type: 'square', freq: noteFreq(chord.bass + semi), dur: stepSec * 0.8,
+               gain: g, dest: bgmGain, attack: 0.002 });
+      }
+    }
+    // ④ コードスタブ：2・10（8分裏）だけ。6・14 は警報に譲る＝和音→警報→和音→警報の呼応。
+    //    のこぎり波の短い刺しで金属質に（矩形波のポップな刺しから差し替え）。
+    if (inBar === 2 || inBar === 10) {
       chord.stab.forEach((n) => {
-        tone({ type: 'square', freq: noteFreq(n), dur: stepSec * 1.0,
-               gain: 0.07, dest: bgmGain, attack: 0.003 });
+        tone({ type: 'sawtooth', freq: noteFreq(n), dur: stepSec * 0.75,
+               gain: 0.05, dest: bgmGain, attack: 0.002 });
       });
     }
-    // アルペジオ：16分でキラキラ流す（後半4小節だけ＝サビで景色が変わる）
-    if (bar >= 4) {
-      const arpIdx = inBar % chord.arp.length;
-      tone({ type: 'triangle', freq: noteFreq(chord.arp[arpIdx]) * 2, dur: stepSec * 0.9,
-             gain: 0.028, dest: bgmGain, attack: 0.003 });
+    // ⑤ アルペジオ：サビ（後半4小節）だけ、16分の**裏**に置いてベースの隙間を埋める。
+    //    オクターブ上へは上げない＝きらめかせない（ここを上げると一気にポップへ戻る）。
+    if (bar >= 4 && inBar % 2 === 1) {
+      const arpIdx = ((inBar - 1) / 2) % chord.arp.length;
+      tone({ type: 'square', freq: noteFreq(chord.arp[arpIdx]), dur: stepSec * 0.8,
+             gain: 0.024, dest: bgmGain, attack: 0.002 });
     }
-    // リードメロディ：16分解像度。square の主旋律＋detune の薄重ね＋オクターブ下の芯で厚く
+    // ⑥ リードメロディ：のこぎり波の主旋律＋±10セントの薄重ね＋オクターブ下の芯。
+    //    サビだけオクターブ上を足すが、音色は sine のベルではなく sawtooth ＝きらめきでなく刃。
     const m = song.melody[bar][inBar];
     if (m !== undefined && m !== -1) {
       const mf = noteFreq(m);
-      tone({ type: 'square', freq: mf, dur: stepSec * 2.2,
-             gain: 0.16, dest: bgmGain, attack: 0.004 });
+      const chorus = bar >= 4;
+      tone({ type: 'sawtooth', freq: mf, dur: stepSec * (chorus ? 2.6 : 2.2),
+             gain: 0.135, dest: bgmGain, attack: 0.004 });
       tone({ type: 'square', freq: mf, dur: stepSec * 2.0,
-             gain: 0.06, dest: bgmGain, attack: 0.004, detune: 11 });
+             gain: 0.075, dest: bgmGain, attack: 0.004, detune: 10 });
+      tone({ type: 'square', freq: mf, dur: stepSec * 2.0,
+             gain: 0.065, dest: bgmGain, attack: 0.004, detune: -10 });
       tone({ type: 'triangle', freq: mf / 2, dur: stepSec * 1.8,
-             gain: 0.055, dest: bgmGain, attack: 0.005 });
-      // 拍頭だけオクターブ上のベルを足して抜けを作る
-      if (inBar % 4 === 0) {
-        tone({ type: 'sine', freq: mf * 2, dur: stepSec * 1.6,
-               gain: 0.04, dest: bgmGain, attack: 0.003 });
+             gain: 0.05, dest: bgmGain, attack: 0.005 });
+      if (chorus) {
+        tone({ type: 'sawtooth', freq: mf * 2, dur: stepSec * 1.4,
+               gain: 0.028, dest: bgmGain, attack: 0.003 });
       }
     }
-    // キック：四つ打ち＋14の食い込み。サブ低音を重ねてズンと厚く
-    if (inBar % 4 === 0 || inBar === 14) {
-      tone({ type: 'sine', freq: 155, freqEnd: 46, dur: 0.12, gain: 0.25,
+    // ⑦ キック：0・6・8・14 の重い刻み。四つ打ち（＝踊る曲）をやめて**踏み込む曲**にする。
+    if (inBar === 0 || inBar === 6 || inBar === 8 || inBar === 14) {
+      tone({ type: 'sine', freq: 130, freqEnd: 38, dur: 0.15, gain: 0.27,
              dest: bgmGain, attack: 0.002 });
-      tone({ type: 'triangle', freq: 74, freqEnd: 33, dur: 0.10, gain: 0.10,
+      tone({ type: 'triangle', freq: 66, freqEnd: 28, dur: 0.13, gain: 0.11,
              dest: bgmGain, attack: 0.002 });
+      noiseHit({ dur: 0.03, gain: 0.05, hpFreq: 120, lpFreq: 1600, dest: bgmGain });
     }
-    // スネア＋ハンドクラップ3枚重ね：2拍4拍（ポップスの手拍子。ここが一番「明るい」を作る）
+    // ⑧ 鉄板スネア：2拍4拍。手拍子3枚重ね（明るさの正体）を捨て、高域の長い残り＝
+    //    鉄を叩いた金属の尾に差し替える。
     if (inBar === 4 || inBar === 12) {
-      noiseHit({ dur: 0.10, gain: 0.12, hpFreq: 1600, lpFreq: 8500, dest: bgmGain });
-      noiseHit({ start: 0.012, dur: 0.08, gain: 0.075, hpFreq: 1100, lpFreq: 6000, dest: bgmGain });
-      noiseHit({ start: 0.026, dur: 0.06, gain: 0.05, hpFreq: 1400, lpFreq: 7000, dest: bgmGain });
+      noiseHit({ dur: 0.09, gain: 0.10, hpFreq: 2200, lpFreq: 9000, dest: bgmGain });
+      noiseHit({ start: 0.008, dur: 0.30, gain: 0.055, hpFreq: 5200, lpFreq: 15000, dest: bgmGain });
+      tone({ type: 'square', freq: 1560, freqEnd: 620, dur: 0.06, gain: 0.05,
+             dest: bgmGain, attack: 0.001 });
+      tone({ type: 'sine', freq: 190, freqEnd: 60, dur: 0.10, gain: 0.09,
+             dest: bgmGain, attack: 0.001 });
     }
-    // ハット：8分キープ＋オフビートのアクセント。小節後半は16分で疾走感
-    if (inBar % 2 === 0) {
-      noiseHit({ dur: 0.032, gain: (inBar % 4 === 2) ? 0.055 : 0.03,
-                 hpFreq: 6500, lpFreq: 13000, dest: bgmGain });
-    } else if (inBar >= 8) {
-      noiseHit({ dur: 0.022, gain: 0.02, hpFreq: 7000, lpFreq: 13000, dest: bgmGain });
-    }
-    // クラッシュ：ループ頭とサビ頭（5小節目）で抜けよく
+    // ⑨ 金属パーカッション：16分でカツカツ刻む。hpFreq を 9500 まで上げてハットではなく
+    //    「金属を弾く音」にする。1粒は極短・極小で、数で機械の刻みを作る。
+    noiseHit({ dur: (inBar % 2 === 0) ? 0.016 : 0.010,
+               gain: (inBar % 4 === 2) ? 0.040 : (inBar % 2 === 0) ? 0.026 : 0.014,
+               hpFreq: 9500, lpFreq: 16000, dest: bgmGain });
+    // ⑩ 銅鑼：ループ頭とサビ頭。明るいクラッシュシンバルより低い帯域で長く鳴らす。
     if (inBar === 0 && (bar === 0 || bar === 4)) {
-      noiseHit({ dur: 0.34, gain: 0.07, hpFreq: 4000, lpFreq: 14000, dest: bgmGain });
+      noiseHit({ dur: 0.55, gain: 0.065, hpFreq: 1800, lpFreq: 11000, dest: bgmGain });
+      tone({ type: 'sine', freq: 96, freqEnd: 40, dur: 0.5, gain: 0.16,
+             dest: bgmGain, attack: 0.002 });
     }
-    // オープンハット：小節終わりの抜け
-    if (inBar === 14) {
-      noiseHit({ dur: 0.10, gain: 0.045, hpFreq: 5000, lpFreq: 12000, dest: bgmGain });
-    }
-    // 最終小節の後半はスネアロール＋上昇ライザーでループへ勢いよく繋ぐ
+    // ⑪ 最終小節の後半：金属ロール＋半音ずつ駆け上がるサイレン（B4→D5）。
+    //    リードは同じ場所を半音で降りているので、上下が逆に動いて軋む＝ループ頭へ噛みつく。
     if (bar === song.bars - 1 && inBar >= 12) {
-      noiseHit({ dur: 0.05, gain: 0.055 + (inBar - 12) * 0.016,
-                 hpFreq: 1800, lpFreq: 9000, dest: bgmGain });
-      tone({ type: 'square', freq: 420 + (inBar - 12) * 110, dur: stepSec * 1.1,
-             gain: 0.045, dest: bgmGain, attack: 0.003 });
+      const k = inBar - 12;
+      noiseHit({ dur: 0.05, gain: 0.05 + k * 0.018, hpFreq: 3000, lpFreq: 12000, dest: bgmGain });
+      tone({ type: 'sawtooth', freq: noteFreq(NOTE.B4 + k), dur: stepSec * 1.1,
+             gain: 0.05, dest: bgmGain, attack: 0.002 });
     }
   } else if (song.style === 'maou') {
     // ★R35 再編曲。3つの variant は「テンポ違い」ではなく**編成そのものが別**（設計の根拠は

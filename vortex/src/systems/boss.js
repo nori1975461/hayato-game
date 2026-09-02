@@ -139,6 +139,7 @@ export function createBoss(run) {
   let bossStagT = 0;
   let introStage = -1;          // maou 登場イベントのセリフ/テロップ進行段（-1=未使用/非final）
   const introEls = [];          // 登場イベントで生成した text（リーク防止に必ず destroy）
+  const warnEls = [];           // R52 出現警告の赤い周縁（warnSec〜spawnSec の2秒だけ・必ず destroy）
   let introDim = null;          // 登場イベント中の暗幕（雑魚を沈めボス/セリフを引き立てる・intro 終了で破棄）
   const bullets = [];           // ボス弾（プレイヤーへ当たる）
   const strikes = [];           // R29 着弾予告→時間差爆発（ローリングボム／ぜんだんはっしゃ）
@@ -422,9 +423,16 @@ export function createBoss(run) {
     run.spawnParticles(x, y, int(def.color), 30);
     run.shake(cfg.final ? 360 : 300, cfg.final ? 6 : 5);
     if (cfg.final) Sound.sfx('bigBoom');            // 登場の"ドゥーン"（重量感／既存SFX）
+    // ★R52 非finalの5体は「降ってきて着地した」衝撃を足す（マオウレクスは専用の登場イベントを持つので触らない）。
+    else bossArrival(x, y);
     // BGM切替＝登場の合図（warn の静寂→ボス戦BGM）。最終ボスだけは専用の荘厳曲へ切り替える
     // ＝「ここからは今までのボスと違う」を、姿を見る前に耳で分からせる。
-    if (run.withAudio) Sound.startBgm(cfg.final ? 'maou' : 'boss');
+    // ★R52 非finalは着地の衝撃音（metalSlam＋bigBoom）と頭がぶつかるので 0.38 秒だけ遅らせる。
+    //   同時に鳴らすと「ドン！」も「曲が変わった」も両方ぼやける＝どちらも届かなくなる。
+    if (run.withAudio) {
+      if (cfg.final) Sound.startBgm('maou');
+      else run.time.delayedCall(380, () => { if (boss && boss.active) Sound.startBgm('boss'); });
+    }
   }
 
   // ============ AI ============
@@ -2776,6 +2784,61 @@ export function createBoss(run) {
     run.tweens.add({ targets: f, alpha: 0, duration: dur, onComplete: () => f.destroy() });
   }
 
+  // ============ R52 ボス出現の警告と着地 ============
+  // 実プレイFB「各ボス出現時に、音楽、効果音、エフェクトを駆使して、ボス出現の迫力と緊張感を出して」。
+  // 対象はマオウレクスより前の5体（cfg.final でない tier）。マオウレクスは専用の登場イベント
+  // （maouIntro＝暗幕＋セリフ2行＋テロップ）を持っているので、そちらの経路には一切触らない。
+
+  // 警告フェーズ（warnSec〜spawnSec の2.0秒）。従来はここが「警報1回＋WARNINGバナー」だけで、
+  // 2秒のうち後半0.9秒は音も画面の変化も無かった＝いちばん緊張しているべき時間が空白だった。
+  // ⚠️ WARNING の文字と帯は fx.bossWarning() の既存表示をそのまま使う（文字を二重に出さない）。
+  //   ここが足すのは音と画面の縁だけ：
+  //     ・警報を0.7秒間隔で3回。回を追うごとに音程が上がる＝「近づいてくる」を音程で表す。
+  //     ・画面の縁を赤く3回脈打たせる。中央は塞がないのでプレイの邪魔をしない（低HP警告と同じ作法）。
+  function bossWarnCharge() {
+    Sound.sfx('bossAlarm', 0);
+    run.time.delayedCall(700, () => Sound.sfx('bossAlarm', 1));
+    run.time.delayedCall(1400, () => Sound.sfx('bossAlarm', 2));
+    const cam = run.cameras.main;
+    const w = cam.width, h = cam.height, band = 34;
+    const els = [
+      run.add.rectangle(w / 2, band / 2, w, band, 0xff2b2b, 0),
+      run.add.rectangle(w / 2, h - band / 2, w, band, 0xff2b2b, 0),
+      run.add.rectangle(band / 2, h / 2, band, h, 0xff2b2b, 0),
+      run.add.rectangle(w - band / 2, h / 2, band, h, 0xff2b2b, 0),
+    ];
+    for (const el of els) {
+      el.setScrollFactor(0).setDepth(2071).setBlendMode(ADD);
+      warnEls.push(el);
+    }
+    // 320ms で明→暗を3往復＝約1.9秒。警告フェーズ(2.0秒)のあいだ脈が途切れない。
+    run.tweens.add({
+      targets: els, alpha: 0.22, duration: 320, yoyo: true, repeat: 2, ease: 'Sine.inOut',
+      onComplete: clearWarnEls,
+    });
+  }
+  function clearWarnEls() {
+    for (const el of warnEls) { run.tweens.killTweensOf(el); el.destroy(); }
+    warnEls.length = 0;
+  }
+
+  // 出現の瞬間＝降ってきたものが着地した衝撃。ここは1ラン5回しか起きないので振幅を張ってよい
+  // （振幅は頻度と逆相関）。ただし戦闘が始まったあとまで残る常時エフェクトは足さない。
+  function bossArrival(x, y) {
+    const tint = int(def.color);
+    whiteFlash(0.30);              // 短い白閃（子ども安全 alpha<0.5 厳守）
+    run.shake(420, 9);             // 上の shake(300,5) より強い＝着地でカメラが跳ねる
+    run.slowMotion(0.2, 0.35);     // 0.2秒だけ時間が粘る＝「来た」を目でなく体で受け取る
+    Sound.sfx('metalSlam');        // 金属の着地（既存SFX）
+    Sound.sfx('bigBoom', 0.85);    // 腹に来る低音（既存SFX・最終ボスより一段控えめ）
+    // 着地点から衝撃波リング3枚。時間差で外へ広げると「1枚の輪」ではなく「地面を伝う波」に見える。
+    spawnRingFx(x, y, 0xffffff, 10, 150, 0.42, 0.80);
+    run.time.delayedCall(70, () => { if (boss) spawnRingFx(x, y, tint, 8, 210, 0.50, 0.60); });
+    run.time.delayedCall(150, () => { if (boss) spawnRingFx(x, y, 0xff5a3c, 6, 270, 0.60, 0.40); });
+    run.spawnParticles(x, y, 0xffffff, 18);
+    run.spawnParticles(x, y, tint, 22);
+  }
+
   // ============ R40 ワンショットFX（環・光柱） ============
   // 転移の座・魔法陣・裁きの環の「広がる/すぼまる輪」と「立ち上る光柱」。
   // tween ではなく fxList で寿命管理する＝ボス破棄時に確実に消せる（リークを作らない）。
@@ -2807,6 +2870,8 @@ export function createBoss(run) {
   function clearFx() {
     for (const f of fxList) f.img.destroy();
     fxList.length = 0;
+    // R52 出現警告の赤い周縁も一緒に消す（出現＝警告フェーズの終わり。脈が戦闘へ持ち越さない）
+    clearWarnEls();
     // R44W3 薙いだ跡は「1拍だけ残す」ものなので、戦闘が終わったら必ず消す
     // （撃破が薙ぎの最中に起きると、赤い扇が画面に焼き付いたまま残る）
     if (scorchGfx) { run.tweens.killTweensOf(scorchGfx); scorchGfx.clear().setVisible(false); }
@@ -3760,7 +3825,10 @@ export function createBoss(run) {
       if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
         warnedArr[ti] = true;
         if (run.withAudio) Sound.stopBgm();
-        Sound.sfx('warning');
+        // ★R52 マオウレクスより前の5体は警報3連＋赤い周縁の脈動へ強化。
+        //   最終ボスは専用の登場イベントを持つので従来どおり警報1回のまま。
+        if (t.final) Sound.sfx('warning');
+        else bossWarnCharge();
         if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
         else run.shake(400, 3);
       }
