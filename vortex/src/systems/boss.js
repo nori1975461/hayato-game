@@ -3553,8 +3553,16 @@ export function createBoss(run) {
   // ============ 撃破時の共通ごほうび（必殺満タン＋コイン＋派手バースト） ============
   function awardKillRewards(x, y) {
     if (run.special) { for (let i = 0; i < killsPerCharge; i++) run.special.addKill(); }
-    // FB#1: ボス撃破で回復ハートを確定1個ドロップ（次の戦いへ体力を立て直せる）。
-    if (run.spawnHeal) run.spawnHeal(x, y);
+    // FB#1→2026-09-02ユーザー指示で増量: ボス撃破で回復ハートを確定N個、円形に散らして置く。
+    // 角度は個数から決める（rngを消費しない＝乱数列を変えない）。
+    if (run.spawnHeal) {
+      const HN = BALANCE.healItem.bossKillCount || 1;
+      const HR = BALANCE.healItem.bossKillSpread || 0;
+      for (let i = 0; i < HN; i++) {
+        const a = (i / HN) * Math.PI * 2;
+        run.spawnHeal(x + Math.cos(a) * HR, y + Math.sin(a) * HR);
+      }
+    }
     run.coins += cfg.rewardCoins;
     run.floatText(run.player.x, run.player.y - 30, '+' + cfg.rewardCoins + ' コイン', '#ffd23f');
     for (let i = 0; i < 4; i++) {

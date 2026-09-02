@@ -853,7 +853,13 @@ export const BALANCE = {
   healItem: {
     dropRate: 0.045, eliteDropRate: 0.6, healAmount: 25,
     lifeSec: 12, magnetRadius: 24, pickupRadius: 13, pull: 140, fullBonusCoins: 15,
+    bossKillCount: 3,   // ボス撃破の確定ドロップ数（2026-09-02ユーザー指示で1→3。円形に置く）
+    bossKillSpread: 26, // 撃破ハートを円形に散らす半径px
   },
+
+  // コインをためると最大HPが少しずつ伸びる（2026-09-02ユーザー指示）。
+  // per枚ごとに add、上限cap。増えたぶんは即回復もする（体感が出るように）。
+  coinVitality: { per: 250, add: 10, cap: 60 },
 
   // 武器レベル（★取得でなかまの攻撃そのものが成長する）
   weapon: {

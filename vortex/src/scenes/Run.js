@@ -61,6 +61,7 @@ export class RunScene extends Phaser.Scene {
     this.elapsed = 0;
     this.runDurationSec = BALANCE.runDurationSec;
     this.coins = 0;
+    this._coinHpSteps = 0; // coinVitality: 付与済みの段数（コインで最大HPが伸びた回数）
     this.captures = 0;
     this.kills = 0;
     this.level = 1;
@@ -370,6 +371,19 @@ export class RunScene extends Phaser.Scene {
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
     this.realDt = dt;         // スローモーションで縮める前の実時間（演出の尺はこちらで数える）
     this.flushPops();         // R27: このフレームに死んだぶんを1本の連打へ束ねる
+
+    // コインがたまると最大HPが少し伸びる（2026-09-02ユーザー指示。値は BALANCE.coinVitality）
+    {
+      const CV = BALANCE.coinVitality;
+      const steps = Math.min(Math.floor(this.coins / CV.per), Math.floor(CV.cap / CV.add));
+      if (steps > this._coinHpSteps) {
+        const gain = (steps - this._coinHpSteps) * CV.add;
+        this._coinHpSteps = steps;
+        this.player.maxHp += gain;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + gain);
+        this.floatText(this.player.x, this.player.y - 26, `さいだいHP +${gain}！`, '#7dff8f');
+      }
+    }
 
     // シネマティック中（合成/ボス撃破）は進行停止。演出tweenはScene側で継続する。
     if (this.cinematic) {
