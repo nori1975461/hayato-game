@@ -3,8 +3,8 @@
 //   --low-info … ロード直後に lowInfoMode=true にして同じ計測をする（通常モードとの対照実験用）。
 //                同じシードなら予告系（strikes/fences/novas/ボスの技）は完全一致するはず＝
 //                最後に出る TELSIG が両モードで一致すればゲームプレイは1mmも変わっていない証明になる。
-//   --info-v2  … おためしモード相当（trialMode=true）＋ infoLevel=2「こうげき ひとつずつ」で計測する。
-//                こちらは攻撃の開始タイミングを直列化する＝TELSIG は当然変わる（変わらなければ効いていない）。
+//   --info-v2  … おためしモード相当（trialMode=true）＋ infoLevel=2「こうげき ととのえ」で計測する。
+//                こちらは攻撃の開始タイミングを整理する＝TELSIG は当然変わる（変わらなければ効いていない）。
 //
 // 目的: 「情報量が多くて処理しきれない」という実プレイFBを数値化し、低情報モードの
 //       情報バジェット（①行動要求／②状態／③装飾の同時表示上限）を決める基礎データを取る。
@@ -144,6 +144,10 @@ function probeMain(cfg) {
     series: [], meta: {},
     telSig: 2166136261, telTotals: { strikes: 0, fences: 0, novas: 0, acts: 0 },
     telSysHist: {}, telSysMax: 0,
+    // 山場（第2形態 or 激怒）とそれ以外で分けた同時系統数のヒストグラム。
+    // infoLevel=2 の上限は「通常1／山場2」なので、2系統が山場だけで起きているかをこれで確かめる
+    telSysHistPeak: {}, telSysHistNormal: {}, telSysMaxNormal: 0, telSysMaxPeak: 0,
+    peakFrames: 0,
   };
   // 予告系の指紋（FNV-1a）。毎フレームの strikes/fences/novas/技予告の同時数を順番どおりに畳み込む。
   // 低情報モードは表示しか触らないので、同じシードならこの値は1ビットも変わらないはず。
@@ -349,13 +353,19 @@ function probeMain(cfg) {
     R.telTotals.acts += actN;
 
     // 「同時に出ている予告の系統数」＝落雷/かご/ノヴァ/技予告/巨大弾チャージ のうち今フレームで予告中のもの。
-    // infoLevel=2 の直列化が効いていれば常に1以下になる（game.js の trialTelegraphBusy と同じ状態を見る）
+    // infoLevel=2 なら通常時1以下・山場（第2形態/激怒）2以下に収まる（game.js の trialTelegraphCount と同じ状態を見る）
     const telSys = (strikes.length > 0 ? 1 : 0)
       + (fences.some((fc) => fc.t > 0) ? 1 : 0)
       + (novas.some((nv) => nv.delay > 0 || nv.tel > 0) ? 1 : 0)
       + actTelN + giantN;
     R.telSysHist[telSys] = (R.telSysHist[telSys] || 0) + 1;
     if (telSys > R.telSysMax) R.telSysMax = telSys;
+    // 山場かどうかは game.js の trialTelegraphLimit と同じ状態（本体ボスの form2 / raged）で判定する
+    const peak = !!(mainBoss && (mainBoss.form2 || mainBoss.raged));
+    const ph = peak ? R.telSysHistPeak : R.telSysHistNormal;
+    ph[telSys] = (ph[telSys] || 0) + 1;
+    if (peak) { R.peakFrames++; if (telSys > R.telSysMaxPeak) R.telSysMaxPeak = telSys; }
+    else if (telSys > R.telSysMaxNormal) R.telSysMaxNormal = telSys;
 
     const hpPct = mainBoss ? Math.max(0, mainBoss.hp / mainBoss.maxHp) * 100 : 0;
     R.series.push({
@@ -480,7 +490,7 @@ function layerStats(series, key) {
 // ---------- 実行 ----------
 console.log('=== 計測条件 ===');
 console.log(`対象: ${path.basename(SRC_PATH)} の28面（ライリュウ）／WARNING演出から撃破カットシーン終了まで`);
-console.log(`モード: ${INFO_V2 ? 'おためしv2（trialMode=true / infoLevel=2＝こうげき ひとつずつ）'
+console.log(`モード: ${INFO_V2 ? 'おためしv2（trialMode=true / infoLevel=2＝こうげき ととのえ）'
   : (LOW_INFO ? '低情報モード（lowInfoMode=true）' : '通常モード（lowInfoMode=false）')}`);
 console.log('数え方: 「同時に画面へ出ている情報要素の数」を毎フレーム集計。①行動要求／②状態／③装飾の3層。');
 console.log('  ・ポップアップ/予告/タイマー類はゲーム本体の状態をそのまま読む（条件式の再実装なし）');
@@ -528,10 +538,13 @@ for (const seed of SEEDS) {
     `のべ 落雷${R.telTotals.strikes}f・フェンス${R.telTotals.fences}f・ノヴァ${R.telTotals.novas}f・技予告${R.telTotals.acts}f`
   );
   {
-    const h = R.telSysHist || {};
-    const tot = Object.keys(h).reduce((s, k) => s + h[k], 0) || 1;
-    const line = Object.keys(h).sort((a, b) => a - b).map((k) => `${k}系統=${pct(h[k] / tot)}`).join(' ');
-    console.log(`  予告の同時系統数: 最大${R.telSysMax} / ${line}`);
+    const show = (h) => {
+      const tot = Object.keys(h).reduce((s, k) => s + h[k], 0) || 1;
+      return Object.keys(h).sort((a, b) => a - b).map((k) => `${k}系統=${pct(h[k] / tot)}`).join(' ');
+    };
+    console.log(`  予告の同時系統数: 最大${R.telSysMax} / ${show(R.telSysHist || {})}`);
+    console.log(`    通常時(最大${R.telSysMaxNormal}): ${show(R.telSysHistNormal || {})}`);
+    console.log(`    山場=第2形態/激怒(最大${R.telSysMaxPeak}): ${show(R.telSysHistPeak || {})}`);
   }
   for (const e of R.exceptions.slice(0, 5)) console.log('    ! ' + e);
 }
@@ -647,6 +660,8 @@ const json = {
     exceptions: r.exceptions, eventLayer: r.eventLayer,
     telSig: (r.telSig >>> 0).toString(16), telTotals: r.telTotals,
     telSysHist: r.telSysHist, telSysMax: r.telSysMax,
+    telSysHistNormal: r.telSysHistNormal, telSysHistPeak: r.telSysHistPeak,
+    telSysMaxNormal: r.telSysMaxNormal, telSysMaxPeak: r.telSysMaxPeak, peakFrames: r.peakFrames,
     // 時系列は5フレームおきに間引いて保存（内訳itは容量が大きいので落とす）
     seriesEvery5: r.series.filter((s) => s.f % 5 === 0).map((s) => [s.f, s.hp, s.l1, s.l2, s.l3, s.en, s.fb]),
   })),
@@ -668,9 +683,16 @@ for (const r of results) {
 }
 console.log(`MODE=${MODE_LABEL} TELSIG_ALL=${results.map((r) => (r.telSig >>> 0).toString(16)).join('/')}`);
 if (INFO_V2) {
-  // 直列化が効いていれば、予告の同時系統数は全シードで1以下になるはず
-  const worst = Math.max(...results.map((r) => r.telSysMax));
-  console.log(worst <= 1 ? 'SERIALIZED_OK' : `SERIALIZED_NG（同時系統数の最大 ${worst}）`);
+  // 整理が効いていれば、同時系統数は「通常時1以下・山場（第2形態/激怒）2以下」に収まるはず
+  const worstN = Math.max(...results.map((r) => r.telSysMaxNormal));
+  const worstP = Math.max(...results.map((r) => r.telSysMaxPeak));
+  const sum = (h, f) => Object.keys(h).filter(f).reduce((s, k) => s + h[k], 0);
+  const zero = results.map((r) => (r.telSysHist[0] || 0) / (r.frames || 1));
+  const two = results.map((r) => sum(r.telSysHist, (k) => +k >= 2) / (r.frames || 1));
+  const twoN = results.map((r) => sum(r.telSysHistNormal, (k) => +k >= 2) / (r.frames || 1));
+  console.log(`ZEROSYS=${pct(mean(zero))} TWOSYS=${pct(mean(two))} TWOSYS_NORMAL=${pct(mean(twoN))}`);
+  console.log((worstN <= 1 && worstP <= 2) ? 'SERIALIZED_OK'
+    : `SERIALIZED_NG（通常時の最大 ${worstN} / 山場の最大 ${worstP}）`);
 }
 console.log(allOk && totalExceptions === 0 ? 'PROBE_OK' : 'PROBE_NG');
 console.log(`EXCEPTIONS=${totalExceptions}`);

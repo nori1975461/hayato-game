@@ -2858,7 +2858,7 @@ function startRairyuTrial() {
 function endTrial() {
   trialMode = false;
   trialSlotFreeAt = 0;
-  clampInfoLevel(); // おためしを抜けたら「こうげき ひとつずつ」は解除（通常プレイに漏らさない）
+  clampInfoLevel(); // おためしを抜けたら「こうげき ととのえ」は解除（通常プレイに漏らさない）
   finalClear = false;
   pendingTally = 0;
   bossEvent = null;
@@ -3165,7 +3165,7 @@ function setDecorBanner(text, timer) {
 
 // Iキーで表示の段階を切り替え（プレイ中いつでも。リロードで元に戻る＝保存しない）。
 // 通常プレイは 0⇔1 の2段階、おためしモード中だけ 0→1→2→0 の3段階。
-const INFO_LEVEL_LABEL = ['じょうほう ふつう', 'じょうほう ひかえめ', 'こうげき ひとつずつ'];
+const INFO_LEVEL_LABEL = ['じょうほう ふつう', 'じょうほう ひかえめ', 'こうげき ととのえ'];
 // レベル2をおためしモードの外へ持ち出さないための正規化。lowInfoModeも必ず同期させる
 function clampInfoLevel() {
   if (!trialMode && infoLevel > 1) infoLevel = 1;
@@ -3180,25 +3180,38 @@ function toggleLowInfo() {
   beep([760, 520, 420][infoLevel], 0.08, 'triangle', 0.05);
 }
 
-// ---------- おためしモード限定「こうげき ひとつずつ」（infoLevel=2） ----------
+// ---------- おためしモード限定「こうげき ととのえ」（infoLevel=2） ----------
 // 混雑の主犯は攻撃予告の同時数（落雷11本＋電気柵＋ノヴァ＋レーザーが同時に出る）。
-// そこで「予告が画面に出ているあいだは次の大技を始めない」＝開始タイミングだけを直列化する。
+// そこで「予告が上限まで出ているあいだは次の大技を始めない」＝開始タイミングだけを整理する。
 // 攻撃の中身（本数・ダメージ・速度・予告の長さ）は一切変えない。なかまよび・通常射撃は対象外。
 // ★trialHoldAttack() の1行目で trialMode/infoLevel を見て即 false を返すので、本番はこの仕組みに触れない。
-const TRIAL_SLOT_GAP = 45;  // 予告が空いてから次の大技を許可するまでの間（フレーム）
+const TRIAL_SLOT_GAP = 15;  // 予告が空いてから次の大技を許可するまでの間（フレーム）
 let trialSlotFreeAt = 0;    // この gframe を過ぎたら次の大技を出してよい
 
-// いま「予告」が出ているか。判定はゲーム本体の状態そのもの（条件式を作り直さない）
-function trialTelegraphBusy() {
-  if (strikes.length > 0) return true;                    // 落雷の赤リング（45f・着弾で消える）
-  for (const fc of fences) if (fc.t > 0) return true;     // いかずちのかごの破線（通電前）
-  for (const nv of novas) if (nv.delay > 0 || nv.tel > 0) return true; // ばんらいノヴァの起動待ち＋予告
+// 同時に予告してよい系統の上限。通常は1（重なりゼロ）、山場＝第2形態/激怒だけ2まで許して迫力を戻す
+function trialTelegraphLimit() {
+  for (const e of enemies) {
+    if (!e.boss || e.summoned) continue;
+    if (e.form2 || e.raged) return 2;
+  }
+  return 1;
+}
+// いま予告を出している「系統」の数。判定はゲーム本体の状態そのもの（条件式を作り直さない）
+function trialTelegraphCount() {
+  let n = 0;
+  if (strikes.length > 0) n++;                            // 落雷の赤リング（45f・着弾で消える）
+  for (const fc of fences) if (fc.t > 0) { n++; break; }  // いかずちのかごの破線（通電前）
+  for (const nv of novas) if (nv.delay > 0 || nv.tel > 0) { n++; break; } // ばんらいノヴァの起動待ち＋予告
   for (const e of enemies) {
     if (!e.boss) continue;
-    if (e.giantCharge > 0) return true;                   // 巨大弾チャージ（！！！）
-    if (e.act && e.act.telOn !== false) return true;      // dive/tail/stomp/breath/beam の予告段階
+    if (e.giantCharge > 0) n++;                           // 巨大弾チャージ（！！！）
+    if (e.act && e.act.telOn !== false) n++;              // dive/tail/stomp/breath/beam の予告段階
   }
-  return false;
+  return n;
+}
+// 予告のスロットが埋まりきっているか
+function trialTelegraphBusy() {
+  return trialTelegraphCount() >= trialTelegraphLimit();
 }
 // 大技の開始を待たせるか。各技のタイマーは進めたままなので、スロットが空いた瞬間に発火する
 function trialHoldAttack() {
@@ -3825,7 +3838,7 @@ function update() {
   }
   if (state !== 'playing') return;
   frame++;
-  // おためしの「こうげき ひとつずつ」: 予告が出ているあいだスロットを埋め続ける
+  // おためしの「こうげき ととのえ」: 予告が上限まで出ているあいだスロットを埋め続ける
   // （大技のタイマーが誰も切れていないフレームでも間合いを正しく数えるため。本番はこのifに入らない）
   if (trialMode && infoLevel >= 2 && trialTelegraphBusy()) trialSlotFreeAt = gframe + TRIAL_SLOT_GAP;
 
@@ -4533,7 +4546,7 @@ function updateBoss(e, pc, ecx, ecy) {
     });
   }
   if (e.fireTimer <= 0) {
-    // おためしの「ひとつずつ」: 巨大弾チャージは大技あつかい。予告がふさがっている間は待つ（通常射撃は対象外）
+    // おためしの「ととのえ」: 巨大弾チャージは大技あつかい。予告がふさがっている間は待つ（通常射撃は対象外）
     if ((e.shotsFired + 1) % 5 === 0 && trialHoldAttack()) { e.fireTimer = 6; return; }
     e.shotsFired++;
     // 5回に1回はド派手な巨大攻撃のチャージに入る
