@@ -8457,6 +8457,12 @@ function render() {
 }
 
 function renderHUD() {
+  // 表示モードの常時インジケータ（画面上部中央）。おためし中は常に、通常プレイはひかえめON時のみ。
+  // どのモードで戦っているか分からないとA/B比較にならない、というユーザー指示（2026-09-02）。
+  if (trialMode || infoLevel >= 1) {
+    const infoCol = ['#94b0c2', '#73eff7', '#ffcd75'][infoLevel];
+    drawCenteredText(`ひょうじ: ${INFO_LEVEL_LABEL[infoLevel]}（Iキー）`, 12, infoCol, 10);
+  }
   drawText(`スコア ${score}`, 6, 6, '#f4f4f4', 13);
   const wp = WEAPONS[weaponIdx];
   drawText(`ぶき: ${wp.name} (${weaponIdx + 1}/${WEAPONS.length})`, 6, 24, wp.rainbow || wp.rainbowSaber ? RAINBOW[Math.floor(gframe / 6) % RAINBOW.length] : wp.color, 13);
