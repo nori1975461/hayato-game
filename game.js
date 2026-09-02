@@ -2842,7 +2842,7 @@ const TRIAL_SCORE = 271500; // ロケットパンチ真のしきい値ぴった�
 function startRairyuTrial() {
   startGame();
   trialMode = true;
-  continuesLeft = 6; // おためしはA/B比較が目的なので通常の3回より多めに戦い直せるように
+  continuesLeft = 15; // おためしはA/B比較が目的なので通常の3回より大幅に多く戦い直せるように
   stage = stageOrder.indexOf(LAST_STAGE - 1) + 1; // ライリュウ（BOSS_TYPESの最後）が置かれたステージへ
   score = TRIAL_SCORE;
   weaponIdx = weaponForScore(score);
