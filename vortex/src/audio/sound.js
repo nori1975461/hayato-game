@@ -2201,6 +2201,9 @@ const SONGS = {
   battle: { bpm: 150, bars: 8, chords: CHORDS,        melody: MELODY,        style: 'battle' },
   // ★R52W2 ボス共通曲は2案つくって、れんしゅうじょう④のBキーで選んでもらう（⑤＝A／⑥＝B）。
   //   本編のボス戦で鳴るのは A（'boss'）。B が選ばれたら SONGS の中身を入れ替えるだけで済む。
+  // ★2026-09-02 聞き比べで決着：**⑤オーケストラルロックを本番に採用**。
+  //   ⑥ダークシンセは「かなりいい曲」の評価つきで**保存の指示**＝削除しない
+  //   （将来の転用候補：別ボス・別モード・Godot版。Bキー⑥でいつでも聴ける）。
   boss:      { bpm: 168, bars: 16, chords: CHORDS_BOSS, melody: MELODY_BOSS, style: 'boss',
                label: '⑤ ボス（オーケストラルロック）' },
   bossSynth: { bpm: 128, bars: 8, chords: CHORDS_BSYN, melody: MELODY_BSYN, style: 'bossSynth',
