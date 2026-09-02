@@ -3931,67 +3931,108 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R51: 撃破したらアナウンスを出してタイトルへ戻る');
 }
 
-// ============ R52a 共通ボスBGMの作り直し＋ボス出現の迫力 ============
-// 実プレイFB「ボス戦用のBGMを作成して。各ボス個別に作成する必要はない。マオウレクスより前の
-// ボス共通のBGMを作成して」＋「各ボス出現時に、音楽、効果音、エフェクトを駆使して、ボス出現の
-// 迫力と緊張感を出して」。
-// ⚠️ 共通ボス曲は前からあった（boss.js が startBgm('boss') 済み）ので、依頼の実態は
-//    「鳴っている曲がボス戦に聞こえない」＝作り直し。原因は F-G-Em-Am の長調ポップで、
-//    battle（Cメジャー150）と同族に聞こえること。ここで縛るのは「調と音色が変わったか」で、
-//    テンポは軸にしない（テンポ違いの作り直しは HAYATO 側で2回続けて不採用になっている）。
+// ============ R52a 共通ボスBGM（2回作り直し）＋ボス出現の迫力 ============
+// 実プレイFB①「ボス戦用のBGMを作成して。マオウレクスより前のボス共通のBGMを」
+//         ②「各ボス出現時に、音楽・効果音・エフェクトでボス出現の迫力と緊張感を」
+//         ③（作り直し1回目に対して）「**ダサすぎる。サザエさんの主題歌みたい。モダンで
+//            スタイリッシュな曲にして**」→ マーチ風は全捨て
+//         ④「**ロマンシングサガ Re;univerSe の楽曲を参考にして**」→ オーケストラルロックへ
+//
+// ⚠️ ここで縛るいちばん大事なことは **「サザエさん要素」が二度と戻らないこと**。
+//    ダサさの正体はリズムの語彙だった：(a)3・11 への食い込み（跳ね＝スウィング）
+//    (b)裏拍にブラス／和音を連打する（マーチ・運動会の語彙）。この2つを負の条件で固定する。
+//    ⚠️ 逆に「旋律が歌うこと」は禁止しない（ロマサガの旋律は歌う。敗因はノリであって旋律ではない）。
 {
   const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
   const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
   const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const prac = fs.readFileSync(path.join(SRC, 'systems/practice.js'), 'utf8');
+  const sliceOf = (from, to) => snd.slice(snd.indexOf(from), snd.indexOf(to));
+  // 小節の行（[ で始まる行）ごとに実音の数を数える。コメント行は数えない。
+  const barNotes = (block) => block.split('\n').filter((l) => /^\s*\[/.test(l))
+    .map((l) => (l.match(/NOTE\./g) || []).length);
 
-  // --- ① 曲そのもの：短調の新しい和音列に置き換わっている ---
-  const cb = snd.slice(snd.indexOf('const CHORDS_BOSS = ['), snd.indexOf('const MELODY_BOSS = ['));
+  // --- ① 案A（本編で鳴る側）＝オーケストラルロック・Eハーモニックマイナー・16小節 ---
+  const cb = sliceOf('const CHORDS_BOSS = [', 'const MELODY_BOSS = [');
   const basses = [...cb.matchAll(/bass: NOTE\.(\w+)/g)].map((m) => m[1]).join('-');
   assert(basses !== 'F2-G2-E2-A2-F2-G2-C3-G2',
-    'R52a: 旧 F-G-Em-Am / F-G-C-C（長調ポップ）の和音列ではない');
-  assert(basses === 'E2-F2-E2-As2-A2-C3-D3-B2',
-    'R52a: Eマイナー（Em-F-Em-Bb / Am-C-D-B7）＝♭II の半音とトライトーンを骨にした進行');
-  assert(/NOTE\.Ds4/.test(cb) && /NOTE\.B2/.test(cb),
-    'R52a: 終止は B7（D# を含むハーモニックマイナーのドミナント）＝長調へ解決させない');
-  const mb = snd.slice(snd.indexOf('const MELODY_BOSS = ['), snd.indexOf('const CHORDS_MAOU = ['));
-  assert(/\[NOTE\.B5, -1, -1, -1, NOTE\.F5, -1, -1, -1, NOTE\.B5,/.test(mb),
-    'R52a: 1小節目の頭が B5⇄F5（増4度＝トライトーンのサイレン）＝曲の0秒目で battle/maou と聞き分く');
-  assert(/NOTE\.Ds6, -1, NOTE\.D6, -1, NOTE\.Cs6, -1, NOTE\.C6, -1, NOTE\.B5,/.test(mb),
-    'R52a: 折り返しは半音だけで降りる下行（機械が軋みながら降りてくる）');
+    'R52a: 1案目の長調ポップ（F-G-Em-Am）は残っていない');
+  assert(basses !== 'E2-F2-E2-As2-A2-C3-D3-B2',
+    'R52a: 2案目のマーチ風（Em-F-Em-Bb / Am-C-D-B7）も残っていない＝作り直し済み');
+  assert(basses === 'E2-C3-D3-B2-E2-C3-D3-E2-A2-F2-G2-B2-E2-E2-C3-B2',
+    'R52a: i→♭VI→♭VII→V を骨にしたハーモニックマイナーの進行（16小節）');
+  assert((cb.match(/NOTE\.Ds4/g) || []).length === 3,
+    'R52a: B7 の導音 D# が3回（4・12・16小節目）＝緊張はここで作る');
+  assert((cb.match(/NOTE\.Gs4/g) || []).length === 2,
+    'R52a: 13〜14小節目だけ G# ＝同主長調 E への跳躍（「同じ場所に光が差す」の見せ場）');
+  assert(cb.split('fifth:').length - 1 === 16,
+    'R52a: 全小節が弦オスティナート用の5度（fifth）を持つ');
+  const mb = sliceOf('const MELODY_BOSS = [', '// --- 曲2B:');
+  const mbN = barNotes(mb);
+  assert(mbN.length === 16 && mbN.every((c) => c >= 3 && c <= 6),
+    `R52a: 主題は1小節3〜6音＝長い音と休符で歌う（実測 ${mbN.join(',')}）`);
+  assert(/NOTE\.Gs5/.test(mb),
+    'R52a: 主題にも G#5 が現れる＝転調の見せ場が旋律の側にも書いてある');
   const bossSong = snd.match(/boss:\s*\{ bpm: (\d+), bars: (\d+), chords: CHORDS_BOSS,\s*melody: MELODY_BOSS,\s*style: 'boss'/);
-  assert(!!bossSong && Number(bossSong[2]) === 8,
-    'R52a: SONGS.boss は 8小節で CHORDS_BOSS / MELODY_BOSS / style boss を使う');
-  // テンポは差別化の主役にしないので「別世界に居ること」だけを範囲で縛る（battle 150 / maou 178）
-  assert(Number(bossSong[1]) >= 140 && Number(bossSong[1]) <= 180,
+  assert(!!bossSong && Number(bossSong[2]) === 16,
+    'R52a: SONGS.boss は16小節（1周が長い＝旋律が最後まで鳴る）');
+  // テンポは差別化の主役にしないので「常識的な範囲に居ること」だけを縛る
+  assert(Number(bossSong[1]) >= 120 && Number(bossSong[1]) <= 180,
     'R52a: bpm は常識的な範囲（テンポは軸ではないので値そのものは縛らない）');
 
-  // --- ② 音色：ポップスの材料が外れ、金属・警報・重い打撃に入れ替わっている ---
-  const bs = snd.slice(snd.indexOf("} else if (song.style === 'boss') {"),
-                       snd.indexOf("} else if (song.style === 'maou') {"));
-  // ⚠️ 解説コメントに旧実装の名前が出るので、判定は**鳴らしている値**だけで行う
-  assert(!/hpFreq: 1600, lpFreq: 8500/.test(bs) && !/start: 0\.026, dur: 0\.06/.test(bs),
-    'R52a: 手拍子3枚重ね（明るさの正体）は鳴らしていない');
-  assert(/hpFreq: 5200, lpFreq: 15000/.test(bs),
-    'R52a: 2拍4拍は鉄板を叩いた金属の長い尾に置き換わっている');
-  assert(!/if \(inBar % 4 === 0 \|\| inBar === 14\) \{/.test(bs)
-      && /inBar === 0 \|\| inBar === 6 \|\| inBar === 8 \|\| inBar === 14/.test(bs),
-    'R52a: 四つ打ち（踊る曲）をやめて 0・6・8・14 の重い刻み（踏み込む曲）にしている');
-  assert(/noteFreq\(chord\.bass \+ semi\)/.test(bs) && /\[18, /.test(bs),
-    'R52a: 警報スタブ＝根音の増4度（+18半音＝トライトーン）を刺す声部がある');
-  assert(/hpFreq: 9500/.test(bs),
-    'R52a: 打楽器は highpass 9500 の金属（ハットではなく金属を弾く音）');
-  assert(/type: 'sawtooth', freq: mf,/.test(bs) && !/type: 'sine', freq: mf \* 2/.test(bs),
-    'R52a: リードは のこぎり波の刃（オクターブ上の sine ベル＝きらめきは外した）');
-  assert(/inBar % 2 === 0 \|\| inBar === 3 \|\| inBar === 11/.test(bs),
-    'R52a: 3・11 の食い込みは残す（battle と共通のノリ＝シリーズの統一感）');
+  // --- ② 案Aの編曲：ストレート16分の土台／裏拍スタブ連打の禁止 ---
+  const bs = sliceOf("} else if (song.style === 'boss') {", "} else if (song.style === 'maou') {");
+  assert(!/inBar === 3|inBar === 11|inBar % 2 === 0 \|\| inBar === 3/.test(bs),
+    'R52a★: 3・11 への食い込み（跳ね＝スウィング）が1か所も無い＝サザエさん要素の根絶');
+  assert(!/inBar % 4 === 2\) \{\s*\n\s*chord\.(stab|pad)\.forEach/.test(bs)
+      && !/chord\.stab/.test(bs),
+    'R52a★: 裏拍に和音を刺すスタブ声部が無い（ブラスヒットの連打＝マーチの語彙）');
+  assert(/const f = 2 \* noteFreq\(\(inBar % 4 === 2\) \? chord\.fifth : chord\.fifth - 7\);/.test(bs),
+    'R52a: 土台は弦オスティナート＝根音と5度の2音');
+  {
+    // 弦オスティナートは**条件分岐の外**（＝16分の全ステップ）にある。ここが条件付きになったら落とす。
+    const head = bs.slice(0, bs.indexOf('// ② 低弦'));
+    assert(/\{\s*\n[\s\S]*const f = 2 \* noteFreq/.test(head) && !/if \([^)]*inBar/.test(head),
+      'R52a★: 弦オスティナートは16分グリッドの全ステップで鳴る（条件で間引かない）');
+  }
+  assert(/if \(inBar % 2 === 0\) \{\s*\n\s*tone\(\{ type: 'sine', freq: bassF/.test(bs),
+    'R52a: 低弦／ベースはストレートな8分だけ（0,2,…,14）');
+  assert(/if \(bar % 4 === 3 && inBar >= 8\)/.test(bs),
+    'R52a: ピアノの速い駆け上がりはフレーズの節目だけ（常時鳴らすと分散和音の壁になる）');
+  assert(/if \(inBar === 0 && bar % 4 === 0\)/.test(bs),
+    'R52a★: オーケストラヒットは4小節ごとの頭だけ＝16小節に4回（裏拍の連打にしない）');
+  assert(/for \(let k = inBar \+ 1; k < STEPS_PER_BAR && song\.melody\[bar\]\[k\] === -1; k\+\+\) hold\+\+;/.test(bs),
+    'R52a: 主題の音の長さは次の音までの間隔から決める＝休符を書けば長い音になる（歌える構造）');
+  assert(/bar === 12 \|\| bar === 13/.test(bs) && /NOTE\.Gs5/.test(bs),
+    'R52a: 見せ場（同主長調）では聖歌隊の持続が上に架かる');
+
+  // --- ③ 案B（対比用の電子系・ダークシンセ）が別エントリで存在する ---
+  const bsy = sliceOf("} else if (song.style === 'bossSynth') {", "} else if (song.style === 'boss') {");
+  assert(/bossSynth: \{ bpm: \d+, bars: 8, chords: CHORDS_BSYN,\s*melody: MELODY_BSYN,\s*style: 'bossSynth'/.test(snd),
+    'R52a: SONGS.bossSynth（対比用の案B）が実在する');
+  assert(!/inBar === 3|inBar === 11/.test(bsy),
+    'R52a★: 案Bにも食い込み（跳ね）が無い');
+  assert(!/chord\.stab/.test(bsy) && /attack: 0\.55/.test(bsy),
+    'R52a: 案Bの和音は刺さずに敷く（attack 0.55秒のパッド）');
+  const msy = barNotes(sliceOf('const MELODY_BSYN = [', '// --- 曲4: 最終ボス maou'));
+  assert(msy.length === 8 && msy.every((c) => c === 3),
+    `R52a: 案Bの上物は毎小節3音のリフ（歌わせない・実測 ${msy.join(',')}）`);
+  assert(/if \(inBar % 4 === 0\) \{[\s\S]{0,200}?freqEnd: 33/.test(bsy),
+    'R52a: 案Bは四つ打ちキック');
+  // 本編のボス戦で鳴るのは案A（'boss'）のまま
+  assert(/Sound\.startBgm\('boss'\)/.test(boss) && !/startBgm\('bossSynth'\)/.test(boss),
+    'R52a: 本編のボス戦で鳴るのは案A（bossSynth はれんしゅうじょう専用）');
+  assert(/name: 'boss',\s*label: '⑤/.test(prac) && /name: 'bossSynth',\s*label: '⑥/.test(prac),
+    'R52a: れんしゅうじょう④のBキー巡回に2案とも載っている（⑤＝A／⑥＝B）');
+
   // 他の曲へ手を出していないこと（battle/maou/ending/result の入口が全部そのまま在る）
   for (const st of ["style === 'battle'", "style === 'maou'", "style === 'ending'", "style === 'result'"]) {
     assert(snd.includes(st), `R52a: 他の曲の style 分岐に触っていない（${st}）`);
   }
 
-  // --- ③ 出現演出：警報の繰り返し・赤い周縁・着地の衝撃（非finalの5体） ---
+  // --- ④ 出現演出：警報の繰り返し・赤い周縁・着地の衝撃（非finalの5体） ---
   assert(/bossAlarm\(step\) \{/.test(snd) && /noteFreq\(i % 2 === 0 \? NOTE\.E4 : NOTE\.As4\)/.test(snd),
-    'R52a: 出現専用の警報 bossAlarm があり、音程はBGM1小節目と同じトライトーン');
+    'R52a: 出現専用の警報 bossAlarm があり、主音 E の上に増4度を重ねる（曲と同じ調）');
   assert(/hpFreq: 40, lpFreq: 260/.test(snd),
     'R52a: 警報の下に lowpass ノイズの地鳴りが敷いてある');
   assert(/Sound\.sfx\('warning'\) \{|warning\(\) \{[\s\S]{0,420}?noiseHit\(\{ dur: 0\.5, gain: 0\.1, hpFreq: 60, lpFreq: 500 \}\);/.test(snd),
@@ -4018,7 +4059,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/delayedCall\(380, \(\) => \{ if \(boss && boss\.active\) Sound\.startBgm\('boss'\); \}\)/.test(boss),
     'R52a: BGMは着地の衝撃が収まってから入る（0.38秒。同時に鳴らすと両方ぼやける）');
 
-  // --- ④ マオウレクス（final）の登場経路には一切手を入れていない ---
+  // --- ⑤ マオウレクス（final）の登場経路には一切手を入れていない ---
   assert(/if \(t\.final\) Sound\.sfx\('warning'\);\s*\n\s*else bossWarnCharge\(\);/.test(boss),
     'R52a: 最終ボスの警告は従来どおり warning 1回（強化は非finalの側にだけ入っている）');
   assert(/if \(cfg\.final\) Sound\.sfx\('bigBoom'\);[\s\S]{0,260}?else bossArrival\(x, y\);/.test(boss),
