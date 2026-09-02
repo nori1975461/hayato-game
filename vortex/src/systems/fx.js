@@ -344,6 +344,9 @@ export function createFx(run) {
     function finish() {
       if (finished) return;
       finished = true;
+      // R53 スキップしたときに、1文字ずつ出ている途中のセリフがあれば先に全文出す
+      // （タイプ中に画面が切り替わって「読めないまま消えた」を作らない）。
+      if (run.boss && run.boss.finishSpeech) run.boss.finishSpeech();
       run.input.off('pointerdown', finish);
       if (run.input.keyboard) run.input.keyboard.off('keydown-SPACE', finish);
       for (const t of timers) if (t) t.remove(false);

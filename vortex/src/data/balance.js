@@ -1065,6 +1065,10 @@ export const BALANCE = {
       {
         tier: 'small', bossId: 'korotama', final: false,
         warnSec: 58, spawnSec: 60, spawnDist: 290,
+        // ★R53 出現時の名乗り（実プレイFB「各ボス出現時の会話のコメントはどうなったか？」）。
+        //   表記はこのゲームの決まりに合わせる＝ひらがな中心・分かち書き・句点なし（R44W2）。
+        //   コロガンナー＝転がる球。威勢のいい子分の口ぶりで「一番手」を名乗らせる。
+        introLine: 'オレさまが ころがりだしたら とまらねえぜ！',
         hp: 1800, radius: 52, spriteScale: 8, glowScale: 6.8,
         glowOuter: '#8a8f98', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 12,
@@ -1100,6 +1104,8 @@ export const BALANCE = {
       {
         tier: 'small', bossId: 'jetviper', final: false,
         warnSec: 118, spawnSec: 120, spawnDist: 300,
+        introLine: 'はやさで おれに かなう やつは いない！',   // R53 スピード自慢
+
         hp: 3600, radius: 56, spriteScale: 8, glowScale: 7.2,
         glowOuter: '#2a6bff', glowInner: '#7fd0ff',
         chaseSpeed: 70, bodyDamage: 15,
@@ -1141,6 +1147,9 @@ export const BALANCE = {
       {
         tier: 'mid', bossId: 'uzuking', final: false,
         warnSec: 178, spawnSec: 180, spawnDist: 310,
+        // R53 乱暴な兄貴分。phase2 の rageText「ウズバルカン ぶちギレ！」と口ぶりを揃える
+        introLine: 'あんまり おこらせるな！ ぶっとばすぞ！',
+
         hp: 6500, radius: 64, spriteScale: 9, glowScale: 9,
         glowOuter: '#e8720c', glowInner: '#ffd23f',
         chaseSpeed: 66, bodyDamage: 18,
@@ -1185,6 +1194,9 @@ export const BALANCE = {
       {
         tier: 'mid', bossId: 'wavelord', final: false,
         warnSec: 238, spawnSec: 240, spawnDist: 320,
+        // R53 海の王の貫禄。phase2 が「かくせい」なので、ここでは静かに構えさせる
+        introLine: 'うみの おうの まえだ しずめて やろう',
+
         hp: 11000, radius: 72, spriteScale: 9, glowScale: 10,
         glowOuter: '#38e1ff', glowInner: '#a8f0ff',
         chaseSpeed: 60, bodyDamage: 22,
@@ -1228,6 +1240,8 @@ export const BALANCE = {
       {
         tier: 'large', bossId: 'missilga', final: false,
         warnSec: 298, spawnSec: 300, spawnDist: 330,
+        introLine: 'ミサイルの あめだ にげばは ないぞ！',   // R53 物量の圧
+
         hp: 18000, radius: 76, spriteScale: 8, glowScale: 10,
         glowOuter: '#e8720c', glowInner: '#ff4d4d',
         chaseSpeed: 60, bodyDamage: 26,
@@ -1767,6 +1781,18 @@ export const BALANCE = {
   //   ⚠️ここは**おためしモード専用**の値。通常プレイ・れんしゅうじょう・autotest からは読まれない。
   trial: {
     endWaitSec: 4,              // 撃破アナウンスを見せてからタイトルへ戻るまでの秒数
+  },
+
+  // ★R53 会話の表示（実プレイFB「ドラクエのプレイ中の会話のように、文字が一文字ずつ表示されて
+  //   いく形にして。マオウレクスも軌道神核も」）。
+  //   ⚠️対象は**会話（セリフ）だけ**。ダメージ数値・レベルアップ等のバナー／フロートは会話では
+  //     ないのでタイプしない（あれは読ませるものではなく気づかせるもの）。
+  //   msPerChar は「読める速さ」。速すぎると一気表示と区別がつかず、遅いとテンポが死ぬ。
+  //   ⚠️タイプにかかる時間ぶんだけ、その一文の寿命と後続の予約が自動で後ろへ送られる
+  //     （boss.js の introText / typeMs が計算する）。ここを大きくすると全部の間が伸びる。
+  speech: {
+    msPerChar: 42,              // 1文字あたりの表示間隔（ミリ秒）
+    tickEvery: 3,              // 何文字ごとに小さな打鍵音を鳴らすか（毎文字だとうるさい）
   },
 
   // Wave R1: 序盤は手数(chibit)＋壁(gareon)、中盤で狙撃(snipa)/特攻(bomba)、後半で砲台(turret)も加わり役割が増える

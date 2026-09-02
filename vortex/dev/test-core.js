@@ -3289,8 +3289,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(look.indexOf('tf.text2') < look.indexOf('tf.text3'),
       'R44W10: 名前 → 名乗り の順（一緒に出すとコメントが埋もれる）');
     {
-      const d = Number((look.match(/delayedCall\((\d+), \(\) => \{[\s\S]{0,200}tf\.text3/) || [])[1]);
-      const rep = Number((look.match(/introText\(tf\.text2[^)]*, (\d+)\)/) || [])[1]);
+      // ★R53 1文字ずつ表示にしたので、text2 の寿命も text3 の遅延も **同じ typeMs(tf.text2)**
+      //   だけ後ろへ伸びる。両辺に同じ値が乗るので、比較は素の数字のまま成立する。
+      const d = Number((look.match(/delayedCall\((\d+) \+ typeMs\(tf\.text2\), \(\) => \{[\s\S]{0,200}tf\.text3/) || [])[1]);
+      const rep = Number((look.match(/introText\(tf\.text2[^)]*, (\d+), true\)/) || [])[1]);
       const life = 160 + 200 * 2 * (rep + 1) + 260;
       assert(d >= life,
         `R44W10: 名乗りは名前が消えてから出る（遅延${d}ms ≧ 名前の寿命${life}ms）＝この一文だけが画面に残る`);
@@ -4249,6 +4251,91 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!maou.attacks.includes(a) && !maou.attacksSplit.includes(a)
         && !maou.attacksP3.includes(a) && !(a in maou),
       `R52b: 新攻撃 ${a} を maou に混ぜていない`);
+  }
+}
+
+// ============ R53 ボスの名乗りセリフ＋会話の1文字ずつ表示 ============
+// 実プレイFB①「各ボス出現時の会話のコメントはどうなったか？ それもよろしく」
+//         ②「ゲーム内の会話の表記について。ドラクエのプレイ中の会話のように、文字が一文字ずつ
+//            表示されていく形にして。マオウレクスも軌道神核も」
+// ⚠️ここで縛るのは「会話**だけ**がタイプされること」。ダメージ数値やレベルアップのバナーまで
+//   1文字ずつになると、読ませる文と気づかせる文の区別が消えて情報負荷だけが上がる
+//   （③装飾を①行動要求と同じ見た目にしてはいけない）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const boss = fs.readFileSync(path.join(SRC, 'systems/boss.js'), 'utf8');
+  const runjs = fs.readFileSync(path.join(SRC, 'scenes/Run.js'), 'utf8');
+  const fx = fs.readFileSync(path.join(SRC, 'systems/fx.js'), 'utf8');
+  const snd = fs.readFileSync(path.join(SRC, 'audio/sound.js'), 'utf8');
+
+  // --- ① 非finalの5体が全員セリフを持つ（データはbalance.jsに置く）---
+  const tiers = BALANCE.boss.tiers.filter((t) => !t.final);
+  assert(tiers.length === 5, `R53: 非finalのボスは5体（実測 ${tiers.length}）`);
+  for (const t of tiers) {
+    assert(typeof t.introLine === 'string' && t.introLine.length >= 8,
+      `R53: ${t.bossId} に出現時の名乗りセリフ introLine がある`);
+    // このゲームの表記の決まり（R44W2）＝句点は使わない。漢字はマオウレクスだけの特権。
+    assert(!/[。、]/.test(t.introLine),
+      `R53: ${t.bossId} のセリフに句読点を使っていない（表記の決まり）`);
+    assert(!/[一-鿿]/.test(t.introLine),
+      `R53: ${t.bossId} のセリフは かな＋カタカナだけ（漢字で話すのはマオウレクスだけ）`);
+    // 読み切れる長さ：タイプ時間＋明滅3回の寿命が 2.5〜3.4秒に収まること
+    const life = 160 + t.introLine.length * BALANCE.speech.msPerChar + 200 * 2 * 4 + 260;
+    assert(life >= 2500 && life <= 3400,
+      `R53: ${t.bossId} のセリフは読み切れる長さ（実測 ${life}ms）`);
+  }
+  assert(BALANCE.boss.tiers.some((t) => t.final && !('introLine' in t)),
+    'R53: マオウレクス（final）は専用の登場イベントを持つので introLine を足していない');
+
+  // --- ② タイプライターのヘルパーがあり、会話がそこを通る ---
+  assert(BALANCE.speech && BALANCE.speech.msPerChar >= 30 && BALANCE.speech.msPerChar <= 60,
+    'R53: 表示速度は balance.js の設定（30〜60ms/字＝読める速さ）');
+  assert(BALANCE.speech.tickEvery >= 2,
+    'R53: 打鍵音は数文字ごと（毎文字だと1行で20回鳴ってうるさい）');
+  assert(/function typeInto\(t, full\)/.test(boss) && /function typeMs\(text\)/.test(boss),
+    'R53: 1文字ずつ書くヘルパー（typeInto）と、かかる時間の計算（typeMs）がある');
+  assert(/function introText\(text, color, y, sizePx, flickerRepeat, typing\)/.test(boss),
+    'R53: introText が typing を受け取る＝会話とテロップを1か所で出し分ける');
+  assert(/if \(typing\) \{[\s\S]{0,320}?setOrigin\(0, 0\.5\)/.test(boss),
+    'R53: タイプ中は左端を固定して左から右へ書く（中央そろえだと字が動いて読めない）');
+  assert(/delay: typeDur, ease: 'Sine\.inOut'/.test(boss),
+    'R53: 明滅とフェードアウトはタイプが終わってから始まる（書き終える前に消えない）');
+  assert(/Sound\.sfx\('talkTick'\)/.test(boss) && /talkTick\(\) \{/.test(snd),
+    'R53: 数文字ごとに小さな打鍵音が鳴る');
+  // 会話3種が typing=true で呼ばれている
+  assert(/introText\('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3, true\)/.test(boss)
+      && /introText\('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3, true\)/.test(boss),
+    'R53: マオウレクス登場の2行がタイプ表示');
+  assert(/introText\(tf\.text2, '#ffedb0', 140, 20, 4, true\)/.test(boss)
+      && /introText\(tf\.text3, '#ff7a7a', 150, 21, 5, true\)/.test(boss),
+    'R53: 軌道神核（転生）の text2 / text3 がタイプ表示');
+  assert(/introText\(cfg\.introLine, cfg\.glowInner, 110, 17, 3, true\)/.test(boss),
+    'R53: 5体の名乗りもタイプ表示（色はボスの発光色＝誰がしゃべっているか色で分かる）');
+  assert(/function bossArrival\(x, y\)[\s\S]{0,1400}?if \(cfg\.introLine\) \{\s*\n\s*run\.time\.delayedCall\(550/.test(boss),
+    'R53: 名乗りは着地の衝撃（白閃・シェイク・スロー）が過ぎてから出す＝揺れている間に文字を出さない');
+  // 尺の整合：後続の予約がタイプ時間ぶん送られている
+  assert(/delayedCall\(2520 \+ typeMs\(tf\.text2\)/.test(boss),
+    'R53: 軌道神核の text3 は text2 のタイプ時間ぶんだけ後ろへ送る（重ねない）');
+
+  // --- ③ スキップ・後始末 ---
+  assert(/function finishSpeech\(\)/.test(boss) && /finishSpeech,/.test(boss),
+    'R53: 進行中のセリフを全文へ畳む finishSpeech が外へ出ている');
+  assert(/if \(run\.boss && run\.boss\.finishSpeech\) run\.boss\.finishSpeech\(\);/.test(fx),
+    'R53: シネマのスキップ（SPACE/クリック）で全文が即表示になる');
+  assert(/function clearIntroEls\(\)\s*\{\s*\n\s*for \(const ev of typeEvents\) ev\.remove\(false\);/.test(boss),
+    'R53: text を破棄するときはタイプの予約も畳む（破棄済みオブジェクトへ書き続けない）');
+  assert(/if \(!t\.scene\) \{ ev\.remove\(\); return; \}/.test(boss),
+    'R53: 途中で破棄されてもタイプ側が自分で気づいて止まる');
+
+  // --- ④ 会話でないものはタイプしない ---
+  assert(!/floatText[\s\S]{0,200}typeInto/.test(runjs) && !/typeInto/.test(runjs),
+    'R53: floatText（ダメージ数値など）はタイプしない');
+  assert(!/typeInto|typeMs/.test(fx.replace(/finishSpeech/g, '')),
+    'R53: fx.announce（バナー）もタイプしない＝会話と気づかせる文を見た目で分ける');
+  for (const plain of ["introText\\('【マオウレクスが現れた】', '#ffffff', 186, 22, 5\\)",
+                       "introText\\('よわてん：むねの コアを ねらえ！', cfg\\.weak\\.coreTint, 216, 17, 3\\)"]) {
+    assert(new RegExp(plain).test(boss),
+      'R53: テロップと弱点ヒントは会話ではないので一気に出す（typing を渡していない）');
   }
 }
 

@@ -220,6 +220,8 @@ const requiredBalanceKeys = [
   'weapon', 'special', 'autoUpgrade',
   // v5 追加キー（Wave C: 敵数増・ラッシュ・雑魚の演出）
   'capSteps', 'rush', 'enemyFx',
+  // R53 追加キー（会話の1文字ずつ表示の速度）
+  'speech',
 ];
 for (const k of requiredBalanceKeys) {
   check(k in BALANCE, `BALANCE.${k} が存在しない`);

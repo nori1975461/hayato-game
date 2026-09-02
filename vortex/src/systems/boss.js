@@ -685,11 +685,13 @@ export function createBoss(run) {
         //   主人公を「小さき光」と呼んで同じ宣告を重ねる。エンディング「ひかりが もどった」の対句。
         if (introStage < 1 && it >= MAOU_INTRO.line1At) {
           introStage = 1;
-          introText('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3);
+          // R53 この2行は**会話**なので1文字ずつ出す（末尾の true）。テロップと弱点ヒントは
+          //   会話ではないので一気に出す＝「読む文」と「知らせる文」を見た目で分ける。
+          introText('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3, true);
         }
         if (introStage < 2 && it >= MAOU_INTRO.line2At) {
           introStage = 2;
-          introText('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3);
+          introText('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3, true);
         }
         if (introStage < 3 && it >= MAOU_INTRO.telopAt) {
           introStage = 3;
@@ -1661,10 +1663,12 @@ export function createBoss(run) {
     //   出てくる。**メッセージの後に**表示させて。一緒だとコメントが目立たない」。
     //   名前のテロップは 160+200×2×(4+1)+260 ＝ **2.42秒**で消えるので、それを待ってから出す。
     //   位置も画面中央へ寄せ、字も大きくして明滅を長くする＝**この一文だけが画面に残る**形。
-    introText(tf.text2, '#ffedb0', 140, 20, 4);
-    run.time.delayedCall(2520, () => {
+    // ★R53 1文字ずつ出すぶん text2 の寿命が typeMs だけ延びるので、text3 の予約も**同じ分だけ**
+    //   後ろへ送る（2520 のまま出すと、まだ消えていない text2 の上に重なって R44W10 の指摘が再発する）。
+    introText(tf.text2, '#ffedb0', 140, 20, 4, true);
+    run.time.delayedCall(2520 + typeMs(tf.text2), () => {
       if (!trueForm || !boss || !boss.active) return;   // 途中で戦闘が終わっていたら出さない
-      introText(tf.text3, '#ff7a7a', 150, 21, 5);
+      introText(tf.text3, '#ff7a7a', 150, 21, 5, true);
     });
   }
 
@@ -3153,6 +3157,16 @@ export function createBoss(run) {
     run.time.delayedCall(150, () => { if (boss) spawnRingFx(x, y, 0xff5a3c, 6, 270, 0.60, 0.40); });
     run.spawnParticles(x, y, 0xffffff, 18);
     run.spawnParticles(x, y, tint, 22);
+    // ★R53 名乗りのセリフ（実プレイFB「各ボス出現時の会話のコメントはどうなったか？」）。
+    //   0.55秒待つのは、着地の衝撃（白閃・シェイク・スロー0.2秒）と曲の入り（0.38秒）を
+    //   通り過ぎてから読ませるため。画面が揺れている最中に文字を出しても読めない。
+    //   文字色はボスの発光色＝どの機体がしゃべっているかが色で分かる（名前を重ねて書かない）。
+    if (cfg.introLine) {
+      run.time.delayedCall(550, () => {
+        if (!boss || !boss.active) return;
+        introText(cfg.introLine, cfg.glowInner, 110, 17, 3, true);
+      });
+    }
   }
 
   // ============ R40 ワンショットFX（環・光柱） ============
@@ -3200,7 +3214,52 @@ export function createBoss(run) {
   // セリフ/テロップ text を1つ生成。setScrollFactor(0) でカメラ固定＝ボス/プレイヤー位置に依らず
   // 常に画面内に出る。機械生命体らしくフェードイン→低速の明滅（flickerRepeat 回）→フェードアウトで自壊。
   // 生成物は必ず introEls で追跡し、撃破/破棄時に clearIntroEls で確実に destroy（リーク・二重発火防止）。
-  function introText(text, color, y, sizePx, flickerRepeat) {
+  // ★R53 会話のタイプライター表示（実プレイFB「ドラクエのプレイ中の会話のように、文字が
+  //   一文字ずつ表示されていく形にして。マオウレクスも軌道神核も」）。
+  //   ⚠️適用するのは**会話（セリフ）だけ**。ダメージ数値・レベルアップ等のバナー／フロートは
+  //     会話ではないので触らない（あれは読ませるものではなく気づかせるもの）。
+  //   ⚠️1文字ずつ出すぶん、その一文の寿命は typeMs だけ延びる。**後続の予約もその分だけ後ろへ
+  //     送る**こと（軌道神核の text3 が代表例。詰めると前の行の上に重なる）。
+  const typeEvents = [];      // 進行中のタイプ（スキップ・破棄でまとめて畳む）
+  function typeMs(text) {
+    return Array.from(String(text || '')).length * BALANCE.speech.msPerChar;
+  }
+  // t の中身を1文字ずつ増やす。full を最後まで書き終えたら自分でイベントを畳む。
+  function typeInto(t, full) {
+    const chars = Array.from(String(full));
+    const S = BALANCE.speech;
+    let i = 0;
+    const ev = run.time.addEvent({
+      delay: S.msPerChar,
+      repeat: Math.max(0, chars.length - 1),
+      callback: () => {
+        if (!t.scene) { ev.remove(); return; }        // 途中で破棄された（撃破・場面転換）
+        i++;
+        t.setText(chars.slice(0, i).join(''));
+        // 打鍵音は数文字ごと。1文字ごとに鳴らすと20回/行＝うるさくて会話が読めなくなる。
+        if (i % S.tickEvery === 0) Sound.sfx('talkTick');
+        if (i >= chars.length) {
+          const k = typeEvents.indexOf(ev); if (k >= 0) typeEvents.splice(k, 1);
+        }
+      },
+    });
+    ev._full = full; ev._t = t;
+    typeEvents.push(ev);
+  }
+  // 進行中のタイプを全部いますぐ書き切る（スキップ操作から呼ぶ＝読む前に消える、を作らない）。
+  function finishSpeech() {
+    for (const ev of typeEvents.slice()) {
+      if (ev._t && ev._t.scene) ev._t.setText(ev._full);
+      ev.remove(false);
+    }
+    typeEvents.length = 0;
+  }
+
+  // セリフ/テロップ text を1つ生成。setScrollFactor(0) でカメラ固定＝ボス/プレイヤー位置に依らず
+  // 常に画面内に出る。機械生命体らしくフェードイン→低速の明滅（flickerRepeat 回）→フェードアウトで自壊。
+  // 生成物は必ず introEls で追跡し、撃破/破棄時に clearIntroEls で確実に destroy（リーク・二重発火防止）。
+  // typing=true のときだけ1文字ずつ出す（R53）。明滅はタイプが終わってから始まる。
+  function introText(text, color, y, sizePx, flickerRepeat, typing) {
     const cam = run.cameras.main;
     // depth 1992：レベルアップテロップ（fx.announce=1800）より前面へ。stroke を太く（4→6）して密集時も輪郭を保つ。
     const t = run.add.text(cam.width / 2, y, text, {
@@ -3208,8 +3267,15 @@ export function createBoss(run) {
       stroke: '#00131f', strokeThickness: 6, align: 'center',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1992).setAlpha(0);
     // 背後の横長の暗プレート（他テロップ/雑魚と重なっても読めるように・子ども安全 alpha<0.5 厳守）。
+    // ⚠️プレートの大きさは**全文**の幅で決める（タイプ中に窓が伸び縮みすると読みづらい）。
     const plate = run.add.image(cam.width / 2, y, 'white').setScrollFactor(0).setDepth(1991)
       .setTint(0x00060f).setOrigin(0.5).setDisplaySize(t.width + 30, t.height + 10).setAlpha(0);
+    let typeDur = 0;
+    if (typing) {
+      // 左端を固定して左から右へ書く（中央そろえのままだと字が左右に動いて読めない）。
+      t.setOrigin(0, 0.5).setX(cam.width / 2 - t.width / 2).setText('');
+      typeDur = typeMs(text);
+    }
     introEls.push(plate, t);
     const removeEls = () => {
       for (const el of [t, plate]) { const i = introEls.indexOf(el); if (i >= 0) introEls.splice(i, 1); el.destroy(); }
@@ -3218,8 +3284,10 @@ export function createBoss(run) {
     run.tweens.add({
       targets: t, alpha: 1, duration: 160, ease: 'Sine.out',
       onComplete: () => {
+        if (typing && t.scene) typeInto(t, text);
         run.tweens.add({
-          targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat, ease: 'Sine.inOut',
+          targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat,
+          delay: typeDur, ease: 'Sine.inOut',
           onComplete: () => {
             run.tweens.add({ targets: [t, plate], alpha: 0, duration: 260, ease: 'Sine.in', onComplete: removeEls });
           },
@@ -3229,6 +3297,8 @@ export function createBoss(run) {
     return t;
   }
   function clearIntroEls() {
+    for (const ev of typeEvents) ev.remove(false);   // R53 タイプ中の text を消すので予約も畳む
+    typeEvents.length = 0;
     for (const t of introEls) { if (t) { run.tweens.killTweensOf(t); t.destroy(); } }
     introEls.length = 0;
   }
@@ -4381,6 +4451,8 @@ export function createBoss(run) {
     get partCount() { return disp ? disp.parts.length : 0; },
     // R30W2 れんしゅうじょう（Run が practiceMode のときだけ使う）
     practiceSpawn, practiceClear, practiceAwaken,
+    // R53 スキップ操作から呼ぶ：進行中のセリフを全部いますぐ書き切る（読む前に消えるのを防ぐ）
+    finishSpeech,
     // R30 検証用：分離／再合体の観測（本体は書き換えない）
     get split() { return split; },
     get phase3() { return phase3; },
