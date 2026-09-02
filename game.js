@@ -2324,6 +2324,7 @@ const DRAGON_CHORDS = [
   [47, 50, 53], // B dim
 ];
 // ライリュウ専用BGM: 雷太鼓の連打＋疾走する低音（Em→C→D→B）と鋭い稲妻メロディ
+// （2026-09-02 A/Bテストで疾走系に決着。重厚系の案Bは撤去済み）
 const RAIRYU_CHORDS = [
   [52, 55, 59], // Em
   [48, 52, 55], // C
@@ -2331,15 +2332,6 @@ const RAIRYU_CHORDS = [
   [47, 51, 54], // B
 ];
 const RAIRYU_MELODY = [76, 0, 79, 76, 83, 0, 79, 0, 84, 83, 79, 76, 75, 0, 74, 0];
-// ライリュウ専用BGM 案B（重厚系）: フリジアン進行 Em→F→Em→B のオルガン和音＋雷ドラム。
-// 案Aの疾走感（sawtooth主体・%5）とは対照的に、どっしり構える（%8）
-const RAIRYU_CHORDS_B = [
-  [52, 55, 59], // Em
-  [53, 57, 60], // F
-  [52, 55, 59], // Em
-  [47, 51, 54], // B
-];
-const RAIRYU_MELODY_B = [64, 0, 0, 0, 65, 0, 0, 0, 64, 0, 62, 0, 59, 0, 0, 0];
 // エンディングBGM: 荘厳な勝利のテーマ（ロマサガ「決戦！サルーイン」風の
 // ハーモニックマイナー進行 Am→G→F→E。オルガンの和音＋駆動ベース＋ティンパニ＋鐘）
 const CLEAR_CHORDS = [
@@ -2378,7 +2370,6 @@ const CLEAR_NARR_1 = [
 let bossChordIdx = 0;
 let musicFrame = 0;
 let musicStep = 0;
-let bgmTestVariant = 'A'; // BGM A/B比較用テストコード（選定後削除予定）: 'A'=疾走系 / 'B'=重厚系
 const midi2f = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
 function tickMusic() {
@@ -2428,35 +2419,10 @@ function tickMusic() {
     return;
   }
   if (bossActive && state === 'playing') {
-    // ライリュウは専用BGM（big級共通判定より前に処理する）。案A/案BをA/Bテストモードで切替
+    // ライリュウは専用BGM（big級共通判定より前に処理する）。
+    // 疾走系: 雷太鼓＋疾走ベース。速く鋭いテンポ（%5）。2026-09-02 A/Bテストで決着
     const stormBoss = enemies.find((en) => en.boss && en.type.bossBgm === 'rairyu');
     if (stormBoss) {
-      if (bgmTestVariant === 'B') {
-        // 案B（重厚系）: フリジアン進行のオルガン和音＋雷ドラム。どっしりした拍（%8）
-        if (musicFrame % 8 !== 0) return;
-        const chord = RAIRYU_CHORDS_B[bossChordIdx % RAIRYU_CHORDS_B.length];
-        if (musicStep % 4 === 0) {
-          // オルガン風の2オクターブ重ね和音（triangle+sine）＋地を這うベース
-          for (const n of chord) {
-            beep(midi2f(n), 1.6, 'triangle', 0.02);
-            beep(midi2f(n - 12), 1.6, 'sine', 0.02);
-          }
-          beep(midi2f(chord[0] - 24), 1.6, 'sawtooth', 0.03);
-          bossChordIdx++;
-        }
-        // 雷ドラム: どっしり響く低音パーカッション（4分の頭でドーン）
-        if (musicStep % 4 === 0) { noise(0.28, 0.055, 160, 'lowpass'); beep(41, 0.3, 'sine', 0.06, 28); }
-        if (musicStep % 8 === 4) noise(0.14, 0.04, 900, 'highpass'); // 遠雷のうなり
-        // 重く鳴るメロディ（オクターブ下も重ねて厚みを出す）
-        const m = RAIRYU_MELODY_B[musicStep];
-        if (m) {
-          beep(midi2f(m), 0.5, 'square', 0.028);
-          beep(midi2f(m - 12), 0.5, 'triangle', 0.02);
-        }
-        musicStep = (musicStep + 1) % 16;
-        return;
-      }
-      // 案A（疾走系）: 雷太鼓＋疾走ベース。速く鋭いテンポ（%5）
       if (musicFrame % 5 !== 0) return;
       const chord = RAIRYU_CHORDS[bossChordIdx % RAIRYU_CHORDS.length];
       if (musicStep % 4 === 0) {
@@ -2533,9 +2499,6 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
   }
   if (e.key === 'm' || e.key === 'M') musicOn = !musicOn;
-  // BGM A/B比較用テストコード（選定後削除予定）: ライリュウBGMを 1キー=案A（疾走系）/ 2キー=案B（重厚系）で切替
-  if (e.key === '1') { bgmTestVariant = 'A'; bossChordIdx = 0; musicStep = 0; beep(660, 0.08, 'square', 0.04); }
-  if (e.key === '2') { bgmTestVariant = 'B'; bossChordIdx = 0; musicStep = 0; beep(440, 0.12, 'triangle', 0.04); }
   if (state === 'title') {
     if (e.key === 'Enter') startGame();
     if (e.key === 'ArrowLeft') {
@@ -8437,11 +8400,6 @@ function render() {
 
   // ジギムント撃破後の会話イベント（雷龍登場）
   if (bossEvent) drawBossEventWindow();
-
-  // BGM A/B比較用テストコード（選定後削除予定）: ライリュウ戦中は現在の案を画面右上に表示
-  if (state === 'playing' && bossActive && !lowInfoMode && enemies.some((en) => en.boss && en.type.bossBgm === 'rairyu')) {
-    drawText(`BGM案:${bgmTestVariant} (1=A疾走 2=B重厚)`, 6, 100, '#73eff7', 11);
-  }
 
   // 一時停止中の画面
   if (paused && state === 'playing') {
