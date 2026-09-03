@@ -2439,13 +2439,19 @@ export function createBoss(run) {
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
     // ★R54 音を ringwave（おんぷの「ぽわ〜ん」）から専用の大波へ。1枚ごとに砕けるので
     //   「壁が3枚来た」が耳で数えられる（快感も緊張も、数えられることから生まれる）。
-    Sound.sfx('waveCrash', 1);
-    run.shake(150, 4);
+    // ★R55 実プレイFB「大波音も目立たない。もっと派手すぎるくらいに」。
+    //   1枚ごとに音程を少し上げる＝3枚が数えられたまま「後の波ほど大きい」が耳で分かる。
+    Sound.sfx('waveCrash', 1, 1 + w * 0.07);
+    run.shake(210, 6);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
-    // 波の前面と同じ速さで広がる水色のリング＝弾の壁がどこまで来ているかが一目で分かる
+    run.spawnParticles(boss.x, boss.y, 0xffffff, 6);
+    // 波の前面と同じ速さで広がる水色のリング＝弾の壁がどこまで来ているかが一目で分かる。
+    // R55: 白い芯のリングを1枚重ねて「砕けた」瞬間を大きく見せる（波ごとに厚くする）。
     const ringSec = 0.5;
     spawnRingFx(boss.x, boss.y, 0x8fe8ff, boss.radius * 0.9,
-      boss.radius * 0.9 + tw.bulletSpeed * ringSec, ringSec, 0.6, 5);
+      boss.radius * 0.9 + tw.bulletSpeed * ringSec, ringSec, 0.6 + w * 0.1, 5);
+    spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 0.5,
+      boss.radius * 0.5 + tw.bulletSpeed * 0.26, 0.26, 0.7, 5);
   }
 
   // ぜんだんはっしゃ（ミサイルガ）：背中のラックからミサイルを1発ずつ真上へ打ち上げ、
@@ -2563,9 +2569,19 @@ export function createBoss(run) {
     const d = Math.hypot(run.player.x - boss.x, run.player.y - boss.y);
     if (!flyBoomed && d > flyLastD && flyLastD < boss.radius * 4) {
       flyBoomed = true;
-      Sound.sfx('bigBoom', 0.42);
-      run.shake(200, 5);
-      spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 0.4, boss.radius * 2.6, 0.26, 0.6, 5);
+      // ★R55 実プレイFB「ソニックブームが目立たない」。bigBoom の流用をやめて専用音へ。
+      //   絵も一回り大きく白く：白い衝撃波2枚（内が速く外が遅い＝空気が裂けて広がる）＋
+      //   進行方向へ抜ける光の筋。⚠️ 全画面フラッシュは使わない（頻発イベント）。
+      Sound.sfx('sonicBoom', 1);
+      run.shake(320, 8);
+      spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 0.3, boss.radius * 4.2, 0.30, 0.9, 5);
+      spawnRingFx(boss.x, boss.y, 0xffffff, boss.radius * 0.6, boss.radius * 2.4, 0.46, 0.55, 5);
+      const fwd = Math.atan2(lockY, lockX);
+      for (let k = 0; k < 8; k++) {
+        spawnStreakFx(boss.x, boss.y, fwd + (k - 3.5) * 0.36, boss.radius * 3.0,
+          0xffffff, 0.30, 0.7, 3);
+      }
+      run.spawnParticles(boss.x, boss.y, 0xffffff, 10);
     }
     flyLastD = d;
   }
@@ -3312,10 +3328,14 @@ export function createBoss(run) {
     //   0.55秒待つのは、着地の衝撃（白閃・シェイク・スロー0.2秒）と曲の入り（0.38秒）を
     //   通り過ぎてから読ませるため。画面が揺れている最中に文字を出しても読めない。
     //   文字色はボスの発光色＝どの機体がしゃべっているかが色で分かる（名前を重ねて書かない）。
+    // ★R55 実プレイFB「各ボスのコメントが読み取れない」。読ませるために3つ変えた：
+    //   ①待ちを 550→820ms（着地の衝撃波リングが広がり切ってから出す＝絵と文字を同時刻に置かない）
+    //   ②字を 17→21px（画面は640×360。この1行だけは大きくてよい＝1ランに5回しかない）
+    //   ③明滅をやめて全表示で保持（introText 側。読んでいる最中に薄くなるのが最大の原因だった）
     if (cfg.introLine) {
-      run.time.delayedCall(550, () => {
+      run.time.delayedCall(820, () => {
         if (!boss || !boss.active) return;
-        introText(cfg.introLine, cfg.glowInner, 110, 17, 3, true);
+        introText(cfg.introLine, cfg.glowInner, 110, 21, 3, true);
       });
     }
   }
@@ -3432,37 +3452,58 @@ export function createBoss(run) {
   // typing=true のときだけ1文字ずつ出す（R53）。明滅はタイプが終わってから始まる。
   function introText(text, color, y, sizePx, flickerRepeat, typing) {
     const cam = run.cameras.main;
-    // depth 1992：レベルアップテロップ（fx.announce=1800）より前面へ。stroke を太く（4→6）して密集時も輪郭を保つ。
+    // ★R55 実プレイFB「各ボスのコメントが読み取れない」。会話（typing=true）だけを読ませる側へ寄せる。
+    //   ⚠️ 文字を増やすのではなく**既にある1行を読ませる**（③装飾は飽和側＝252件/分）。
+    //   ⚠️ 名乗りは1ランに5回しかない低頻度イベントなので、ここは張ってよい（振幅は頻度と逆相関）。
+    //   縁は 6→9（会話のみ）。背景の雑魚・弾・リングの上でも輪郭が残る。
     const t = run.add.text(cam.width / 2, y, text, {
       fontFamily: 'monospace', fontSize: sizePx + 'px', color,
-      stroke: '#00131f', strokeThickness: 6, align: 'center',
+      stroke: '#00131f', strokeThickness: typing ? 9 : 6, align: 'center',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1992).setAlpha(0);
     // 背後の横長の暗プレート（他テロップ/雑魚と重なっても読めるように・子ども安全 alpha<0.5 厳守）。
     // ⚠️プレートの大きさは**全文**の幅で決める（タイプ中に窓が伸び縮みすると読みづらい）。
+    // R55: 会話のプレートは左右だけ広げる（余白 30→44）＝文字の両脇に逃げ場を作る。
+    // ⚠️ **縦は広げない**。マオウレクスの登場は2行（y=108 と y=140）が**同時に画面へ出る**
+    //    構図なので、縦の余白を増やすとプレート同士が重なって濃い帯になり、逆に読めなくなる。
+    const padX = typing ? 44 : 30;
     const plate = run.add.image(cam.width / 2, y, 'white').setScrollFactor(0).setDepth(1991)
-      .setTint(0x00060f).setOrigin(0.5).setDisplaySize(t.width + 30, t.height + 10).setAlpha(0);
+      .setTint(0x00060f).setOrigin(0.5).setDisplaySize(t.width + padX, t.height + 10).setAlpha(0);
     let typeDur = 0;
     if (typing) {
       // 左端を固定して左から右へ書く（中央そろえのままだと字が左右に動いて読めない）。
       t.setOrigin(0, 0.5).setX(cam.width / 2 - t.width / 2).setText('');
       typeDur = typeMs(text);
     }
-    introEls.push(plate, t);
+    const els = [t, plate];
+    introEls.push(...els);
     const removeEls = () => {
-      for (const el of [t, plate]) { const i = introEls.indexOf(el); if (i >= 0) introEls.splice(i, 1); el.destroy(); }
+      for (const el of els) { const i = introEls.indexOf(el); if (i >= 0) introEls.splice(i, 1); el.destroy(); }
     };
-    run.tweens.add({ targets: plate, alpha: 0.38, duration: 160, ease: 'Sine.out' });
+    // R55: 会話のプレートは 0.38→0.46 まで濃く（⚠️子ども安全の上限 0.5 は超えない）。
+    run.tweens.add({ targets: plate, alpha: typing ? 0.46 : 0.38, duration: 160, ease: 'Sine.out' });
+    const fadeOut = () => {
+      run.tweens.add({ targets: els, alpha: 0, duration: 260, ease: 'Sine.in', onComplete: removeEls });
+    };
     run.tweens.add({
       targets: t, alpha: 1, duration: 160, ease: 'Sine.out',
       onComplete: () => {
         if (typing && t.scene) typeInto(t, text);
-        run.tweens.add({
-          targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat,
-          delay: typeDur, ease: 'Sine.inOut',
-          onComplete: () => {
-            run.tweens.add({ targets: [t, plate], alpha: 0, duration: 260, ease: 'Sine.in', onComplete: removeEls });
-          },
-        });
+        // ★R55 実プレイFB「各ボスのコメントが読み取れない」の**本命**はこれ。
+        //   機械生命体らしい明滅（alpha 1↔0.45 を往復）は、テロップなら味だが**会話では毒**で、
+        //   読んでいる最中に字が薄くなる＝1行を読み切れない。会話（typing）だけ明滅をやめる。
+        //   ⚠️ ただし尺は**明滅とまったく同じ** 200×2×(repeat+1) ミリ秒にする。
+        //      軌道神核の text2→text3 は「text2 が消えてから text3 を出す」で 2.42秒に
+        //      合わせ込んである（R44W10「一緒に出ると目立たない」の対策）ので、
+        //      寿命が1msでも伸びると2行が重なってあの指摘が再発する。
+        const holdMs = 200 * 2 * (flickerRepeat + 1);
+        if (typing) {
+          run.tweens.add({ targets: t, alpha: 1, duration: holdMs, delay: typeDur, onComplete: fadeOut });
+        } else {
+          run.tweens.add({
+            targets: t, alpha: 0.45, duration: 200, yoyo: true, repeat: flickerRepeat,
+            delay: typeDur, ease: 'Sine.inOut', onComplete: fadeOut,
+          });
+        }
       },
     });
     return t;

@@ -4298,8 +4298,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R53: introText が typing を受け取る＝会話とテロップを1か所で出し分ける');
   assert(/if \(typing\) \{[\s\S]{0,320}?setOrigin\(0, 0\.5\)/.test(boss),
     'R53: タイプ中は左端を固定して左から右へ書く（中央そろえだと字が動いて読めない）');
-  assert(/delay: typeDur, ease: 'Sine\.inOut'/.test(boss),
-    'R53: 明滅とフェードアウトはタイプが終わってから始まる（書き終える前に消えない）');
+  // ★R55で「会話は明滅させない」に変えたので、明滅する側（テロップ）とタイプ後の保持（会話）の
+  //   両方が typeDur を待つことを見る（＝どちらの経路も書き終える前に消えない）。
+  assert(/delay: typeDur, ease: 'Sine\.inOut'/.test(boss)
+      && /duration: holdMs, delay: typeDur/.test(boss),
+    'R53: 明滅／保持とフェードアウトはタイプが終わってから始まる（書き終える前に消えない）');
   assert(/Sound\.sfx\('talkTick'\)/.test(boss) && /talkTick\(\) \{/.test(snd),
     'R53: 数文字ごとに小さな打鍵音が鳴る');
   // 会話3種が typing=true で呼ばれている
@@ -4309,9 +4312,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/introText\(tf\.text2, '#ffedb0', 140, 20, 4, true\)/.test(boss)
       && /introText\(tf\.text3, '#ff7a7a', 150, 21, 5, true\)/.test(boss),
     'R53: 軌道神核（転生）の text2 / text3 がタイプ表示');
-  assert(/introText\(cfg\.introLine, cfg\.glowInner, 110, 17, 3, true\)/.test(boss),
+  // ⚠️ 字の大きさと待ち時間は**可読性の調整対象**なので値をピン留めしない（R55で17→21px /
+  //    550→820ms へ変えた）。ここで見るのは「タイプ表示か」「ボスの発光色か」だけ。
+  //    大きさ/待ちの下限そのものは R55 節で別に縛る。
+  assert(/introText\(cfg\.introLine, cfg\.glowInner, 110, \d+, 3, true\)/.test(boss),
     'R53: 5体の名乗りもタイプ表示（色はボスの発光色＝誰がしゃべっているか色で分かる）');
-  assert(/function bossArrival\(x, y\)[\s\S]{0,1400}?if \(cfg\.introLine\) \{\s*\n\s*run\.time\.delayedCall\(550/.test(boss),
+  const introDelayM = boss.match(/function bossArrival\(x, y\)[\s\S]{0,2000}?if \(cfg\.introLine\) \{\s*\n\s*run\.time\.delayedCall\((\d+)/);
+  assert(introDelayM && Number(introDelayM[1]) >= 550,
     'R53: 名乗りは着地の衝撃（白閃・シェイク・スロー）が過ぎてから出す＝揺れている間に文字を出さない');
   // 尺の整合：後続の予約がタイプ時間ぶん送られている
   assert(/delayedCall\(2520 \+ typeMs\(tf\.text2\)/.test(boss),
@@ -4398,10 +4405,16 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/duckBgm\(/.test(grab(nm)),
         `R54: ${nm} は duckBgm で周りを沈める（同時に鳴るボスBGMに埋もれさせない）`);
     }
-    // 持続音は 0.6秒のノイズバッファを継ぎ足して尺ぶん敷き詰める（1発では尺が足りない）
+    // 持続音は 0.6秒のノイズバッファを継ぎ足して尺ぶん敷き詰める（1発では尺が足りない）。
+    // ⚠️ 開始位置は 0 に限らない（R55の vulcanRoar はスピンアップ UP のあとから定常部を敷く）。
+    //    見るのは「ループで継ぎ足していること」と「1発の長さが 0.6秒を超えないこと」。
     for (const nm of ['rollRumble', 'vulcanRoar']) {
-      assert(/for \(let t = 0; t < d; t \+=/.test(grab(nm)),
-        `R54: ${nm} は尺 d のぶんだけ短い音を敷き詰める（ノイズバッファは0.6秒しかない）`);
+      const blk = grab(nm);
+      assert(/for \(let t = [^;]+; t < [^;]+; t \+= 0\.\d+\)/.test(blk),
+        `R54: ${nm} は尺のぶんだけ短い音をループで敷き詰める（ノイズバッファは0.6秒しかない）`);
+      const durs = [...blk.matchAll(/dur: (\d*\.?\d+)/g)].map((m) => Number(m[1]));
+      assert(durs.length > 0 && durs.every((d) => d <= 0.6),
+        `R54: ${nm} の1発の長さは 0.6秒以下（ノイズバッファの長さを超えると後半が無音になる）`);
     }
   }
 
@@ -4518,6 +4531,89 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!new RegExp(`${nm}[\\s\\S]{0,80}(trueForm|TF\\(\\))`).test(boss),
       `R54: ${nm} を最終ボス／軌道神核の経路に混ぜていない`);
   }
+}
+
+// ================= R55 「目立たない／読み取れない」への作り直し =================
+// 実プレイFB4件：①ジェットの悲鳴＋ソニックブームが目立たない ②バルカンの駆動音が
+// バルカン砲に聞こえない（ガンダムのバルカン砲を参考に） ③大波音も目立たない
+// ④各ボスのコメントが読み取れない。
+// ⚠️ ①②③に共通する構造的な敗因を縛る＝**音量ではなく「ダックの深さ」と「帯域」で目立たせる**。
+//    音量を上げるだけの対処に戻ったら落ちるようにしておく（R44の教訓の固定）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const snd = read('audio/sound.js');
+  const boss = read('systems/boss.js');
+  const grab = (name) => {
+    const i = snd.indexOf(`\n  ${name}(`);
+    return i < 0 ? '' : snd.slice(i, snd.indexOf('\n  },', i));
+  };
+
+  // --- ① ジェットバイパー：専用のソニックブーム＋悲鳴を深くダックする ---
+  assert(/\n  sonicBoom\(/.test(snd),
+    'R55: ソニックブームは専用音（bigBoom の流用をやめた）');
+  // ⚠️ 判定はコードだけを見る（「bigBoom の流用をやめた」という**コメント**に反応しないように
+  //    Sound.sfx(...) の呼び出し形で見る）。
+  assert(/flyBoomed = true;[\s\S]{0,600}Sound\.sfx\('sonicBoom'/.test(boss)
+      && !/flyBoomed = true;[\s\S]{0,600}Sound\.sfx\('bigBoom'/.test(boss),
+    'R55: フライパスの最接近は sonicBoom を鳴らす（bigBoom 流用の名残がない）');
+  // ダックは「BGMを何倍まで下げるか」＝**小さいほど深い**。既存の重い音（darkLaser 0.38）より深く。
+  for (const [nm, max] of [['sonicBoom', 0.20], ['jetScream', 0.30], ['vulcanRoar', 0.30], ['waveCrash', 0.30]]) {
+    const m = grab(nm).match(/duckBgm\((\d*\.?\d+)/);
+    assert(m && Number(m[1]) <= max,
+      `R55: ${nm} は duckBgm を ${max} 以下まで深く沈める（R54は0.48〜0.60＝浅くて埋もれた）`);
+  }
+  // 超高域とサブ＝ボス曲（ギター/弦/ベースが中低域を埋める）が空けている帯域を使う
+  assert(/freqEnd: 9600 \* p|freq: 9600 \* p/.test(grab('jetScream')),
+    'R55: jetScream は超高域（〜9.6kHz）へ抜ける＝BGMの中低域と正面衝突させない');
+  assert(/freqEnd: 16,|freqEnd: 1[0-9],/.test(grab('sonicBoom')),
+    'R55: sonicBoom はサブ（20Hz以下）まで落ちる＝ベースより下で鳴らす');
+
+  // --- ② ウズバルカン：ガトリング機関砲として作り直し（M61＝毎秒100発） ---
+  const vr = grab('vulcanRoar');
+  const rps = vr.match(/const RPS = (\d+)/);
+  assert(rps && Number(rps[1]) >= 60,
+    'R55: vulcanRoar の発射レートは60発/秒以上（R54の13発/秒は1発ずつ分離して大砲の連打に聞こえた）');
+  assert(/スピンアップ|freqEnd: RPS,/.test(vr) && /スピンダウン|freqEnd: RPS \* 0\.5/.test(vr),
+    'R55: 砲身の回り上がり／回り落ちがある（ガトリングだけが持つ立ち上がりと止まり方）');
+  assert(/hpFreq: 1800|hpFreq: 6000/.test(vr),
+    'R55: 主役は乾いた中高域（頭部バルカンは高めの乾いた連続音）＝低域のモーターを主役にしない');
+  assert(!/for \(let t = 0; t < d; t \+= 0\.075\)/.test(vr),
+    'R55: R54の13発/秒のパルス列に戻っていない（軸は「粗密」ではなく「音色」）');
+
+  // --- ③ ウェイブロード：派手さは音量ではなく尺と低域の伸びで作る ---
+  const wc = grab('waveCrash');
+  assert(/waveCrash\(vol, pitch\)/.test(snd) && /Sound\.sfx\('waveCrash', 1, 1 \+ w \* 0\.07\)/.test(boss),
+    'R55: 波1枚ごとに音程を上げる＝3枚が数えられたまま「後の波ほど大きい」が分かる');
+  const wcDur = [...wc.matchAll(/dur: (\d*\.?\d+)/g)].map((m) => Number(m[1]));
+  assert(Math.max(...wcDur) >= 0.7 && Math.max(...wcDur) <= 0.85,
+    'R55: 砕けの低域を0.7秒級まで伸ばす（音量で潰すのではなく尺で聞かせる。ただし0.85秒未満）');
+  assert(wcDur.every((d) => d <= 0.6) === false && /freqEnd: 14/.test(wc),
+    'R55: サブ（40→14Hz）を1枚足す＝腹に来る低さ');
+
+  // --- ④ 名乗りセリフの可読性：**明滅をやめる**のが本命。ただし寿命は変えない ---
+  assert(/const holdMs = 200 \* 2 \* \(flickerRepeat \+ 1\);/.test(boss),
+    'R55: 会話の保持時間は明滅と**まったく同じ尺**（軌道神核 text2→text3 の2.42秒が崩れない）');
+  assert(/if \(typing\) \{\s*\n\s*run\.tweens\.add\(\{ targets: t, alpha: 1, duration: holdMs/.test(boss),
+    'R55: 会話（typing）は明滅させず全表示で保持する＝読んでいる最中に字が薄くならない');
+  assert(/targets: t, alpha: 0\.45, duration: 200, yoyo: true, repeat: flickerRepeat/.test(boss),
+    'R55: テロップ（typing でない側）の明滅は残す＝機械生命体らしさは殺さない');
+  const introSize = boss.match(/introText\(cfg\.introLine, cfg\.glowInner, 110, (\d+), 3, true\)/);
+  assert(introSize && Number(introSize[1]) >= 20,
+    'R55: 名乗りの字は20px以上（640×360の画面で1ランに5回しか出ない行なので大きくてよい）');
+  assert(/strokeThickness: typing \? 9 : 6/.test(boss),
+    'R55: 会話の縁取りは太い（背景の雑魚・弾・リングの上でも輪郭が残る）');
+  const plateA = boss.match(/targets: plate, alpha: typing \? (0\.\d+) : 0\.38/);
+  assert(plateA && Number(plateA[1]) > 0.38 && Number(plateA[1]) < 0.5,
+    'R55: 会話のプレートは濃く（0.38超）。⚠️子ども安全の上限 0.5 は超えない');
+  // ⚠️ 縦の余白は広げない（マオウレクスの2行が同時に出る構図でプレートが重なる）
+  assert(/setDisplaySize\(t\.width \+ padX, t\.height \+ 10\)/.test(boss),
+    'R55: プレートを広げるのは左右だけ（縦を広げるとマオウレクスの2行が重なって読めなくなる）');
+  assert(!/rules\.push|const rules = \[\]/.test(boss),
+    'R55: プレート上下の罫線は入れない（マオウレクスの2行で4本になり装飾が増えるだけ）');
+  // 生成物の破棄経路（リークを作らない）
+  assert(/const els = \[t, plate\];\s*\n\s*introEls\.push\(\.\.\.els\);/.test(boss),
+    'R55: 会話の生成物は全部 introEls で追跡する（撃破・シーン遷移で確実に destroy）');
 }
 
 if (failures > 0) {

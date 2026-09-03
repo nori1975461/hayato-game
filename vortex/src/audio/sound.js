@@ -1922,57 +1922,128 @@ const SFX = {
     tone({ type: 'square', freq: 620, freqEnd: 120, dur: 0.10, gain: 0.08 * g });
   },
 
-  // ジェットバイパー：フライパスの開始＝ジェットの悲鳴。高域から落ちるピッチベンド＋
-  // ノイズのドップラー。「離れた機体が向き直って突っ込んでくる」を1つの音で伝える。
+  // ============ R55 「目立たない」への作り直し（実プレイFB 3件）============
+  // ⚠️ 原因を推測で潰さない。R54 の3音を並べて分かった構造的な敗因は2つ：
+  //   ①**ダックが浅すぎた**。duckBgm の第1引数は「BGMを何倍まで下げるか」なので**小さいほど深い**。
+  //     既存の重い音は 0.38（darkLaser）〜0.42（bossStress）なのに、R54 は 0.48〜0.60＝
+  //     **既存のどの決め音より浅い**＝弦の16分オスティナートの上に薄く乗るだけだった。
+  //   ②**帯域がBGMと正面衝突していた**。ボス曲はギター（歪み・100〜2kHz）＋弦（200〜800Hz）＋
+  //     ベース（50〜120Hz）で中低域が埋まっている。R54 の3音は主部がちょうどそこ。
+  //     → 空いている**超高域（6〜16kHz）とサブ（20〜45Hz）**へ主役を移す。
+  //   音量（gain）を上げるのは最後の手段（耳に痛くなるだけで「目立つ」にはならない）。
+
+  // ジェットバイパー：フライパスの悲鳴。⚠️ 尺も敗因だった＝助走0.55秒＋通過0.7秒＝1.25秒の
+  //   出来事に対し 0.44秒の音しか鳴っておらず、「通り過ぎた」余韻が残らなかった。0.86秒へ延長し、
+  //   前半＝近づく（音程が上がる）／後半＝すれ違って落ちる（ドップラー）の2部構成にする。
   jetScream(vol, pitch) {
     const g = vol == null ? 1 : vol;
     const p = pitch == null ? 1 : pitch;
-    duckBgm(0.50, 0.12, 0.28);
-    tone({ type: 'sawtooth', freq: 2400 * p, freqEnd: 420 * p, dur: 0.42, gain: 0.24 * g,
+    duckBgm(0.24, 0.34, 0.34);          // R54の0.50から一気に深く・長く（BGMを24%まで沈める）
+    // ① 超高域の悲鳴（BGMがほぼ何も出していない 5〜11kHz。ここが「目立つ」の主役）
+    tone({ type: 'sawtooth', freq: 3200 * p, freqEnd: 9600 * p, dur: 0.34, gain: 0.20 * g, attack: 0.04 });
+    tone({ type: 'square', freq: 4800 * p, freqEnd: 11000 * p, dur: 0.30, gain: 0.10 * g, attack: 0.06, detune: 18 });
+    // ② すれ違いのドップラー（上がりきった悲鳴が一気に落ちる＝「抜けていった」）
+    tone({ start: 0.30, type: 'sawtooth', freq: 9600 * p, freqEnd: 620 * p, dur: 0.52, gain: 0.22 * g,
            attack: 0.004, dest: sfxDistBus });
-    tone({ type: 'sawtooth', freq: 2430 * p, freqEnd: 415 * p, dur: 0.42, gain: 0.15 * g,
-           attack: 0.004, detune: 20, dest: sfxDistBus });
-    tone({ type: 'square', freq: 3600 * p, freqEnd: 900 * p, dur: 0.30, gain: 0.08 * g });
-    // 吸気の轟音（帯域が下へ落ちる＝近づいて通り過ぎる）
-    noiseHit({ dur: 0.44, gain: 0.16 * g, hpFreq: 600, lpFreq: 12000, lpEnd: 1200 });
-    tone({ type: 'sine', freq: 120, freqEnd: 54, dur: 0.34, gain: 0.22 * g, attack: 0.01 });
+    tone({ start: 0.30, type: 'sawtooth', freq: 9400 * p, freqEnd: 600 * p, dur: 0.52, gain: 0.13 * g,
+           attack: 0.004, detune: 22, dest: sfxDistBus });
+    // ③ サブベース（ベースより下の 60→26Hz。曲と喧嘩せずに「重い機体」が通る）
+    tone({ type: 'sine', freq: 60, freqEnd: 26, dur: 0.80, gain: 0.30 * g, attack: 0.06 });
+    // ④ 空気を裂く風（帯域が下へ落ちる＝近づいて遠ざかる）。尺いっぱいに敷く
+    noiseHit({ dur: 0.42, gain: 0.16 * g, hpFreq: 2000, lpFreq: 16000 });
+    noiseHit({ start: 0.30, dur: 0.56, gain: 0.18 * g, hpFreq: 400, lpFreq: 14000, lpEnd: 700 });
   },
 
-  // ウズバルカン：うずまきバルカンの駆動音。速いパルス列＝**銃身が回っている**ことを耳で出す。
-  // sec ぶん鳴らし切る（発射のたびに呼ばない＝1回の攻撃につき1度）。
+  // ウズバルカン：**ガンダムの頭部バルカン＝ガトリング機関砲**として作り直し（R55）。
+  // 調べて分かった実音の性質（出典は下記2件）:
+  //   ・M61 バルカンは 6,000発/分＝**毎秒100発**の6砲身ロータリー砲
+  //     （米空軍博物館 M61A1 ファクトシート／Wikipedia "M61 Vulcan"）
+  //   ・GAU-8 は約3,900発/分＝**毎秒65発**で、「65発/秒では人間の耳は個々の発射音を分離できず、
+  //     ひと続きの唸り（BRRRT）に融合する」「胸に感じるほど低い周波数になる」
+  //     （Simple Flying / militarymachine の GAU-8 解説）
+  //   ・ガンダムの頭部バルカンはガトリング砲の一種で牽制用の機関砲（アニヲタWiki「バルカン」）
+  // ⚠️ R54 の敗因はここだった：**13発/秒**＝融合の閾値（およそ20発/秒）よりずっと粗く、
+  //    1発1発が分離して聞こえる＝機関砲ではなく「大砲の連打」になっていた。
+  // ⚠️ 直し方の軸を「パルスの粗密」から**音色そのもの**へ変える（テンポ違いで3回外した過去の教訓）。
+  //    毎秒100発のパルス列は、波形として見れば**基本周波数100Hzの倍音の密な波**そのもの。
+  //    だから個別の tone を100個並べるのではなく、**100Hzの鋸波を歪ませて持続させる**のが正解。
+  //    そこへ乾いた高域ノイズ（薬莢と発射炎の「ジャリジャリ」）を重ね、
+  //    ガトリング特有の**回転の立ち上がり（スピンアップ）と止まり際（スピンダウン）**を付ける。
   vulcanRoar(sec, vol) {
     const d = Math.max(0.2, Math.min(3.2, sec == null ? 2.1 : sec));
     const g = vol == null ? 1 : vol;
-    duckBgm(0.60, d * 0.4, 0.26);
-    // ガトリングの1発1発（0.075秒＝13発/秒。実際の発射間隔より粗くして音が潰れないようにする）
-    for (let t = 0; t < d; t += 0.075) {
-      tone({ start: t, type: 'square', freq: 190, freqEnd: 96, dur: 0.035, gain: 0.15 * g, attack: 0.0006 });
-      noiseHit({ start: t, dur: 0.028, gain: 0.11 * g, hpFreq: 700, lpFreq: 9000 });
+    duckBgm(0.26, d * 0.75, 0.32);      // 掃射の間ずっとBGMを26%まで沈める
+    const RPS = 104;                    // 発射レート＝唸りの基本周波数（M61の100発/秒に合わせる）
+    const UP = 0.11, DOWN = 0.16;       // 砲身が回り上がる/回り落ちる尺
+    const mid = Math.max(0.06, d - UP - DOWN);
+    // ① スピンアップ：レートが上がりきるまで音程が上がる（ガトリングだけが持つ立ち上がり）
+    tone({ type: 'sawtooth', freq: RPS * 0.45, freqEnd: RPS, dur: UP, gain: 0.17 * g,
+           attack: 0.006, dest: sfxDistBus });
+    noiseHit({ dur: UP, gain: 0.08 * g, hpFreq: 1200, lpFreq: 8000 });
+    // ② 定常の唸り（BRRRT）。0.22秒ごとに継ぎ足して尺ぶん敷き詰める。
+    //    ⚠️ 主役は低域ではなく**乾いた中高域**（頭部バルカンは高めの乾いた連続音）。
+    for (let t = UP; t < UP + mid; t += 0.22) {
+      tone({ start: t, type: 'sawtooth', freq: RPS, dur: 0.26, gain: 0.17 * g, attack: 0.012, dest: sfxDistBus });
+      tone({ start: t, type: 'sawtooth', freq: RPS * 1.012, dur: 0.26, gain: 0.11 * g,
+             attack: 0.012, detune: 11, dest: sfxDistBus });   // わずかなずれ＝唸りのざらつき
+      tone({ start: t, type: 'square', freq: RPS * 3, dur: 0.26, gain: 0.07 * g, attack: 0.012 });
+      noiseHit({ start: t, dur: 0.26, gain: 0.15 * g, hpFreq: 1800, lpFreq: 9000 });    // 乾いた連射感
+      noiseHit({ start: t, dur: 0.26, gain: 0.07 * g, hpFreq: 6000, lpFreq: 16000 });   // 薬莢のジャリジャリ
     }
-    // 駆動モーターのうなり（回転が上がって落ちる＝掃射の始まりと終わりが分かる）
-    for (let t = 0; t < d; t += 0.24) {
-      const up = t < d * 0.5;
-      tone({ start: t, type: 'sawtooth', freq: up ? 82 : 96, freqEnd: up ? 96 : 78, dur: 0.30,
-             gain: 0.18 * g, attack: 0.03, dest: sfxDistBus });
-      tone({ start: t, type: 'sine', freq: 48, freqEnd: 44, dur: 0.30, gain: 0.20 * g, attack: 0.03 });
-    }
+    // ③ スピンダウン：レートが落ちて「ブツッ」と切れる（バースト射撃の止まり方）
+    const de = UP + mid;
+    tone({ start: de, type: 'sawtooth', freq: RPS, freqEnd: RPS * 0.5, dur: DOWN, gain: 0.16 * g,
+           attack: 0.004, dest: sfxDistBus });
+    noiseHit({ start: de, dur: DOWN, gain: 0.10 * g, hpFreq: 1400, lpFreq: 7000, lpEnd: 900 });
+    tone({ start: de + DOWN - 0.02, type: 'square', freq: 260, freqEnd: 90, dur: 0.05, gain: 0.12 * g });
   },
 
-  // ウェイブロード：つなみウェーブ1枚ぶんの「大波が砕ける」音。ringwave（ぽわ〜ん）から交代。
-  // スウェル（寄せる）→クラッシュ（砕ける）→引き波、の3段で1枚を数えられるようにする。
-  waveCrash(vol) {
+  // ウェイブロード：つなみウェーブ1枚ぶんの大波。R55で「派手すぎるくらい」へ。
+  // ⚠️ 1回の技で3枚来るので、1枚の**音量**を上げると3枚が轟音で潰れて数えられなくなる。
+  //    そこで上げるのは音量ではなく **①ダックの深さ ②低域の伸び ③砕けた後の尺**：
+  //    低い一撃（0.7秒）は3枚それぞれが立ち、その上に長い泡の「ザーッ」（1.1秒）が
+  //    重なって溜まっていく＝枚数は数えられたまま、全体は派手になる。
+  //    pitch で1枚ごとに少しずつ高くする＝「3枚目がいちばん大きい」が耳で分かる。
+  waveCrash(vol, pitch) {
     const g = vol == null ? 1 : vol;
-    duckBgm(0.48, 0.10, 0.30);
-    // 寄せ（帯域が上がってくる）
-    noiseHit({ dur: 0.20, gain: 0.10 * g, hpFreq: 200, lpFreq: 1400 });
-    tone({ type: 'sine', freq: 60, freqEnd: 96, dur: 0.20, gain: 0.16 * g, attack: 0.06 });
-    // 砕け（低域の一撃＋広いノイズ）
-    tone({ start: 0.18, type: 'sine', freq: 180, freqEnd: 24, dur: 0.46, gain: 0.34 * g, attack: 0.002 });
-    tone({ start: 0.18, type: 'triangle', freq: 92, freqEnd: 20, dur: 0.42, gain: 0.17 * g, attack: 0.002 });
-    noiseHit({ start: 0.18, dur: 0.06, gain: 0.20 * g, hpFreq: 150, lpFreq: 9000 });
-    noiseHit({ start: 0.20, dur: 0.42, gain: 0.15 * g, hpFreq: 260, lpFreq: 5200, lpEnd: 700 });
-    // 引き波（泡が退いていく高域）
-    noiseHit({ start: 0.34, dur: 0.34, gain: 0.07 * g, hpFreq: 3200, lpFreq: 14000 });
+    const p = pitch == null ? 1 : pitch;
+    duckBgm(0.28, 0.22, 0.38);
+    // ① 寄せ（帯域が下から上がってくる＝壁が近づく）
+    noiseHit({ dur: 0.26, gain: 0.12 * g, hpFreq: 160, lpFreq: 1800 });
+    tone({ type: 'sine', freq: 56 * p, freqEnd: 104 * p, dur: 0.26, gain: 0.18 * g, attack: 0.08 });
+    // ② 砕け。低域を 0.46→0.70秒 へ伸ばし、さらに下（サブ 40→14Hz）を1枚足す
+    tone({ start: 0.24, type: 'sine', freq: 190 * p, freqEnd: 22, dur: 0.70, gain: 0.36 * g, attack: 0.002 });
+    tone({ start: 0.24, type: 'triangle', freq: 96 * p, freqEnd: 18, dur: 0.62, gain: 0.19 * g, attack: 0.002 });
+    tone({ start: 0.24, type: 'sine', freq: 40, freqEnd: 14, dur: 0.80, gain: 0.26 * g, attack: 0.03 });
+    noiseHit({ start: 0.24, dur: 0.06, gain: 0.24 * g, hpFreq: 140, lpFreq: 11000 });   // 砕けた瞬間の白い一撃
+    noiseHit({ start: 0.26, dur: 0.52, gain: 0.17 * g, hpFreq: 240, lpFreq: 6000, lpEnd: 520 });
+    // ③ 泡の「ザーッ」（長い高域の尾）。3枚ぶん重なって溜まるので1枚は控えめに置く
+    //    ＝尺で聞かせる（音量を上げるより埋もれにくい）。
+    for (let i = 0; i < 3; i++) {
+      noiseHit({ start: 0.34 + i * 0.28, dur: 0.42, gain: (0.085 - i * 0.02) * g,
+                 hpFreq: 2600 + i * 900, lpFreq: 15000, lpEnd: 4000 });
+    }
+    tone({ start: 0.40, type: 'sine', freq: 2400 * p, freqEnd: 1500 * p, dur: 0.60,
+           gain: 0.05 * g, attack: 0.10, verb: 0.45 });        // 引き波の残響（濡れた尾）
+  },
+
+  // ★R55 ソニックブーム（フライパスの最接近）。bigBoom(0.42) の流用をやめて新設。
+  //   衝撃波の聞こえ方は「①直前に音が引く ②一瞬の破裂 ③長く尾を引く残響」。
+  //   ①は duckBgm を**このゲームでいちばん深く**（0.16＝BGMを16%まで）かけて作る＝
+  //   音量を上げずに「目立つ」を作る唯一の方法（周りが引くと同じ音量でも一撃が重くなる）。
+  sonicBoom(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.16, 0.26, 0.46);
+    // ② 破裂：極短の広帯域クラック＋鞭のような高域
+    noiseHit({ dur: 0.022, gain: 0.34 * g, hpFreq: 260, lpFreq: 16000 });
+    tone({ type: 'square', freq: 2600, freqEnd: 300, dur: 0.06, gain: 0.16 * g, attack: 0.0006 });
+    // サブの落下（BGMのベースより下＝正面衝突しない）
+    tone({ type: 'sine', freq: 96, freqEnd: 16, dur: 0.72, gain: 0.36 * g, attack: 0.001 });
+    tone({ type: 'triangle', freq: 150, freqEnd: 20, dur: 0.60, gain: 0.20 * g, attack: 0.001 });
+    // ③ 尾を引く残響（雷が遠ざかるときの低いゴロゴロ）。verb で濡らす＝空間が広く聞こえる
+    noiseHit({ start: 0.03, dur: 0.70, gain: 0.16 * g, hpFreq: 70, lpFreq: 2600, lpEnd: 180 });
+    tone({ start: 0.05, type: 'sine', freq: 210, freqEnd: 60, dur: 0.80, gain: 0.10 * g,
+           attack: 0.02, verb: 0.60 });
   },
 
   // ミサイルガ：ぜんだんはっしゃの直前に鳴る発射警報（クラクション）。
