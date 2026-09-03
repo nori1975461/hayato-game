@@ -4187,7 +4187,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
                           ["case 'pinlaser'", 'function firePinLasers'],
                           ["case 'drill'", 'function fireDrillOne'],
                           ["case 'anchor'", 'function startAnchor'],
-                          ["case 'minirobo'", 'function spawnMinirobos']]) {
+                          // ⚠️ R56 で「1フレームで全部出す」→「1体ずつ噴き出す」へ変えたので
+                          //    関数名が spawnMinirobos → spawnMiniroboOne になった。
+                          //    見たいのは「発火経路が実装されている」ことなので名前だけ更新する。
+                          ["case 'minirobo'", 'function spawnMiniroboOne']]) {
     assert(boss.includes(st) && boss.includes(fn),
       `R52b: ${st} が startAttackByName にあり ${fn} が実装されている`);
   }
@@ -4227,7 +4230,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       && /if \(!noDrop\) this\.spawnGem/.test(runjs) && /if \(!noDrop\) this\.maybeCrown/.test(runjs),
     'R52b: 倒しても報酬なし（ジェルも王冠も出さない）＝稼ぎ場にならない');
   const mb = BALANCE.boss.tiers.find((t) => t.bossId === 'missilga').minirobo;
-  assert(mb.count >= 8 && mb.count <= 10, `R52b: ミニロボは8〜10体（${mb.count}）`);
+  // ⚠️ R56 で 9→30 体へ。実プレイFB「数が少なすぎる。アリの巣を壊したらわいてくるあの感じ」。
+  //    上限を置いておくのは、同時出現上限（300秒時点で190）と描画負荷を守るため。
+  assert(mb.count >= 8 && mb.count <= 40, `R52b: ミニロボは8〜40体（${mb.count}）`);
   assert(mb.radius >= 5 && mb.radius <= 6, `R52b: 極小（radius ${mb.radius}）`);
   assert(mb.lifeSec >= 6 && mb.lifeSec <= 8, `R52b: 寿命6〜8秒で自壊する（${mb.lifeSec}）＝画面に溜めない`);
   assert(mb.speed < pSpd, `R52b: ミニロボは主人公より遅い（${mb.speed} < ${pSpd}）＝走れば引き離せる`);
@@ -4614,6 +4619,207 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // 生成物の破棄経路（リークを作らない）
   assert(/const els = \[t, plate\];\s*\n\s*introEls\.push\(\.\.\.els\);/.test(boss),
     'R55: 会話の生成物は全部 introEls で追跡する（撃破・シーン遷移で確実に destroy）');
+}
+
+// ================= R56 被弾の手応え／全方位／錨／ミニロボ =================
+// 実プレイFB4件：①敵の弾が当たったときの感触が感じられない ②全方位攻撃の弾が単調かつ退屈
+// ③錨の投擲をもっと頻繁に・もっと長く ④子ロボットの数が少なすぎる（アリの巣の感じ）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const snd = read('audio/sound.js');
+  const boss = read('systems/boss.js');
+  const runjs = read('scenes/Run.js');
+  const fxjs = read('systems/fx.js');
+  const grab = (name) => {
+    const i = snd.indexOf(`\n  ${name}(`);
+    return i < 0 ? '' : snd.slice(i, snd.indexOf('\n  },', i));
+  };
+
+  // --- ① 被弾の手応え：**重みの基準を maxHp から実ダメージへ**が本命 ---
+  const P = BALANCE.player;
+  assert(typeof P.hurtWeightRef === 'number' && P.hurtWeightRef > 0,
+    'R56: 被弾の重みの基準（hurtWeightRef）が balance にある');
+  // ⚠️ 基準は「実際に飛んでくる最大ダメージ」でなければ意味がない。maxHp(140) を基準に
+  //    戻したら、ratio が 0.086〜0.286 しか動かない元の壊れた状態に戻る＝ここで落とす。
+  assert(P.hurtWeightRef <= P.hp * 0.5,
+    `R56: 基準は最大HPの半分以下（${P.hurtWeightRef} ≦ ${P.hp * 0.5}）＝maxHp基準に戻していない`);
+  // 実際に飛んでくる最大ダメージ（通常ボス5体＋雑魚）と基準がかけ離れていないこと
+  {
+    const dmgs = [];
+    for (const t of BALANCE.boss.tiers) {
+      if (t.final) continue;                 // マオウレクスは別（もっと痛い）
+      for (const k of Object.keys(t)) {
+        const v = t[k];
+        if (v && typeof v === 'object') {
+          for (const dk of ['damage', 'bodyDamage', 'meleeDamage', 'shockDamage', 'blastDamage']) {
+            if (typeof v[dk] === 'number') dmgs.push(v[dk]);
+          }
+        }
+      }
+      if (typeof t.bodyDamage === 'number') dmgs.push(t.bodyDamage);
+    }
+    const mx = Math.max(...dmgs);
+    assert(P.hurtWeightRef >= mx * 0.7 && P.hurtWeightRef <= mx * 1.4,
+      `R56: 基準 ${P.hurtWeightRef} が通常ボスの最大ダメージ ${mx} と同水準（0.7〜1.4倍）`);
+  }
+  assert(/dmg \/ Math\.max\(1, P\.hurtWeightRef \|\| this\.player\.maxHp\)/.test(runjs),
+    'R56: hitPlayer の重みは hurtWeightRef を使う（maxHp 比のままにしない）');
+  // 専用の被弾音。⚠️ Opening のカットシーンが使う 'hurt' は残す（勝手に消さない）
+  assert(/\n  hurtHeavy\(/.test(snd) && /Sound\.sfx\('hurtHeavy', ratio\)/.test(runjs),
+    'R56: ゲーム中の被弾は専用音 hurtHeavy を鳴らす');
+  assert(/\n  hurt\(weight\)/.test(snd) && /sfx\('hurt', 0\.9, 0\.7\)/.test(read('scenes/Opening.js')),
+    'R56: 旧 hurt() は残してある（Opening のカットシーンが使っている）');
+  {
+    const m = grab('hurtHeavy').match(/duckBgm\((0\.\d+)/);
+    assert(m && Number(m[1]) <= 0.32,
+      'R56: hurtHeavy は duckBgm を 0.32 以下まで深く沈める（被弾は最優先の信号）');
+    // ⚠️ 旧 hurt() は「装甲がへこむ軋み」を w>0.25 の条件付きにしていたため、実プレイの
+    //    0.086〜0.286 ではほぼ鳴らなかった。hurtHeavy では条件分岐を作らない。
+    assert(!/if \(w > /.test(grab('hurtHeavy')),
+      'R56: hurtHeavy は重さで鳴る/鳴らないを切り替えない（軽い被弾でも痛みの音が必ず鳴る）');
+  }
+  // ヒットストップは体感できる長さ（旧 0.05+0.07r＝3〜4フレームでは止まったと分からない）
+  {
+    const m = runjs.match(/freezeT = Math\.max\(this\.freezeT, (0\.\d+) \+ (0\.\d+) \* ratio\)/);
+    assert(m && Number(m[1]) >= 0.07,
+      'R56: 被弾のヒットストップは最小でも0.07秒（軽い被弾でも止まったと分かる）');
+    assert(m && Number(m[1]) + Number(m[2]) < BALANCE.player.invulnSec,
+      'R56: ヒットストップの最大は無敵時間より短い（連続被弾で止まり続けない）');
+  }
+  // エフェクトは主人公の位置で見せる（全画面を塗る面積は増やさない＝高頻度イベント）
+  assert(/★R56[\s\S]{0,900}?w_ring[\s\S]{0,600}?run\.player\.x/.test(fxjs)
+      || /const px = run\.player\.x, py = run\.player\.y;/.test(fxjs),
+    'R56: 被弾FXは主人公の位置に出す（衝撃リング・飛び散り・一撃線）');
+  {
+    // 全画面の赤幕は上限 0.44 のまま（子ども安全 0.5 未満・面積を増やさない）
+    const m = fxjs.match(/Math\.min\(0\.44, 0\.22 \+ 0\.34 \* r\)/);
+    assert(!!m, 'R56: 全画面の赤フラッシュは従来の上限0.44から上げていない');
+  }
+
+  // --- ② 全方位攻撃：尾を長くする＋専用音。⚠️ 予告/回避窓/ダメージは不変 ---
+  assert(/const gm = opts\.glowMul \|\| 1;/.test(boss),
+    'R56: 弾のグロウ倍率（glowMul）で尾を長くできる');
+  assert(/glowMul: 1\.9/.test(boss) && /glowMul: 2\.1/.test(boss),
+    'R56: つなみウェーブとうずまきバルカンの弾に尾を付けている');
+  assert(/\n  swirlShot\(/.test(snd) && /Sound\.sfx\('swirlShot'/.test(boss)
+      && !/Sound\.sfx\('shoot'\);\s*\n\s*run\.shake\(70, 3\)/.test(boss),
+    'R56: 渦の発射音は専用の swirlShot（汎用 shoot の使い回しをやめた）');
+  assert(/\n  waveApproach\(/.test(snd) && /Sound\.sfx\('waveApproach'/.test(boss),
+    'R56: 壁が広がっているあいだの持続音がある（抜け道を探す時間そのものを緊張にする）');
+  // ⚠️ swirlShot は掃射中に12回鳴るので duckBgm を呼ばない（曲が波打つ）
+  for (const nm of ['swirlShot', 'waveApproach']) {
+    assert(!/duckBgm\(/.test(grab(nm)),
+      `R56: ${nm} は duckBgm を呼ばない（高頻度／長尺なので曲が波打つ）`);
+  }
+  {
+    const wl = BALANCE.boss.tiers.find((t) => t.bossId === 'wavelord');
+    const uz = BALANCE.boss.tiers.find((t) => t.bossId === 'uzuking');
+    assert(wl.tsunami.gapDeg === 54 && wl.tsunami.gapSpinDeg === 47
+        && wl.tsunami.telegraphSec === 0.9 && wl.tsunami.damage === 20,
+      'R56: つなみの抜け道・予告・ダメージは1つも変えていない');
+    assert(uz.spiral.telegraphSec === 0.7 && uz.spiral.durationSec === 2.1
+        && uz.spiral.shotInterval === 0.055 && uz.spiral.damage === 14,
+      'R56: うずまきの予告・尺・発射間隔・ダメージは1つも変えていない');
+  }
+
+  // --- ③ 錨：頻度2倍・長く・専用音3段 ---
+  {
+    const wl = BALANCE.boss.tiers.find((t) => t.bossId === 'wavelord');
+    const n = wl.attacks.filter((a) => a === 'anchor').length;
+    assert(n === 2, `R56: 錨は攻撃巡回に2枠ある（${n}枠＝5回に1回から3回に1回へ）`);
+    // ⚠️ 続けて2回撃たせない（往復2.2秒の技が4.4秒続くと他の技が消えたように見える）
+    for (let i = 0; i < wl.attacks.length; i++) {
+      assert(!(wl.attacks[i] === 'anchor' && wl.attacks[(i + 1) % wl.attacks.length] === 'anchor'),
+        'R56: 錨の2枠は離して置く（連続で撃たせない）');
+    }
+    // 他の技を1つも消していない
+    for (const a of ['wavecannon', 'tsunami', 'armslam', 'summon']) {
+      assert(wl.attacks.includes(a), `R56: ${a} を消していない`);
+    }
+    assert(wl.idleSec.betweenAttacks.length === wl.attacks.length,
+      'R56: 攻撃を増やしたぶん betweenAttacks も揃えている');
+    const ak = wl.anchor;
+    // 画面（640×360）は中心から隅まで367px。300では画面端に立つだけで届かなかった
+    assert(ak.maxLen >= 400, `R56: 錨の長さは400px以上（${ak.maxLen}）＝画面のほぼ全域へ届く`);
+    assert(ak.telegraphSec === 0.7 && ak.damage === 26,
+      'R56: 錨の予告0.7秒とダメージ26は据え置き（長くした代わりに読みは維持）');
+    // 公平性：射線は発射時に固定なので「横に走れば外れる」。距離200pxで必要21pxに対し
+    // 主人公が動ける距離が足りていること（この不等式が崩れたら理不尽になる）
+    const tHit = (200 - 55) / ak.outSpeed;
+    const canMove = BALANCE.player.speed * tHit;
+    assert(canMove > (ak.radius + BALANCE.player.radius) * 1.5,
+      `R56: 距離200pxの主人公は錨が来る前に ${Math.round(canMove)}px 横へ動ける`
+      + `（必要 ${ak.radius + BALANCE.player.radius}px）`);
+    // 往復の尺が伸びすぎていない（他の技が出なくなる）
+    const trip = ak.maxLen / ak.outSpeed + ak.holdSec + ak.maxLen / ak.backSpeed;
+    assert(trip <= 2.6, `R56: 錨の往復は2.6秒以内（${trip.toFixed(2)}秒）`);
+  }
+  for (const nm of ['anchorFire', 'anchorChain', 'anchorBite']) {
+    assert(new RegExp(`\\n  ${nm}\\(`).test(snd) && new RegExp(`Sound\\.sfx\\('${nm}'`).test(boss),
+      `R56: 錨の専用音 ${nm} が実装され、錨から鳴る`);
+  }
+  for (const nm of ['anchorFire', 'anchorBite']) {
+    const m = grab(nm).match(/duckBgm\((0\.\d+)/);
+    assert(m && Number(m[1]) <= 0.24, `R56: ${nm} は duckBgm 0.24 以下（BGMに埋もれさせない）`);
+  }
+  // ⚠️ 従来の流用（wireCannon＝マオウレクスと共用・duck無し／metalSlam＝拳の着弾音）に戻さない
+  assert(!/startAnchor[\s\S]{0,900}?Sound\.sfx\('wireCannon'\)/.test(boss),
+    'R56: 錨の射出に wireCannon（マオウレクス共用・duck無し）を使っていない');
+  assert(!/a\.phase = 1;[\s\S]{0,200}?Sound\.sfx\('metalSlam'/.test(boss),
+    'R56: 鎖が張り切る音に metalSlam（拳の着弾音）を使っていない');
+  assert(/anchorGfx\.fillCircle\(cx, cy, big \? 3\.4 : 2\.4\)/.test(boss),
+    'R56: 鎖の粒は太く・大小交互（環がつながって見える）');
+
+  // --- ④ ミニロボ：数を増やし「湧き続ける」形へ ---
+  {
+    const mb = BALANCE.boss.tiers.find((t) => t.bossId === 'missilga').minirobo;
+    assert(mb.count >= 24, `R56: ミニロボは24体以上（${mb.count}）`);
+    assert(typeof mb.burstInterval === 'number' && mb.burstInterval > 0,
+      'R56: 1体ずつ噴き出す間隔（burstInterval）がある');
+    const pour = mb.count * mb.burstInterval;
+    assert(pour >= 0.8 && pour <= 2.2,
+      `R56: 噴き出しは0.8〜2.2秒かけて続く（${pour.toFixed(2)}秒）`
+      + '＝「わいてくる」の正体は数ではなく湧き続ける時間');
+    // 1体の脅威は上げない（増えるのは数だけ）
+    assert(mb.damage === 12 && mb.lifeSec === 7.0,
+      'R56: ミニロボ1体のダメージ12・寿命7秒は据え置き（数だけ増やす）');
+    assert(mb.speed < BALANCE.player.speed,
+      'R56: ミニロボは主人公より遅い（走れば引き離せる）');
+    // 同時出現上限を破らない
+    assert(/if \(!m\) return false;/.test(boss) && /else roboMade = mk\.count;/.test(boss),
+      'R56: enemyCap に当たったら打ち切る（上限を破らない）');
+  }
+  assert(/case 'roboPour'/.test(boss) && /function spawnMiniroboOne\(mk, i\)/.test(boss),
+    'R56: 噴出は roboPour 状態で1体ずつ出す（1フレームで全部置かない）');
+  // ⚠️ 等間隔の輪に並べると「置かれた」ように見える（R52bの見え方の敗因）
+  assert(/i \* 2\.39996/.test(boss) && !/const a = \(Math\.PI \* 2 \* i\) \/ mk\.count;/.test(boss),
+    'R56: 出る位置は黄金角＋ばらつきで散らす（等間隔の輪に戻していない）');
+  for (const nm of ['roboHatch', 'roboSwarm']) {
+    assert(new RegExp(`\\n  ${nm}\\(`).test(snd) && new RegExp(`Sound\\.sfx\\('${nm}'`).test(boss),
+      `R56: ミニロボの専用音 ${nm} が実装され、噴出から鳴る`);
+  }
+  // ⚠️ 30体ぶん1体ずつ音を鳴らすと轟音になる＝湧いている音は1本にする
+  assert(/Sound\.sfx\('roboSwarm', mk\.count \* mk\.burstInterval/.test(boss),
+    'R56: 湧いているあいだの音は1回で尺ぶん鳴らし切る（1体ごとに鳴らさない）');
+  assert(/if \(i % 5 === 0\) Sound\.sfx\('missileLaunch'/.test(boss),
+    'R56: 1体ごとの射出音は5体に1回まで間引く');
+  // minion の縛り（掴めない・よろけない・報酬なし）は数が増えても崩さない
+  assert(/m\.minion = true;/.test(boss) && /m\.noReward = true;/.test(boss)
+      && /m\.hp = 1; m\.maxHp = 1;/.test(boss),
+    'R56: 体数を増やしても minion フラグ・報酬なし・HP1 は維持（掴めず倒すだけ）');
+
+  // --- 共通：マオウレクス／軌道神核には触っていない ---
+  for (const nm of ['hurtHeavy', 'anchorFire', 'anchorChain', 'anchorBite',
+                    'roboHatch', 'roboSwarm', 'swirlShot', 'waveApproach']) {
+    assert(!new RegExp(`${nm}[\\s\\S]{0,80}(trueForm|TF\\(\\))`).test(boss),
+      `R56: ${nm} を最終ボス／軌道神核の経路に混ぜていない`);
+  }
+  {
+    const maou = BALANCE.boss.tiers.find((t) => t.final);
+    assert(maou.missile.count === 7 && maou.nova.bulletSpeed === 265,
+      'R56: マオウレクスの数値は1つも変えていない');
+  }
 }
 
 if (failures > 0) {

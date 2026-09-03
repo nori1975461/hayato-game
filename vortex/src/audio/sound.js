@@ -416,6 +416,36 @@ const SFX = {
     if (w > 0.25) tone({ type: 'sawtooth', freq: 160, freqEnd: 60, start: 0.03, dur: 0.16, gain: 0.06 });
   },
 
+  // ★R56 主人公の被弾（ゲーム中）専用。実プレイFB「当たったときの感触が感じられない。
+  //   『やられた！』とわかる手ごたえを」。
+  // ⚠️ 旧 hurt() は Opening のカットシーンが使うので**残したまま**、ゲーム中だけこちらへ替える。
+  // 敗因は音量ではない（R55の教訓）。被弾は画面のどんな情報より優先して伝わるべき信号なのに、
+  // BGM（弦の16分オスティナート＋ギター）の上に**ダックなしで**薄く乗っていた。
+  // 「やられた！」の作り：
+  //   ⑴ 深いダック＝一瞬まわりが引く（音量を上げずに前へ出す唯一の方法）
+  //   ⑵ 打撃の芯＝サブまで落ちる低域の一撃（腹に来る）
+  //   ⑶ 痛みの記号＝歪んだ軋み（金属がへこむ）。**重さに関係なく必ず鳴らす**
+  //      （旧 hurt は w>0.25 が条件で、実プレイの 0.086〜0.286 ではほぼ鳴っていなかった）
+  //   ⑷ 息が詰まる高域の一瞬（ヒットストップと同時刻に置く＝止まった感じが増す）
+  hurtHeavy(weight) {
+    const w = weight == null ? 0.4 : Math.max(0, Math.min(1, weight));
+    duckBgm(0.30 - 0.10 * w, 0.10 + 0.06 * w, 0.30);   // 重いほど深く長く引く（0.30〜0.20）
+    // ⑵ 打撃の芯。sine のサブ＋triangle の胴鳴りで「へこんだ」厚みを作る
+    tone({ type: 'sine', freq: 250 - 90 * w, freqEnd: 30, dur: 0.30 + 0.16 * w,
+           gain: 0.30 + 0.08 * w, attack: 0.001 });
+    tone({ type: 'triangle', freq: 130 - 40 * w, freqEnd: 22, dur: 0.26 + 0.12 * w,
+           gain: 0.16 + 0.06 * w, attack: 0.001 });
+    // 立ち上がりの噛みつき（当たった瞬間の点）
+    noiseHit({ dur: 0.035, gain: 0.26 + 0.06 * w, hpFreq: 200, lpFreq: 12000 });
+    // ⑶ 痛みの記号＝歪んだ軋み。歪みバスへ通す（sfxDistBus）＝「無事では済まなかった」音色
+    tone({ type: 'sawtooth', freq: 190 - 60 * w, freqEnd: 52, start: 0.02, dur: 0.22 + 0.12 * w,
+           gain: 0.14 + 0.08 * w, attack: 0.004, dest: sfxDistBus });
+    tone({ type: 'square', freq: 96, freqEnd: 44, start: 0.02, dur: 0.18, gain: 0.07 + 0.04 * w });
+    // ⑷ 息が詰まる高域（ヒットストップの尺と同じあたりで切れる）
+    noiseHit({ start: 0.01, dur: 0.09 + 0.06 * w, gain: 0.10 + 0.05 * w,
+               hpFreq: 2600, lpFreq: 14000, lpEnd: 3000 });
+  },
+
   // ── R12: 突撃兵（主人公の主武器＝クラッシュアーム） ──
   // 殴打。引数 heat(0..1) は連撃ヒート。殴り続けるほど音程と芯が上がり「乗ってくる」感触を出す。
   // 0.3秒間隔で鳴り続けるので、極短＋控えめゲインで連打しても耳に痛くしない。
@@ -2044,6 +2074,140 @@ const SFX = {
     noiseHit({ start: 0.03, dur: 0.70, gain: 0.16 * g, hpFreq: 70, lpFreq: 2600, lpEnd: 180 });
     tone({ start: 0.05, type: 'sine', freq: 210, freqEnd: 60, dur: 0.80, gain: 0.10 * g,
            attack: 0.02, verb: 0.60 });
+  },
+
+  // ============ R56 アンカーショット（ウェイブロード）専用の3段 ============
+  // 実プレイFB「効果音やエフェクトも重要。マオウレクスのミサイルを参考に」。
+  // ⚠️ 従来は射出に `wireCannon`（マオウレクスのワイヤーアームと共用）を鳴らしていた。
+  //    あれ自体はよく出来た砲声だが **duckBgm を1つも呼んでいない**＝ボスBGMの上に
+  //    そのまま重なって埋もれる（R55で3音を作り直したときと同じ敗因）。しかも共用なので
+  //    深くすると最終ボスの音まで変わる。だから錨には専用の3段を作る：
+  //    ⑴ 射出の砲声 ⑵ 鎖が繰り出される持続音 ⑶ 張り切る瞬間の金属衝撃。
+
+  // ⑴ 射出：重い鉄塊を撃ち出す砲声。海の王＝低く湿った響き（verb で濡らす）。
+  anchorFire(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.22, 0.16, 0.34);
+    // 撃発（立ち上がりを0.5msまで詰めると「圧が抜けた」音になる）
+    tone({ type: 'sine', freq: 400, freqEnd: 26, dur: 0.34, gain: 0.34 * g, attack: 0.0005 });
+    tone({ type: 'triangle', freq: 200, freqEnd: 20, dur: 0.46, gain: 0.20 * g, attack: 0.0005 });
+    noiseHit({ dur: 0.032, gain: 0.30 * g, hpFreq: 50, lpFreq: 16000 });
+    // 鉄塊が砲口を離れる軋み（歪みバス＝鋼の重さ）
+    tone({ start: 0.02, type: 'sawtooth', freq: 240, freqEnd: 90, dur: 0.26, gain: 0.14 * g,
+           attack: 0.004, dest: sfxDistBus });
+    // 海の反響（濡れた長い尾。これがあると「海の王の得物」に聞こえる）
+    noiseHit({ start: 0.05, dur: 0.56, gain: 0.12 * g, hpFreq: 60, lpFreq: 1400, lpEnd: 260 });
+    tone({ start: 0.05, type: 'sine', freq: 58, freqEnd: 24, dur: 0.58, gain: 0.16 * g,
+           attack: 0.02, verb: 0.45 });
+  },
+  // ⑵ 飛翔中：鎖が繰り出されて鳴り続ける。sec ぶん敷き詰める（呼び出しは1回だけ）。
+  //    ⚠️ ノイズバッファは0.6秒しかないので短いバーストを継ぎ足す（R54で決めた作法）。
+  anchorChain(sec, vol) {
+    const d = Math.max(0.2, Math.min(2.0, sec == null ? 1.1 : sec));
+    const g = vol == null ? 1 : vol;
+    // 鎖の環がぶつかる粒（0.045秒ごと＝約22粒/秒。粒が見えるくらい粗くする＝「鎖」に聞こえる）
+    for (let t = 0; t < d; t += 0.045) {
+      const p = 1 + 0.10 * Math.sin(t * 23);
+      tone({ start: t, type: 'square', freq: 2600 * p, dur: 0.012, gain: 0.075 * g, attack: 0.0005 });
+      noiseHit({ start: t, dur: 0.016, gain: 0.070 * g, hpFreq: 2400, lpFreq: 13000 });
+    }
+    // 張っていく張力（唸りが上がる＝もう戻れないところまで伸びている）
+    tone({ type: 'sawtooth', freq: 74, freqEnd: 108, dur: d, gain: 0.13 * g, attack: 0.04,
+           dest: sfxDistBus });
+    tone({ type: 'sine', freq: 46, freqEnd: 58, dur: d, gain: 0.16 * g, attack: 0.04 });
+  },
+  // ⑶ 最大長で張り切る「ガキン」。錨が止まって鎖が一直線になる瞬間＝ここが一番痛そうな音。
+  anchorBite(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.20, 0.10, 0.32);
+    // 鋼と鋼（非整数比の倍音＝鐘のような鳴き。整数倍にすると「楽器」になって痛くない）
+    tone({ type: 'sine', freq: 620, freqEnd: 604, dur: 0.40, gain: 0.26 * g, attack: 0.0008, verb: 0.35 });
+    tone({ type: 'sine', freq: 1712, freqEnd: 1660, dur: 0.30, gain: 0.14 * g, attack: 0.001, verb: 0.30 });
+    tone({ type: 'square', freq: 3180, freqEnd: 2900, dur: 0.07, gain: 0.09 * g, attack: 0.0005 });
+    // 芯（腹に来る低域）
+    tone({ type: 'sine', freq: 190, freqEnd: 20, dur: 0.46, gain: 0.32 * g, attack: 0.001 });
+    noiseHit({ dur: 0.030, gain: 0.26 * g, hpFreq: 900, lpFreq: 15000 });
+    noiseHit({ start: 0.02, dur: 0.34, gain: 0.11 * g, hpFreq: 120, lpFreq: 2600, lpEnd: 300 });
+  },
+
+  // ★R56 全方位攻撃の発射（うずまきバルカン＝渦の1掃射ぶん）。
+  // 実プレイFB「各ボスの全方位攻撃の弾が単調かつ退屈。効果音やエフェクトを派手にかつもっと刺激的に」。
+  // ⚠️ 従来は汎用 `shoot` を3発に1回鳴らすだけ＝「弾が出た」しか伝えず、**渦（回りながら広がる）**
+  //    という技の性格が音に出ていなかった。ここでは「回って外へ抜けていく」を音程の上昇で作る。
+  // ⚠️ 掃射2.1秒のあいだ3発に1回（＝約12回）鳴るので、1回は**短く軽く**する。
+  //    duckBgm はここでは呼ばない（12回ぶんBGMが上下すると曲が波打って気持ち悪い。
+  //    掃射全体のダックは vulcanRoar が1回で深くかけている＝役割を分けている）。
+  swirlShot(vol, pitch) {
+    const g = vol == null ? 1 : vol;
+    const p = pitch == null ? 1 : pitch;
+    // 外へ抜ける（音程が上がって消える＝弾が遠ざかる）
+    tone({ type: 'square', freq: 340 * p, freqEnd: 1180 * p, dur: 0.075, gain: 0.13 * g, attack: 0.0008 });
+    tone({ type: 'sawtooth', freq: 170 * p, freqEnd: 640 * p, dur: 0.065, gain: 0.08 * g,
+           attack: 0.0008, dest: sfxDistBus });
+    // 芯（撃った点）
+    tone({ type: 'sine', freq: 150, freqEnd: 60, dur: 0.07, gain: 0.14 * g, attack: 0.0006 });
+    noiseHit({ dur: 0.026, gain: 0.10 * g, hpFreq: 1600, lpFreq: 11000 });
+  },
+
+  // ★R56 全方位の壁が広がっているあいだの持続音（つなみウェーブの「間」）。
+  // 緊張感は被弾量ではなく**避けた回数**で作る。壁が来ているあいだ低く鳴り続けることで
+  // 「まだ抜けていない」が耳に残り、抜け道を探して走る時間そのものが緊張になる。
+  waveApproach(sec, vol) {
+    const d = Math.max(0.2, Math.min(2.0, sec == null ? 0.9 : sec));
+    const g = vol == null ? 1 : vol;
+    // 低い唸りが少しずつ上がる（近づいてくる）。⚠️ ダックはしない（波1枚ごとの waveCrash が
+    //   深くかけているので、こちらも下げると曲が消えたままになる）。
+    tone({ type: 'sawtooth', freq: 52, freqEnd: 74, dur: d, gain: 0.11 * g, attack: 0.06,
+           dest: sfxDistBus });
+    tone({ type: 'sine', freq: 34, freqEnd: 46, dur: d, gain: 0.15 * g, attack: 0.06 });
+    // 水が迫る帯（0.6秒のノイズバッファを継ぎ足す）
+    for (let t = 0; t < d; t += 0.3) {
+      noiseHit({ start: t, dur: 0.34, gain: 0.055 * g, hpFreq: 260, lpFreq: 1500 });
+    }
+  },
+
+  // ============ R56 ミニロボ噴出（ミサイルガ）の2段 ============
+  // 実プレイFB「もっと大量に噴射する感じで。アリの巣を壊したら大量にアリがわいてくるあの感じ」。
+  // ⚠️ 30体ぶん1体ずつ音を鳴らすと轟音になって1体も聞こえない。だから
+  //    「ハッチが開く一撃」＋「湧いているあいだのざわめき1本」の2つに分ける。
+
+  // ⑴ ハッチが開く：金属の扉が跳ね上がって内圧が抜ける。
+  roboHatch(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.24, 0.14, 0.32);
+    // 掛け金が外れる（硬い一撃）
+    tone({ type: 'square', freq: 880, freqEnd: 300, dur: 0.05, gain: 0.20 * g, attack: 0.0006 });
+    noiseHit({ dur: 0.035, gain: 0.26 * g, hpFreq: 700, lpFreq: 14000 });
+    // 扉が開ききって当たる「ガコン」
+    tone({ start: 0.05, type: 'sine', freq: 220, freqEnd: 40, dur: 0.30, gain: 0.30 * g, attack: 0.001 });
+    tone({ start: 0.05, type: 'triangle', freq: 108, freqEnd: 26, dur: 0.26, gain: 0.16 * g, attack: 0.001 });
+    // 内圧が抜ける噴射（帯域が下へ落ちる＝中から出てくる）
+    noiseHit({ start: 0.04, dur: 0.44, gain: 0.17 * g, hpFreq: 900, lpFreq: 12000, lpEnd: 900 });
+  },
+  // ⑵ 湧いているあいだのざわめき。sec ぶん鳴らし切る（呼び出しは攻撃1回につき1度だけ）。
+  //   「たくさんの小さいものが動いている」＝**高い短いパルスを不規則に密に**置く。
+  //   ⚠️ 規則的に並べると機械の駆動音（バルカン）になってしまうので、間隔と音程を揺らす。
+  roboSwarm(sec, vol) {
+    const d = Math.max(0.2, Math.min(3.0, sec == null ? 1.5 : sec));
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.34, d * 0.7, 0.30);
+    // 小さな脚音・駆動音が重なるざわめき（0.022秒おき＝約45粒/秒。1粒は極小）
+    let k = 0;
+    for (let t = 0; t < d; t += 0.022) {
+      k++;
+      const w = 1 + 0.34 * Math.sin(k * 1.7) + 0.18 * Math.sin(k * 0.61);   // 不規則な揺らぎ
+      tone({ start: t, type: 'square', freq: 1500 * w, dur: 0.010, gain: 0.045 * g, attack: 0.0004 });
+      if (k % 2 === 0) {
+        noiseHit({ start: t, dur: 0.014, gain: 0.045 * g, hpFreq: 3000 * w, lpFreq: 15000 });
+      }
+    }
+    // 群れの厚み（低い唸りが少し盛り上がって引く＝数が増えて散っていく）
+    for (let t = 0; t < d; t += 0.26) {
+      const up = t < d * 0.45;
+      tone({ start: t, type: 'sawtooth', freq: up ? 62 : 78, freqEnd: up ? 78 : 58, dur: 0.32,
+             gain: 0.11 * g, attack: 0.04, dest: sfxDistBus });
+      tone({ start: t, type: 'sine', freq: 44, dur: 0.32, gain: 0.13 * g, attack: 0.04 });
+    }
   },
 
   // ミサイルガ：ぜんだんはっしゃの直前に鳴る発射警報（クラクション）。

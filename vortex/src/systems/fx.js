@@ -679,6 +679,48 @@ export function createFx(run) {
         .setScrollFactor(0).setDepth(2081).setBlendMode(ADD);
       run.tweens.add({ targets: edge, alpha: 0, duration: 300, onComplete: () => edge.destroy() });
     }
+
+    // ★R56 実プレイFB「当たったときの感触が感じられない」。上の赤フラッシュは**面積を増やさない**
+    //   （被弾は1ランで何十回も起きる高頻度イベント＝振幅は頻度と逆相関）。代わりに
+    //   「主人公の身に何が起きたか」を**主人公の位置**で見せる：⑴白い衝撃リング2枚
+    //   ⑵痛みの飛び散り（弾かれた向きへ走る筋）⑶被弾方向を指す太い一撃線。
+    //   ⚠️ すべて tween で自壊し、シーンに残らない（fxList を持たない軽量FXの既存作法）。
+    const px = run.player.x, py = run.player.y;
+    for (const [r0, r1, sec, a0] of [[6, 26 + 16 * r, 0.20, 0.85], [10, 40 + 22 * r, 0.30, 0.5]]) {
+      const ring = run.add.image(px, py, 'w_ring').setBlendMode(ADD).setDepth(13)
+        .setTint(0xffffff).setDisplaySize(r0 * 2, r0 * 2).setAlpha(a0);
+      run.tweens.add({
+        targets: ring, alpha: 0, displayWidth: r1 * 2, displayHeight: r1 * 2,
+        duration: sec * 1000, ease: 'Cubic.out', onComplete: () => ring.destroy(),
+      });
+    }
+    // ⑵ 痛みの飛び散り。押し返された向き（dirX,dirY＝敵のいる側の逆）へ広がる
+    const base = (dirX != null && dirY != null && (dirX || dirY)) ? Math.atan2(-dirY, -dirX) : 0;
+    const spread = (dirX != null && dirY != null && (dirX || dirY)) ? 0.9 : Math.PI;
+    const n = 4 + Math.round(4 * r);
+    for (let i = 0; i < n; i++) {
+      const a = base + (i / Math.max(1, n - 1) - 0.5) * 2 * spread;
+      const len = 16 + 26 * r;
+      const st = run.add.image(px, py, 'white').setBlendMode(ADD).setDepth(13)
+        .setTint(0xff8a8a).setOrigin(0, 0.5).setRotation(a).setDisplaySize(len * 0.4, 2).setAlpha(0.8);
+      run.tweens.add({
+        targets: st, alpha: 0, displayWidth: len,
+        x: px + Math.cos(a) * 10, y: py + Math.sin(a) * 10,
+        duration: 240, ease: 'Cubic.out', onComplete: () => st.destroy(),
+      });
+    }
+    // ⑶ どこからやられたかを指す一撃線（敵のいる側から主人公へ突き刺す向き）
+    if (dirX != null && dirY != null && (dirX || dirY)) {
+      const toEnemy = Math.atan2(-dirY, -dirX) + Math.PI;
+      const len = 46 + 34 * r;
+      const hit = run.add.image(px, py, 'white').setBlendMode(ADD).setDepth(13)
+        .setTint(0xffffff).setOrigin(0, 0.5).setRotation(toEnemy)
+        .setDisplaySize(len, 3 + 2 * r).setAlpha(0.9);
+      run.tweens.add({
+        targets: hit, alpha: 0, displayWidth: len * 0.3, duration: 200,
+        ease: 'Cubic.in', onComplete: () => hit.destroy(),
+      });
+    }
   }
 
   // ---- R12: 体力が危険域の間だけ画面周縁を赤く脈打たせる（維持表示） ----

@@ -843,15 +843,20 @@ export class RunScene extends Phaser.Scene {
     if (cut > 0) dmg = Math.max(1, Math.round(dmg * (1 - cut)));
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
-    this.player.flashT = 0.12;
+    // R56: 白く飛ぶ時間を 0.12→0.16秒。無敵の点滅（0.55秒）に食われて見えなくなるのを防ぐ。
+    this.player.flashT = 0.16;
     // R12: 被弾で連撃ヒートが半分に落ちる。踏み込んで殴り続けるほど積み上がるものを、
     // 被弾で失う＝突撃兵のリスクとリターンをヒート1つで表現する（全損にはしない）。
     this._heat = Math.floor(this._heat / 2);
 
     const P = BALANCE.player;
-    // ダメージの重み（最大HP比）。音・シェイク・フラッシュ・ヒットストップの強さをこれで揃える
+    // ダメージの重み。音・シェイク・フラッシュ・ヒットストップの強さをこれで揃える
     // ＝かすり傷と大ダメージが同じ手応えにならない。
-    const ratio = Math.max(0, Math.min(1, dmg / Math.max(1, this.player.maxHp)));
+    // ★R56 基準を maxHp(140) から **実際に飛んでくる最大ダメージ**(hurtWeightRef=40) へ変更。
+    //   maxHp 基準では ratio が 0.086〜0.286 しか動かず、設計した0〜1の上側7割が死んでいた
+    //   ＝どんな被弾でも毎回いちばん弱い演出が鳴っていた（理由は balance.js の player 注釈）。
+    //   新: 12→0.30 / 20→0.50 / 30→0.75 / 40→1.00。
+    const ratio = Math.max(0, Math.min(1, dmg / Math.max(1, P.hurtWeightRef || this.player.maxHp)));
     let dirX = null, dirY = null;
     if (srcX != null && srcY != null) {
       const dx = this.player.x - srcX, dy = this.player.y - srcY;
@@ -862,10 +867,16 @@ export class RunScene extends Phaser.Scene {
       dirX = -dx / d; dirY = -dy / d;   // 画面端は「敵がいる側」を光らせる
     }
     // FB#7: 被弾の手応え。専用の被弾音＋強めシェイク＋赤フラッシュ＋ごく短いヒットストップを重ねる。
-    Sound.sfx('hurt', ratio);
+    // ★R56 「やられた！」を作り直す。⚠️ 音量を上げる方向へは寄せない（R55の教訓＝埋もれる原因は
+    //   音量ではなく BGM とのダック/帯域）。専用音 hurtHeavy は duckBgm を深くかけて
+    //   **一瞬まわりが引く**ことで手応えを出す。'hurt' は Opening のカットシーンが使うので残す。
+    Sound.sfx('hurtHeavy', ratio);
     this.shake(180 + Math.round(140 * ratio), 5 + Math.round(4 * ratio));
     if (this.fx && this.fx.playerHurt) this.fx.playerHurt(dirX, dirY, ratio);
-    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.05 + 0.07 * ratio);
+    // ★R56 ヒットストップ 0.05+0.07r → 0.07+0.09r（12ダメージで 0.097秒・40で 0.16秒）。
+    //   旧値は実プレイで 3〜4フレーム＝止まったと分からない長さだった。
+    //   ⚠️ 無敵 invulnSec 0.55秒より十分短い＝連続被弾で止まり続けることはない。
+    if (!this.cinematic) this.freezeT = Math.max(this.freezeT, 0.07 + 0.09 * ratio);
     // ★れんしゅうじょうでは死なない。避けられたかどうかを確かめるのが目的なので、
     //   手応え（音・揺れ・赤フラッシュ・押し返し）は残したままHPだけ底で止める。
     if (this.practice) { this.player.hp = Math.max(1, this.player.hp); this.practice.onHit(); }

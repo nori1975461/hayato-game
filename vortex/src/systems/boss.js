@@ -146,6 +146,7 @@ export function createBoss(run) {
   let flyBoomed = false;            // 同上：ソニックブームを1回だけ鳴らす印
   let flyLastD = 1e9;               // 同上：最接近（距離が増えに転じた瞬間）を見つけるための前フレーム距離
   let spiralAng = 0;                // うずまきバルカン：いま腕が向いている角（砲身の回転を絵に出す）
+  let roboMade = 0;                 // ★R56 ミニロボ噴出：いま何体まで出したか（1体ずつ湧かせる）
   let pinAngs = null;               // ペンシルレーザー：固定した射線（ジェットバイパー）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
@@ -371,7 +372,7 @@ export function createBoss(run) {
   function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; rushDustT = 0; rushShakeT = 0; flyGhostT = 0; flyBoomed = false; flyLastD = 1e9; spiralAng = 0; destroyAnchor(); clearLock(); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; rushDustT = 0; rushShakeT = 0; flyGhostT = 0; flyBoomed = false; flyLastD = 1e9; spiralAng = 0; roboMade = 0; destroyAnchor(); clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -1193,8 +1194,13 @@ export function createBoss(run) {
       // ---- R29 ウェイブロード：つなみウェーブ（切れ目が1箇所ある弾の壁を3枚）----
       case 'tsuTele':
         if (stateT <= 0) {
-          state = 'tsuFire'; stateT = cfg.tsunami.waves * cfg.tsunami.waveInterval + 0.1;
-          shotAcc = cfg.tsunami.waveInterval; shotIdx = 0;   // 1枚目は即発射
+          const tw = cfg.tsunami;
+          state = 'tsuFire'; stateT = tw.waves * tw.waveInterval + 0.1;
+          shotAcc = tw.waveInterval; shotIdx = 0;   // 1枚目は即発射
+          // ★R56 壁が広がっているあいだ鳴り続ける低い唸り。実プレイFB「全方位攻撃が単調」。
+          //   1回で全体の尺ぶんを鳴らし切る（毎波鳴らすと3枚重なって轟音になる）。
+          //   緊張感は「抜け道を探して走っている時間」そのものなので、そこに音を敷く。
+          Sound.sfx('waveApproach', tw.waves * tw.waveInterval + 0.4, 1);
         }
         break;
       case 'tsuFire': {
@@ -1295,9 +1301,29 @@ export function createBoss(run) {
         break;
 
       // ---- R52b ミサイルガ：ミニロボほうしゅつ（極小ロボを大量に放出）----
+      // ★R56 実プレイFB「アリの巣を壊したら大量にアリがわいてくるあの感じ」。
+      //   1フレームで全部出す（＝置かれる）のをやめ、ハッチが開いて**噴き出し続ける**状態を作る。
       case 'roboTele':
-        if (stateT <= 0) { spawnMinirobos(); afterAttack(); }
+        if (stateT <= 0) {
+          const mk = cfg.minirobo;
+          state = 'roboPour';
+          stateT = mk.count * mk.burstInterval + 0.15;
+          shotAcc = mk.burstInterval;   // 1体目は即
+          roboMade = 0;
+          openRoboHatch();
+        }
         break;
+      case 'roboPour': {
+        const mk = cfg.minirobo;
+        shotAcc += dt;
+        while (shotAcc >= mk.burstInterval && roboMade < mk.count) {
+          shotAcc -= mk.burstInterval;
+          if (spawnMiniroboOne(mk, roboMade)) roboMade++;
+          else roboMade = mk.count;      // 上限に当たった＝これ以上は出さない（上限は破らない）
+        }
+        if (roboMade >= mk.count && stateT <= 0) afterAttack();
+        break;
+      }
 
       default:
         break;
@@ -2405,13 +2431,15 @@ export function createBoss(run) {
     for (let k = 0; k < sp.arms; k++) {
       const a = base + (Math.PI * 2 * k) / sp.arms;
       spawnBullet2(boss.x, boss.y, Math.cos(a) * sp.bulletSpeed, Math.sin(a) * sp.bulletSpeed,
-        { radius: sp.bulletRadius, damage: sp.damage, life: sp.lifeSec });
+        { radius: sp.bulletRadius, damage: sp.damage, life: sp.lifeSec, glowMul: 2.1 });
     }
     // ★R54 存在感を上げる：発射音は4発に1回→3発に1回、揺れも一段強く。腕ごとのマズルフラッシュを
     //   足して「3本の腕から出ている」を目で数えられるようにする（快感は数えられること）。
     //   ⚠️ 弾1発ごとには何も出さない（18発/秒 ×3本＝54枚/秒 になり弾が読めなくなる）。
     if (i % 3 === 0) {
-      Sound.sfx('shoot');
+      // ★R56 汎用 `shoot` から渦専用の発射音へ。腕が回るのに合わせて音程を巡回させる
+      //   ＝同じ音の連打にならず「回っている」が耳でも分かる（単調の正体は同じ音の反復）。
+      Sound.sfx('swirlShot', 1, 0.9 + ((i / 3) % 4) * 0.075);
       run.shake(70, 3);
       if (run.fx && run.fx.muzzleFlash) {
         for (let k = 0; k < sp.arms; k++) {
@@ -2433,7 +2461,7 @@ export function createBoss(run) {
       const a = (Math.PI * 2 * i) / tw.count;
       if (Math.abs(Phaser.Math.Angle.Wrap(a - gapCenter)) < half) continue;   // ここが抜け道
       spawnBullet2(boss.x, boss.y, Math.cos(a) * tw.bulletSpeed, Math.sin(a) * tw.bulletSpeed,
-        { radius: tw.bulletRadius, damage: tw.damage, life: tw.lifeSec });
+        { radius: tw.bulletRadius, damage: tw.damage, life: tw.lifeSec, glowMul: 1.9 });
     }
     // 抜け道の方向にだけ光の筋を出す＝穴の位置を目で探せるようにする（理不尽にしない）
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
@@ -2682,8 +2710,18 @@ export function createBoss(run) {
     state = 'anchorFly';
     // 安全弁の尺（往路＋停止＋復路に余白）。実際の終了は updateAnchor が長さで決める。
     stateT = ak.maxLen / ak.outSpeed + ak.holdSec + ak.maxLen / ak.backSpeed + 0.5;
-    Sound.sfx('wireCannon');
-    run.shake(160, 5);
+    // ★R56 音を専用の3段へ（従来は wireCannon＝マオウレクスのワイヤーアームと共用で、
+    //   しかも duckBgm を呼んでいないためボスBGMに埋もれていた）。
+    //   ⑴射出の砲声 ⑵飛翔中ずっと鳴る鎖（往路の尺ぶんを1回で鳴らし切る）。
+    Sound.sfx('anchorFire', 1);
+    Sound.sfx('anchorChain', (ak.maxLen - boss.radius * 1.05) / ak.outSpeed, 1);
+    run.shake(220, 6);
+    // 砲口の衝撃波と、射線へ伸びる白い筋＝「この線に来る」が形で読める（テロップは足さない）
+    spawnRingFx(t.x, t.y, int(cfg.glowInner), ak.radius * 0.8, ak.radius * 3.4, 0.30, 0.8, 5);
+    for (const s of [-0.06, 0, 0.06]) {
+      spawnStreakFx(t.x, t.y, aim + s, ak.maxLen * 0.45, 0xa8f0ff, 0.26, 0.5, 2);
+    }
+    run.spawnParticles(t.x, t.y, int(cfg.bulletTint), 10);
     recoil(aim);
   }
   function updateAnchor(dt) {
@@ -2693,10 +2731,18 @@ export function createBoss(run) {
       a.len += ak.outSpeed * dt;
       if (a.len >= ak.maxLen) {
         a.len = ak.maxLen; a.phase = 1; a.t = ak.holdSec;
-        Sound.sfx('metalSlam', 0.7, 1.2);   // 鎖が張り切る「ガキン」
-        run.shake(180, 6);
-        run.spawnParticles(boss.x + Math.cos(a.ang) * a.len,
-          boss.y + Math.sin(a.ang) * a.len, int(cfg.bulletTint), 8);
+        // ★R56 鎖が張り切る「ガキン」を専用音へ（metalSlam＝拳の着弾音の流用をやめた）。
+        //   ここが技のいちばん痛そうな瞬間なので、絵も衝撃リング2枚＋火花で張る。
+        Sound.sfx('anchorBite', 1);
+        run.shake(260, 8);
+        const ex = boss.x + Math.cos(a.ang) * a.len, ey = boss.y + Math.sin(a.ang) * a.len;
+        spawnRingFx(ex, ey, 0xffffff, ak.radius * 0.5, ak.radius * 3.0, 0.26, 0.85, 5);
+        spawnRingFx(ex, ey, int(cfg.glowInner), ak.radius * 1.0, ak.radius * 4.6, 0.40, 0.5, 5);
+        for (let k = 0; k < 6; k++) {
+          spawnStreakFx(ex, ey, (Math.PI * 2 * k) / 6, ak.radius * 2.2, 0xa8f0ff, 0.24, 0.6, 2);
+        }
+        run.spawnParticles(ex, ey, int(cfg.bulletTint), 14);
+        run.spawnParticles(ex, ey, 0xffffff, 8);
       }
     } else if (a.phase === 1) {
       a.t -= dt;
@@ -2707,7 +2753,21 @@ export function createBoss(run) {
     }
     const x = boss.x + Math.cos(a.ang) * a.len, y = boss.y + Math.sin(a.ang) * a.len;
     // 戻りは錨がひっくり返る＝「巻き取られている」が向きで分かる
-    a.img.setPosition(x, y).setRotation(a.ang + Math.PI / 2 + (a.phase === 2 ? Math.PI : 0));
+    // ★R56 飛翔中は錨そのものを回す（重い鉄塊が回りながら飛ぶ）。往路と復路で回る向きを
+    //   逆にする＝「射出」と「巻き取り」がひと目で区別できる。
+    a.spin = (a.spin || 0) + dt * (a.phase === 2 ? -9 : 6);
+    a.img.setPosition(x, y)
+      .setRotation(a.ang + Math.PI / 2 + (a.phase === 2 ? Math.PI : 0) + a.spin);
+    // ★R56 先端の火花トレイル。⚠️ 毎フレーム撒くと粒で画面が埋まるので0.05秒に間引く
+    //   （③装飾は飽和側＝276件/分）。停止中（phase 1）は撒かない＝止まっていることが分かる。
+    a.fxT = (a.fxT || 0) - dt;
+    if (a.fxT <= 0 && a.phase !== 1) {
+      a.fxT = 0.05;
+      const back = a.ang + (a.phase === 2 ? 0 : Math.PI);
+      run.spawnParticles(x + Math.cos(back) * ak.radius, y + Math.sin(back) * ak.radius,
+        int(cfg.glowInner), 2);
+      spawnStreakFx(x, y, back, ak.radius * 1.8, 0xa8f0ff, 0.18, 0.45, 2);
+    }
     drawChain(x, y, ak);
     if (!a.hit) {
       const rr = run.player.radius + ak.radius;
@@ -2722,14 +2782,20 @@ export function createBoss(run) {
     if (stateT <= 0) { destroyAnchor(); afterAttack(); }
   }
   // 鎖＝本体と錨を結ぶ点線。線1本にすると「ビーム」に見えるので、必ず粒に切って描く。
+  // ⚠️ 鎖に当たり判定は持たせない（当たるのは錨だけ）＝1つの命中に判定を2つ持たせない原則。
+  // ★R56 実プレイFB「錨の投擲攻撃を…エフェクトも重要」。粒を太く（2.2→3.4）し、
+  //   環の大小を交互にして「鎖」に見せる。粒の数は chainDots 9→14（長さが伸びたので密度を保つ）。
   function drawChain(x, y, ak) {
     if (!anchorGfx) anchorGfx = run.add.graphics().setDepth(10);
     anchorGfx.clear();
     const n = ak.chainDots;
-    anchorGfx.fillStyle(int(cfg.bulletTint), 0.9);
     for (let i = 1; i <= n; i++) {
       const t = i / (n + 1);
-      anchorGfx.fillCircle(boss.x + (x - boss.x) * t, boss.y + (y - boss.y) * t, 2.2);
+      const cx = boss.x + (x - boss.x) * t, cy = boss.y + (y - boss.y) * t;
+      // 交互に大小＝環がつながって見える（同じ大きさの点を等間隔に置くと点線に見える）
+      const big = i % 2 === 0;
+      anchorGfx.fillStyle(int(big ? cfg.glowInner : cfg.bulletTint), big ? 0.95 : 0.8);
+      anchorGfx.fillCircle(cx, cy, big ? 3.4 : 2.4);
     }
   }
   function destroyAnchor() {
@@ -2743,37 +2809,49 @@ export function createBoss(run) {
   //    弾になる経路（Run.enterStagger／capture.onEnemyKilled／billiard.press）が全部これを弾く。
   //    ここで別配列に持たない理由は逆で、run.enemies に載せないと**倒せなくなる**から
   //    （武器・突き・投げの当たり判定はすべて run.enemies を走査している）。
-  function spawnMinirobos() {
+  // ★R56 ハッチが開く瞬間（噴き出しの合図）。ここで湧いているあいだの持続音も鳴らし切る。
+  //   ⚠️ 1体ごとに音を鳴らすと30体で轟音になって1体も聞こえない。**湧いている音は1本**にする。
+  function openRoboHatch() {
     const mk = cfg.minirobo;
-    // spawnEnemy が要求する最小の器。ENEMIES には入れない（湧きプールを汚さない）。
+    Sound.sfx('roboHatch', 1);
+    Sound.sfx('roboSwarm', mk.count * mk.burstInterval, 1);
+    run.shake(240, 7);
+    // ハッチの口＝本体から外へ開くリング2枚（噴き出し口が開いた、を形で見せる）
+    spawnRingFx(boss.x, boss.y, int(cfg.glowInner), boss.radius * 0.35, boss.radius * 1.5,
+      0.30, 0.85, 5);
+    spawnRingFx(boss.x, boss.y, int(mk.tint), boss.radius * 0.6, boss.radius * 2.2,
+      0.46, 0.5, 5);
+    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 16);
+  }
+
+  // ミニロボを1体だけ出す。出せたら true（enemyCap に当たったら false＝呼び出し側が打ち切る）。
+  // ⚠️ 位置は黄金角（2.39996rad）で回す＝連続して出しても同じ方向に固まらず、輪にも見えない
+  //    （等間隔の輪に並べると「置かれた」ように見える。それがR52bの見え方の敗因だった）。
+  function spawnMiniroboOne(mk, i) {
     const mdef = { id: MINIROBO.id, name: MINIROBO.name, color: mk.tint,
                    movement: MINIROBO.movement, hp: 1, speed: mk.speed,
                    damage: mk.damage, radius: mk.radius };
-    let made = 0;
-    for (let i = 0; i < mk.count; i++) {
-      const a = (Math.PI * 2 * i) / mk.count;
-      const x = boss.x + Math.cos(a) * mk.ringRadius;
-      const y = boss.y + Math.sin(a) * mk.ringRadius;
-      const m = run.spawnEnemy(mdef, x, y, false, 1);
-      if (!m) break;                  // enemyCap に当たったら諦める（上限は破らない）
-      m.minion = true;
-      m.noReward = true;              // 倒しても報酬なし（ここが稼ぎ場になると投げの意味が薄まる）
-      m.hp = 1; m.maxHp = 1;          // HP1＝武器でも突きでも一撃で消える
-      m.life = mk.lifeSec;            // 溜めない：寿命で必ず自壊する
-      m.tint = int(mk.tint);
-      m.baseScale = mk.scale;
-      m.spr.setScale(mk.scale);
-      m.glow.setScale(0.8);
-      minions.push(m);
-      run.spawnParticles(x, y, m.tint, 4);
-      made++;
-    }
-    if (made > 0) {
-      Sound.sfx('elite', 0.7, 1.4);
-      Sound.sfx('missileLaunch', 0.5, 1.5);
-      run.shake(180, 5);
-      run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 14);
-    }
+    const a = i * 2.39996 + run.rng.range(-0.22, 0.22);
+    const d = mk.ringRadius * run.rng.range(0.5, 1.0);
+    const x = boss.x + Math.cos(a) * d;
+    const y = boss.y + Math.sin(a) * d;
+    const m = run.spawnEnemy(mdef, x, y, false, 1);
+    if (!m) return false;             // enemyCap に当たったら諦める（上限は破らない）
+    m.minion = true;
+    m.noReward = true;                // 倒しても報酬なし（ここが稼ぎ場になると投げの意味が薄まる）
+    m.hp = 1; m.maxHp = 1;            // HP1＝武器でも突きでも一撃で消える
+    m.life = mk.lifeSec;              // 溜めない：寿命で必ず自壊する
+    m.tint = int(mk.tint);
+    m.baseScale = mk.scale;
+    m.spr.setScale(mk.scale);
+    m.glow.setScale(0.8);
+    minions.push(m);
+    // 噴き出した1体ぶんの粒。⚠️ 30体ぶん撒くので1体は少なく（2粒）＝合計60粒で「湧いた」を作る
+    run.spawnParticles(x, y, m.tint, 2);
+    // 5体ごとに小さな射出音＝「まだ出てくる」が数えられる（快感は数えられること）
+    if (i % 5 === 0) Sound.sfx('missileLaunch', 0.34, 1.7 + (i % 3) * 0.06);
+    if (i % 8 === 0) run.shake(70, 3);
+    return true;
   }
   function updateMinions(dt) {
     for (let i = minions.length - 1; i >= 0; i--) {
@@ -3715,8 +3793,18 @@ export function createBoss(run) {
       d.glow.setVisible(true).setDepth(10).setTint(isGlyph ? 0xffc040 : tint).setAlpha(0.95)
         .setRotation(0).setDisplaySize(r * 5.2, r * 5.2).setPosition(x, y);
     } else {
-      d.glow.setVisible(true).setDepth(6).setTint(0xff2f2f).setAlpha(1)
-        .setRotation(ta).setDisplaySize(r * 4.6, r * 2.6).setPosition(x, y);
+      // ★R56 実プレイFB「各ボスの全方位攻撃の弾が単調かつ退屈」。全方位攻撃だけ
+      //   **尾を長くする**（glowMul）。理由は彗星弾（R35）で使ったのと同じで、
+      //   尾が長いほど同じ速度でも速く見える（モーションブラーと同じ原理）＝
+      //   弾速もダメージも変えずに「危なそう」を上げられる。
+      //   ⚠️ 弾は数が多い（つなみは22発×3枚）ので、**新しいオブジェクトは1つも足さない**。
+      //      既存のグロウ1枚の寸法と色を変えるだけ＝描画コストは増えない。
+      const gm = opts.glowMul || 1;
+      d.glow.setVisible(true).setDepth(6)
+        .setTint(gm > 1 ? 0xff7a3a : 0xff2f2f)      // 尾の長い弾は熱の色を一段明るく
+        .setAlpha(1)
+        .setRotation(ta).setDisplaySize(r * 4.6 * gm, r * 2.6 * (1 + (gm - 1) * 0.35))
+        .setPosition(x, y);
     }
     bullets.push({
       active: true, x, y, vx, vy, kind, r,

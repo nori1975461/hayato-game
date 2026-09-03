@@ -11,8 +11,22 @@ export const BALANCE = {
   //   雑魚の接触は7〜16、遠距離は11〜28。無敵0.55秒なので接触され続けると最悪29HP/秒＝100では約3.5秒で死ぬ。
   //   140にすると約4.8秒。あわせて gemHeal（ジェルを一定数拾うと回復）を入れて、逃げるだけでなく
   //   「拾いに行って立て直す」という選択肢を作る。
+  // ★R56 実プレイFB「敵の弾が主人公に当たったときの感触が感じられない。当たった時に『やられた！』と
+  //   わかる手ごたえを付けて」。調べたら**演出は全部入っていた**が、強さを決める重みが死んでいた：
+  //   Run.hitPlayer は `ratio = dmg / maxHp` で音・揺れ・赤フラッシュ・ヒットストップを一斉に決めるが、
+  //   maxHp=140 に対して実際に飛んでくるダメージは 12〜40（spiral14／flypass15／rollrush20／tsunami20／
+  //   rollbomb26／barrage30／armslam34／dash40／minirobo12）。つまり **ratio は 0.086〜0.286 しか
+  //   取らず、設計の0〜1の上側7割が一度も使われない**＝毎回いちばん弱い版が鳴っていた。
+  //   （ヒットストップは 0.051〜0.070秒＝3〜4フレームで体感の閾値以下。hurt() の「装甲がへこむ軋み」は
+  //     w>0.25 の条件付きなのでほぼ全ての被弾で鳴っていなかった。）
+  //   → 重みは maxHp ではなく**実際に飛んでくる最大ダメージ**を基準にする。40 = dash（作中最大）。
+  //   ⚠️ 必ず clamp すること（将来もっと痛い攻撃が増えても壊れない）。
+  //   ⚠️ 被弾は1ランで何十回も起きる**高頻度イベント**。だから強くするのは「音の芯・ヒットストップ・
+  //      短い強い揺れ」で、画面を塗る面積（全画面フラッシュ）は上限 0.44 のまま増やさない
+  //      ＝振幅は頻度と逆相関（R21W2の原則）。
   player: { hp: 140, speed: 148, invulnSec: 0.55, radius: 7,   // R21W2: 0.8秒では96px分を素通りできた
-            hurtKnockback: 150, hurtKnockSec: 0.18, lowHpRatio: 0.3 },
+            hurtKnockback: 150, hurtKnockSec: 0.18, lowHpRatio: 0.3,
+            hurtWeightRef: 40 },
 
   // 主人公＝近接のみ（R14・SPEC§22）。主武器は拳（クラッシュアーム）。銃は全廃し、
   // 変身（＝ゆりかごの腕の復元）で「腕の技」が解放される：Stage2 ワイヤーアーム／Stage3 アームスラム。
@@ -1216,7 +1230,13 @@ export const BALANCE = {
         hp: 11000, radius: 72, spriteScale: 9, glowScale: 10,
         glowOuter: '#38e1ff', glowInner: '#a8f0ff',
         chaseSpeed: 60, bodyDamage: 22,
-        attacks: ['wavecannon', 'anchor', 'tsunami', 'armslam', 'summon'],
+        // ★R56 実プレイFB「錨の投擲攻撃をもっと頻繁にして。一度しか確認できなかった」。
+        //   攻撃は配列の**単純な巡回**（boss.js の attackList()[attackIdx % length]）なので、
+        //   5種のうち1つ＝5回に1回しか出ていなかった。配列に 'anchor' をもう1つ入れて 2/6 へ
+        //   （＝巡回方式のまま頻度だけ倍にする最小の手。他の技は1つも消していない）。
+        //   ⚠️ 並びは「錨→別の技→錨」になるよう離して置く。続けて2回撃たせると、
+        //      往復2.2秒の技が4.4秒続いて他の技が消えたように見える。
+        attacks: ['wavecannon', 'anchor', 'tsunami', 'anchor', 'armslam', 'summon'],
         wavecannon: { chargeSec: 1.2, beamWidth: 44, beamLength: 260, damage: 34,
                       sweepDeg: 18, activeSec: 0.5 },
         // ★R52b 署名攻撃②「アンカーショット」＝錨の射出（ユーザー案「アンカーを射出して
@@ -1226,8 +1246,19 @@ export const BALANCE = {
         //   ⚠️ 公平性：射線は発射の瞬間に固定（追尾しない）。往路 maxLen 300px を 1.0秒かけて
         //      進むので、錨14＋主人公7＝21px 外すのに必要な横移動は0.14秒ぶん＝走れば余裕で外れる。
         //      復路も同じ線を戻るだけなので、線から離れていれば当たらない。
-        anchor: { telegraphSec: 0.7, maxLen: 300, outSpeed: 300, holdSec: 0.18, backSpeed: 380,
-                  radius: 14, damage: 26, chainDots: 9 },
+        // ★R56 実プレイFB「もっと長さも必要。短くて脅威に感じない」。
+        //   maxLen 300→470（画面は640×360＝中心から隅まで367px。300では**画面の端にいれば
+        //   届かない**＝脅威にならなかった。470で画面のほぼ全域へ届く）。
+        //   速度も上げる（outSpeed 300→420／backSpeed 380→520）。⚠️ 長くしたぶん往復の尺が
+        //   伸びて他の技が出なくなるのを防ぐため：旧 1.00+0.18+0.79＝1.97秒 →
+        //   新 1.12+0.18+0.90＝2.20秒（+0.23秒に収めた）。
+        //   ⚠️ 公平性の再計算：射線は発射の瞬間に固定（追尾しない）ままなので、
+        //      **横に走れば必ず外れる**性質は変わらない。距離200pxにいる主人公の前を
+        //      錨が通るのは発射から (200-55)/420 = 0.35秒後で、そのあいだに主人公は
+        //      148×0.35 = 51px 横へ動ける ＞ 必要な 21px（錨14＋主人公7）。
+        //      予告 0.7秒（本体が振りかぶる）も据え置き＝「来る」を読む時間は減っていない。
+        anchor: { telegraphSec: 0.7, maxLen: 470, outSpeed: 420, holdSec: 0.18, backSpeed: 520,
+                  radius: 14, damage: 26, chainDots: 14 },
         // ★署名攻撃（R29）：つなみウェーブ。全方位に広がる弾の"壁"を3枚。ただし各波に切れ目が
         //   1箇所だけあり、そこを通れば無傷で抜けられる。切れ目は波ごとに回るので、
         //   「弾を避ける」ではなく「抜け道を探して走る」＝ウェイブロードだけの遊びになる。
@@ -1251,7 +1282,9 @@ export const BALANCE = {
         ring: { telegraphSec: 0.5, count: 9, count2: 13, bulletSpeed: 185,
                 bulletRadius: 4, damage: 16, lifeSec: 2.8 },
         summon: { count: 6, enemyId: 'chibit', ringRadius: 65, telegraphSec: 0.6 },
-        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.4, 2.6, 2.0, 2.5] },
+        // ★R56 attacks を6種（錨を2枠）にしたので、こちらも6個へ。錨の後（3番目・5番目）は
+        //   往復2.2秒の技が終わった直後なので、少し短めにして手数が落ちないようにする。
+        idleSec: { afterSpawn: 3, betweenAttacks: [2.5, 2.4, 2.2, 2.6, 2.0, 2.5] },
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.7, phase2DashSpeedMult: 1.15,
         rageText: 'ウェイブロード かくせい！', bulletTint: '#a8f0ff',
         rewardCoins: 300, deathCinematicSec: 1.6,
@@ -1281,7 +1314,18 @@ export const BALANCE = {
         //      minion フラグを弾いている（＝弾になる経路は全部この3つを通る）。
         //   ⚠️ 画面に溜めない：lifeSec で必ず自壊する（無音・無報酬＝取りこぼしても損だけ）。
         //      速度118は主人公148より遅い＝走って引き離せる（囲まれるのは足を止めたとき）。
-        minirobo: { telegraphSec: 0.7, count: 9, ringRadius: 74, speed: 118, radius: 6,
+        // ★R56 実プレイFB「子ロボットバラマキも数が少なすぎる。もっと大量に噴射する感じで。
+        //   アリの巣を壊したら大量にアリがわいてくるあの感じ」。
+        //   ⚠️ 「わいてくる」の正体は**数ではなく湧き続ける時間**だった。旧実装は9体を
+        //      1フレームで輪に並べて出すだけ＝「置かれた」ので、増やしても湧いて見えない。
+        //      count 9→30 に増やしたうえで、**burstInterval 0.05秒ごとに1体ずつ 1.5秒かけて
+        //      噴き出す**形へ変えた（pour）。出る位置も黄金角＋ばらつきで散らす。
+        //   ⚠️ 1体の脅威は上げない（damage 12・lifeSec 7.0・speed 118＝主人公148より遅い
+        //      ＝走れば引き離せる、は据え置き）。増えるのは「数」だけ。
+        //   ⚠️ 同時出現上限は 300秒時点で 190（capSteps）。雑魚が多い場面でも30体ぶんの
+        //      余地はあるが、上限に当たったら spawnEnemy が null を返すので**そこで止める**。
+        minirobo: { telegraphSec: 0.7, count: 30, burstInterval: 0.05, ringRadius: 74,
+                    speed: 118, radius: 6,
                     damage: 12, lifeSec: 7.0, scale: 1.6, tint: '#ff8a3d' },
         // ★署名攻撃（R29）：ぜんだんはっしゃ（フルバレッジ）。背中のミサイルラックから全弾を
         //   真上へ打ち上げ、主人公の周りへ着弾予告マーカーが次々に降り、時間差で爆発する絨毯爆撃。
