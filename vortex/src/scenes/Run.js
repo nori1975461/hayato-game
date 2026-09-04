@@ -69,11 +69,19 @@ export class RunScene extends Phaser.Scene {
     //   親子で比べるための短いループ＝10秒でコロガンナーが出て、倒したらタイトルへ戻る。
     //   ⚠️ここも入口は scene のデータ1本（practiceMode と同じ理由。URLパラメータは持たせない）。
     this.trialMode = !!(data && data.bossTrial);
+    // ★R57 すっきりモード（タイトルの S キー）。**本編を丸ごと**「がめん すっきり」で遊ぶ。
+    //   実プレイFB「明日、息子に情報量を抑えたクルット・モビットをプレイして感想をもらう。
+    //   プレイ中に切り替えをするのではなく、本番を丸ごとにしたモードを」。
+    //   ⚠️ おためし（Rキー）との違いは**尺だけ**：あちらは1面ボスで終わるが、こちらは本編そのもの。
+    //      見え方の中身は infoLevel=2 で完全に同じものを使う＝おためしで見た画面と地続きになる
+    //      （ここで独自の「すっきり」を作ると、比べた結果がどちらの話か分からなくなる）。
+    //   ⚠️ 入口は scene のデータ1本（practiceMode と同じ理由）。
+    this.tidyRun = !!(data && data.tidyRun);
     this._trialDone = false;   // シーンは再利用されるので再入のたびに戻す
     this._infoDmgT = null;     // 数字間引きの時計も戻す（elapsed が巻き戻るので、残すと数字が長く消える）
     // 情報レベル。0=ふつう（従来と完全に同じ）／1=ひかえめ（③装飾を間引く）／2=すっきり（②HUDも整理）。
-    // ⚠️ おためしモード以外では 0 から動かない＝本番の見え方は1ドットも変わらない。
-    this.infoLevel = 0;
+    // ⚠️ おためし／すっきりモード以外では 0 から動かない＝本番の見え方は1ドットも変わらない。
+    this.infoLevel = this.tidyRun ? 2 : 0;
     const V = window.VORTEX || {};
     this.seed = V.seed || 20260720;
     this.rng = createRng(this.seed);
@@ -257,6 +265,14 @@ export class RunScene extends Phaser.Scene {
       //   通常版の一面を通して情報量を比べたい」）。おためしの違いは
       //   「Iキーで情報レベルを切り替えられる」「コロガンナー撃破で終わる」の2点だけ。
       this.createInfoIndicator();
+    } else if (this.tidyRun) {
+      // ★R57 すっきりモードは**常時インジケータを出さない**。画面を静かにするのが目的なのに、
+      //   その説明を画面に貼り続けたら本末転倒になる。開始の数秒だけ名乗って消える形にする
+      //   ＝「いまどっちで遊んでいるか」は分かるが、プレイ中の画面には残らない。
+      this.time.delayedCall(600, () => {
+        if (!this.scene.isActive() || this.ended) return;
+        if (this.fx) this.fx.announce(INFO_LEVELS[2].label, INFO_LEVELS[2].color);
+      });
     }
   }
 
@@ -409,7 +425,7 @@ export class RunScene extends Phaser.Scene {
   restartRun() {
     if (this.withAudio) Sound.stopBgm();
     this.scene.restart({ withAudio: this.withAudio, practice: this.practiceMode,
-      bossTrial: this.trialMode });
+      bossTrial: this.trialMode, tidyRun: this.tidyRun });
   }
 
   // v3でドラフトUIは廃止（★は自動強化）。外部参照の保険として no-op で残す。

@@ -59,13 +59,18 @@ export class TitleScene extends Phaser.Scene {
       this.squad.push({ g, spr, x, y: 248, phase: i * 1.3 });
     }
 
-    this.add.text(W / 2, 324, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
+    this.add.text(W / 2, 322, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#7fffcf',
     }).setOrigin(0.5);
     // ★おためしモードの入口。実プレイFB「画面内に情報量が多くて処理しきれない」を
     //   短いループで比べるための場所なので、切替キー(I)まで含めてここに書いておく
     //   （本編を1周してから気づく作りだと、比べる前に疲れる）。
-    this.add.text(W / 2, 340, 'R キー で 1めんボス おためし（I キーで じょうほうりょう きりかえ）', {
+    this.add.text(W / 2, 336, 'R キー で 1めんボス おためし（I キーで じょうほうりょう きりかえ）', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
+    }).setOrigin(0.5);
+    // ★R57 すっきりモードの入口。おためし(R)は1面で終わるので「本編を最後まですっきりで遊ぶ」が
+    //   できなかった。感想をもらうには本編を通しで遊べる必要があるので、専用の入口を分ける。
+    this.add.text(W / 2, 350, 'S キー で ほんぺんを がめんすっきりで あそぶ', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
     }).setOrigin(0.5);
 
@@ -75,9 +80,18 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '10px', color: '#40506a',
     }).setOrigin(0, 1);
 
-    const prompt = this.add.text(W / 2, 306, 'SPACE か クリックで スタート', {
-      fontFamily: 'monospace', fontSize: '15px', color: '#ffffff',
-    }).setOrigin(0.5);
+    // ★R57 一度 S キーで入ったら、そのあとは SPACE でもすっきりのまま始まる。
+    //   ⚠️ これは飾りではなく**テストを守るための仕掛け**。死ぬと リザルト→タイトル へ戻るので、
+    //      戻った先で点滅している「SPACE でスタート」を押すと、本人は気づかないまま
+    //      **ふつうの画面で遊び続けてしまう**＝感想がどちらの話か分からなくなる。
+    //      いま何で始まるのかを必ず文字に出し、戻す手段（N キー）も同じ行に書く。
+    const sticky = !!(window.VORTEX && window.VORTEX.tidySticky);
+    const prompt = this.add.text(W / 2, 306,
+      sticky ? 'SPACE で スタート（がめん すっきり）　N キーで ふつうに もどす'
+             : 'SPACE か クリックで スタート', {
+        fontFamily: 'monospace', fontSize: sticky ? '13px' : '15px',
+        color: sticky ? '#ffcd75' : '#ffffff',
+      }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.25, duration: 650,
       yoyo: true, repeat: -1 });
 
@@ -110,6 +124,24 @@ export class TitleScene extends Phaser.Scene {
       Sound.init();
       this.scene.start('Run', { withAudio: true, bossTrial: true });
     });
+    // ★R57 すっきりモード：**本編そのもの**を最初から「がめん すっきり」で遊ぶ。
+    //   ⚠️ プレイ中の切替（Iキー）は効かせない。感想をもらうのが目的なので、
+    //      途中で押して見え方が変わると「どっちの感想か」が分からなくなる（おためしとは狙いが違う）。
+    this.input.keyboard.once('keydown-S', () => {
+      if (this._started) return;
+      this._started = true;
+      window.VORTEX = window.VORTEX || {};
+      window.VORTEX.tidySticky = true;   // 死んで戻ってきても、そのまますっきりで続けられる
+      Sound.init();
+      this.scene.start('Run', { withAudio: true, tidyRun: true });
+    });
+    // すっきりを解除して、ふつうの画面に戻す。⚠️ 解除できないと「元に戻すには再読み込み」に
+    //   なってしまい、親子で見比べるときに手間が増える（比べるのがこのモードの目的なので）。
+    this.input.keyboard.on('keydown-N', () => {
+      if (this._started || !sticky) return;
+      window.VORTEX.tidySticky = false;
+      this.scene.restart();             // 表示（いま何で始まるか）を書き直すため入り直す
+    });
     this.time.delayedCall(450, () => { this.input.once('pointerdown', begin); });   // R21W2: 残クリック対策
   }
 
@@ -130,6 +162,8 @@ export class TitleScene extends Phaser.Scene {
   startRun(withAudio) {
     // ?practice=1 を付けて開いたときは、ふつうの開始でもれんしゅうじょうへ入る（検証用の近道）
     const V = window.VORTEX || {};
-    this.scene.start('Run', { withAudio: !!withAudio, practice: !!V.practice });
+    // ★R57 一度 S で入っていたら SPACE／クリックでもすっきりのまま始める（上の注釈の理由）。
+    this.scene.start('Run', { withAudio: !!withAudio, practice: !!V.practice,
+      tidyRun: !!V.tidySticky });
   }
 }

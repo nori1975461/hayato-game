@@ -2299,7 +2299,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const oHero = /targets: this\.hero, x: cx, y: 236, scale: ([\d.]+)/.exec(op);
     assert(!!tHero && !!oHero && tHero[1] === oHero[1],
       `R41: 収束の自機スケールが Title と一致（Title ${tHero && tHero[1]} / Opening ${oHero && oHero[1]}）`);
-    const tPr = /this\.add\.text\(W \/ 2, (\d+), 'SPACE か クリックで スタート'/.exec(title);
+    // ⚠️ 文字列そのものは条件で変わりうる（R57ですっきり継続中は別の文言になる）。
+    //    ここで縛りたいのは**y座標だけ**なので、文言の直前までを緩く飛ばして拾う。
+    const tPr = /this\.add\.text\(W \/ 2, (\d+),[\s\S]{0,160}?'SPACE か クリックで スタート'/.exec(title);
     const oPr = /this\.add\.text\(cx, (\d+), 'SPACE か クリックで スタート'/.exec(op);
     assert(!!tPr && !!oPr && tPr[1] === oPr[1],
       `R41: プロンプトのy座標が Title と一致（Title ${tPr && tPr[1]} / Opening ${oPr && oPr[1]}）`);
@@ -3909,7 +3911,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ⑤ Run 側の既定値と、I キーが trialMode 中しか効かないこと ---
   assert(/this\.trialMode = !!\(data && data\.bossTrial\);/.test(runjs),
     'R51: おためしの入口は scene のデータ1本（window.VORTEX を見ない＝抜けられなくならない）');
-  assert(/this\.infoLevel = 0;/.test(runjs),
+  // ★R57 で「本編を丸ごとすっきり」(tidyRun) を足したので、既定値は三項式になった。
+  //   縛る中身は変わらない＝**すっきりモード以外は 0**（通常スタート／れんしゅうじょう／autotest が
+  //   従来と1ドットも変わらないこと）。
+  assert(/this\.infoLevel = this\.tidyRun \? 2 : 0;/.test(runjs),
     'R51: infoLevel の既定は 0 ＝通常スタート／れんしゅうじょう／autotest は従来と完全に同じ');
   assert(/keydown-I'[\s\S]{0,160}?if \(!this\.trialMode \|\| this\.paused \|\| this\.ended\) return;/.test(runjs),
     'R51: I キーはおためし中だけ効く（本番で誤爆しても何も起きない）');
@@ -4516,7 +4521,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R54: spawnRingFx が depth を受け取る（既定12＝従来の呼び出しは不変）');
   assert(/setDepth\(5\)\s*\n?\s*\.setTint\(tint\)\.setOrigin\(0, 0\.5\)/.test(boss),
     'R54: スピードラインは depth 5（弾より下）');
-  assert((boss.match(/, 5\);\n/g) || []).length >= 5,
+  // ⚠️ 改行は \r?\n で見る。Windows の git 設定（autocrlf）で作業ツリーが CRLF に
+  //    書き換わることがあり、\n 直書きだと**コードは正しいのに落ちる**（実際に踏んだ）。
+  assert((boss.match(/, 5\);\r?\n/g) || []).length >= 5,
     'R54: 新しいリングは depth 5 を明示して呼ばれている');
   // 間引き：転がりの土煙とシェイクは毎フレームではない
   assert(/rushDustT = 0\.07;/.test(boss) && /rushShakeT = 0\.11;/.test(boss),
@@ -4820,6 +4827,67 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(maou.missile.count === 7 && maou.nova.bulletSpeed === 265,
       'R56: マオウレクスの数値は1つも変えていない');
   }
+}
+
+// ============ R57 すっきりモード（本編を丸ごと「がめん すっきり」で遊ぶ） ============
+// 実プレイFB「明日、息子に情報量を抑えたクルット・モビットをプレイして感想をもらう。そのために、
+// 『がめんすっきり』へプレイ中に切り替えをするのではなく、本番を丸ごとにしたモードを作成してほしい」。
+// ⚠️ ここで縛るのは「おためし(R)と見え方の中身が同じであること」と「本編に漏れないこと」の2点。
+//    独自の"すっきり"を作ると、おためしで得た感想と地続きにならない＝比べた意味がなくなる。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const runjs = read('scenes/Run.js');
+  const title = read('scenes/Title.js');
+
+  // --- ① 入口：タイトルの S キー。data 1本で渡す（URLパラメータを持たせない＝抜けられなくならない） ---
+  assert(/keydown-S'/.test(title) && /scene\.start\('Run', \{ withAudio: true, tidyRun: true \}\)/.test(title),
+    'R57: タイトルの S キーで「本編を丸ごとすっきり」に入る（入口は scene のデータ1本）');
+  assert(/S キー で ほんぺんを がめんすっきりで あそぶ/.test(title),
+    'R57: 入口はタイトルに書いてある（遊ぶ前に見つけられる）');
+  assert(/this\.tidyRun = !!\(data && data\.tidyRun\);/.test(runjs),
+    'R57: Run 側も入口は data 1本（window.VORTEX を見ない）');
+
+  // --- ② 見え方は「おためしの2段目」と同じものを使う（独自実装を増やさない） ---
+  assert(/this\.infoLevel = this\.tidyRun \? 2 : 0;/.test(runjs),
+    'R57: すっきりモードは infoLevel=2 ＝おためしの「がめん すっきり」と同じ中身');
+  const gates = [
+    ['systems/billiard.js', /run\.infoLevel >= 1/],
+    ['systems/fx.js', /run\.infoLevel >= 2/],
+    ['ui/hud.js', /run\.infoLevel >= 2/],
+  ];
+  for (const [rel, re] of gates) {
+    assert(re.test(read(rel)),
+      `R57: ${rel} の間引きは infoLevel だけで決まる（モードごとの分岐を増やさない）`);
+  }
+
+  // --- ③ 本編に漏れない：既定は 0 のまま。おためし用の I キーは trialMode 限定のまま ---
+  assert(/if \(!this\.trialMode \|\| this\.paused \|\| this\.ended\) return;\s*\r?\n\s*this\.cycleInfoLevel\(\);/.test(runjs),
+    'R57: I キーは今までどおり**おためし中だけ**（すっきりモードは途中で見え方が変わらない）');
+  assert(!/tidyRun[\s\S]{0,80}cycleInfoLevel/.test(runjs),
+    'R57: すっきりモードから情報レベルを動かす経路は作らない（感想がどちらの話か分からなくなる）');
+
+  // --- ④ 常時インジケータは出さない（画面を静かにするのが目的なのに説明を貼り続けない） ---
+  assert(/if \(this\.trialMode\) \{[\s\S]{0,400}?this\.createInfoIndicator\(\);[\s\S]{0,80}?\} else if \(this\.tidyRun\) \{/.test(runjs),
+    'R57: 常時インジケータは**おためしだけ**（すっきりは開始時に名乗って消えるだけ）');
+  assert(/this\.tidyRun[\s\S]{0,400}?fx\.announce\(INFO_LEVELS\[2\]\.label/.test(runjs),
+    'R57: 開始時に一度だけ「がめん すっきり」と名乗る（どっちで遊んでいるか分かる）');
+
+  // --- ⑤ 中断→やりなおし（ポーズ中の R）でモードが外れない ---
+  assert(/scene\.restart\(\{[\s\S]{0,160}?tidyRun: this\.tidyRun \}\)/.test(runjs),
+    'R57: やりなおしてもすっきりのまま（途中で普通の画面に戻らない）');
+
+  // --- ⑥ 死んで戻ってきても続けられる（ここが抜けると感想が混ざる） ---
+  // ⚠️ 実際の動線は Run→Result→Title。Title の点滅プロンプト（SPACE）を押すと、
+  //    本人は気づかないまま**ふつうの画面**で遊び続けてしまう＝テストが台無しになる。
+  assert(/window\.VORTEX\.tidySticky = true;/.test(title),
+    'R57: S で入ったことを憶えている（死んで戻っても続けられる）');
+  assert(/tidyRun: !!V\.tidySticky/.test(title),
+    'R57: 憶えているときは SPACE／クリックでもすっきりで始まる');
+  assert(/sticky \? 'SPACE で スタート（がめん すっきり）/.test(title),
+    'R57: いま何で始まるのかが画面の文字に出ている（黙って変えない）');
+  assert(/keydown-N'/.test(title) && /tidySticky = false;/.test(title),
+    'R57: N キーでふつうに戻せる（見比べるのが目的なので、戻す手段を必ず用意する）');
 }
 
 if (failures > 0) {
