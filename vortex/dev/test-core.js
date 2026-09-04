@@ -9,7 +9,7 @@ import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
-import { createTimeStopGovernor, installTimeStopGovernor } from '../src/systems/timestop.js';
+import { createTimeStopGovernor, installTimeStopGovernor, crowdLevel } from '../src/systems/timestop.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -4990,6 +4990,104 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     ? runjs.indexOf('if (this.freezeT > 0) {\n', tickAt) : runjs.indexOf('if (this.freezeT > 0) {\r\n', tickAt);
   assert(tickAt > 0 && freezeReturnAt > tickAt,
     'R58: tick のあとに凍結の早期 return が来る（凍結中も記帳される）');
+}
+
+// ============ R59 混雑時の「止める回数」制限＋処理の記録 ============
+// 実プレイFB（R58公開後）「まだストップモーションになる。3体目・4体目のボスのとき、敵が多すぎる時」。
+// 実測（r58b-boss-crowd-diag・ボス戦＋敵94〜133体）：止まる割合は 27〜31% で予算どおりなのに、
+// 止まる区間が 3.1〜3.5 回/秒×4〜5フレーム（通常 2.4 回/秒）。時間の合計では回数を縛れない。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const runjs = read('scenes/Run.js'), resultjs = read('scenes/Result.js'), endingjs = read('scenes/Ending.js');
+  const TS = BALANCE.hitFeel.timeStop, CR = TS.crowd;
+
+  // --- ① 設定の形 ---
+  assert(CR && CR.lo >= 20 && CR.hi > CR.lo && CR.gapSec > 0 && CR.gapSec <= 1.2 && CR.bigSec >= 0.1 && CR.bigSec <= 0.16,
+    'R59: timeStop.crowd が {lo<hi, 0<gapSec<=1.2, 0.1<=bigSec<=0.16} を持つ（被弾0.16は必ず素通りする帯）');
+  assert(crowdLevel(11, TS) === 0 && crowdLevel(CR.lo, TS) === 0 && crowdLevel(CR.hi, TS) === 1
+    && crowdLevel(94, TS) > 0.5 && crowdLevel(300, TS) === 1,
+    'R59: crowdLevel は通常（11体）で 0＝従来と同じ、lo で 0、hi 以上で 1、94体で 0.5 超');
+
+  // --- ② 60fps の模擬：止まる「回数」（区間の始まり/秒）を数える ---
+  function sim(events, seconds, crowd) {
+    const gov = createTimeStopGovernor(TS);
+    const dt = 1 / 60;
+    let freeze = 0, slow = 0, slowMul = 1, stopped = 0, t = 0, episodes = 0, wasStop = false;
+    const next = events.map((e) => e.every);
+    for (let f = 0; f < seconds * 60; f++, t += dt) {
+      events.forEach((e, i) => {
+        if (t + 1e-9 < next[i]) return;
+        next[i] += e.every;
+        if (e.mul != null) {
+          const inc = Math.max(0, e.sec - slow);
+          slow += gov.grant(inc, Math.max(0.7, 1 - e.mul)); slowMul = e.mul;
+        } else if (e.sec > freeze) {
+          // installTimeStopGovernor の setter と同じ順：新しい区間なら allowEpisode → grant
+          if (freeze <= 0 && slow <= 0 && !gov.allowEpisode(e.sec, crowd)) return;
+          freeze += gov.grant(e.sec - freeze, 1);
+        }
+      });
+      gov.tick(dt, freeze > 0, slow > 0 ? slowMul : 1);
+      const stop = freeze > 0 || slow > 0;
+      if (stop && !wasStop) episodes++;
+      wasStop = stop;
+      if (freeze > 0) { freeze -= dt; stopped += dt; continue; }
+      if (slow > 0) { slow -= dt; stopped += dt * (1 - slowMul); if (slow <= 0) slowMul = 1; }
+    }
+    return { duty: stopped / seconds, eps: episodes / seconds };
+  }
+  // 通常（実測 2.4回/秒・22%）
+  const QUIET = [{ every: 0.55, sec: 0.06 }, { every: 1.2, sec: 0.12 }, { every: 2.5, sec: 0.09 }];
+  // ボス4戦＋敵130体の実測発火率（30秒・r58b）：自動パンチ31／被弾23（0.16）／貫通16（0.075）／
+  //   着弾17（0.09）／着弾800 9（0.09）／一気消し21（0.10）／スロー10（0.30@0.38）
+  const BOSS4 = [{ every: 0.97, sec: 0.06 }, { every: 1.3, sec: 0.16 }, { every: 1.9, sec: 0.075 },
+    { every: 1.8, sec: 0.09 }, { every: 3.3, sec: 0.09 }, { every: 1.4, sec: 0.10 }, { every: 3.0, sec: 0.30, mul: 0.38 }];
+  const q0 = sim(QUIET, 40, 0), q1 = sim(QUIET, 40, 1);
+  const b0 = sim(BOSS4, 40, 0), b1 = sim(BOSS4, 40, 1), bMid = sim(BOSS4, 40, crowdLevel(94, TS));
+  assert(q0.eps > 1.5 && q0.eps < 3.2,
+    `R59: 模擬の通常は実測（2.4回/秒）と同じ帯にある（${q0.eps.toFixed(2)}回/秒）`);
+  assert(q1.eps < q0.eps,
+    `R59: 制限は「敵の数」で決まる＝同じ通常パターンでも crowd=1 なら回数が減る（${q0.eps.toFixed(2)} → ${q1.eps.toFixed(2)}回/秒）`);
+  assert(b0.eps > 2.6,
+    `R59: 模擬のボス4戦は制限なしだと実測（3.1回/秒）の帯で細切れ（${b0.eps.toFixed(2)}回/秒）＝再現できている`);
+  assert(b1.eps < 2.0 && b1.eps > 0.8,
+    `R59: 敵 hi 体以上では止まる回数が 2回/秒未満へ（${b0.eps.toFixed(2)} → ${b1.eps.toFixed(2)}回/秒・被弾は素通り）`);
+  assert(bMid.eps < b0.eps && bMid.eps > b1.eps,
+    `R59: 94体（crowd ${crowdLevel(94, TS).toFixed(2)}）は中間（${bMid.eps.toFixed(2)}回/秒）＝段差なく効く`);
+  assert(b1.duty > 0.10 && b1.duty < 0.34,
+    `R59: 回数を絞っても止める時間は残る（${(b1.duty * 100).toFixed(1)}%）＝手応えを消していない`);
+
+  // --- ③ アクセサの振る舞い：敵が多いときだけ、新しい小さな停止に間隔が要る。大きな要求は素通り ---
+  {
+    const fake = { slowMul: 1, enemies: new Array(150) };
+    const gov = installTimeStopGovernor(fake, TS);
+    fake.freezeT = 0.05; assert(fake.freezeT > 0, 'R59: 最初の停止は敵が多くても通る（間隔は「前の停止から」数える）');
+    while (fake.freezeT > 0) { gov.tick(1 / 60, true, 1); fake.freezeT -= 1 / 60; }
+    fake.freezeT = 0; gov.tick(1 / 60, false, 1);   // 区間が終わる
+    fake.freezeT = 0.05; assert(fake.freezeT === 0, 'R59: 敵150体で直後の小さな停止（0.05）は見送る');
+    fake.freezeT = 0.16; assert(fake.freezeT > 0, 'R59: 被弾級（0.16）は間隔を待たずに通る');
+    fake.freezeT = 0.20; assert(fake.freezeT > 0.16, 'R59: 止まっている最中の延長は「新しい区間」ではないので通る');
+    while (fake.freezeT > 0) { gov.tick(1 / 60, true, 1); fake.freezeT -= 1 / 60; }
+    fake.freezeT = 0;
+    for (let i = 0; i < 60 * CR.gapSec + 2; i++) gov.tick(1 / 60, false, 1);
+    fake.freezeT = 0.05; assert(fake.freezeT > 0, 'R59: gapSec 空けば小さな停止も通る');
+    const few = { slowMul: 1, enemies: new Array(10) };
+    const gov2 = installTimeStopGovernor(few, TS);
+    few.freezeT = 0.05; while (few.freezeT > 0) { gov2.tick(1 / 60, true, 1); few.freezeT -= 1 / 60; }
+    few.freezeT = 0; gov2.tick(1 / 60, false, 1);
+    few.freezeT = 0.05; assert(Math.abs(few.freezeT - 0.05) < 1e-9, 'R59: 敵10体なら間隔なし＝従来と完全に同じ');
+  }
+
+  // --- ④ 処理の記録の配線（Run が数え、Ending 経由でも Result に届き、Result が小さく出す） ---
+  assert(/this\.perf = \{ frames: 0, ms: 0, slow: 0, clamp: 0 \};/.test(runjs), 'R59: Run.create が perf を初期化');
+  assert(/if \(delta > 33\.4\) this\.perf\.slow\+\+;\s*\r?\n\s*if \(delta > 50\) this\.perf\.clamp\+\+;/.test(runjs),
+    'R59: Run.update が 30fps割れ（>33.4ms）と dtクランプ（>50ms）を数える');
+  assert(/perf: this\.perf,/.test(runjs), 'R59: endRun の payload に perf が入る');
+  assert(/perf: d\.perf|perf: data\.perf|\.\.\.d\b|\.\.\.data\b|perf:/.test(endingjs.slice(endingjs.indexOf("scene.start('Result'"))),
+    'R59: Ending が Result へ perf を渡す（クリア時も出る）');
+  assert(/d\.perf && d\.perf\.frames > 0/.test(resultjs) && /fontSize: '10px'/.test(resultjs),
+    'R59: Result が perf を 10px の小さな字で出す（子どもの目に入らない大きさ）');
 }
 
 if (failures > 0) {

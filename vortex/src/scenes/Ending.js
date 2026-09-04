@@ -538,6 +538,7 @@ export class EndingScene extends Phaser.Scene {
     this.scene.start('Result', {
       clear: true, bossDefeated: true, withAudio: !!d.withAudio,
       elapsed: d.elapsed, kills: d.kills, captures: d.captures, coins: d.coins, party: d.party,
+      perf: d.perf,   // R59: 処理の記録（クリア時も Result に届ける）
     });
   }
 }

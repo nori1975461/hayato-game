@@ -106,6 +106,19 @@ export class ResultScene extends Phaser.Scene {
       }
     }
 
+    // R59: 処理の記録（親向け・小さく）。「ゆっくり／コマ送り」の訴えが**そのPCの処理落ち**なのか
+    //   演出（ヒットストップ）なのかを、開発機でなく**遊んだ機械の数字**で切り分けるため。
+    //   Run.update の delta を数えたもの：平均fps／30fpsを割ったフレームの割合／50msを超えて
+    //   ゲーム時間が遅れた（dtクランプ）フレームの割合。
+    if (d.perf && d.perf.frames > 0) {
+      const p = d.perf;
+      const fps = p.frames / Math.max(0.001, p.ms / 1000);
+      const pct = (n) => (n / p.frames * 100).toFixed(1);
+      this.add.text(6, H - 4, `しょり ${fps.toFixed(0)}fps・30fpsわれ ${pct(p.slow)}%・おくれ ${pct(p.clamp)}%`, {
+        fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8',
+      }).setOrigin(0, 1).setAlpha(0.85);
+    }
+
     // 操作案内
     const prompt = this.add.text(W / 2, 338, 'R か クリックで タイトルへ', {
       fontFamily: 'monospace', fontSize: '14px', color: '#ffffff',

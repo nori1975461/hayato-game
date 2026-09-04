@@ -111,6 +111,8 @@ export class RunScene extends Phaser.Scene {
     this.timeStop = installTimeStopGovernor(this, BALANCE.hitFeel.timeStop);
     this.freezeT = 0;
     this.slowT = 0;
+    // R59: 処理の記録（update で delta を数え、Result 画面に小さく出す）
+    this.perf = { frames: 0, ms: 0, slow: 0, clamp: 0 };
     // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
     // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
     this._strikeT = 0;          // クールダウンの残り秒
@@ -445,6 +447,13 @@ export class RunScene extends Phaser.Scene {
     if (this.paused) {
       this.hud.update(delta);
       return;
+    }
+    // R59: 処理の記録。delta>50ms は下の dt クランプで**ゲーム時間が実時間より遅れる**フレーム
+    //   （＝遊んでいる機械が重いときの「スローモーション」）。Result 画面に小さく出す。
+    if (this.perf) {
+      this.perf.frames++; this.perf.ms += delta;
+      if (delta > 33.4) this.perf.slow++;
+      if (delta > 50) this.perf.clamp++;
     }
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
@@ -2723,6 +2732,7 @@ export class RunScene extends Phaser.Scene {
       captures: this.captures,
       coins: this.coins,
       party: this.party.map((m) => m.def.id),
+      perf: this.perf,   // R59: 処理の記録（Result が小さく出す＝遊んだ機械での処理落ちを切り分ける）
     };
     // R29: クリアだけはエンディングを挟む（ゲームオーバーは従来どおり直行）。
     //   Ending 側が終わったら同じ payload で Result へ渡すので、リザルトの表示は不変。
