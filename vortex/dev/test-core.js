@@ -9,6 +9,7 @@ import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
+import { createTimeStopGovernor, installTimeStopGovernor } from '../src/systems/timestop.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -4888,6 +4889,107 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R57: いま何で始まるのかが画面の文字に出ている（黙って変えない）');
   assert(/keydown-N'/.test(title) && /tidySticky = false;/.test(title),
     'R57: N キーでふつうに戻せる（見比べるのが目的なので、戻す手段を必ず用意する）');
+}
+
+// ============ R58 止める予算（ヒットストップ／スローのデューティ比上限） ============
+// 実プレイFB「敵が多く出てきた際に、画面がゆっくりストップモーションのようになってしまった」。
+// 実測：敵130体でも 60fps・update 0.78ms。止まって見えた正体は freezeT/slowT の連続発火で
+// 画面時間の 50.4% が止まるか遅い状態（通常 22.2%）。ここは**数値で**縛る＝60fpsを模して
+// 実際の発火パターンを流し、静かな場面は1フレームも変わらず、混雑だけが頭打ちになることを見る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const runjs = read('scenes/Run.js');
+  const TS = BALANCE.hitFeel.timeStop;
+
+  // --- ① 設定の形 ---
+  assert(TS && TS.windowSec > 0 && TS.budget > 0 && TS.budget < 1 && TS.minFrac > 0 && TS.minFrac < 1,
+    'R58: hitFeel.timeStop が {windowSec, budget<1, 0<minFrac<1} を持つ（minFrac=0 は手応えを消す＝禁止）');
+
+  // --- ② 60fps の模擬：予算付きで「止まっている時間の割合」を出す ---
+  //   events: [{ every, sec, mul }] mul があればスロー（重み 1-mul）、無ければ完全停止。
+  function simulate(events, seconds, governed) {
+    const gov = governed ? createTimeStopGovernor(TS) : null;
+    const dt = 1 / 60;
+    let freeze = 0, slow = 0, slowMul = 1, stopped = 0, t = 0;
+    const next = events.map((e) => e.every);   // 次の発火時刻
+    for (let f = 0; f < seconds * 60; f++, t += dt) {
+      // 発火
+      events.forEach((e, i) => {
+        if (t + 1e-9 < next[i]) return;
+        next[i] += e.every;
+        if (e.mul != null) {
+          const inc = Math.max(0, e.sec - slow);
+          slow += gov ? gov.grant(inc, Math.max(0.7, 1 - e.mul)) : inc;
+          slowMul = e.mul;
+        } else {
+          const inc = Math.max(0, e.sec - freeze);
+          freeze += gov ? gov.grant(inc, 1) : inc;
+        }
+      });
+      // 1フレーム進める（Run.update と同じ順：帳簿→凍結なら return→減速）
+      if (gov) gov.tick(dt, freeze > 0, slow > 0 ? slowMul : 1);
+      if (freeze > 0) { freeze -= dt; stopped += dt; continue; }
+      if (slow > 0) { slow -= dt; stopped += dt * (1 - slowMul); if (slow <= 0) slowMul = 1; }
+    }
+    return stopped / seconds;
+  }
+  // 静かな場面（実測 22%）：自動パンチ 0.06秒/0.55秒 ＋ 被弾 0.12秒/1.2秒 ＋ たまに投げの着弾
+  const QUIET = [{ every: 0.55, sec: 0.06 }, { every: 1.2, sec: 0.12 }, { every: 2.5, sec: 0.09 }];
+  // 混雑（実測 50%）：自動パンチ＋被弾(R56 0.16)＋貫通/着弾 0.075秒が0.2秒ごと＋一気消しの停止0.10とスロー0.30@0.38
+  //   ⚠️ 模擬は重ならない前提で足すので実測より高く出る（74%）。上限の判定は実機（r58-slowmo-diag）と併用。
+  const CROWD = [{ every: 0.55, sec: 0.06 }, { every: 0.55, sec: 0.16 }, { every: 0.2, sec: 0.075 },
+    { every: 1.5, sec: 0.10 }, { every: 1.5, sec: 0.30, mul: 0.38 }];
+  const qRaw = simulate(QUIET, 40, false), qGov = simulate(QUIET, 40, true);
+  const cRaw = simulate(CROWD, 40, false), cGov = simulate(CROWD, 40, true);
+  assert(qRaw > 0.15 && qRaw < 0.30,
+    `R58: 模擬の静かな場面は実測（22%）と同じ帯にある（${(qRaw * 100).toFixed(1)}%）＝模擬が現実を写している`);
+  assert(cRaw > 0.60,
+    `R58: 模擬の混雑は予算なしだと大半が止まる（${(cRaw * 100).toFixed(1)}%）＝再現できている`);
+  assert(Math.abs(qGov - qRaw) < 0.005,
+    `R58: 静かな場面は予算があっても変わらない（${(qRaw * 100).toFixed(1)}% → ${(qGov * 100).toFixed(1)}%）＝手応えを削っていない`);
+  assert(cGov < 0.34,
+    `R58: 混雑は予算で頭打ちになる（${(cRaw * 100).toFixed(1)}% → ${(cGov * 100).toFixed(1)}%・上限34%）`);
+  assert(cGov > 0.15,
+    `R58: 混雑でも止める時間が消えはしない（${(cGov * 100).toFixed(1)}%）＝minFrac が手応えを残している`);
+
+  // --- ③ アクセサの振る舞い：減らす代入は素通し・増やす代入だけ予算で削る・再取り付けで残量0 ---
+  {
+    const fake = { slowMul: 1 };
+    const gov = installTimeStopGovernor(fake, TS);
+    fake.freezeT = 0.10; assert(Math.abs(fake.freezeT - 0.10) < 1e-9, 'R58: 予算が空なら要求どおり止まる');
+    fake.freezeT -= 1 / 60; assert(fake.freezeT < 0.10, 'R58: 毎フレームの -= dt は素通し（減る方向は削らない）');
+    fake.freezeT = 0; assert(fake.freezeT === 0, 'R58: 0 へのリセットも素通し');
+    // 予算を食い尽くしてから要求すると、大きな停止は minFrac ぶんだけ認められる
+    for (let i = 0; i < 60 * TS.windowSec * 2; i++) gov.tick(1 / 60, true, 1);
+    fake.freezeT = 0.16;
+    assert(fake.freezeT > 0.16 * TS.minFrac - 1e-9 && fake.freezeT < 0.16 - 1e-9,
+      `R58: 予算切れでも被弾級（0.16）の要求は minFrac まで縮んで残る（0.16 → ${fake.freezeT.toFixed(3)}）`);
+    fake.freezeT = 0;
+    fake.freezeT = 0.075;
+    assert(fake.freezeT === 0,
+      'R58: 予算切れの小さな停止（0.075＝縮めると2フレーム未満）は見送る＝細かいコマ落ちを量産しない');
+    assert(TS.minGrantSec >= 0.03 && TS.minGrantSec <= 0.05,
+      'R58: minGrantSec は60fpsで2〜3フレームの帯にある');
+    fake.slowMul = 0.3; fake.slowT = 0.5;
+    assert(fake.slowT > 0 && fake.slowT < 0.5 - 1e-9, `R58: スローも同じ予算で縮む（0.5 → ${fake.slowT.toFixed(3)}）`);
+    const gov2 = installTimeStopGovernor(fake, TS);
+    assert(gov2.spent === 0 && fake.freezeT === 0 && fake.slowT === 0,
+      'R58: 取り付け直すと残量も値も 0 から（前のランの停止を持ち越さない）');
+  }
+
+  // --- ④ Run への配線 ---
+  assert(/import \{ installTimeStopGovernor \} from '\.\.\/systems\/timestop\.js';/.test(runjs),
+    'R58: Run が timestop を import している');
+  assert(/this\.timeStop = installTimeStopGovernor\(this, BALANCE\.hitFeel\.timeStop\);\s*\r?\n\s*this\.freezeT = 0;\s*\r?\n\s*this\.slowT = 0;/.test(runjs),
+    'R58: create() でアクセサを取り付けてから freezeT/slowT を 0 にしている（順番が逆だと素の値で上書きされる）');
+  assert(/this\.realDt = dt;[^\n]*\r?\n(\s*\/\/[^\n]*\r?\n)*\s*if \(this\.timeStop\) this\.timeStop\.tick\(dt, this\.freezeT > 0, this\.slowT > 0 \? this\.slowMul : 1\);/.test(runjs),
+    'R58: 帳簿（tick）は realDt を決めた直後＝凍結の早期 return より前に置く');
+  const tickAt = runjs.indexOf('this.timeStop.tick(');
+  const freezeReturnAt = runjs.indexOf('if (this.freezeT > 0) {\n', tickAt) >= 0
+    ? runjs.indexOf('if (this.freezeT > 0) {\n', tickAt) : runjs.indexOf('if (this.freezeT > 0) {\r\n', tickAt);
+  assert(tickAt > 0 && freezeReturnAt > tickAt,
+    'R58: tick のあとに凍結の早期 return が来る（凍結中も記帳される）');
 }
 
 if (failures > 0) {

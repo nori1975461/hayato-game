@@ -14,6 +14,7 @@ import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
 import { createBilliard } from '../systems/billiard.js';
 import { createPractice } from '../systems/practice.js';
+import { installTimeStopGovernor } from '../systems/timestop.js';
 import { createHud } from '../ui/hud.js';
 
 const Phaser = window.Phaser;
@@ -101,11 +102,15 @@ export class RunScene extends Phaser.Scene {
     this.drafting = false;    // v3: ドラフト廃止。検証スクリプト互換のため常に false で保持
     this.ended = false;
     this.cinematic = false;   // 合成/ボス撃破など進行停止する演出中
-    this.freezeT = 0;         // ヒットストップ残り秒
-    // R23: スローモーション。freezeT（完全停止）と違い、遅いだけで全部が動き続ける。
-    // 実プレイFB「特殊弾を手渡しされる際はスローモーションでゆっくりと」の受け皿。
-    this.slowT = 0;           // 残り秒（実時間で数える）
-    this.slowMul = 1;         // この倍率でゲーム内のdtを縮める
+    this.slowMul = 1;         // この倍率でゲーム内のdtを縮める（R23 スローモーション）
+    // ★R58 freezeT（ヒットストップ残り秒）と slowT（スロー残り秒・実時間）を「止める予算」の
+    //   アクセサにする。実プレイFB「敵が多く出てきた際に、画面がゆっくりストップモーションのように」
+    //   ＝敵130体で 60fps は出ているのに、演出の連続発火で画面時間の50.4%が止まるか遅かった。
+    //   立てる側（30か所以上）は一切変えず、「増えた瞬間」だけ直近1秒の予算で削る。
+    //   シーンは再利用されるので、毎回取り付け直して残量も 0 から（前のランの停止を持ち越さない）。
+    this.timeStop = installTimeStopGovernor(this, BALANCE.hitFeel.timeStop);
+    this.freezeT = 0;
+    this.slowT = 0;
     // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
     // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
     this._strikeT = 0;          // クールダウンの残り秒
@@ -444,6 +449,9 @@ export class RunScene extends Phaser.Scene {
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
     this.realDt = dt;         // スローモーションで縮める前の実時間（演出の尺はこちらで数える）
+    // R58: 止める予算の帳簿。このフレームが凍結/減速なら実時間ぶんを使った分として記帳する。
+    //   ⚠️ 下の凍結の早期 return より**前**に置く（凍結中こそ記帳しないと予算が減らない）。
+    if (this.timeStop) this.timeStop.tick(dt, this.freezeT > 0, this.slowT > 0 ? this.slowMul : 1);
     this.flushPops();         // R27: このフレームに死んだぶんを1本の連打へ束ねる
 
     // コインがたまると最大HPが少し伸びる（2026-09-02ユーザー指示。値は BALANCE.coinVitality）
