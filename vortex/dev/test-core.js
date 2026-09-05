@@ -10,6 +10,7 @@ import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
 import { createTimeStopGovernor, installTimeStopGovernor, crowdLevel } from '../src/systems/timestop.js';
+import { rarityRank, findSwapIndex, preferUnowned } from '../src/systems/rarity.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -5088,6 +5089,72 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R59: Ending が Result へ perf を渡す（クリア時も出る）');
   assert(/d\.perf && d\.perf\.frames > 0/.test(resultjs) && /fontSize: '10px'/.test(resultjs),
     'R59: Result が perf を 10px の小さな字で出す（子どもの目に入らない大きさ）');
+}
+
+// ============ R60 珍しいコアは満員でも「こうたい」で仲間になる ============
+// 実プレイFB「ドリンゴ、マモリン、ラゴン。この3体が一度も出てこない。出現確率低すぎでは？」。
+// 実測（r60-mobit-acq-probe・3シード）：R は7回抽選されドリンゴは3回出たが**3回とも満員でコインに化けた**。
+// 確率でなく「入る枠が無い」が原因。ここは純粋関数（rarity.js）を数で縛り、capture.js の配線を文で縛る。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const cap = fs.readFileSync(path.join(SRC, 'systems/capture.js'), 'utf8');
+  const N = (id) => ({ def: { id, rarity: 'N', archetype: 'SLASH' } });
+  const R = (id, arche = 'SHOT') => ({ def: { id, rarity: 'R', archetype: arche } });
+  const AMMO = { def: { id: 'biricco', rarity: 'R', archetype: 'AMMO' } };
+  const mamorin = { id: 'mamorin', rarity: 'R', archetype: 'SHIELD' };
+  const lagon = { id: 'lagon', rarity: 'SR', archetype: 'SLASH' };
+  const biriccoDef = { id: 'biricco', rarity: 'R', archetype: 'AMMO' };
+
+  assert(rarityRank('N') < rarityRank('R') && rarityRank('R') < rarityRank('SR') && rarityRank('X') < 0,
+    'R60: レアリティの順位は N < R < SR（未知は負）');
+  // 実測の場面そのまま：開始 [starpuppy, terabit, biricco] 満員 → エリートの R が来る
+  assert(findSwapIndex([N('starpuppy'), N('terabit'), AMMO], mamorin) === 0,
+    'R60: 満員 [N,N,ビリッコ] に R（マモリン）が来たら先頭の N と交代（実測でコインに化けていた場面）');
+  assert(findSwapIndex([AMMO, R('samet'), N('mashumo')], mamorin) === 2,
+    'R60: [ビリッコ, R, N] なら N（3番目）と交代＝いちばん格の低い者を選ぶ');
+  assert(findSwapIndex([AMMO, R('samet'), R('neonworm')], mamorin) === -1,
+    'R60: 同格（R）しか居なければ交代しない＝従来どおりコイン');
+  assert(findSwapIndex([AMMO, R('samet'), R('neonworm')], lagon) === 1,
+    'R60: SR（ラゴン）は R と交代できる');
+  assert(findSwapIndex([AMMO], mamorin) === -1 && findSwapIndex([N('a'), AMMO], { id: 'x', rarity: 'R', archetype: 'AMMO' }) === 0,
+    'R60: ビリッコ（AMMO）は交代の相手にならない／入る側の AMMO 除外は capture.js 側で行う（純粋関数は選ぶだけ）');
+  assert(findSwapIndex([N('a'), N('b')], { id: 'n2', rarity: 'N' }) === -1,
+    'R60: N のコアは N と交代しない（格が上のときだけ）');
+  // 「まだ持っていない種」の優先
+  const pool = ['samet', 'neonworm', 'biricco', 'mamorin', 'doringo'].map((id) => ({ id }));
+  const owned = new Set(['samet', 'biricco']);
+  const rest = preferUnowned(pool, owned);
+  assert(rest.length === 3 && !rest.some((m) => owned.has(m.id)), 'R60: 持っている種はプールから外れる');
+  assert(preferUnowned(pool, new Set(pool.map((m) => m.id))) === pool, 'R60: 全部持っていれば元のプール（空にしない）');
+  assert(preferUnowned(pool, new Set()) === pool && preferUnowned(pool, null) === pool, 'R60: 何も持っていなければそのまま');
+  // 3体のエリートで R が重ならない＝5種のうち3種が必ず別々に出る（1種あたり 60%）。従来（等確率・重複あり）は 48.8%
+  {
+    let hit = 0, trials = 0;
+    // 決定的に全順列を数える：5→4→3 の順で選ぶ 60 通りのうち mamorin を含むもの
+    const ids = pool.map((m) => m.id);
+    for (const a of ids) for (const b of ids) for (const c of ids) {
+      if (a === b || b === c || a === c) continue;
+      trials++; if ([a, b, c].includes('mamorin')) hit++;
+    }
+    assert(Math.abs(hit / trials - 0.6) < 1e-9, `R60: 重複なし3回で特定の R が出る確率は 60%（従来 48.8%）`);
+  }
+  // 配線
+  assert(/import \{ findSwapIndex, preferUnowned \} from '\.\/rarity\.js';/.test(cap), 'R60: capture.js が rarity.js を import');
+  assert(/const si = core\.def\.archetype !== 'AMMO' \? findSwapIndex\(run\.party, core\.def\) : -1;/.test(cap),
+    'R60: 拾得で満員なら findSwapIndex（入る側が AMMO なら交代しない＝2体目のビリッコを防ぐ）');
+  assert(/run\.party\[si\] = \{ def: core\.def \};/.test(cap) && /と こうたい！/.test(cap),
+    'R60: 交代は同じ位置に置き換える（増員しない）＋「こうたい！」を出す');
+  assert(/const pool = e\.isElite \? preferUnowned\(R_MONS, ownedIds\(\)\) : N_MONS;/.test(cap),
+    'R60: エリートの R 抽選は持っていない種を優先');
+  assert(/run\.rng\.pick\(preferUnowned\(resultPool, ownedIds\(\)\)\)/.test(cap),
+    'R60: 合成結果も持っていない種を優先（オーラジェリー持ちならラゴン）');
+  assert((cap.match(/obtained\.add\(/g) || []).length >= 3,
+    'R60: 仲間になった／交代／合成のすべてで obtained に記録する');
+  assert(/run\.party\.length < currentSlots\(\)/.test(cap) && BALANCE.orbit.maxSlots === 3,
+    'R60: 戦う仲間の上限（3人）は触っていない＝置き換えであって増員ではない');
+  assert(BALANCE.capture.rareCoreLifeSec >= BALANCE.capture.coreLifeSec * 2
+    && /def\.rarity !== 'N' && C\.rareCoreLifeSec \? C\.rareCoreLifeSec : C\.coreLifeSec/.test(cap),
+    `R60: R／SR のコアは N の2倍以上残る（${BALANCE.capture.rareCoreLifeSec}秒 vs ${BALANCE.capture.coreLifeSec}秒）＝遠くで倒しても拾いに行ける`);
 }
 
 if (failures > 0) {

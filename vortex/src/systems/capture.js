@@ -2,6 +2,7 @@
 import { BALANCE } from '../data/balance.js';
 import { MONSTERS } from '../data/monsters.js';
 import { Sound } from '../audio/sound.js';
+import { findSwapIndex, preferUnowned } from './rarity.js';
 
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
@@ -23,6 +24,14 @@ export function createCapture(run) {
   let boltCoreGiven = false;   // R23: ビリッコのコアを配ったか
   let boltCore = null;         // R45: 置いたコアそのもの（拾われたか／消えたかを見る）
   let boltRetryT = 0;          // R45: 取り逃したあと、置き直すまでの待ち秒
+  // R60: このランで一度でも仲間にした id（合成で消えた子も含む）。R／SR の抽選で「まだ持っていない種」を
+  //   優先するための記録。開始時のパーティも数える（ownedIds が毎回 party と合算する）。
+  const obtained = new Set();
+  function ownedIds() {
+    const s = new Set(obtained);
+    for (const p of run.party) if (p && p.def) s.add(p.def.id);
+    return s;
+  }
 
   // Wave R2: 経過時間で解禁される現在の公転スロット数（spawner.currentCap と同型）。
   // slotSchedule を走査し、maxSlots を絶対上限としてクランプする。
@@ -40,7 +49,9 @@ export function createCapture(run) {
       .setTint(int(def.color)).setScale(1.6);
     const spr = run.add.image(x, y, 'core').setDepth(12)
       .setTint(int(def.color)).setScale(1.6);
-    const core = { x, y, def, glow, spr, life: C.coreLifeSec };
+    // R60: R／SR のコアは長く残す（実測：エリートを遠くで倒すとコアが10秒で消えて拾えないことがあった）
+    const life = def.rarity !== 'N' && C.rareCoreLifeSec ? C.rareCoreLifeSec : C.coreLifeSec;
+    const core = { x, y, def, glow, spr, life };
     cores.push(core);
     return core;
   }
@@ -54,7 +65,9 @@ export function createCapture(run) {
     const rate = e.isElite ? C.eliteDropRate : C.dropRate;
     // ほかくアップ（captureAdd）はドロップ率に加算
     if (!run.rng.chance(rate + run.stats.captureAdd)) return;
-    const pool = e.isElite ? R_MONS : N_MONS;
+    // R60: エリートの R は「まだ持っていない種」を優先＝1ラン3体のエリートで同じ R が重ならない
+    //   （5種から等確率だと、実測3ランでドリンゴ3回・マモリン0回のような偏りがそのまま出る）。
+    const pool = e.isElite ? preferUnowned(R_MONS, ownedIds()) : N_MONS;
     const def = run.rng.pick(pool);
     makeCore(e.x, e.y, def);
   }
@@ -84,11 +97,28 @@ export function createCapture(run) {
   function pickupCore(core) {
     if (canJoin(core.def)) {
       run.party.push({ def: core.def });
+      obtained.add(core.def.id);
       run.orbit.rebuild();
       run.captures++;
       Sound.sfx('capture');
       run.spawnParticles(core.x, core.y, int(core.def.color), 14);
       run.floatText(core.x, core.y, core.def.name + ' なかま！', '#ffe066');
+      return;
+    }
+    // ★R60 満員でも、より珍しいコアなら**いちばん格の低い仲間と交代**して入る（rarity.js 冒頭の実測）。
+    //   実測ではエリートの R コアが3ランで7回中7回コインに化けていた＝R／SR に仲間になる経路が無かった。
+    //   置き換えであって増員ではない（戦う仲間は最大3人のまま）。弾配り役（AMMO）は特別枠なので、
+    //   交代の相手にも、交代で入る側にもならない（2体目のビリッコが N を押し出すのを防ぐ）。
+    const si = core.def.archetype !== 'AMMO' ? findSwapIndex(run.party, core.def) : -1;
+    if (si >= 0) {
+      const old = run.party[si].def;
+      run.party[si] = { def: core.def };
+      obtained.add(core.def.id);
+      run.orbit.rebuild();
+      run.captures++;
+      Sound.sfx('capture');
+      run.spawnParticles(core.x, core.y, int(core.def.color), 18);
+      run.floatText(core.x, core.y, core.def.name + ' が ' + old.name + ' と こうたい！', '#ffe066');
     } else {
       run.coins += C.fullPartyCoins;
       Sound.sfx('pickup');
@@ -273,13 +303,15 @@ export function createCapture(run) {
       seen[rar] = i;
     }
     if (!pair) return false;
-    const def = run.rng.pick(resultPool);
+    // R60: 合成結果も「まだ持っていない種」を優先（SR ならオーラジェリーを持っていればラゴンが出る）
+    const def = run.rng.pick(preferUnowned(resultPool, ownedIds()));
     const defA = run.party[pair[0]].def;
     const defB = run.party[pair[1]].def;
     // 素材を除去（大きいインデックスから）
     run.party.splice(pair[1], 1);
     run.party.splice(pair[0], 1);
     run.party.push({ def, fused: true });
+    obtained.add(def.id);
     run.orbit.rebuild();
     // 合成シネマティック（音・シェイク・粒子は fx 側が担当）
     if (run.fx && run.fx.fusionCinematic) {
