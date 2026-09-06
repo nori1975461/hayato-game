@@ -2085,7 +2085,9 @@ export class RunScene extends Phaser.Scene {
     // ボス倍率：全経路がここを通るので orbit.js を触らずに漏れなく効く。
     // 従来は仲間に倍率が無く主人公だけ半減という、方針と真逆の構造だった。
     if (e.isBoss) {
-      if (src === 'ally' || src === 'lagon') dmg = Math.max(1, Math.round(dmg * BALANCE.orbit.bossMul));
+      if (src === 'ally') dmg = Math.max(1, Math.round(dmg * BALANCE.orbit.bossMul));
+      // R62: ラゴン（SR）だけ専用の対ボス倍率（ユーザー指示 0.3＝1突き4〜5）。とどめは相変わらず刺せない
+      else if (src === 'lagon') dmg = Math.max(1, Math.round(dmg * (BALANCE.orbit.lagonBossMul != null ? BALANCE.orbit.lagonBossMul : BALANCE.orbit.bossMul)));
       else if (src === 'manual' && this.boss && this.boss.staggered) {
         dmg = Math.round(dmg * BALANCE.hero.strike.bossBreakMul);
       }

@@ -3639,8 +3639,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     + '呼ぶと弱点コア・王冠無敵・よろけ判定を全部すり抜ける）');
   assert(/!e\.isBoss/.test(runjs.match(/const lanceFinish[^\n]*/)[0]),
     'R47: ボスにはとどめを刺せない（ボス撃破の主語は主人公のまま）');
-  assert(/src === 'ally' \|\| src === 'lagon'/.test(runjs),
-    'R47: ボスへのダメージは仲間と同じ倍率（単独行動でボスを溶かせない）');
+  assert(/else if \(src === 'lagon'\) dmg = Math\.max\(1, Math\.round\(dmg \* \(BALANCE\.orbit\.lagonBossMul/.test(runjs)
+    && BALANCE.orbit.lagonBossMul <= 0.5,
+    `R47/R62: ボスへのダメージは専用倍率 orbit.lagonBossMul（${BALANCE.orbit.lagonBossMul}・0.5以下＝単独行動でボスを溶かせない）`);
   assert(/run\.dealDamage\(best, dmg, LANCE_GLOW, 'lagon'(, at)?\)/.test(orbit),
     'R47: 攻撃は run.dealDamage を通る（killEnemy 直呼びの抜け道を作らない。R61 でボス向けの槍先座標 at が増えた）');
 
@@ -5176,8 +5177,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R61: ボスへは槍先の座標（hitR）を渡す＝weakGate が「コアに刺したか」を判定できる。雑魚へは従来どおり座標なし');
   assert(/const reach = L\.reach \+ tr;/.test(orbit) && /const tr = bt \? bt\.r : best\.radius;/.test(orbit),
     'R61: 間合いは狙う点の半径（コアなら core.r・ボス中心なら体の半径）で取る＝刺さっているのに当たらない嘘を作らない');
-  assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs) && /src === 'ally' \|\| src === 'lagon'/.test(runjs),
-    'R61: R47 の原則は据え置き＝ボスのとどめは刺せない・倍率は仲間と同じ orbit.bossMul');
+  assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs) && /src === 'lagon'\) dmg = Math\.max\(1, Math\.round\(dmg \* \(BALANCE\.orbit\.lagonBossMul/.test(runjs),
+    'R61: R47 の原則は据え置き＝ボスのとどめは刺せない（倍率は R62 で専用の orbit.lagonBossMul へ）');
+  // --- ③ R62 ユーザー指示「ラゴンの対ボス倍率を0.3＝1突き4〜5にして」 ---
+  {
+    const lagon = MONSTERS.find((m) => m.id === 'lagon');
+    const M = BALANCE.orbit.lagonBossMul;
+    const hit = Math.max(1, Math.round(lagon.baseDamage * M));
+    assert(Math.abs(M - 0.30) < 1e-9, `R62: orbit.lagonBossMul は 0.30（指示どおり）`);
+    assert(hit >= 4 && hit <= 5, `R62: ラゴン素の1突き（${lagon.baseDamage}×${M}）は ${hit}＝4〜5 の帯`);
+    assert(M > BALANCE.orbit.bossMul, `R62: 仲間の対ボス倍率（${BALANCE.orbit.bossMul}）より高い＝SR の見せ場`);
+    assert(/if \(src === 'ally'\) dmg = Math\.max\(1, Math\.round\(dmg \* BALANCE\.orbit\.bossMul\)\);/.test(runjs),
+      'R62: 他の仲間は従来どおり orbit.bossMul（ラゴンだけを分けた）');
+  }
   assert(/if \(!at \|\| at\.x == null\) return \{ pass: false, mul: 0 \};/.test(read('systems/boss.js')),
     'R61: weakGate は座標なしを弾く＝ラゴンが座標を渡さなければコア持ちには通らない（渡す実装が必要だった根拠）');
   // --- ② 最後のエリートは SR 未所持なら SR ---
