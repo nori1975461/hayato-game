@@ -177,7 +177,9 @@ export function createSpawner(run) {
     for (let i = 0; i < BALANCE.elite.times.length; i++) {
       if (!eliteFired[i] && run.elapsed >= BALANCE.elite.times[i]) {
         eliteFired[i] = true;
-        spawnElite();
+        const e = spawnElite();
+        // R61: 最後のエリートに印を付ける（capture.js が「SR 未所持なら SR コア」の判定に使う）
+        if (e && i === BALANCE.elite.times.length - 1) e.eliteLast = true;
       }
     }
     // 通常スポーン。ボス戦中は固定間隔・少数に絞ってボスへ集中させる（§10.4）。

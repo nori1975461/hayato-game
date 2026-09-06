@@ -3627,7 +3627,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R47: その帯が毎フレームの押し戻しで効いている（実測：入れる前は狩り中の平均が'
     + '74.6px＝公転の1.55倍まで落ちた。敵が主人公へ集まるとラゴンも引き寄せられる）');
   assert(/for \(const e of run\.enemies\)[\s\S]{0,200}?if \(!e\.active \|\| e\.stag \|\| e\.isBoss\) continue;/.test(orbit),
-    'R47: よろけ（＝主人公の獲物）とボスは狙わない。動詞（掴んで投げる）を奪わない');
+    'R47: よろけ（＝主人公の獲物）は狙わない。動詞（掴んで投げる）を奪わない（雑魚の選定と出撃方向ではボスも除く＝ボスは R61 の専用経路で狙う）');
 
   // --- ④ 「完全に倒す（消滅させる）」＝とどめの関門の唯一の例外 ---
   assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs),
@@ -3641,8 +3641,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R47: ボスにはとどめを刺せない（ボス撃破の主語は主人公のまま）');
   assert(/src === 'ally' \|\| src === 'lagon'/.test(runjs),
     'R47: ボスへのダメージは仲間と同じ倍率（単独行動でボスを溶かせない）');
-  assert(/run\.dealDamage\(best, dmg, LANCE_GLOW, 'lagon'\)/.test(orbit),
-    'R47: 攻撃は run.dealDamage を通る（killEnemy 直呼びの抜け道を作らない）');
+  assert(/run\.dealDamage\(best, dmg, LANCE_GLOW, 'lagon'(, at)?\)/.test(orbit),
+    'R47: 攻撃は run.dealDamage を通る（killEnemy 直呼びの抜け道を作らない。R61 でボス向けの槍先座標 at が増えた）');
 
   // --- ⑤ 帰ってきて肩で息をする（＝これがバランスの安全弁でもある）---
   assert(L.huntSec > 0 && L.pantSec > 0,
@@ -5144,8 +5144,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R60: 拾得で満員なら findSwapIndex（入る側が AMMO なら交代しない＝2体目のビリッコを防ぐ）');
   assert(/run\.party\[si\] = \{ def: core\.def \};/.test(cap) && /と こうたい！/.test(cap),
     'R60: 交代は同じ位置に置き換える（増員しない）＋「こうたい！」を出す');
-  assert(/const pool = e\.isElite \? preferUnowned\(R_MONS, ownedIds\(\)\) : N_MONS;/.test(cap),
-    'R60: エリートの R 抽選は持っていない種を優先');
+  assert(/if \(e\.isElite\) \{[\s\S]{0,900}?preferUnowned\(R_MONS, owned\)/.test(cap) && /let pool = N_MONS;/.test(cap),
+    'R60: エリートの R 抽選は持っていない種を優先（雑魚は N のまま）');
   assert(/run\.rng\.pick\(preferUnowned\(resultPool, ownedIds\(\)\)\)/.test(cap),
     'R60: 合成結果も持っていない種を優先（オーラジェリー持ちならラゴン）');
   assert((cap.match(/obtained\.add\(/g) || []).length >= 3,
@@ -5155,6 +5155,40 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(BALANCE.capture.rareCoreLifeSec >= BALANCE.capture.coreLifeSec * 2
     && /def\.rarity !== 'N' && C\.rareCoreLifeSec \? C\.rareCoreLifeSec : C\.coreLifeSec/.test(cap),
     `R60: R／SR のコアは N の2倍以上残る（${BALANCE.capture.rareCoreLifeSec}秒 vs ${BALANCE.capture.coreLifeSec}秒）＝遠くで倒しても拾いに行ける`);
+}
+
+// ============ R61 ラゴンがボスを狙う＋最後のエリートは SR 未所持なら SR コア ============
+// 実プレイFB「ラゴンはボス（マオウレクスや軌道神核を含む）に対してもダメージを与えられる設計になっているか？」
+// → R47 ではボスを標的から外していた（dealDamage の 'lagon' ボス倍率経路は用意してあるのに届かない）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const orbit = read('systems/orbit.js'), runjs = read('scenes/Run.js'), cap = read('systems/capture.js'), spw = read('systems/spawner.js');
+  // --- ① ボスを狙う経路 ---
+  assert(/function lancerBossTarget\(px, py, rng2\) \{/.test(orbit) && /const bt = lancerBossTarget\(px, py, rng2\);/.test(orbit),
+    'R61: ラゴンの狩りにボス専用の標的経路がある');
+  assert(/if \(bs\.hasWeak\) \{\s*\r?\n\s*const w = bs\.weakPoint\(ent\);\s*\r?\n\s*if \(!w\) return null;/.test(orbit),
+    'R61: 弱点コア持ち（マオウレクス／軌道神核）はコアの位置を狙い、コアが無い間（殻閉じ・分離下半身）は狙わない');
+  assert(/if \(!ent\.active \|\| ent\.stag\) return null;/.test(orbit),
+    'R61: よろけ中のボスは狙わない（ブレイクは主人公の獲物）');
+  assert(/const at = bt \? \{ x: o\.x \+ Math\.cos\(o\.lnAim\) \* L\.reach, y: o\.y \+ Math\.sin\(o\.lnAim\) \* L\.reach, hitR: 8 \} : undefined;/.test(orbit)
+    && /run\.dealDamage\(best, dmg, LANCE_GLOW, 'lagon', at\)/.test(orbit),
+    'R61: ボスへは槍先の座標（hitR）を渡す＝weakGate が「コアに刺したか」を判定できる。雑魚へは従来どおり座標なし');
+  assert(/const reach = L\.reach \+ tr;/.test(orbit) && /const tr = bt \? bt\.r : best\.radius;/.test(orbit),
+    'R61: 間合いは狙う点の半径（コアなら core.r・ボス中心なら体の半径）で取る＝刺さっているのに当たらない嘘を作らない');
+  assert(/const lanceFinish = src === 'lagon' && !e\.isBoss;/.test(runjs) && /src === 'ally' \|\| src === 'lagon'/.test(runjs),
+    'R61: R47 の原則は据え置き＝ボスのとどめは刺せない・倍率は仲間と同じ orbit.bossMul');
+  assert(/if \(!at \|\| at\.x == null\) return \{ pass: false, mul: 0 \};/.test(read('systems/boss.js')),
+    'R61: weakGate は座標なしを弾く＝ラゴンが座標を渡さなければコア持ちには通らない（渡す実装が必要だった根拠）');
+  // --- ② 最後のエリートは SR 未所持なら SR ---
+  assert(BALANCE.capture.lastEliteSR === true, 'R61: capture.lastEliteSR が有効');
+  assert(/if \(e && i === BALANCE\.elite\.times\.length - 1\) e\.eliteLast = true;/.test(spw),
+    'R61: spawner が最後のエリートに eliteLast の印を付ける');
+  assert(/const hasSR = SR_MONS\.some\(\(m\) => owned\.has\(m\.id\)\);/.test(cap)
+    && /pool = \(e\.eliteLast && !hasSR && C\.lastEliteSR\) \? preferUnowned\(SR_MONS, owned\) : preferUnowned\(R_MONS, owned\);/.test(cap),
+    'R61: 最後のエリートは SR 未所持なら SR プール（持っていれば従来どおり R）');
+  assert(BALANCE.elite.times.length >= 3 && BALANCE.elite.times[BALANCE.elite.times.length - 1] < BALANCE.boss.spawnSec,
+    `R61: 最後のエリート（${BALANCE.elite.times[BALANCE.elite.times.length - 1]}秒）は最終ボス（${BALANCE.boss.spawnSec}秒）より前＝SR が最終ボス戦に間に合う`);
 }
 
 if (failures > 0) {

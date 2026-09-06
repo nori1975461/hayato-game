@@ -604,6 +604,25 @@ export function createOrbit(run) {
     }
   }
 
+  // R61: ボスが主人公の狩り圏に居れば、それを標的にする。返り値＝{ ent, x, y, r }（狙う点と半径）。
+  //   弱点コア持ちはコアの位置（無ければ null＝殻閉じ中などは狙わない）。よろけ中・非活性は狙わない。
+  //   圏内判定はボスの体が大きいぶん huntRange の 1.2 倍まで許す（中心が少し外でも体は圏内にある）。
+  function lancerBossTarget(px, py, rng2) {
+    const bs = run.boss;
+    if (!bs || !bs.active || !bs.entity) return null;
+    const ent = bs.entity;
+    if (!ent.active || ent.stag) return null;
+    const hx = ent.x - px, hy = ent.y - py;
+    if (hx * hx + hy * hy > rng2 * 1.44) return null;
+    let x = ent.x, y = ent.y, r = ent.radius || 40;
+    if (bs.hasWeak) {
+      const w = bs.weakPoint(ent);
+      if (!w) return null;
+      x = w.x; y = w.y; r = w.r;
+    }
+    return { ent, x, y, r };
+  }
+
   // 主人公のもとへ戻る。戻った距離を返す（呼び出し側が到着判定に使う）。
   function lancerHome(o, dt, px, py, speed) {
     const dx = px - o.x, dy = py - o.y;
@@ -668,7 +687,15 @@ export function createOrbit(run) {
     //   → 3回目＝**遠い敵を選び、決めたらロックして仕留めるまで追う**。
     const rng2 = L.huntRange * L.huntRange;
     let best = null;
-    if (o.lnTargetId != null) {
+    // ★R61 実プレイFB「ラゴンはボスに対してもダメージを与えられる設計になっているか？」→ R47 では
+    //   ボスを標的から外していた（dealDamage の 'lagon' ボス倍率経路は用意してあるのに届かない＝死んだ経路）。
+    //   SR の見せ場がボス戦で消えるのは筋が通らないので、ボスが主人公の狩り圏に居ればボスを狙う。
+    //   ・弱点コア持ち（マオウレクス／軌道神核）は**コアの位置**を狙う＝殻が閉じてコアが無い間は雑魚へ戻る
+    //   ・とどめは刺せない（Run.dealDamage の lanceFinish が isBoss を除外＝R47 の原則は据え置き）
+    //   ・倍率は仲間と同じ orbit.bossMul（単独行動でボスを溶かさない）
+    const bt = lancerBossTarget(px, py, rng2);
+    if (bt) { best = bt.ent; o.lnTargetId = null; }
+    if (!best && o.lnTargetId != null) {
       for (const e of run.enemies) {
         if (e.id !== o.lnTargetId) continue;
         const hx = e.x - px, hy = e.y - py;
@@ -702,10 +729,13 @@ export function createOrbit(run) {
       o.lnAim = Math.atan2(dy, dx);
       return;
     }
-    const dx = best.x - o.x, dy = best.y - o.y;
+    // 狙う点：ボスなら bt が持つ点（コア持ちはコア・それ以外は中心）、雑魚なら本体
+    const tx = bt ? bt.x : best.x, ty = bt ? bt.y : best.y;
+    const tr = bt ? bt.r : best.radius;
+    const dx = tx - o.x, dy = ty - o.y;
     const d = Math.hypot(dx, dy) || 1;
     o.lnAim = Math.atan2(dy, dx);
-    const reach = L.reach + best.radius;
+    const reach = L.reach + tr;
     if (d > reach) {
       const k = Math.min(1, (L.moveSpeed * dt) / d);
       o.x += dx * k; o.y += dy * k;
@@ -721,7 +751,10 @@ export function createOrbit(run) {
     o.lnThrust = 0.2;
     const dmg = memberDamage(o);
     const alive = best.active;
-    run.dealDamage(best, dmg, LANCE_GLOW, 'lagon');
+    // ボスへは槍先の座標を渡す＝弱点コアのゲート（weakGate）が「コアに刺したか」を判定できる。
+    // 雑魚へは従来どおり座標なし（R47 の挙動を1ミリも変えない）。
+    const at = bt ? { x: o.x + Math.cos(o.lnAim) * L.reach, y: o.y + Math.sin(o.lnAim) * L.reach, hitR: 8 } : undefined;
+    run.dealDamage(best, dmg, LANCE_GLOW, 'lagon', at);
     if (alive && !best.active) {
       // ★消滅させた。突きの音とは別物を鳴らす＝**数えられる**ようにする。
       o.lnSlain = (o.lnSlain || 0) + 1;

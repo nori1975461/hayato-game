@@ -67,7 +67,15 @@ export function createCapture(run) {
     if (!run.rng.chance(rate + run.stats.captureAdd)) return;
     // R60: エリートの R は「まだ持っていない種」を優先＝1ラン3体のエリートで同じ R が重ならない
     //   （5種から等確率だと、実測3ランでドリンゴ3回・マモリン0回のような偏りがそのまま出る）。
-    const pool = e.isElite ? preferUnowned(R_MONS, ownedIds()) : N_MONS;
+    let pool = N_MONS;
+    if (e.isElite) {
+      const owned = ownedIds();
+      // ★R61 最後のエリート（290秒）は、このランで SR をまだ1体も仲間にしていなければ SR のコアを落とす。
+      //   実測（R60後・3シード）：SR は R+R 合成のみ・素材にできる戦闘 R は2種＝見込み1ラン約17%で、
+      //   ラゴン（SR）が「一度も出てこない」ままだった。合成の道は残しつつ、終盤に1回だけ確定の道を足す。
+      const hasSR = SR_MONS.some((m) => owned.has(m.id));
+      pool = (e.eliteLast && !hasSR && C.lastEliteSR) ? preferUnowned(SR_MONS, owned) : preferUnowned(R_MONS, owned);
+    }
     const def = run.rng.pick(pool);
     makeCore(e.x, e.y, def);
   }
