@@ -5203,6 +5203,47 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `R61: 最後のエリート（${BALANCE.elite.times[BALANCE.elite.times.length - 1]}秒）は最終ボス（${BALANCE.boss.spawnSec}秒）より前＝SR が最終ボス戦に間に合う`);
 }
 
+// ============ R63 通常ボス5体の歯ごたえ（固定額ダメージが HP スケーリングを殺していた） ============
+// 実プレイFB「操作に慣れない初回でミサイルガまで行けた」→ 実測：HP10倍でも戦闘長は横一線（12〜32秒）。
+// 直し方は R34 でマオウレクスに入れた specialBulletMul の横展開＋装甲片の上限＋スーパーボールの命中上限＋HP。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const bil = read('systems/billiard.js'), runjs = read('scenes/Run.js'), res = read('scenes/Result.js'), end = read('scenes/Ending.js');
+  const T = BALANCE.boss.tiers;
+  const B = BALANCE.hero.billiard;
+  // --- ① 特殊弾の特効倍率：通常ボス5体は 0.67・マオウレクスは R34 の 0.34 のまま ---
+  for (let i = 0; i < 5; i++) assert(Math.abs((T[i].specialBulletMul || 1) - 0.67) < 1e-9, `R63: ${T[i].bossId} の specialBulletMul は 0.67`);
+  assert(Math.abs(T[5].specialBulletMul - 0.34) < 1e-9, 'R63: マオウレクスの specialBulletMul 0.34（R34）は不変');
+  const boltEff = B.bolt.bossHpRatio * T[1].specialBulletMul;
+  assert(boltEff >= 0.18 && boltEff <= 0.22, `R63: 通常ボスへのらいこうだんは最大HPの約20%（${(boltEff * 100).toFixed(1)}%）＝切り札の格は残す`);
+  assert(Math.abs(B.bolt.bossHpRatio - 0.30) < 1e-9 && Math.abs(B.blast.bossHpRatio - 0.12) < 1e-9,
+    'R63: 特殊弾の素の割合（bolt 30%／blast 12%）は据え置き＝倍率は cfg 側で薄める（二重に薄めない）');
+  // --- ② HP：1800 → 5000 → 9000 → 16000 → 24000 → 68000（単調増加・コロガンナーとマオウは不変） ---
+  const hps = T.map((t) => t.hp);
+  assert(JSON.stringify(hps) === JSON.stringify([1800, 5000, 9000, 16000, 24000, 68000]), `R63: ボスHPは [1800,5000,9000,16000,24000,68000]（実際 ${hps.join(',')}）`);
+  // --- ③ 装甲片1枚の上限＝最大HPの5%（ミサイルガ以降は素の値のほうが小さい＝不変） ---
+  assert(Math.abs(B.shards.bossHpCap - 0.05) < 1e-9, 'R63: shards.bossHpCap は 0.05');
+  assert(/const cap = B\(\)\.shards && B\(\)\.shards\.bossHpCap;\s*\r?\n\s*if \(cap\) dmg = Math\.min\(dmg, Math\.max\(1, Math\.round\(\(e\.maxHp \|\| 1\) \* cap\)\)\);/.test(bil),
+    'R63: 装甲片の倍率（shardMode().mul）の直後に上限を掛けている');
+  {
+    const koro = 90 * 1.18 * 1.5 * 2.5, cap = 1800 * 0.05;
+    assert(Math.min(koro, cap) === cap && cap / 1800 <= 0.05, `R63: コロガンナーの装甲片1枚 ${Math.round(koro)}（22%）→ 上限 ${cap}（5%）`);
+    const missi = 90 * 1.36 * 2.85 * 2.5;
+    assert(missi < 24000 * 0.05, `R63: ミサイルガの装甲片（${Math.round(missi)}＝${(missi / 24000 * 100).toFixed(1)}%）は上限（5%）未満＝後半は不変`);
+  }
+  // --- ④ スーパーボールは同じボスへ1投げ2回まで（ダメージだけ止め、跳ね返りは続く） ---
+  assert(B.superball.bossHitsPerThrow === 2, 'R63: superball.bossHitsPerThrow は 2');
+  assert(/s\.bossHits = \(s\.bossHits \|\| 0\) \+ 1;\s*\r?\n\s*if \(!\(L\.bossHitsPerThrow && s\.bossHits > L\.bossHitsPerThrow\)\) \{/.test(bil),
+    'R63: superballHit は上限を超えたらダメージ節を飛ばす（return せず跳ね返り処理へ進む）');
+  // --- ⑤ Result にボスごとの戦闘秒数 ---
+  assert(/this\.bossTimes\.push\(Math\.round\(this\.elapsed - this\._bossT0\)\);/.test(runjs), 'R63: Run がボス active の立ち下がりで戦闘秒数を記録する');
+  assert(/bossTimes: \(this\.bossTimes \|\| \[\]\)\.concat\(this\._bossOn \? \[-Math\.max\(1, Math\.round\(this\.elapsed - this\._bossT0\)\)\] : \[\]\),/.test(runjs),
+    'R63: 戦闘の途中で終わった（死んだ）ときは負の値で Result へ渡す');
+  assert(/bossTimes: d\.bossTimes,/.test(end), 'R63: Ending もクリア時に bossTimes を Result へ届ける');
+  assert(/if \(d\.bossTimes && d\.bossTimes\.length > 0\) \{/.test(res) && /`ボス \$\{txt\} びょう`/.test(res), 'R63: Result が「ボス n・n・n びょう」を10pxで出す');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

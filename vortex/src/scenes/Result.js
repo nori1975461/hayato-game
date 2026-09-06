@@ -110,6 +110,14 @@ export class ResultScene extends Phaser.Scene {
     //   演出（ヒットストップ）なのかを、開発機でなく**遊んだ機械の数字**で切り分けるため。
     //   Run.update の delta を数えたもの：平均fps／30fpsを割ったフレームの割合／50msを超えて
     //   ゲーム時間が遅れた（dtクランプ）フレームの割合。
+    // R63: ボスごとの戦闘秒数（親向け・小さく）。「ボスが弱すぎる／強すぎる」を、遊んだ本人の実測で読むため。
+    //   負の値＝その戦闘の途中で終わった（死んだ）。例「ボス 19・35・34・-22びょう」＝4体目の途中で死んだ。
+    if (d.bossTimes && d.bossTimes.length > 0) {
+      const txt = d.bossTimes.map((t) => (t < 0 ? `${-t}…` : String(t))).join('・');
+      this.add.text(6, H - 15, `ボス ${txt} びょう`, {
+        fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8',
+      }).setOrigin(0, 1).setAlpha(0.85);
+    }
     if (d.perf && d.perf.frames > 0) {
       const p = d.perf;
       const fps = p.frames / Math.max(0.001, p.ms / 1000);

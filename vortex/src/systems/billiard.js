@@ -983,14 +983,20 @@ export function createBilliard(run) {
       s.kills += r.total;
       s.chain = Math.max(s.chain, r.chain);
     } else if (e.isBoss) {
-      breakBoss(e);
-      let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * mul * bossSpecialMul(e)));
-      if (run.boss && run.boss.staggered) {
-        dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
+      // ★R63 同じボスへの命中は1投げに bossHitsPerThrow 回まで（跳ね返り×コア倍率で1投げ13〜44%になっていた）。
+      //   上限を超えた分は跳ねるだけ＝音も出ない（ダメージ0の数字を出して「当たったのに減らない」に見せない）。
+      s.bossHits = (s.bossHits || 0) + 1;
+      if (!(L.bossHitsPerThrow && s.bossHits > L.bossHitsPerThrow)) {
+        breakBoss(e);
+        let dmg = Math.max(1, Math.round((e.maxHp || 1) * L.bossHpRatio * mul * bossSpecialMul(e)));
+        if (run.boss && run.boss.staggered) {
+          dmg = Math.max(1, Math.round(dmg / BALANCE.hero.strike.bossBreakMul));
+        }
+        const hpBefore = e.hp;
+        run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
+        run.floatText(e.x, e.y - e.radius - 6, String(Math.max(0, hpBefore - e.hp)), '#4dff9e');
       }
-      const hpBefore = e.hp;
-      run.dealDamage(e, dmg, L.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
-      run.floatText(e.x, e.y - e.radius - 6, String(Math.max(0, hpBefore - e.hp)), '#4dff9e');
+      // 上限を超えた分はダメージ無し。下の跳ね返り（次の相手へ曲がる）はそのまま続く
     } else {
       const alive = e.active;
       run.dealDamage(e, L.trashDamage, L.color, 'manual');
@@ -1218,6 +1224,9 @@ export function createBilliard(run) {
       //   ボス戦の与ダメの主役を、仲間や必殺ではなく看板の動詞（投げ）に戻すための倍率。
       if (e.isBoss && s.shard) {
         dmg = Math.round(dmg * shardMode().mul);
+        // ★R63 1枚の上限＝ボス最大HPの割合（序盤のボスを装甲片1枚で半壊させない。理由は balance.shards.bossHpCap）
+        const cap = B().shards && B().shards.bossHpCap;
+        if (cap) dmg = Math.min(dmg, Math.max(1, Math.round((e.maxHp || 1) * cap)));
         run.floatText(e.x, e.y - e.radius - 22, 'アーマーブレイク！', '#ffd23f');
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。

@@ -136,6 +136,12 @@ export const BALANCE = {
         // ★装甲片をボスへ投げ返したときの特効。ボス戦の主役を投げへ戻すための倍率。
         //   90(damage) × dmgMul(1.0〜3.0) × 2.5 ＝ 225〜675。ブレイク直後は bossBreakMul 2.4 が乗る。
         bossMul: 2.5,
+        // ★R63 装甲片1枚の上限＝ボス最大HPの割合。倍率式（90×段位×攻撃力×2.5）は主人公の成長で決まる
+        //   固定額なので、序盤ほど重い（コロガンナー22%・ブレイク中53%／ジェットバイパー15.5%／
+        //   ウズバルカン9.9%）。上限5%（ブレイク中×2.4で最大12%）でミサイルガ以降（4.8%）は不変。
+        //   「割合固定」にしなかったのは、マオウレクスでコア2.4×ブレイク2.4が重なって1枚28.8%になり
+        //   第1形態が逆に速く溶けたため（試作P2の実測）。上限で縛るだけなら最終ボスは触れない。
+        bossHpCap: 0.05,
         // ゲーム内キー9で切り替える比較モード。ボットは「予告のほぼ全部を割る」上限値しか出せず
         // （実測でミサイルガ戦は予告10回中8回をブレイク）、正解は実プレイでしか決まらないため。
         modes: [
@@ -268,6 +274,9 @@ export const BALANCE = {
         //   14回跳ねる設計が実測1回で止まっていた。曲がるのは毎フレーム少しずつ。
         turnRate: 9,         // rad/秒。大きいほど吸い付く（磁石に見えない上限がこのあたり）
         bossHpRatio: 0.05,   // ボスへは1回あたり最大HPの5%。跳ね返りで何度も当たるので低く置く
+        // ★R63 同じボスへの命中は1投げにつきこの回数まで。跳ね返りの積み上げ（+22%/回）とコア倍率で
+        //   1投げ13〜44%になっていた（実測）。3回目以降は跳ねるだけでダメージが入らない。
+        bossHitsPerThrow: 2,
         trashDamage: 999,
         lifeSec: 6.0,        // 跳ね返りぶん長く生きる
         // 演出。1回ごとの振幅は小さく、回数で積み上げる（頻度と逆相関）
@@ -1119,6 +1128,14 @@ export const BALANCE = {
         //   コロガンナー＝転がる球。威勢のいい子分の口ぶりで「一番手」を名乗らせる。
         introLine: 'オレさまが ころがりだしたら とまらねえぜ！',
         hp: 1800, radius: 52, spriteScale: 8, glowScale: 6.8,
+        // ★R63 実プレイFB「操作に慣れない初回でミサイルガまで行けた＝ボスに歯ごたえがないのでは」。
+        //   実測（scratchpad/r63-boss-difficulty-probe.mjs・22ラン）：通常ボス5体はHPが1800→18000と10倍でも
+        //   戦闘長12〜32秒で横一線。与ダメの35〜60%が「最大HPの割合」（らいこうだん30%／ほのおだん12%／
+        //   スーパーボール5%×跳ね）と装甲片（×2.5×ブレイク2.4＝コロガンナーの1枚53%）の**HPに依存しない固定額**
+        //   だったため。R34 でマオウレクスにだけ入れた手当て③（specialBulletMul）を通常ボス5体へ横展開する：
+        //   0.67 ＝ らいこうだん20%／ほのおだん8%／スーパーボール3.3%／ブラックホール6.7%（切り札の格は残す）。
+        //   ボスの攻撃ダメージ・マグマンの頻度・回復は触らない（被ダメ側は弱くないと実測で確認済み）。
+        specialBulletMul: 0.67,
         glowOuter: '#8a8f98', glowInner: '#38e1ff',
         chaseSpeed: 68, bodyDamage: 12,
         attacks: ['machinegun', 'rollrush', 'rollbomb', 'dash'],
@@ -1164,7 +1181,9 @@ export const BALANCE = {
         warnSec: 118, spawnSec: 120, spawnDist: 300,
         introLine: 'はやさで おれに かなう やつは いない！',   // R53 スピード自慢
 
-        hp: 3600, radius: 56, spriteScale: 8, glowScale: 7.2,
+        // R63: 3600→5000。固定額を薄めたぶん、2体目から「予告を7回以上見せる」尺へ（実測 中央値28→48秒）
+        hp: 5000, radius: 56, spriteScale: 8, glowScale: 7.2,
+        specialBulletMul: 0.67,   // R63（コロガンナーの注釈参照）
         glowOuter: '#2a6bff', glowInner: '#7fd0ff',
         chaseSpeed: 70, bodyDamage: 15,
         attacks: ['cutter', 'pinlaser', 'flypass', 'dash'],
@@ -1212,7 +1231,9 @@ export const BALANCE = {
         // R53 乱暴な兄貴分。phase2 の rageText「ウズバルカン ぶちギレ！」と口ぶりを揃える
         introLine: 'あんまり おこらせるな！ ぶっとばすぞ！',
 
-        hp: 6500, radius: 64, spriteScale: 9, glowScale: 9,
+        // R63: 6500→9000（実測 中央値18→35秒）
+        hp: 9000, radius: 64, spriteScale: 9, glowScale: 9,
+        specialBulletMul: 0.67,   // R63
         glowOuter: '#e8720c', glowInner: '#ffd23f',
         chaseSpeed: 66, bodyDamage: 18,
         attacks: ['vulcan', 'drill', 'spiral', 'armslam'],
@@ -1262,7 +1283,9 @@ export const BALANCE = {
         // R53 海の王の貫禄。phase2 が「かくせい」なので、ここでは静かに構えさせる
         introLine: 'うみの おうの まえだ しずめて やろう',
 
-        hp: 11000, radius: 72, spriteScale: 9, glowScale: 10,
+        // R63: 11000→16000（実測 中央値28→33秒・シードで25〜57秒と揺れる＝息子さんの実測で最終調整）
+        hp: 16000, radius: 72, spriteScale: 9, glowScale: 10,
+        specialBulletMul: 0.67,   // R63
         glowOuter: '#38e1ff', glowInner: '#a8f0ff',
         chaseSpeed: 60, bodyDamage: 22,
         // ★R56 実プレイFB「錨の投擲攻撃をもっと頻繁にして。一度しか確認できなかった」。
@@ -1330,7 +1353,9 @@ export const BALANCE = {
         warnSec: 298, spawnSec: 300, spawnDist: 330,
         introLine: 'ミサイルの あめだ にげばは ないぞ！',   // R53 物量の圧
 
-        hp: 18000, radius: 76, spriteScale: 8, glowScale: 10,
+        // R63: 18000→24000（実測 中央値29→38秒・予告11〜13回）
+        hp: 24000, radius: 76, spriteScale: 8, glowScale: 10,
+        specialBulletMul: 0.67,   // R63
         glowOuter: '#e8720c', glowInner: '#ff4d4d',
         chaseSpeed: 60, bodyDamage: 26,
         attacks: ['missile', 'minirobo', 'barrage', 'vulcan', 'summon'],

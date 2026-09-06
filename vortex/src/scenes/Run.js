@@ -113,6 +113,10 @@ export class RunScene extends Phaser.Scene {
     this.slowT = 0;
     // R59: 処理の記録（update で delta を数え、Result 画面に小さく出す）
     this.perf = { frames: 0, ms: 0, slow: 0, clamp: 0 };
+    // R63: ボスごとの戦闘秒数（出現→撃破）。Result に小さく出す＝実プレイの「歯ごたえ」を数字で読むため。
+    //   負の値は「その戦闘の途中で終わった（死んだ）」印。
+    this.bossTimes = [];
+    this._bossOn = false; this._bossT0 = 0;
     // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
     // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
     this._strikeT = 0;          // クールダウンの残り秒
@@ -454,6 +458,12 @@ export class RunScene extends Phaser.Scene {
       this.perf.frames++; this.perf.ms += delta;
       if (delta > 33.4) this.perf.slow++;
       if (delta > 50) this.perf.clamp++;
+    }
+    // R63: ボス戦の長さを記録（active の立ち上がり／立ち下がりで測る＝どの経路で倒しても同じ数え方）
+    if (this.bossTimes) {
+      const bAct = !!(this.boss && this.boss.active);
+      if (bAct && !this._bossOn) { this._bossOn = true; this._bossT0 = this.elapsed; }
+      else if (!bAct && this._bossOn) { this._bossOn = false; this.bossTimes.push(Math.round(this.elapsed - this._bossT0)); }
     }
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
@@ -2735,6 +2745,8 @@ export class RunScene extends Phaser.Scene {
       coins: this.coins,
       party: this.party.map((m) => m.def.id),
       perf: this.perf,   // R59: 処理の記録（Result が小さく出す＝遊んだ機械での処理落ちを切り分ける）
+      // R63: ボスごとの戦闘秒数。戦闘の途中で終わった（死んだ）ときは負の値で「途中」を示す
+      bossTimes: (this.bossTimes || []).concat(this._bossOn ? [-Math.max(1, Math.round(this.elapsed - this._bossT0))] : []),
     };
     // R29: クリアだけはエンディングを挟む（ゲームオーバーは従来どおり直行）。
     //   Ending 側が終わったら同じ payload で Result へ渡すので、リザルトの表示は不変。
