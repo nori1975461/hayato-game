@@ -1793,10 +1793,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //     ⚠️ 尺のガードに使う DPS は必ず本番条件の実測値にすること（練習場の数字を式に埋めない）。
   //     実測DPS 299 は「雑魚から弾を拾い、避け、死にながら」の値。目標は100秒前後。---
   {
+    // R64b ユーザー指示「40000にして」＝目標は約155秒（30000＝約118秒より厚い最終決戦）。
     const REAL_DPS = 278;                 // R64 実装後の本番条件の実測（3シード・中央値）
     const sec = tf.hp / REAL_DPS + tf.shell.holdSec * 6;
-    assert(sec >= 85 && sec <= 135,
-      `R64: 真の姿の戦闘が110秒前後の設計（HP${tf.hp} ÷ 本番実測DPS${REAL_DPS} + 殻無敵${tf.shell.holdSec}s×6 = ${sec.toFixed(1)}秒／実装後の実測 74.7〜165.6秒）`);
+    assert(sec >= 130 && sec <= 175,
+      `R64b: 真の姿の戦闘が155秒前後の設計（HP${tf.hp} ÷ 本番実測DPS${REAL_DPS} + 殻無敵${tf.shell.holdSec}s×6 = ${sec.toFixed(1)}秒）`);
     assert(tf.gaugeSegments === 4,
       `true: 100秒をゲージ4本で数えられる（${tf.gaugeSegments}本・1本≒25秒＝激化の段と同数）`);
   }
@@ -5282,7 +5283,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   // --- ① HP は本番実測から引く（練習場の数字を使わない） ---
   assert(M.hp === 22000, `R64: 第1形態のHPは22000（本番実測DPS638・実装後の実測32.7〜52.4秒・実際 ${M.hp}）`);
-  assert(TF.hp === 30000, `R64: 真の姿のHPは30000（本番実測DPS278・実装後の実測74.7〜165.6秒・実際 ${TF.hp}）`);
+  assert(TF.hp === 40000, `R64b: 真の姿のHPは40000（ユーザー指示。実測DPS278で約145秒＋殻無敵10秒＝約155秒・実際 ${TF.hp}）`);
   assert(/本番と同じ条件/.test(bal) && /れんしゅうじょう/.test(bal),
     'R64: balance.js に「練習場の数字で決めない」根拠が残っている（同じ失敗の再発防止）');
 
@@ -5316,7 +5317,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //   実装後の実測（3シード）：第1形態 32.7／34.5／52.4秒・真の姿 74.7／109.4／165.6秒。
   //   3シード中2つが**実際に撃破まで到達**した（旧HPでは950秒走らせても0/3だった）。
   const missilgaSec = BALANCE.boss.tiers[4].hp / 520;     // R63 実測（ミサイルガ 47秒前後）
-  const maouSec = M.hp / 638 + TF.hp / 278;               // R64 実装後の実測DPS（中央値）
+  const maouSec = M.hp / 638 + TF.hp / 278;   // R64b: 22000/638 + 40000/278 ≒ 178秒               // R64 実装後の実測DPS（中央値）
   assert(maouSec > missilgaSec * 2,
     `R64: マオウ戦（${maouSec.toFixed(0)}秒）が通常ボス最長（${missilgaSec.toFixed(0)}秒）の2倍以上＝HPは低くても実時間では最長`);
 }
