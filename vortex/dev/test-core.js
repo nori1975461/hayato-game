@@ -375,7 +375,9 @@ assert(BOSS && BOSS.id === 'uzuking', 'data: BOSS export が存在し id=uzuking
   assert(!!maou, 'balance: 最終ボス maou の tier が存在');
   if (maou) {
     // R34: 24000 では実測 12.8〜17.6秒でボスが攻撃を1回も完遂できずに終わっていた
-    assert(maou.hp === 68000, `balance: マオウレクスのHP（R34で120000→R37で68000＝転生前28秒・実測 ${maou.hp}）`);
+    // R64: 68000 は「れんしゅうじょう（無敵・雑魚なし）で28秒」の値。本番条件の実測DPS400前後で
+    //      95〜172秒＝息子さんの「削れない」の正体。本番実測 × 目標55秒 ≒ 22000 へ引き直した。
+    assert(maou.hp === 22000, `balance: マオウレクスのHP（R37で68000→R64で22000＝本番実測・実装後32.7〜52.4秒・実際 ${maou.hp}）`);
     const sp = maou.split, mg = maou.merge, ck = maou.chestLaser;
     assert(!!sp && !!mg && !!ck, 'balance: maou に split / merge / chestLaser が定義されている');
     if (sp && mg && ck) {
@@ -1027,12 +1029,18 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   assert(!!maou, 'R34: 最終ボス maou の tier が存在');
   if (maou) {
-    // ④尺。1発が最大HPの23%だったので、HPを上げないと演出が全部間に合わない。
-    //   R37 で 120000→68000 へ削った（実プレイFB「マオウレクスの闘い時間を削っていい」）が、
-    //   下限は残す：60000 を割ると渾身の一投（実測5558）が最大HPの9%を超え、R34 の
-    //   「攻撃が完遂される前に終わる」へ逆戻りする。上限 90000 は「削った」ことのガード。
-    assert(maou.hp >= 60000 && maou.hp <= 90000,
-      `R37: マオウレクスのHPが60000〜90000（実測 ${maou.hp}）＝転生前28秒前後`);
+    // ④尺。★R64 で下限の根拠を作り直した。旧ガード（60000〜90000）は「渾身の一投が最大HPの
+    //   9%を超えるとボスが攻撃を完遂できない」という R34 の懸念から引いていたが、**本番条件の
+    //   実測**では通常の投げ1発は1500〜1720＝22000の7〜8%、装甲片でも12%で、9%は日常的に
+    //   起きる値だった（＝あの下限は練習場の数字で引いた線）。守るべきは「1発の割合」ではなく
+    //   **戦闘中にボスの攻撃が何回完遂されるか**。実装後の実測（22000・コア半径38）は
+    //   **32.7／34.5／52.4秒**で、その中で missile・wirearm・vulcan・knuckle・nova・分離・
+    //   じゃがんレーザー・再合体・じゃしんレーザーが**すべて1回以上完遂**している＝
+    //   R34 が壊れた12.8秒（技が1つも出ない）とは別物。
+    //   下限16000＝約25秒（見せ場9種が1周する最小）。上限32000＝約50秒（実測C1で第1形態
+    //   80秒＝本番では死ぬほうが先に来た値の手前）。
+    assert(maou.hp >= 16000 && maou.hp <= 32000,
+      `R64: マオウレクスのHPが16000〜32000（実測 ${maou.hp}）＝本番条件で25〜50秒（実装後の実測 32.7〜52.4秒）`);
     // 硬いだけにしないための3点セット
     assert(maou.gaugeSegments >= 2,
       'R34: HPゲージが複数段（1本ぶち抜いたことが数えられる＝硬いだけにしない手当て）');
@@ -1762,12 +1770,15 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
   // ★殻閉じの閾値は比率ではなく**絶対値**で縛る（R37 の教訓：HPを2倍にしたら比率0.10の
   //   ままで閾値が20000へ倍増し、6回とも割れなかった＝割る遊びがまた消えた）。
-  //   「成立も割れも起きる」を実測した絶対値は 10000（渾身のコア一投≒13000 が窓に1回入るか）。
-  //   8000未満＝薄すぎて毎回割れる／14000超＝一投+αでも届かず全成立、のどちらも遊びが消える。
+  // ★★R64 その絶対値（10000）も練習場の数字だった。根拠にしていた「渾身のコア一投≒13000」は
+  //   無敵・雑魚なしの環境の値で、**本番実測の1発は 通常の投げ1500〜1720／装甲片3400**。
+  //   10000＝窓1.4秒に5発＝本番では原理的に届かず、実測でも殻閉じ28〜30回に対し割れ1回だった。
+  //   縛るべきは「窓1.4秒に入る投げ1〜3発で届くか」＝**3000〜6000**（装甲片1枚＋投げ1発＝4900、
+  //   投げ3発＝4700 が中心）。3000未満＝1発で必ず割れて殻が消える／6000超＝また届かなくなる。
   {
     const abs = tf.hp * tf.shell.interruptRatio;
-    assert(abs >= 8000 && abs <= 14000,
-      `true: 殻閉じの閾値が8000〜14000（HP${tf.hp}×${tf.shell.interruptRatio}＝${abs.toFixed(0)}）＝成立と割れが両立する実測帯`);
+    assert(abs >= 3000 && abs <= 6000,
+      `R64: 殻閉じの閾値が3000〜6000（HP${tf.hp}×${tf.shell.interruptRatio}＝${abs.toFixed(0)}）＝本番の投げ1〜3発で届く帯`);
   }
   assert(tf.shell.closeSec >= 1.2,
     `true: 殻閉じを割りにいく窓が1.2秒以上ある（${tf.shell.closeSec}秒）`);
@@ -1775,13 +1786,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `true: 割ったときの隙(${tf.shell.breakSec}s)が、閉じられたときの無敵(${tf.shell.holdSec}s)より長い＝止めにいく得がある`);
 
   // --- 尺：R37 実プレイFB「60秒以内では戦闘短すぎないか。適度に延長して」→ 65秒前後へ。
-  //     根拠は balance.js の trueForm コメント（60秒超・攻撃1周10.8秒×約6周・BGM3周）。---
+  // ★★R64 この式の 3780 が**れんしゅうじょう（主人公が無敵・雑魚なし）で測ったDPS**だった。
+  //     同じ式に本番と同じ条件の実測DPS（186〜369・中央値299）を入れると、旧HP240000 は
+  //     **650〜1290秒**。実際そのとおりで、418〜495秒かけても45〜64%しか削れなかった＝
+  //     ゲームとして終われない状態を、このアサーションが「65秒の設計です」と保証していた。
+  //     ⚠️ 尺のガードに使う DPS は必ず本番条件の実測値にすること（練習場の数字を式に埋めない）。
+  //     実測DPS 299 は「雑魚から弾を拾い、避け、死にながら」の値。目標は100秒前後。---
   {
-    const sec = tf.hp / 3780 + tf.shell.holdSec * 6;
-    assert(sec >= 58 && sec <= 74,
-      `true: 真の姿の戦闘が65秒前後の設計（HP${tf.hp} ÷ 実測DPS3780 + 殻無敵${tf.shell.holdSec}s×6 = ${sec.toFixed(1)}秒）`);
+    const REAL_DPS = 278;                 // R64 実装後の本番条件の実測（3シード・中央値）
+    const sec = tf.hp / REAL_DPS + tf.shell.holdSec * 6;
+    assert(sec >= 85 && sec <= 135,
+      `R64: 真の姿の戦闘が110秒前後の設計（HP${tf.hp} ÷ 本番実測DPS${REAL_DPS} + 殻無敵${tf.shell.holdSec}s×6 = ${sec.toFixed(1)}秒／実装後の実測 74.7〜165.6秒）`);
     assert(tf.gaugeSegments === 4,
-      `true: 65秒をゲージ4本で数えられる（${tf.gaugeSegments}本・1本≒16秒＝激化の段と同数）`);
+      `true: 100秒をゲージ4本で数えられる（${tf.gaugeSegments}本・1本≒25秒＝激化の段と同数）`);
   }
   // HPが0になった瞬間を、撃破処理より**前**に横取りしていること（順序が逆だと1回で終わる）
   assert(/function onBossKilled\(e\) \{[\s\S]{0,1200}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
@@ -5219,9 +5236,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(boltEff >= 0.18 && boltEff <= 0.22, `R63: 通常ボスへのらいこうだんは最大HPの約20%（${(boltEff * 100).toFixed(1)}%）＝切り札の格は残す`);
   assert(Math.abs(B.bolt.bossHpRatio - 0.30) < 1e-9 && Math.abs(B.blast.bossHpRatio - 0.12) < 1e-9,
     'R63: 特殊弾の素の割合（bolt 30%／blast 12%）は据え置き＝倍率は cfg 側で薄める（二重に薄めない）');
-  // --- ② HP：1800 → 5000 → 9000 → 16000 → 24000 → 68000（単調増加・コロガンナーとマオウは不変） ---
+  // --- ② HP：1800 → 5000 → 9000 → 16000 → 24000 →（R64でマオウは 68000→22000）---
+  //     ⚠️ マオウだけ通常ボスより低い。理由は「弱点コアに当てたときしか通らない」＝実効DPSが
+  //        通常ボスの半分以下だからで、**実時間ではいちばん長い**（実測：ミサイルガ47秒に対し
+  //        第1形態55秒＋真の姿100秒）。HPの大小でなく戦闘長で並びを見ること。
   const hps = T.map((t) => t.hp);
-  assert(JSON.stringify(hps) === JSON.stringify([1800, 5000, 9000, 16000, 24000, 68000]), `R63: ボスHPは [1800,5000,9000,16000,24000,68000]（実際 ${hps.join(',')}）`);
+  assert(JSON.stringify(hps) === JSON.stringify([1800, 5000, 9000, 16000, 24000, 22000]), `R63/R64: ボスHPは [1800,5000,9000,16000,24000,22000]（実際 ${hps.join(',')}）`);
+  for (let i = 0; i < 4; i++) assert(T[i].hp < T[i + 1].hp, `R63: 通常ボス5体のHPは単調増加（${T[i].bossId} < ${T[i + 1].bossId}）`);
   // --- ③ 装甲片1枚の上限＝最大HPの5%（ミサイルガ以降は素の値のほうが小さい＝不変） ---
   assert(Math.abs(B.shards.bossHpCap - 0.05) < 1e-9, 'R63: shards.bossHpCap は 0.05');
   assert(/const cap = B\(\)\.shards && B\(\)\.shards\.bossHpCap;\s*\r?\n\s*if \(cap\) dmg = Math\.min\(dmg, Math\.max\(1, Math\.round\(\(e\.maxHp \|\| 1\) \* cap\)\)\);/.test(bil),
@@ -5242,6 +5263,62 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R63: 戦闘の途中で終わった（死んだ）ときは負の値で Result へ渡す');
   assert(/bossTimes: d\.bossTimes,/.test(end), 'R63: Ending もクリア時に bossTimes を Result へ届ける');
   assert(/if \(d\.bossTimes && d\.bossTimes\.length > 0\) \{/.test(res) && /`ボス \$\{txt\} びょう`/.test(res), 'R63: Result が「ボス n・n・n びょう」を10pxで出す');
+}
+
+// ============ R64 マオウレクスが「削れない」＝HPを練習場のDPSで決めていた ============
+// 実プレイFB（息子さん）「マオウレクスは強い。**削れない**」。実測すると手触りの話ではなかった：
+//   ・本番と同じ条件（雑魚あり・避ける・死ぬ）の実測DPSは 第1形態396〜716／真の姿186〜369。
+//   ・旧HP（68000／240000）はどちらも**れんしゅうじょう**（主人公が無敵・雑魚なし）で測った
+//     DPS（3430／3780）から引いた値で、本番では第1形態95〜172秒・真の姿は495秒かけても
+//     45〜64%しか削れない＝**到達しても終われない**状態だった。
+//   ・与ダメの経路も実測：仲間の弾2098発・自動拳569発・素手114発は全部「カキン」で、通るのは
+//     投げだけ。つまりこのボスの尺は「投げがコアに通るか」だけで決まる。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const bal = fs.readFileSync(path.join(SRC, 'data/balance.js'), 'utf8');
+  const M = BALANCE.boss.tiers.find((t) => t.bossId === 'maou');
+  const TF = M.trueForm;
+  const HB = BALANCE.hero.billiard;
+
+  // --- ① HP は本番実測から引く（練習場の数字を使わない） ---
+  assert(M.hp === 22000, `R64: 第1形態のHPは22000（本番実測DPS638・実装後の実測32.7〜52.4秒・実際 ${M.hp}）`);
+  assert(TF.hp === 30000, `R64: 真の姿のHPは30000（本番実測DPS278・実装後の実測74.7〜165.6秒・実際 ${TF.hp}）`);
+  assert(/本番と同じ条件/.test(bal) && /れんしゅうじょう/.test(bal),
+    'R64: balance.js に「練習場の数字で決めない」根拠が残っている（同じ失敗の再発防止）');
+
+  // --- ② 弱点コアの通る帯が、コアの泳ぎ幅を覆っていること ---
+  //   玉は本体を貫通し、飛んだ線がコア円（weak.radius ＋ 玉の半径）を通れば当たる。
+  //   コアは swayX ぶん左右に泳ぐので、帯が泳ぎの幅（片側 swayX ＝全体 2×swayX）に届かないと
+  //   「本体の中心へ投げても当たるかどうかが運」になる。マオウ到達時（360秒）の武器Lvは
+  //   実測12＝テラなげ（radiusMul 1.44）なので、玉の半径は hitRadius 20×1.44＝28.8。
+  const ballR = HB.hitRadius * HB.throwTiers[4].radiusMul;
+  const band = M.weak.radius + ballR;
+  assert(M.weak.radius === 38, `R64: 第1形態のコア半径は38（旧27・実際 ${M.weak.radius}）`);
+  assert(band >= 2 * M.weak.swayX,
+    `R64: コアの通る帯 ${band.toFixed(1)}px（半径${M.weak.radius}＋玉${ballR.toFixed(1)}）が泳ぎ幅 ${2 * M.weak.swayX}px 以上＝狙いが運にならない`);
+
+  // --- ③ 投げ1発がゲージを動かすこと（「削れない」の正体は1発の割合） ---
+  //   テラなげ（dmgMul 1.24）×攻撃力3.0（実測 2.9〜3.35）×light格（bossMul 1）×コア2.4。
+  //   ブレイク中はさらに×2.4 なので、下の値は**いちばん軽い1発**にあたる。
+  const oneThrow = HB.damage * HB.throwTiers[4].dmgMul * 3.0 * HB.grades[0].bossMul * M.weak.mul;
+  const share = oneThrow / M.hp;
+  assert(share >= 0.03 && share <= 0.15,
+    `R64: 通常の投げ1発が第1形態HPの3〜15%（${oneThrow.toFixed(0)} / ${M.hp} = ${(share * 100).toFixed(1)}%）＝ゲージが目に見えて動く`);
+  assert(oneThrow / TF.hp >= 0.02,
+    `R64: 同じ1発が真の姿でもHPの2%以上（${(100 * oneThrow / TF.hp).toFixed(1)}%）＝旧240000では0.3%だった`);
+
+  // --- ④ 節目（分離50%・再合体33%）が1発で飛ばされないこと ---
+  const bandSplit = M.hp * (M.split.hpRatio - M.merge.hpRatio);
+  assert(bandSplit > oneThrow * 1.5,
+    `R64: 分離帯（50%→33%＝${bandSplit.toFixed(0)}）が投げ1発（${oneThrow.toFixed(0)}）より広い＝じゃがんレーザーの見せ場が残る`);
+
+  // --- ⑤ 全体の尺：最終ボスは通常ボス最長より長いこと（HPの大小ではなく戦闘長で見る） ---
+  //   実装後の実測（3シード）：第1形態 32.7／34.5／52.4秒・真の姿 74.7／109.4／165.6秒。
+  //   3シード中2つが**実際に撃破まで到達**した（旧HPでは950秒走らせても0/3だった）。
+  const missilgaSec = BALANCE.boss.tiers[4].hp / 520;     // R63 実測（ミサイルガ 47秒前後）
+  const maouSec = M.hp / 638 + TF.hp / 278;               // R64 実装後の実測DPS（中央値）
+  assert(maouSec > missilgaSec * 2,
+    `R64: マオウ戦（${maouSec.toFixed(0)}秒）が通常ボス最長（${missilgaSec.toFixed(0)}秒）の2倍以上＝HPは低くても実時間では最長`);
 }
 
 if (failures > 0) {
