@@ -5363,6 +5363,56 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R65: maxHp が変わったら（＝真の姿へ転生）カウンタを数え直す＝前の形態の溜まりで即2枚出さない');
 }
 
+// ============ R66 ミサイルガ撃破＝章の区切りの全回復（ユーザー案） ============
+// 「ミサイルガをたおしたら体力を全回復するのはどうか。体力ゲージを音を上げてグーンと
+//   回復する演出で」。ミサイルガは最後の通常ボスで、倒した時点で最終ボスの出現予定
+//   （360秒）を過ぎているため endFight() の直後にマオウレクスが出る＝回復する間がない。
+//   実測でも息子さんはここで力尽きていた（Result のボス秒 …166・10… ＝マオウ10秒で死亡）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const runjs = read('scenes/Run.js'), bossjs = read('systems/boss.js');
+  const snd = read('audio/sound.js'), hud = read('ui/hud.js');
+  const C = BALANCE.boss.chapterHeal;
+  const T = BALANCE.boss.tiers;
+
+  // --- ① 付くのはミサイルガ1体だけ（毎ボス回復は「区切り」でなく難易度調整になる） ---
+  const healers = T.filter((t) => t.healOnKill).map((t) => t.bossId);
+  assert(JSON.stringify(healers) === JSON.stringify(['missilga']),
+    `R66: healOnKill はミサイルガだけ（実際 ${healers.join(',') || 'なし'}）`);
+  assert(!T[5].healOnKill, 'R66: 最終ボスには付けない（転生時の全回復はR50で別にある）');
+
+  // --- ② 演出が撃破シネマの内側に収まる（マオウレクス登場と重ねない） ---
+  const total = C.delaySec + C.fillSec;
+  assert(total <= T[4].deathCinematicSec,
+    `R66: 待ち${C.delaySec}+伸び${C.fillSec}＝${total.toFixed(2)}秒が撃破シネマ${T[4].deathCinematicSec}秒の内側`);
+  assert(C.fillSec >= 0.8,
+    `R66: 伸びる時間は0.8秒以上（${C.fillSec}）＝一瞬で満タンにしない＝「回復している」が見える`);
+
+  // --- ③ 音が「上がっていく」こと（引数を見ない固定音の使い回しをしない＝R54の教訓） ---
+  const ticks = C.fillSec / C.tickSec;
+  assert(ticks >= 8 && ticks <= 20, `R66: 上がる段数は8〜20（${ticks.toFixed(1)}段）＝「グーン」に聞こえる密度`);
+  assert(/healRise\(p\)/.test(snd), 'R66: sound.js に healRise(p) がある（healTick は引数を見ない固定音）');
+  {
+    const body = snd.slice(snd.indexOf('healRise(p)'), snd.indexOf('healRise(p)') + 700);
+    assert(/scale\[/.test(body) && /t \* scale\.length/.test(body),
+      'R66: healRise が進み具合 p を実際に使って音程を選んでいる（引数無視の再発防止）');
+  }
+  assert(/Sound\.sfx\('healRise', p\)/.test(runjs), 'R66: Run が進み具合を healRise に渡している');
+  assert(/Sound\.sfx\('gaugeFull'\)/.test(runjs), 'R66: 満タンで決め音（gaugeFull）が鳴る');
+
+  // --- ④ 撃破シネマ中も進むこと（凍結/シネマの早期returnより前で回す） ---
+  assert(/chapterHeal\(\)/.test(runjs) && /tickChapterHeal\(dt\)/.test(runjs), 'R66: Run に chapterHeal/tickChapterHeal がある');
+  assert(runjs.indexOf('this.chHeal) this.tickChapterHeal') < runjs.indexOf('if (this.cinematic)'),
+    'R66: 全回復の更新はシネマ/ヒットストップの早期returnより前にある＝ゲージが止まって見えない');
+  assert(/cfg\.healOnKill && run\.chapterHeal/.test(bossjs), 'R66: finishMini が healOnKill の tier で全回復を始める');
+  assert(/run\.chHealOn/.test(hud), 'R66: HUDが伸びている先端を光らせる（動いていることを見せる）');
+
+  // --- ⑤ 満タンなら何も起きない（無音・意味が薄まらない） ---
+  assert(/this\.player\.hp >= this\.player\.maxHp\) return;/.test(runjs),
+    'R66: 体力が満タンのときは演出そのものを出さない');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

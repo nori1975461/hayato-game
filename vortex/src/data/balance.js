@@ -1113,6 +1113,19 @@ export const BALANCE = {
     // ボス戦中の雑魚スポーン制限（spawner.js が参照）
     trashInterval: 2.4, trashCount: 1,
 
+    // ★R66 章の区切りの全回復（healOnKill を持つ tier の撃破時）。R50 の転生時全回復は
+    //   「一瞬で満タン」だったが、ここは**ゲージが伸びていくのを見せる**のが目的なので
+    //   時間をかける。fillSec は撃破シネマ（deathCinematicSec 1.7秒）の内側に収めて、
+    //   マオウレクス登場の暗転と重ならないようにする（delay 0.45 + fill 1.15 = 1.6秒）。
+    chapterHeal: {
+      delaySec: 0.45,        // 「げきは！」の文字と音が鳴りきってから始める
+      fillSec: 1.15,         // ゲージが 0→満タンへ伸びる時間
+      tickSec: 0.085,        // 音を鳴らす間隔（約13段＝healRise の梯子とほぼ1対1）
+      text: 'たいりょく ぜんかいふく！！',
+      tint: '#7dff8f',       // R50 の全回復と同じ緑＝同じ意味だと一目でわかる
+      particles: 16,
+    },
+
     // 出現順（小→final）。betweenAttacks の長さは attacks の長さと一致させること。
     //
     // ★R52b 実プレイFB「マオウレクス以外のボスの攻撃がぬる過ぎる。弾のスピードを速くして」＋
@@ -1418,6 +1431,12 @@ export const BALANCE = {
         phase2: true, phase2HpRatio: 0.5, phase2IdleMult: 0.68, phase2DashSpeedMult: 1.18,
         rageText: 'ミサイルガ ぶちギレ！', bulletTint: '#ff4d4d',
         rewardCoins: 380, deathCinematicSec: 1.7,
+        // ★R66 ユーザー案。ミサイルガ＝**最後の通常ボス**で、倒した直後に最終ボスが出る
+        //   （出現予定360秒はこの時点で過ぎているので待ち時間がない）。実測では息子さんは
+        //   ここまでで体力を削り切っていて、マオウレクス出現10秒で力尽きていた（Result「…10」）。
+        //   最終決戦を満タンで始められるようにする＝難易度でなく**区切り**の演出。
+        //   マオウレクス（final）自身には付けない（転生時の全回復はR50で別にある）。
+        healOnKill: true,
       },
       // 6. 最終ボス「マオウレクス」（~360秒＝クリア条件）。最終ボスは5つの必殺級攻撃を持つ：
       //    ① 亜空間レーザー薙ぎ（laser・極太/長射程） ② ナックルウェーブ（knuckle＝新・最強武器／両手を胸前で叩き

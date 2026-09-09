@@ -223,6 +223,12 @@ export function createHud(run) {
     const hpColor = (r << 16) | (g << 8) | 0x30;
     bar.fillStyle(hpColor, 1);
     bar.fillRect(8, 8, hpW * hpRatio, 10);
+    // ★R66 章の全回復中は伸びている先端を光らせる。「回復した」ではなく「回復している」を見せる
+    //   のが目的なので、止まっている量（色）でなく動いている縁を強調する。
+    if (run.chHealOn) {
+      bar.fillStyle(0xffffff, 0.9);
+      bar.fillRect(8 + Math.max(0, hpW * hpRatio - 3), 8, 3, 10);
+    }
     bar.lineStyle(1, 0xffffff, 0.4);
     bar.strokeRect(8, 8, hpW, 10);
     // ジェル回復ゲージ（HPバーの真下）。溜まりきると回復する。

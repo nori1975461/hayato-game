@@ -941,6 +941,18 @@ const SFX = {
     tone({ type: 'sine', freq: 880, dur: 0.07, gain: 0.045, attack: 0.004 });
     tone({ type: 'sine', freq: 1320, dur: 0.09, gain: 0.035, attack: 0.03 });
   },
+  // ★R66 章の区切りの全回復。ゲージが伸びているあいだ、音程が段で上がっていく「グーン」。
+  //   healTick は引数を見ない固定音なので、連打しても上がっていかない（R54の教訓＝汎用音の
+  //   使い回しをやめる）。p は 0→1 の進み具合。半音でなくペンタトニックの梯子にして、
+  //   サイレンでなく「登っていく」音楽として聞かせる。音量も後半ほど上げる。
+  healRise(p) {
+    const t = Math.max(0, Math.min(1, p == null ? 0 : p));
+    const scale = [NOTE.C4, NOTE.D4, NOTE.E4, NOTE.G4, NOTE.A4, NOTE.C5,
+      NOTE.D5, NOTE.E5, NOTE.G5, NOTE.A5, NOTE.C6, NOTE.E6];
+    const n = scale[Math.min(scale.length - 1, Math.floor(t * scale.length))];
+    tone({ type: 'triangle', freq: noteFreq(n), dur: 0.12, gain: 0.05 + 0.055 * t, attack: 0.004 });
+    tone({ type: 'sine', freq: noteFreq(n) * 2, dur: 0.07, gain: 0.018 + 0.022 * t, attack: 0.004 });
+  },
   // R22 投球モーション：腕を振り抜く一瞬の風切り音。0.09秒と短くして「ヒュッ」で切る
   //（wireFly は 0.42 秒あり、投球の振りには長すぎて音が置いていかれる）。
   throwWhoosh(power) {

@@ -4469,6 +4469,11 @@ export function createBoss(run) {
   function finishMini(x, y) {
     run.shake(300, 5);
     run.floatText(x, y - 40, def.name + ' げきは！', '#ffd23f');
+    // ★R66 最後の通常ボス（ミサイルガ）を倒したら体力を全回復する。ユーザー案。
+    //   ここで始めるのは、この時点で最終ボスの出現予定時刻（360秒）を過ぎていて
+    //   endFight() の直後にマオウレクスが出てしまうため＝待ち時間がない。撃破シネマの
+    //   1.7秒の内側（0.45+1.15＝1.6秒）で伸ばしきる。
+    if (cfg.healOnKill && run.chapterHeal) run.chapterHeal();
     run.time.addEvent({
       delay: 120, repeat: 5,
       callback: () => run.spawnParticles(

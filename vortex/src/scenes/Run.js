@@ -471,6 +471,9 @@ export class RunScene extends Phaser.Scene {
     // R58: 止める予算の帳簿。このフレームが凍結/減速なら実時間ぶんを使った分として記帳する。
     //   ⚠️ 下の凍結の早期 return より**前**に置く（凍結中こそ記帳しないと予算が減らない）。
     if (this.timeStop) this.timeStop.tick(dt, this.freezeT > 0, this.slowT > 0 ? this.slowMul : 1);
+    // ★R66 章の全回復は撃破シネマ（下の cinematic/freeze の早期returnに入る）の最中に走るので、
+    //   returnより**前**・実時間（dt）で進める。ここより下に置くとゲージが止まって見える。
+    if (this.chHeal) this.tickChapterHeal(dt);
     this.flushPops();         // R27: このフレームに死んだぶんを1本の連打へ束ねる
 
     // コインがたまると最大HPが少し伸びる（2026-09-02ユーザー指示。値は BALANCE.coinVitality）
@@ -2692,6 +2695,40 @@ export class RunScene extends Phaser.Scene {
       p.x += p.vx * dt; p.y += p.vy * dt;
       const a = p.life / p.maxLife;
       p.spr.setPosition(p.x, p.y).setAlpha(a).setScale(a * 1.4 + 0.2);
+    }
+  }
+
+  // ============ 章の区切りの全回復（R66） ============
+  // ユーザー案「ミサイルガをたおしたら体力を全回復。体力ゲージを音を上げてグーンと回復する演出で」。
+  // R50 の転生時全回復は `hp = maxHp` の一瞬だったが、ここは**伸びていくゲージそのものを見せる**
+  // のが目的なので、realDt（スロー演出で縮まない実時間）で少しずつ上げる。
+  // 満タンのときは何も起きない＝無音（「回復した」の意味が薄まらないように）。
+  chapterHeal() {
+    const C = BALANCE.boss.chapterHeal;
+    if (!C || !this.player || this.player.hp >= this.player.maxHp) return;
+    this.chHeal = { t: 0, from: this.player.hp, next: 0, done: false };
+  }
+
+  tickChapterHeal(dt) {
+    const h = this.chHeal, C = BALANCE.boss.chapterHeal;
+    if (!h || !C || !this.player) { this.chHeal = null; this.chHealOn = false; return; }
+    h.t += dt;
+    if (h.t < C.delaySec) return;                       // 「げきは！」が鳴りきるまで待つ
+    const p = Math.min(1, (h.t - C.delaySec) / Math.max(0.01, C.fillSec));
+    this.chHealOn = true;                               // HUDが伸びている先端を光らせる合図
+    const target = h.from + (this.player.maxHp - h.from) * p;
+    if (this.player.hp < target) this.player.hp = target;  // 途中で被弾しても巻き戻さない（上げるだけ）
+    if (h.t >= h.next) {
+      h.next = h.t + Math.max(0.02, C.tickSec);
+      if (this.withAudio) Sound.sfx('healRise', p);     // 段で上がっていく「グーン」
+    }
+    if (p >= 1) {
+      this.player.hp = this.player.maxHp;
+      this.floatText(this.player.x, this.player.y - 34, C.text, C.tint);
+      this.spawnParticles(this.player.x, this.player.y, 0x7dff8f, C.particles);
+      if (this.withAudio) Sound.sfx('gaugeFull');
+      this.chHeal = null;
+      this.chHealOn = false;
     }
   }
 
