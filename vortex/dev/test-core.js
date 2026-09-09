@@ -5322,6 +5322,47 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     `R64: マオウ戦（${maouSec.toFixed(0)}秒）が通常ボス最長（${missilgaSec.toFixed(0)}秒）の2倍以上＝HPは低くても実時間では最長`);
 }
 
+// ============ R65 装甲片は「隠れた仕組み」だった＝出どころを削りに紐づける ============
+// 実プレイFB（息子さん）「ボスには玉を投げている。装甲片は拾って投げ返していない。
+//   **装甲片がいつでてくるかわからない**」。実装を見ると剥がれる経路が
+//   breakTelegraph()（＝予告を割ったとき）**だけ**で、予告は本来「避けろ」の信号なので、
+//   実プレイでは一度も供給されないまま終わっていた（ボス戦232秒＝ボットの9倍）。
+// 直し方は「教える」（画面に説明を足す）ではなく「隠さない」：ボスを最大HPの
+//   everyHpRatio ぶん削るたびに剥がれる＝普通に戦えば必ず出る。画面の情報量は増えない
+//   （息子さんの「情報量はこれでよい」の境界を越えない）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const bil = read('systems/billiard.js'), runjs = read('scenes/Run.js');
+  const S = BALANCE.hero.billiard.shards;
+
+  // --- ① 供給の第2経路が存在すること（予告割りだけに依存しない） ---
+  assert(typeof S.everyHpRatio === 'number' && S.everyHpRatio > 0,
+    `R65: shards.everyHpRatio が設定されている（実際 ${S.everyHpRatio}）＝削れば必ず出る`);
+  assert(/function bossDamaged\(/.test(bil) && /bossDamaged,/.test(bil),
+    'R65: billiard.js に bossDamaged() があり export されている');
+  assert(/this\.billiard\.bossDamaged\(e, dmg\)/.test(runjs) && /e\.isBoss && !willKill/.test(runjs),
+    'R65: Run.dealDamage がボスへの与ダメごとに bossDamaged を呼ぶ（とどめの一撃は除外＝撃破演出と二重にしない）');
+  assert(/breakBoss\(e\)/.test(bil) && /function breakTelegraph/.test(read('systems/boss.js')),
+    'R65: 従来の「予告を割る」経路は残っている（新経路は置き換えでなく追加）');
+
+  // --- ② 1戦で必ず出る回数（普通に削るだけで供給される） ---
+  const perForm = Math.floor(1 / S.everyHpRatio) - 1;   // 100%削る＝しきい値を跨ぐ回数（最後の1回は撃破で消える）
+  assert(perForm >= 3 && perForm <= 8,
+    `R65: 1形態あたり ${perForm} 回（各2枚）剥がれる＝多すぎず「いつ出るかわからない」でもない`);
+
+  // --- ③ 装甲片だけでは倒しきれないこと（投げがとどめであり続ける＝動詞を壊さない） ---
+  const shardShare = perForm * 2 * S.bossHpCap;
+  assert(shardShare < 1,
+    `R65: 全部拾って全部当てても最大 ${(shardShare * 100).toFixed(0)}%（上限${S.bossHpCap * 100}%×${perForm * 2}枚）＝装甲片だけでは倒せない`);
+  assert(/装甲片がいつ出てくるかわからない/.test(read('data/balance.js')),
+    'R65: balance.js に「なぜ剥がれる条件を変えたか」の実プレイFBが残っている');
+
+  // --- ④ 形態が変わったら溜まりを持ち越さない（真の姿は maxHp が別物） ---
+  assert(/e\.__shardBase !== maxHp/.test(bil),
+    'R65: maxHp が変わったら（＝真の姿へ転生）カウンタを数え直す＝前の形態の溜まりで即2枚出さない');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

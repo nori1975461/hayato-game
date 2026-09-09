@@ -1665,6 +1665,27 @@ export function createBilliard(run) {
     }
   }
 
+  // ★R65 削れば装甲片が剥がれる（予告割りに次ぐ第2の出どころ）。
+  // 実プレイFB（息子さん）「装甲片がいつ出てくるかわからない」＝出る条件が**予告を割ったとき**
+  // だけで、その予告は「避けろ」の信号としてしか読めていなかった。結果、ボス戦の与ダメの
+  // 3〜5割を占めるはずの装甲片が実プレイで一度も使われず、ボス1体に232秒かかっていた。
+  // 直し方を「教える」ではなく「隠さない」にする：**ボスを最大HPの everyHpRatio ぶん削るたびに
+  // 剥がれる**。普通に戦っていれば必ず出るので、いつ出るかを覚える必要がなくなる。
+  // 予告割りの経路はそのまま残す（割れば追加で剥がれるうえ、よろけ中は×2.4）＝上手い遊びの得は不変。
+  function bossDamaged(e, dealt) {
+    const S = B().shards;
+    const ratio = S && S.everyHpRatio;
+    if (!ratio || !e || !e.active || !(dealt > 0)) return;
+    const maxHp = e.maxHp || 1;
+    // 真の姿への転生で maxHp が別物になるので、変わったら数え直す（前の形態の溜まりを持ち越さない）
+    if (e.__shardBase !== maxHp) { e.__shardBase = maxHp; e.__shardAcc = 0; }
+    e.__shardAcc += dealt;
+    const step = maxHp * ratio;
+    if (e.__shardAcc < step) return;
+    e.__shardAcc -= step;
+    dropShards(e);
+  }
+
   // ボスの予告を突きで割る。一撃モード（Run.doStrike）は持っていた経路が、ビリヤードモードでは
   // 投げ（hitOne）にしか無く、弾薬の乏しいボス戦でカウンターのチャンネルごと消えていた。
   function breakBoss(e) {
@@ -2146,5 +2167,5 @@ export function createBilliard(run) {
   }
 
   return { update, toggleMode, cycleDrift, toggleExpire, cycleShards, statsLine, driftMul,
-           canReceiveAmmo, giveAmmo, shockRing, st };
+           canReceiveAmmo, giveAmmo, shockRing, bossDamaged, st };
 }

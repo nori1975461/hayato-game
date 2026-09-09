@@ -2122,6 +2122,14 @@ export class RunScene extends Phaser.Scene {
 
     const P = this.hitFeel();
     const willKill = e.hp <= 0;
+    // ★R65 装甲片の第2の出どころ。実プレイFB（息子さん）「装甲片がいつ出てくるかわからない」。
+    //   従来は**予告を割ったときだけ**剥がれる＝出る条件が画面から読めず、実プレイでは
+    //   一度も使われていなかった（ボス戦232秒＝ボットの9倍）。削れば必ず出るようにする。
+    //   ここに置くのは dealDamage が全経路の合流点だから（弱点ゲートを通った実ダメージだけが
+    //   数えられる＝カットシーン中や「カキン」では溜まらない）。
+    if (e.isBoss && !willKill && this.billiard && this.billiard.bossDamaged) {
+      this.billiard.bossDamaged(e, dmg);
+    }
     // 強さ 0..1。1発のダメージが敵の最大HPに占める割合で決める（相手にとっての重さ）。
     const power = Math.max(0, Math.min(1, dmg / Math.max(1, e.maxHp || 1)));
 
