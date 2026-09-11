@@ -56,6 +56,7 @@ export function createBoss(run) {
   const spawnedArr = tiers.map(() => false);
   let ti = 0;                   // 次に出現させる tier のインデックス
   let allDone = false;          // 全ボス撃破済み（最終ボス撃破で true）
+  let warnAtT = 0;              // ★R68 予告を始めた経過時刻（出現は予告から実時間で数える）
 
   // --- 現在戦っているボスの状態（spawnFight でセット、endFight でクリア） ---
   let cfg = null;               // 現 tier の設定
@@ -4592,8 +4593,11 @@ export function createBoss(run) {
     const trialOver = run.trialMode && ti >= 1;
     if (!run.practiceMode && !allDone && !boss && !trialOver && ti < tiers.length) {
       const t = tiers[ti];
-      if (!warnedArr[ti] && run.elapsed >= t.warnSec) {
+      // ★R68 出現は進行度（たおした数）で決まる。予告から出現までの2秒だけは実時間。
+      //   進行度は予告中・戦闘中に止まるので、前のボスが長引いても次は必ず雑魚の区間を挟む。
+      if (!warnedArr[ti] && run.progress >= t.spawnSec) {
         warnedArr[ti] = true;
+        warnAtT = run.elapsed;
         if (run.withAudio) Sound.stopBgm();
         // ★R52 マオウレクスより前の5体は警報3連＋赤い周縁の脈動へ強化。
         //   最終ボスは専用の登場イベントを持つので従来どおり警報1回のまま。
@@ -4602,7 +4606,7 @@ export function createBoss(run) {
         if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
         else run.shake(400, 3);
       }
-      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= t.spawnSec) {
+      if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= warnAtT + (t.spawnSec - t.warnSec)) {
         spawnedArr[ti] = true;
         spawnFight(t);
       }
@@ -4682,8 +4686,16 @@ export function createBoss(run) {
     boss = null;
   }
 
+  // ★R68 進行度の上限。-1＝止める（ボスの予告中・戦闘中・撃破シネマ中）／Infinity＝もうボスは出ない。
+  function progressGate() {
+    if (boss) return -1;
+    if (run.practiceMode || allDone || (run.trialMode && ti >= 1) || ti >= tiers.length) return Infinity;
+    if (warnedArr[ti]) return -1;
+    return tiers[ti].spawnSec;
+  }
+
   return {
-    update, onBossKilled, destroy,
+    update, onBossKilled, destroy, progressGate,
     get active() { return !!(boss && boss.active); },
     get warned() { return warnedArr.some(Boolean); },
     // 撃破して endFight まで終わった tier の数。おためしモードの終了判定が読む

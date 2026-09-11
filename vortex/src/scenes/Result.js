@@ -46,7 +46,7 @@ export class ResultScene extends Phaser.Scene {
     this.tweens.add({ targets: head, scale: 1.06, duration: 900,
       yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    this.add.text(W / 2, 92, clear ? '5ふん いきのびた！' : 'またチャレンジしよう', {
+    this.add.text(W / 2, 92, clear ? 'ぜんぶの ボスを たおした！' : 'またチャレンジしよう', {
       fontFamily: 'monospace', fontSize: '14px', color: '#7fffcf',
     }).setOrigin(0.5);
 
@@ -62,7 +62,7 @@ export class ResultScene extends Phaser.Scene {
 
     // 成績（左寄せの4行）
     const rows = [
-      ['せいぞんタイム', mmss(d.elapsed || 0)],
+      ['プレイタイム', mmss(d.elapsed || 0)],
       ['たおした かず', String(d.kills || 0)],
       ['つかまえた かず', String(d.captures || 0)],
       ['コイン', String(d.coins || 0)],

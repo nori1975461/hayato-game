@@ -286,14 +286,12 @@ export function createHud(run) {
       lvText.setColor('#ffffff').setScale(1);
     }
 
-    // タイマー（カウントダウン M:SS）。ボス出現時刻を過ぎたら赤の「BOSS」表示へ。
-    if (run.elapsed >= BALANCE.boss.hudBossSec) {
-      timeText.setText('BOSS').setColor('#ff4d6d');
-    } else {
-      const left = Math.max(0, run.runDurationSec - run.elapsed);
-      const mm = Math.floor(left / 60);
-      const ss = Math.floor(left % 60);
-      timeText.setText(mm + ':' + (ss < 10 ? '0' + ss : ss)).setColor('#ffffff');
+    // ★R68 タイマーは経過時間の表示だけ（カウントアップ M:SS）。旧カウントダウンは「5分生き延びる」の名残で、
+    //   進行は倒した数で決まるようになった＝残り時間という概念そのものがない。
+    {
+      const t = Math.floor(run.elapsed);
+      const ss = t % 60;
+      timeText.setText(Math.floor(t / 60) + ':' + (ss < 10 ? '0' + ss : ss)).setColor('#ffffff');
     }
 
     // ★情報レベル2（がめん すっきり）：常時出ているが「初見が読まなくてよい行」を消す。

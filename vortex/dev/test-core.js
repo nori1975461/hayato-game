@@ -3889,8 +3889,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R51: おためしでは tier 0 を倒したら以降のボスを1体も出さない');
   assert(/!run\.practiceMode && !allDone && !boss && !trialOver && ti < tiers\.length/.test(boss),
     'R51: その打ち切りが tier スケジューラの入口条件に入っている');
-  assert(/run\.elapsed >= t\.warnSec/.test(boss) && /run\.elapsed >= t\.spawnSec/.test(boss),
-    'R51: 出現時刻は本番の tier 定義をそのまま読む（前倒しの読み替えは撤回済み）');
+  assert(/run\.progress >= t\.spawnSec/.test(boss) && /run\.elapsed >= warnAtT \+ \(t\.spawnSec - t\.warnSec\)/.test(boss),
+    'R51/R68: 出現地点は本番の tier 定義をそのまま読む（前倒しの読み替えは撤回済み・R68で進行度に）');
   assert(!/TR\.warnSec/.test(boss) && !/TR\.spawnSec/.test(boss),
     'R51: おためし用の時刻差し替えコードが残っていない（短縮版に戻さない）');
 
@@ -5411,6 +5411,58 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ⑤ 満タンなら何も起きない（無音・意味が薄まらない） ---
   assert(/this\.player\.hp >= this\.player\.maxHp\) return;/.test(runjs),
     'R66: 体力が満タンのときは演出そのものを出さない');
+}
+
+// ============ R68 進行は「たおした数」＝ゲーム進行の時間縛りをなくす ============
+// ユーザー指示「後半のボス戦を連戦にならないように。ゲーム進行における時間縛りは完全になくして。
+// 雑魚敵倒す→ボス討伐が基本の流れ」。旧仕様は経過秒で全部を決めていたので、ボス戦が長引くと
+// 次のボスの予定時刻を過ぎていて撃破の直後に次が出た（息子さんの実プレイ4回すべてでボス3〜5が連戦）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const rd = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const runjs = rd('scenes/Run.js'), bossjs = rd('systems/boss.js'), spw = rd('systems/spawner.js');
+  const items = rd('systems/items.js'), capjs = rd('systems/capture.js'), hud = rd('ui/hud.js'), res = rd('scenes/Result.js');
+
+  // --- ① 進行度は倒した数だけで進み、次のボスの地点で頭打ち・ボスの予告中/戦闘中は止まる ---
+  assert(BALANCE.progress && BALANCE.progress.secPerKill > 0, 'R68: BALANCE.progress.secPerKill がある');
+  assert(/if \(by !== 'expire'\) this\.advanceProgress\(\);/.test(runjs), 'R68: 雑魚を倒すたびに進行度が進む（時間切れ消滅は数えない）');
+  assert(/this\.progress = Math\.min\(gate, this\.progress \+ BALANCE\.progress\.secPerKill\)/.test(runjs),
+    'R68: 進行度は次のボスの地点で頭打ち＝大量撃破でもボスの間の雑魚区間を飛ばさない');
+  assert((runjs.match(/this\.progress\s*[+-]?=/g) || []).length === 2, 'R68: 進行度を書き換えるのは初期化と advanceProgress の2か所だけ（時間では進まない）');
+  const gateFn = bossjs.slice(bossjs.indexOf('function progressGate()'), bossjs.indexOf('function progressGate()') + 400);
+  assert(/if \(boss\) return -1;/.test(gateFn) && /if \(warnedArr\[ti\]\) return -1;/.test(gateFn),
+    'R68: ボスの戦闘中・予告中は進行度を止める＝撃破の直後に次のボスが出ない');
+
+  // --- ② 進行の判定が経過時間を読んでいない（表示・演出の時計は elapsed のまま） ---
+  assert(!/run\.elapsed >= t\.(warnSec|spawnSec)/.test(bossjs), 'R68: ボスの出現は経過時間で決めない');
+  for (const [name, src, pats] of [
+    ['spawner.js', spw, ['run.progress / totalSec', 'run.progress < s.untilSec', 'run.progress < p.untilSec',
+      'run.progress >= BALANCE.elite.times[i]', 'run.progress >= at']],
+    ['items.js', items, ['run.progress >= C.times[i]', 'run.progress >= S.times[i]']],
+    ['capture.js', capjs, ['run.progress < s.untilSec', 'run.progress < gate', 'run.progress >= BALANCE.altar.appearSecs[i]']],
+  ]) {
+    for (const p of pats) assert(src.includes(p), `R68: ${name} は進行度で判定する（${p}）`);
+    assert(!/run\.elapsed\s*(<|>=)\s*(s\.untilSec|p\.untilSec|gate\b|at\b|BALANCE\.|C\.times|S\.times)/.test(src),
+      `R68: ${name} に経過時間での進行判定が残っていない`);
+  }
+  assert(/bossPending/.test(spw) && /!bossActive && !bossPending/.test(spw), 'R68: ラッシュはボスの予告中にも起こさない');
+
+  // --- ③ どのイベントもボスの出現地点ちょうどに置かない（そこでは進行度が止まり、予告と重なる） ---
+  const gates = BALANCE.boss.tiers.map((t) => t.spawnSec);
+  const R = BALANCE.rush;
+  const rushAt = R.counts.map((_, i) => R.startSec + i * R.intervalSec);
+  for (const [name, arr] of [['rush', rushAt], ['elite', BALANCE.elite.times], ['cave', BALANCE.cave.times],
+    ['shrine', BALANCE.shrine.times], ['altar', BALANCE.altar.appearSecs]]) {
+    const hit = arr.filter((v) => gates.includes(v));
+    assert(hit.length === 0, `R68: ${name} の地点がボスの出現地点と重ならない（重なり ${hit.join(',') || 'なし'}）`);
+  }
+  assert(rushAt.every((v) => v < BALANCE.boss.spawnSec), 'R68: ラッシュは全部マオウレクスより前の区間にある');
+
+  // --- ④ 時間の縛りを示す表示が残っていない（経過時間の表示はよい） ---
+  assert(!('runDurationSec' in BALANCE) && !('hudBossSec' in BALANCE.boss), 'R68: 残り時間の設定（runDurationSec/hudBossSec）は廃止');
+  assert(!/runDurationSec|hudBossSec/.test(hud + runjs), 'R68: HUD/Run が残り時間を読んでいない');
+  assert(/timeText\.setText\(Math\.floor\(t \/ 60\)/.test(hud) && /Math\.floor\(run\.elapsed\)/.test(hud), 'R68: HUDは経過時間をカウントアップで出す');
+  assert(!/いきのびた|せいぞん/.test(res), 'R68: Result に「生き延びる」の文言が残っていない');
 }
 
 if (failures > 0) {

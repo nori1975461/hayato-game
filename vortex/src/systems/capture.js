@@ -33,12 +33,12 @@ export function createCapture(run) {
     return s;
   }
 
-  // Wave R2: 経過時間で解禁される現在の公転スロット数（spawner.currentCap と同型）。
+  // Wave R2: 進行度（★R68 旧：経過時間）で解禁される現在の公転スロット数（spawner.currentCap と同型）。
   // slotSchedule を走査し、maxSlots を絶対上限としてクランプする。
   function currentSlots() {
     let slots = BALANCE.orbit.maxSlots;
     for (const s of BALANCE.orbit.slotSchedule) {
-      if (run.elapsed < s.untilSec) { slots = s.slots; break; }
+      if (run.progress < s.untilSec) { slots = s.slots; break; }
     }
     return Math.min(slots, BALANCE.orbit.maxSlots);
   }
@@ -159,7 +159,7 @@ export function createCapture(run) {
     //   先に入って枠が埋まり、ビリッコのコアは10秒で消えてコインに化けていた（実測で確認）。
     //   ammoExtraSlots（弾配り役の特別枠）で取り合いが消えたので、1体目のボスに間に合わせる。
     const gate = C.ammoCoreSec == null ? 180 : C.ammoCoreSec;
-    if (run.elapsed < gate) return;
+    if (run.progress < gate) return;   // ★R68 進行度で配る
     boltCoreGiven = true;
     if (run.party.some((pt) => pt.def && pt.def.id === 'biricco')) return;   // もう持っている
     const def = MONSTERS.find((m) => m.id === 'biricco');
@@ -339,7 +339,7 @@ export function createCapture(run) {
     if (!altar) {
       for (let i = 0; i < BALANCE.altar.appearSecs.length; i++) {
         if (!altarFired[i]) {
-          if (run.elapsed >= BALANCE.altar.appearSecs[i]) {
+          if (run.progress >= BALANCE.altar.appearSecs[i]) {   // ★R68 進行度で出す
             altarFired[i] = true;
             spawnAltar();
           }

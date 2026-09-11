@@ -212,7 +212,7 @@ for (const e of ENEMIES) {
 
 // --- BALANCE 必須キー ---
 const requiredBalanceKeys = [
-  'view', 'runDurationSec', 'player', 'orbit', 'archetypes', 'wave',
+  'view', 'progress', 'player', 'orbit', 'archetypes', 'wave',
   'enemyCap', 'elite', 'altar', 'xp', 'capture', 'upgrades', 'spawnPhases',
   // v2 追加キー（§10.4）
   'hero', 'fused', 'evolve', 'cave', 'boss', 'rainbowUpgrades',

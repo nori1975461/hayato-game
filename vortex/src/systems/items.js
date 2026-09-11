@@ -167,7 +167,7 @@ export function createItems(run) {
   function update(dt) {
     updateShrine(dt);
     for (let i = 0; i < C.times.length; i++) {
-      if (!spawnFired[i] && run.elapsed >= C.times[i]) {
+      if (!spawnFired[i] && run.progress >= C.times[i]) {   // ★R68 進行度で出す
         spawnFired[i] = true;
         if (!cave) spawnCave();      // 同時には1個だけ
       }
@@ -259,7 +259,7 @@ export function createItems(run) {
 
   function updateShrine(dt) {
     for (let i = 0; i < S.times.length; i++) {
-      if (!shrineFired[i] && run.elapsed >= S.times[i]) {
+      if (!shrineFired[i] && run.progress >= S.times[i]) {   // ★R68 進行度で出す
         shrineFired[i] = true;
         if (!shrine) spawnShrine();     // 同時には1個だけ
       }

@@ -2,7 +2,15 @@
 
 export const BALANCE = {
   view: { width: 640, height: 360 },
-  runDurationSec: 420,            // 参考値（クリア条件はボス撃破。時間切れ敗北なし）。Wave R2でステージ尺を延長
+  // ★R68 進行は「たおした数」で決まる（ユーザー指示「ゲーム進行における時間縛りは完全になくして。
+  //   雑魚敵倒す→ボス討伐が基本の流れ。連続でボスが出てくるとボスの重みも出現時のわくわくも消える」）。
+  //   旧仕様は経過秒で全部を決めていた（最初の「5分生き延びたらクリア」の名残）ので、ボス戦が長引くと
+  //   次のボスの予定時刻を過ぎていて**撃破した瞬間に次が出る**＝息子さんの実プレイ4回すべてでボス3〜5が
+  //   休みなしの連戦だった（ボットは1体30秒前後なので一度も連戦にならず、誰も気づかなかった）。
+  //   run.progress は雑魚を1体倒すごとに secPerKill 進み、**ボスの予告中・戦闘中は止まる**。
+  //   ボス・エリート・ラッシュ・洞窟・祠・祭壇・枠・湧きの強さの「〜Sec」はすべてこの進行度の値
+  //   （名前は互換のため据え置き）。経過時間は表示と記録（Result のタイム・ボス秒）にだけ使う。
+  progress: { secPerKill: 0.5 },
   // R12: 被弾に「押し返される」重みを持たせる（hurtKnockback）。lowHpRatio を割ると画面周縁が赤く脈打つ。
   // R22: 実プレイFB「主人公の動きを最初からもう少し早く。遅くてストレス」→ 120→148（+23%）。
   //   敵の最速はチビット62px/s なので、逃げ切れる余地は元々あった。問題は「操作した実感が鈍い」こと。
@@ -770,7 +778,10 @@ export const BALANCE = {
     { untilSec: 9999, cap: 220 },
   ],
   // ラッシュ（山場）。warnSec前にテロップ＋警告リングで必ず予告する。Wave R2で早め・6波化
-  rush: { startSec: 40, intervalSec: 50, counts: [12, 16, 20, 26, 30, 36], warnSec: 1.2 },
+  // ★R68 intervalSec 50→60＝ボスの間隔（進行度60）と揃えて、どの区間でも「40地点＝ボスの手前の山場」に置く
+  //   （旧50は 240 がウェイブロードの出現と同じ地点で、進行度が止まるとボスの予告と重なった）。
+  //   warnSec は予告からの**実時間**（進行度は倒した数でしか進まないので、予告の長さを進行度で持つと揺れる）。
+  rush: { startSec: 40, intervalSec: 60, counts: [12, 16, 20, 26, 30, 36], warnSec: 1.2 },
   // 雑魚の“ぷるぷる”。生成時に消費済みのsinePhaseを流用するので乱数を追加消費しない
   enemyFx: { bobHz: 7, bobAmp: 0.09, tiltAmp: 0.10 },
   elite: { times: [110, 200, 290], hpMult: 9, sizeMult: 2, speedMult: 0.8 },
@@ -1108,8 +1119,8 @@ export const BALANCE = {
   // 各 tier に「署名武器」の小ブロック（machinegun/cutter/vulcan/wavecannon/missile/laser/armslam）を持たせ、
   // attacks に載せた武器のみ発動する。dash/ring/summon は共通の予備パラメータとして全 tier が保持。
   boss: {
-    hudBossSec: 350,                // HUDタイマーがBOSS赤表示に切替（最終ボス接近の合図）
-    warnSec: 358, spawnSec: 360, spawnDist: 260,  // ← spawnSec は最終ボス=クリア条件時刻
+    // ★R68 各 tier の spawnSec＝その進行度に達したら予告を始める地点。warnSec との差（2秒）は予告の実時間。
+    warnSec: 358, spawnSec: 360, spawnDist: 260,  // ← 最終ボスの出現地点（進行度）。クリア条件は撃破
     // ボス戦中の雑魚スポーン制限（spawner.js が参照）
     trashInterval: 2.4, trashCount: 1,
 

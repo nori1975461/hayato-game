@@ -12,6 +12,7 @@ export function createSpawner(run) {
   const eliteFired = BALANCE.elite.times.map(() => false);
   const rushWarned = R.counts.map(() => false);
   const rushFired = R.counts.map(() => false);
+  const rushWarnAt = R.counts.map(() => 0);   // ★R68 予告した経過時刻（本番の群れは予告から実時間で数える）
   const byId = {};
   for (const e of ENEMIES) byId[e.id] = e;
   // R24: レア役（rare:true）は重み抽選にもエリート抽選にも入れない＝湧かせるのは専用タイマーだけ
@@ -23,7 +24,7 @@ export function createSpawner(run) {
   const lerp = (a, b, t) => a + (b - a) * t;
 
   function waveT() {
-    return Math.max(0, Math.min(1, run.elapsed / totalSec));
+    return Math.max(0, Math.min(1, run.progress / totalSec));   // ★R68 強さは進行度で上がる（時間では上がらない）
   }
 
   function currentInterval() { return lerp(W.spawnIntervalStart, W.spawnIntervalEnd, waveT()); }
@@ -33,7 +34,7 @@ export function createSpawner(run) {
   // 同時出現上限は時間で段階的に上がる（序盤から220体だと画面が潰れるため）
   function currentCap() {
     for (const s of BALANCE.capSteps) {
-      if (run.elapsed < s.untilSec) return s.cap;
+      if (run.progress < s.untilSec) return s.cap;
     }
     return BALANCE.enemyCap;
   }
@@ -42,7 +43,7 @@ export function createSpawner(run) {
   function pickEnemyDef() {
     let phase = BALANCE.spawnPhases[BALANCE.spawnPhases.length - 1];
     for (const p of BALANCE.spawnPhases) {
-      if (run.elapsed < p.untilSec) { phase = p; break; }
+      if (run.progress < p.untilSec) { phase = p; break; }
     }
     const entries = Object.entries(phase.weights);
     let total = 0;
@@ -175,7 +176,7 @@ export function createSpawner(run) {
     }
     // エリート（2:00 / 4:00）
     for (let i = 0; i < BALANCE.elite.times.length; i++) {
-      if (!eliteFired[i] && run.elapsed >= BALANCE.elite.times[i]) {
+      if (!eliteFired[i] && run.progress >= BALANCE.elite.times[i]) {
         eliteFired[i] = true;
         const e = spawnElite();
         // R61: 最後のエリートに印を付ける（capture.js が「SR 未所持なら SR コア」の判定に使う）
@@ -188,15 +189,18 @@ export function createSpawner(run) {
     const count = (bossActive ? BALANCE.boss.trashCount : currentCount()) * modeMul('spawnMul');
 
     // ラッシュ（山場）。ボス戦中は起こさない＝ボスへの集中を壊さないため（§10.4）
-    if (!bossActive) {
+    // ★R68 ボスの予告中も起こさない（進行度が止まっている＝次はボスの番）。地点は進行度、予告→本番は実時間。
+    const bossPending = !!(run.boss && run.boss.progressGate && run.boss.progressGate() < 0);
+    if (!bossActive && !bossPending) {
       for (let i = 0; i < R.counts.length; i++) {
         const at = R.startSec + i * R.intervalSec;
-        if (!rushWarned[i] && run.elapsed >= at - R.warnSec) {
+        if (!rushWarned[i] && run.progress >= at) {
           rushWarned[i] = true;
+          rushWarnAt[i] = run.elapsed;
           Sound.sfx('rush');
           if (run.fx && run.fx.rushWarning) run.fx.rushWarning();
         }
-        if (!rushFired[i] && run.elapsed >= at) {
+        if (!rushFired[i] && rushWarned[i] && run.elapsed >= rushWarnAt[i] + R.warnSec) {
           rushFired[i] = true;
           spawnBurst(Math.max(4, Math.round(R.counts[i] * modeMul('spawnMul'))));
         }

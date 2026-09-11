@@ -89,7 +89,7 @@ export class RunScene extends Phaser.Scene {
 
     // --- 進行状態 ---
     this.elapsed = 0;
-    this.runDurationSec = BALANCE.runDurationSec;
+    this.progress = 0;        // ★R68 進行度（たおした数で進む。理由は BALANCE.progress）
     this.coins = 0;
     this._coinHpSteps = 0; // coinVitality: 付与済みの段数（コインで最大HPが伸びた回数）
     this.captures = 0;
@@ -2209,6 +2209,13 @@ export class RunScene extends Phaser.Scene {
     });
   }
 
+  // ★R68 進行度を1体ぶん進める。ボスの予告中・戦闘中は boss.progressGate() が -1 を返して止まる。
+  //   次のボスの地点で頭打ちにする＝一度の大量撃破で次のボスを飛び越えない（ボスの間は必ず雑魚の区間になる）。
+  advanceProgress() {
+    const gate = this.boss && this.boss.progressGate ? this.boss.progressGate() : Infinity;
+    if (this.progress < gate) this.progress = Math.min(gate, this.progress + BALANCE.progress.secPerKill);
+  }
+
   // R21W2: by は撃破の帰属。手動でよろけを割った撃破だけがXP倍になる。
   killEnemy(e, color, by) {
     if (!e.active) return;
@@ -2219,6 +2226,7 @@ export class RunScene extends Phaser.Scene {
     // 復帰体（放置して強くなって戻った敵）は報酬なし＝取りこぼしの罰。XPだけは出す。
     const rewarded = !e.noReward;
     this.kills++;
+    if (by !== 'expire') this.advanceProgress();   // 時間切れで消えた敵は「たおした」に数えない
     if (rewarded) this.special.addKill();
     // シネマ中はcompactが回らないので、その場で見た目を消す（撃破の手応えを遅らせない）
     e.spr.setVisible(false);
