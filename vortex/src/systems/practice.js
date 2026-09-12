@@ -35,6 +35,8 @@ const MAOU_BGM = [
   { name: 'maouTrue',  label: '④ きどうしんかく（かみ）' },
   { name: 'boss',      label: '⑤ ボス オーケストラルロック ★ほんばん' },
   { name: 'bossSynth', label: '⑥ ボス ダークシンセ' },
+  // 2026-09-13 ジャム版 最終ボス「堕天の大聖堂」の専用曲（イントロ5.6秒→本体）
+  { name: 'cathedral', label: '⑦ だてんの だいせいどう' },
 ];
 
 const COURSES = [

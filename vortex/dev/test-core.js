@@ -1316,6 +1316,26 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       `R35: 曲「${n}」が SONGS に実在する`);
   }
   assert(/const MAOU_BGM = \[/.test(prac), 'R34W4: れんしゅうじょうに聞き比べの一覧がある');
+  // ★2026-09-13 ジャム版 最終ボス「堕天の大聖堂」の専用曲 cathedral（Dハーモニックマイナー・172BPM・16小節）
+  {
+    assert(/^\s*cathedral:\s*\{ bpm: 172, bars: 16, chords: CHORDS_CATH, melody: MELODY_CATH, style: 'cathedral'/m.test(snd),
+      'CATH: SONGS.cathedral が実在する（172BPM・16小節）');
+    assert(/intro: playCathedralIntro, introSec: 5\.6/.test(snd) && /function playCathedralIntro\(\)/.test(snd),
+      'CATH: 専用イントロ playCathedralIntro を introSec 5.6 で鳴らす');
+    assert(/if \(song\.intro\) \{[\s\S]*?song\.intro\(\);[\s\S]*?\} else if \(song\.introSec\) \{/.test(snd),
+      'CATH: startBgm は曲ごとの intro を優先し、maouTrue の経路は残す');
+    const sliceOf = (from, to) => snd.slice(snd.indexOf(from), snd.indexOf(to));
+    const cat = sliceOf("} else if (song.style === 'cathedral') {", "} else if (song.style === 'maou') {");
+    assert(cat.length > 2000, 'CATH: cathedral の声部が実装されている');
+    assert(!/inBar === 3\b|inBar === 11\b/.test(cat), 'CATH: 3・11 の食い込み（跳ね）を置いていない');
+    for (const w of ['トッカータ', '聖歌隊', '鐘', 'ペダル']) assert(cat.includes(w), `CATH: 大聖堂の声部「${w}」がある`);
+    const ci = snd.indexOf('const CHORDS_CATH = [');
+    const chords = snd.slice(ci, snd.indexOf('];', ci));
+    assert((chords.match(/NOTE\.Ds4, NOTE\.G4, NOTE\.As4, NOTE\.Ds5/g) || []).length === 2,
+      'CATH: ナポリの E♭（偽りの光）が堕天と裁きの段に1回ずつある');
+    assert(/name: 'cathedral'/.test(prac), 'CATH: れんしゅうじょう④のBキーで聞ける');
+  }
+
   for (const n of ['maou', 'maouOrch', 'maouSynth']) {
     assert(new RegExp(`name: '${n}'`).test(prac), `R35: 切り替え先に ${n} が入っている`);
   }
