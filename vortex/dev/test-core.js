@@ -5507,8 +5507,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
 
   assert(/specThrows: 0, specHanded: 0, specBossHits: 0,/.test(bil),
     'R70: 切り札の「投げた／手渡しぶん／ボスに当たった」カウンタがある');
-  assert(/if \(kind\) \{ st\.specThrows\+\+; if \(h\.handed\) st\.specHanded\+\+; \}/.test(bil),
+  assert(/if \(kind\) \{ st\.specThrows\+\+; if \(h\.biricco\) st\.specHanded\+\+; \}/.test(bil),
     'R70: 特殊弾を投げた瞬間に数える（手渡しかどうかも分ける）');
+  // ⚠️ handed はボタンを押した瞬間に false になる（手の中で待たせるためのフラグ）。投げの時点では必ず
+  //    false なので、handed で数えると切り札が1本も数えられない。biricco は投げ切るまで消えない。
+  assert(/spec: kind, handed: true, biricco: true \};/.test(bil),
+    'R70: もらった弾の印は投げ切るまで消えない印(biricco)で持つ');
   assert(/if \(e\.isBoss && !s\.__specBossCounted\) \{/.test(bil) && /st\.specBossHits\+\+;/.test(bil),
     'R70: ボスへの命中は1投げにつき1回だけ数える（スーパーボールは2回当たるため）');
   assert(/st\.boltHits\+\+/.test(bil) && /st\.blastHits\+\+/.test(bil),

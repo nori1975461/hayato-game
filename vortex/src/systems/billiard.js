@@ -583,8 +583,11 @@ export function createBilliard(run) {
     // 受け取り。溜めは済んだ状態で手に収まる＝あとは狙って離すだけ。
     const kind = H.kind || 'bolt';
     cancelHandover();
+    // ⚠️ handed は「ボタンを押すまで手の中で待たせる」ためのフラグで、押した瞬間に false になる。
+    //    投げの時点では必ず false なので、これで数えると切り札が1本も数えられない（R70で踏んだ）。
+    //    もらった弾かどうかは biricco で持つ＝投げ切るまで消えない。
     st.held = { maxHp: 1, color: S.color, tex: 'bullet', scale: S.scale, radius: S.radius,
-                shard: false, spec: kind, handed: true };
+                shard: false, spec: kind, handed: true, biricco: true };
     st.chargeT = B().chargeMaxSec;
     st.maxRung = true;
     st.boltsGot++;
@@ -732,7 +735,7 @@ export function createBilliard(run) {
     }
 
     st.throws++;
-    if (kind) { st.specThrows++; if (h.handed) st.specHanded++; }
+    if (kind) { st.specThrows++; if (h.biricco) st.specHanded++; }
     st.chargeSum += ratio * b.chargeMaxSec;
     hideHeld();
     // ★投げの音は**段位ごとに別物**にする（実プレイFB「投げたときの効果音…レベルアップが感じられない」）。
