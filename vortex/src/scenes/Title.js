@@ -1,6 +1,7 @@
 // scenes/Title.js — ロゴと開始待ち。最初の入力で Sound.init して Run へ（PROTOTYPE_SPEC §5.2）。
 import { Sound } from '../audio/sound.js';
 import { BUILD } from '../data/version.js';
+import { dumpText, runCount } from '../systems/record.js';
 
 const Phaser = window.Phaser;
 
@@ -79,6 +80,10 @@ export class TitleScene extends Phaser.Scene {
     this.add.text(6, H - 5, 'v' + BUILD, {
       fontFamily: 'monospace', fontSize: '10px', color: '#40506a',
     }).setOrigin(0, 1);
+    // ★R69 記録の取り出し口。遊ぶ側には要らない情報なので版番号と同じ最小の文字で隅に置く。
+    this.add.text(60, H - 5, 'K: きろくを コピー', {
+      fontFamily: 'monospace', fontSize: '10px', color: '#40506a',
+    }).setOrigin(0, 1);
 
     // ★R57 一度 S キーで入ったら、そのあとは SPACE でもすっきりのまま始まる。
     //   ⚠️ これは飾りではなく**テストを守るための仕掛け**。死ぬと リザルト→タイトル へ戻るので、
@@ -141,6 +146,25 @@ export class TitleScene extends Phaser.Scene {
       if (this._started || !sticky) return;
       window.VORTEX.tidySticky = false;
       this.scene.restart();             // 表示（いま何で始まるか）を書き直すため入り直す
+    });
+    // ★R69 遊んだ記録をクリップボードへ。ゲームは何も送らない（外部送信なし・手元にコピーするだけ）。
+    this.input.keyboard.on('keydown-K', () => {
+      if (this._started) return;
+      const txt = dumpText();
+      const n = runCount();
+      const toast = (msg, color) => {
+        const el = this.add.text(this.scale.width / 2, 288, msg, {
+          fontFamily: 'monospace', fontSize: '12px', color,
+        }).setOrigin(0.5);
+        this.time.delayedCall(2600, () => el.destroy());
+      };
+      const fallback = () => { try { console.log(txt); } catch (e) { /* noop */ }
+        toast('コピーできなかった（コンソールに だしました）', '#ffcd75'); };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(() => toast('きろくを コピーした（' + n + 'かい ぶん）', '#7fffcf'), fallback);
+        } else { fallback(); }
+      } catch (e) { fallback(); }
     });
     this.time.delayedCall(450, () => { this.input.once('pointerdown', begin); });   // R21W2: 残クリック対策
   }

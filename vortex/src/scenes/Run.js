@@ -10,6 +10,7 @@ import { createLevelup } from '../systems/levelup.js';
 import { createFx } from '../systems/fx.js';
 import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
+import { saveRun } from '../systems/record.js';
 import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
 import { createBilliard } from '../systems/billiard.js';
@@ -2801,6 +2802,25 @@ export class RunScene extends Phaser.Scene {
       // R63: ボスごとの戦闘秒数。戦闘の途中で終わった（死んだ）ときは負の値で「途中」を示す
       bossTimes: (this.bossTimes || []).concat(this._bossOn ? [-Math.max(1, Math.round(this.elapsed - this._bossT0))] : []),
     };
+    // ★R69 遊んだ記録をブラウザに残す。Result の数字（ボス秒・タイム）は画面を閉じると消えるので、
+    //   調整の根拠が「その日1回ぶんの記憶」に痩せていた。画面には何も足さない＝保存は黙って行う。
+    //   れんしゅうじょう／1めんボスおためしは本番の記録ではないので残さない。
+    if (!this.practiceMode && !this.trialMode) {
+      const pf = this.perf || {};
+      const hasF = pf.frames > 0;
+      saveRun({
+        mode: this.tidyRun ? 'すっきり' : 'ふつう',
+        clear: !!clear,
+        t: Math.round(this.elapsed),
+        k: this.kills, cap: this.captures, coin: this.coins,
+        lv: this.level, wl: this.orbit && this.orbit.weaponLevel,
+        party: payload.party, bt: payload.bossTimes,
+        prog: Math.round(this.progress),
+        fps: hasF ? Math.round(pf.frames / Math.max(0.001, pf.ms / 1000)) : null,
+        slow: hasF ? +(100 * pf.slow / pf.frames).toFixed(1) : null,
+        clamp: hasF ? +(100 * pf.clamp / pf.frames).toFixed(1) : null,
+      });
+    }
     // R29: クリアだけはエンディングを挟む（ゲームオーバーは従来どおり直行）。
     //   Ending 側が終わったら同じ payload で Result へ渡すので、リザルトの表示は不変。
     //   clear SFX はエンディング側の「ひかりが もどった」で鳴らす（ここで鳴らすと二重になる）。

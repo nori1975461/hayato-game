@@ -5465,6 +5465,37 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(!/いきのびた|せいぞん/.test(res), 'R68: Result に「生き延びる」の文言が残っていない');
 }
 
+// ============ R69 遊んだ記録をブラウザに残す ============
+// 調整の最終判断は息子さんのResultの数字で決めているのに、その数字は画面を閉じると消えていた。
+// ⚠️画面に出す情報は増やさない（情報量の境界を越えない）＝保存は黙って行い、取り出しはタイトルの K キーだけ。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const rd = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const rec = rd('systems/record.js'), runjs = rd('scenes/Run.js'), title = rd('scenes/Title.js'), hud = rd('ui/hud.js');
+
+  assert(/export function saveRun/.test(rec) && /export function dumpText/.test(rec) && /export function runCount/.test(rec),
+    'R69: record.js が saveRun / dumpText / runCount を出している');
+  assert((rec.match(/try \{/g) || []).length >= 2 && /catch \(e\) \{ return \[\]; \}/.test(rec),
+    'R69: localStorage の読み書きは必ず try/catch（プライベートウィンドウ等で例外を投げる）');
+  assert(/while \(list\.length > MAX\) list\.shift\(\);/.test(rec), 'R69: 記録は上限を決めて古いものから捨てる');
+  for (const [name, src] of [['record.js', rec], ['Title.js', title]]) {
+    assert(!/fetch\(/.test(src) && !/XMLHttpRequest/.test(src) && !/sendBeacon/.test(src),
+      `R69: ${name} に記録を外部へ送る経路がない（手元のブラウザに残すだけ）`);
+  }
+
+  assert(runjs.includes("import { saveRun } from '../systems/record.js';"), 'R69: Run が record を読み込む');
+  const gate = 'if (!this.practiceMode && !this.trialMode) {';
+  assert(runjs.includes(gate) && runjs.indexOf('saveRun({') > runjs.indexOf(gate),
+    'R69: れんしゅうじょう／おためしは記録しない（本番の数字が汚れない）');
+  assert(/bt: payload\.bossTimes/.test(runjs) && /prog: Math\.round\(this\.progress\)/.test(runjs),
+    'R69: ボス秒（Result と同じ配列）と進行度を残す＝調整の根拠がそのまま残る');
+
+  assert(/keydown-K/.test(title) && /dumpText\(\)/.test(title), 'R69: タイトルの K キーで記録を取り出せる');
+  assert(/navigator\.clipboard/.test(title) && /console\.log\(txt\)/.test(title),
+    'R69: コピーできない環境ではコンソールに出す退避路がある');
+  assert(!/record\.js/.test(hud), 'R69: HUD には何も足していない（遊んでいる最中の情報量は不変）');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);
