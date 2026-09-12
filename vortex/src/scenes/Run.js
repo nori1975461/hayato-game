@@ -2816,6 +2816,7 @@ export class RunScene extends Phaser.Scene {
         lv: this.level, wl: this.orbit && this.orbit.weaponLevel,
         party: payload.party, bt: payload.bossTimes,
         prog: Math.round(this.progress),
+        th: this.billiard && this.billiard.st ? this.billiard.st.throws : null,   // 投げた回数（火力不足が威力か手数かの切り分け）
         fps: hasF ? Math.round(pf.frames / Math.max(0.001, pf.ms / 1000)) : null,
         slow: hasF ? +(100 * pf.slow / pf.frames).toFixed(1) : null,
         clamp: hasF ? +(100 * pf.clamp / pf.frames).toFixed(1) : null,

@@ -50,7 +50,7 @@ export function dumpText() {
     const bt = Array.isArray(r.bt) ? r.bt.map((v) => (v < 0 ? `${-v}…` : String(v))).join('・') : '-';
     return `${i + 1}) ${r.at || '-'} v${r.b || '-'} ${r.mode || '-'} ${r.clear ? 'クリア' : 'ゲームオーバー'}`
       + ` タイム${mmss(r.t)} ボス[${bt}] たおした${r.k || 0} つかまえた${r.cap || 0} コイン${r.coin || 0}`
-      + ` Lv${r.lv || 0} ぶきLv${r.wl || 0} なかま[${(r.party || []).join(',')}] しんこう${r.prog == null ? '-' : r.prog}`
+      + ` なげた${r.th == null ? "-" : r.th}かい Lv${r.lv || 0} ぶきLv${r.wl || 0} なかま[${(r.party || []).join(',')}] しんこう${r.prog == null ? '-' : r.prog}`
       + ` しょり${r.fps == null ? '-' : r.fps}fps/30われ${r.slow == null ? '-' : r.slow}%/おくれ${r.clamp == null ? '-' : r.clamp}%`;
   });
   return `クルット・モビット あそんだ きろく（${list.length}かい ぶん）\n` + lines.join('\n');
