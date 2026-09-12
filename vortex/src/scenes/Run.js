@@ -2817,6 +2817,15 @@ export class RunScene extends Phaser.Scene {
         party: payload.party, bt: payload.bossTimes,
         prog: Math.round(this.progress),
         th: this.billiard && this.billiard.st ? this.billiard.st.throws : null,   // 投げた回数（火力不足が威力か手数かの切り分け）
+        // ★R69b 投げの中身。火力が足りない原因を「手数（投げ数）／溜め（1投げあたりの溜め秒）／
+        //   当て方（空振り・とどめ）／掴んだ獲物の格」に分けて読むため。ボットは25〜35投げ/分。
+        bil: (() => {
+          const s = this.billiard && this.billiard.st;
+          if (!s) return null;
+          return { gr: s.grabs, th: s.throws, tk: s.throwKills, du: s.dud, bl: s.blocked,
+            ch: s.throws > 0 ? +(s.chargeSum / s.throws).toFixed(2) : 0,
+            gg: (s.gradeGrabs || []).slice() };
+        })(),
         fps: hasF ? Math.round(pf.frames / Math.max(0.001, pf.ms / 1000)) : null,
         slow: hasF ? +(100 * pf.slow / pf.frames).toFixed(1) : null,
         clamp: hasF ? +(100 * pf.clamp / pf.frames).toFixed(1) : null,

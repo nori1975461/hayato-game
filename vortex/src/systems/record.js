@@ -48,9 +48,15 @@ export function dumpText() {
   const mmss = (s) => Math.floor((s || 0) / 60) + ':' + (Math.floor((s || 0) % 60) < 10 ? '0' : '') + Math.floor((s || 0) % 60);
   const lines = list.map((r, i) => {
     const bt = Array.isArray(r.bt) ? r.bt.map((v) => (v < 0 ? `${-v}…` : String(v))).join('・') : '-';
+    // 投げの中身。火力が足りない原因を「手数／溜め／当て方／掴んだ格」に分けて読むため。
+    const B = r.bil;
+    const bil = B
+      ? ` なげ${B.th}（つかみ${B.gr}・ため へいきん${B.ch}びょう・からぶり${B.du}`
+        + `・とどめ${B.tk}・はじかれ${B.bl}・かく[${(B.gg || []).join('/')}]）`
+      : (r.th == null ? '' : ` なげ${r.th}`);
     return `${i + 1}) ${r.at || '-'} v${r.b || '-'} ${r.mode || '-'} ${r.clear ? 'クリア' : 'ゲームオーバー'}`
       + ` タイム${mmss(r.t)} ボス[${bt}] たおした${r.k || 0} つかまえた${r.cap || 0} コイン${r.coin || 0}`
-      + ` なげた${r.th == null ? "-" : r.th}かい Lv${r.lv || 0} ぶきLv${r.wl || 0} なかま[${(r.party || []).join(',')}] しんこう${r.prog == null ? '-' : r.prog}`
+      + bil + ` Lv${r.lv || 0} ぶきLv${r.wl || 0} なかま[${(r.party || []).join(',')}] しんこう${r.prog == null ? '-' : r.prog}`
       + ` しょり${r.fps == null ? '-' : r.fps}fps/30われ${r.slow == null ? '-' : r.slow}%/おくれ${r.clamp == null ? '-' : r.clamp}%`;
   });
   return `クルット・モビット あそんだ きろく（${list.length}かい ぶん）\n` + lines.join('\n');
