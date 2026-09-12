@@ -2824,7 +2824,10 @@ export class RunScene extends Phaser.Scene {
           if (!s) return null;
           return { gr: s.grabs, th: s.throws, tk: s.throwKills, du: s.dud, bl: s.blocked,
             ch: s.throws > 0 ? +(s.chargeSum / s.throws).toFixed(2) : 0,
-            gg: (s.gradeGrabs || []).slice() };
+            gg: (s.gradeGrabs || []).slice(),
+            // ★R70 切り札（ビリッコの手渡し）：もらった→投げた→ボスに当たった。
+            //   1ボスに1発しか来ないので、当たったかどうかが火力の大半を決める。
+            sg: s.boltsGot, sth: s.specHanded, shb: s.specBossHits, sal: s.specThrows };
         })(),
         fps: hasF ? Math.round(pf.frames / Math.max(0.001, pf.ms / 1000)) : null,
         slow: hasF ? +(100 * pf.slow / pf.frames).toFixed(1) : null,

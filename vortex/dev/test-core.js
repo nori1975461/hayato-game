@@ -5496,6 +5496,32 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(!/record\.js/.test(hud), 'R69: HUD には何も足していない（遊んでいる最中の情報量は不変）');
 }
 
+// ============ R70 切り札（特殊弾）が当たったかを記録する ============
+// 実プレイFB「雷光弾・マグマン弾・ブラックホール弾を3つ連続でボスに当てることができなかった」。
+// 切り札は1ボスに1発しか来ない（AMMO.perBoss=1）ので、外したかどうかが火力の大半を決める。
+// ⚠️ boltHits / blastHits は宣言だけで一度も加算されておらず、画面には常に 0 が出ていた（死んだ計測器）。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const rd = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const bil = rd('systems/billiard.js'), runjs = rd('scenes/Run.js'), rec = rd('systems/record.js');
+
+  assert(/specThrows: 0, specHanded: 0, specBossHits: 0,/.test(bil),
+    'R70: 切り札の「投げた／手渡しぶん／ボスに当たった」カウンタがある');
+  assert(/if \(kind\) \{ st\.specThrows\+\+; if \(h\.handed\) st\.specHanded\+\+; \}/.test(bil),
+    'R70: 特殊弾を投げた瞬間に数える（手渡しかどうかも分ける）');
+  assert(/if \(e\.isBoss && !s\.__specBossCounted\) \{/.test(bil) && /st\.specBossHits\+\+;/.test(bil),
+    'R70: ボスへの命中は1投げにつき1回だけ数える（スーパーボールは2回当たるため）');
+  assert(/st\.boltHits\+\+/.test(bil) && /st\.blastHits\+\+/.test(bil),
+    'R70: 死んだカウンタだった boltHits / blastHits を実際に加算する');
+
+  assert(/sg: s\.boltsGot, sth: s\.specHanded, shb: s\.specBossHits/.test(runjs),
+    'R70: 遊んだ記録に「もらった→投げた→当たった」を残す');
+  assert(/きりふだ\$\{B\.sg\}→なげ\$\{B\.sth\}→あて\$\{B\.shb\}/.test(rec),
+    'R70: 取り出しの文章に切り札の行方が出る');
+  assert(/B\.sg == null \? '' :/.test(rec),
+    'R70: 古い記録（切り札の数字がない）を読んでも壊れない');
+}
+
 if (failures > 0) {
   console.error(`\ntest-core: NG (${failures} 件失敗)`);
   process.exit(1);

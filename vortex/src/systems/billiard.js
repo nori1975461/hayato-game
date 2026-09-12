@@ -45,6 +45,11 @@ export function createBilliard(run) {
     // R23 らいこうだん（ビリッコの手渡し）
     handover: null, boltSpr: null, boltGlow: null, boltsGot: 0, boltHits: 0,
     // R24 ほのおだん（レア雑魚マグマンを掴んで投げた弾）
+    // ★R70 実プレイFB「雷光弾・マグマン弾・ブラックホール弾を3つ連続でボスに当てられなかった」。
+    //   boltHits / blastHits は一度も加算していない**死んだカウンタ**だった（画面には常に0が出ていた）。
+    //   切り札は1ボスに1発しか来ないので、外したかどうかが分からないと調整の根拠が作れない。
+    //   specThrows＝特殊弾を投げた回数／specHanded＝そのうちビリッコの手渡し／specBossHits＝ボスに当たった投げの数。
+    specThrows: 0, specHanded: 0, specBossHits: 0,
     blastHits: 0, heldRing: null, heldRing2: null, heldCore: null, heldMotes: null,
     // R25 格ごとの掴み回数・王冠・手の中の爆発。「自然なプレイで何回起きるか」を実プレイでも見る。
     gradeGrabs: [0, 0, 0, 0], crownGrabs: 0, handBooms: 0, fuseBeep: 0,
@@ -727,6 +732,7 @@ export function createBilliard(run) {
     }
 
     st.throws++;
+    if (kind) { st.specThrows++; if (h.handed) st.specHanded++; }
     st.chargeSum += ratio * b.chargeMaxSec;
     hideHeld();
     // ★投げの音は**段位ごとに別物**にする（実プレイFB「投げたときの効果音…レベルアップが感じられない」）。
@@ -1145,6 +1151,13 @@ export function createBilliard(run) {
   // 特殊弾は砕けない。触れた敵を全部消し飛ばしながら飛び続ける。
   function specialHit(s, e) {
     const kind = s.spec, L = SPEC(kind);
+    // ★R70 1投げにつき1回だけ数える（スーパーボールは同じボスへ2回当たるため）。
+    if (e.isBoss && !s.__specBossCounted) {
+      s.__specBossCounted = 1;
+      st.specBossHits++;
+      if (kind === 'bolt') st.boltHits++;
+      else if (kind === 'blast') st.blastHits++;
+    }
     if (kind === 'bomb') { bombHit(s, e); return; }
     if (kind === 'superball') { superballHit(s, e); return; }
     if (kind === 'blackhole') { blackholeHit(s, e); return; }
@@ -2161,7 +2174,7 @@ export function createBilliard(run) {
     return '[' + tier().name + '] 投' + st.throws + '(' + perMin.toFixed(0) + '/分) 平均' + avgKills.toFixed(1) + '体'
       + ' 最大' + st.bestChain + ' 空' + st.dud
       + ' 溜' + avgCharge.toFixed(2) + 's 掴' + st.grabs + ' 突' + st.jabs + '→獲' + st.jabStaggers
-      + ' 雷' + st.boltsGot + '→命中' + st.boltHits + ' 炎命中' + st.blastHits
+      + ' 切札' + st.boltsGot + '→投' + st.specHanded + '→当' + st.specBossHits + ' 雷命中' + st.boltHits + ' 炎命中' + st.blastHits
       + ' 攻×' + heroMul().toFixed(2)
       + ' 格' + st.gradeGrabs.join('/') + ' 冠' + st.crownGrabs + ' 手爆' + st.handBooms;
   }
