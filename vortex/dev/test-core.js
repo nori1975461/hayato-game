@@ -5518,8 +5518,15 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/st\.boltHits\+\+/.test(bil) && /st\.blastHits\+\+/.test(bil),
     'R70: 死んだカウンタだった boltHits / blastHits を実際に加算する');
 
-  assert(/sg: s\.boltsGot, sth: s\.specHanded, shb: s\.specBossHits/.test(runjs),
+  assert(/sg: s\.boltsGot, sth: s\.specHanded, shb: s\.handedBossHits/.test(runjs),
     'R70: 遊んだ記録に「もらった→投げた→当たった」を残す');
+
+  // ⚠️ R70d specBossHits は特殊弾すべて（マグマン弾・ばくだん含む）を数える。ビリッコの手渡しだけの
+  //    命中は handedBossHits。混ぜると「あて」が「なげ」を超えて比率として読めない（実プレイの記録で踏んだ）。
+  assert(/if \(s\.biricco\) st\.handedBossHits\+\+;/.test(bil) && /biricco: !!h\.biricco,/.test(bil),
+    'R70d: 手渡しの弾だけの命中を分けて数える');
+  assert(/sob: s\.specBossHits - s\.handedBossHits/.test(runjs),
+    'R70d: 記録では手渡し以外の特殊弾の命中も別枠で残す');
   assert(/きりふだ\$\{B\.sg\}→なげ\$\{B\.sth\}→あて\$\{B\.shb\}/.test(rec),
     'R70: 取り出しの文章に切り札の行方が出る');
   assert(/B\.sg == null \? '' :/.test(rec),
