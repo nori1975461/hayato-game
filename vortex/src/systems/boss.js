@@ -3951,10 +3951,32 @@ export function createBoss(run) {
         pieceGfx.lineStyle(2, 0xffffff, 0.95); pieceGfx.strokePoints(choirBladePts, closed);
       }
     }
+    drawPieceGuide();
     if (!piece) return;
     const r = piece.radius + 8 + Math.sin(run.elapsed * 8) * 3;
     pieceGfx.lineStyle(3, int(cfg.glowOuter), 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r);
     pieceGfx.lineStyle(1.5, 0xfff2a8, 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r * 0.75);
+  }
+  // ★2026-09-14 実プレイ42回目「光輪の欠片＝掴んだ」で終わり、投げていない（41・44回目は掴めず）。掴んだあとに
+  //   「どこへ投げるか」の信号が無かった。欠片を手にしている間だけ、主人公から薔薇窓（rig の rack）へ金の線を1本引き、
+  //   線の上を光の粒が薔薇窓へ流れ、薔薇窓に赤い輪が脈打つ。文字は足さない（戦闘中に文字を増やさない）。
+  //   pieceGfx はこのフレームで clear 済み。欠片は掴んだ瞬間に場から消える（piece=null）ので held 側だけを見る。
+  function drawPieceGuide() {
+    const held = run.billiard && run.billiard.st && run.billiard.st.held;
+    if (!held || !held.piece || !boss || !boss.active || !disp) return;
+    const rk = disp.parts.find((q) => q.role === 'rack');
+    const tx = rk ? rk.img.x : boss.x, ty = rk ? rk.img.y : boss.y;
+    const px = run.player.x, py = run.player.y;
+    const pulse = 0.5 + Math.sin(run.elapsed * 10) * 0.5;
+    pieceGfx.lineStyle(10, int(cfg.glowOuter), 0.16 + pulse * 0.1); pieceGfx.lineBetween(px, py, tx, ty);
+    pieceGfx.lineStyle(3, 0xffe066, 0.7 + pulse * 0.25); pieceGfx.lineBetween(px, py, tx, ty);
+    for (let k = 0; k < 4; k++) {
+      const ph = (run.elapsed * 1.5 + k / 4) % 1;
+      pieceGfx.fillStyle(0xffffff, 0.95 * (1 - ph * 0.5)); pieceGfx.fillCircle(px + (tx - px) * ph, py + (ty - py) * ph, 3);
+    }
+    const r = 26 + pulse * 8;
+    pieceGfx.lineStyle(4, 0xff3a4a, 0.85); pieceGfx.strokeCircle(tx, ty, r);
+    pieceGfx.lineStyle(2, 0xffffff, 0.9); pieceGfx.strokeCircle(tx, ty, r * 0.6);
   }
   // 2026-09-13 いま何の攻撃か（state → 死因の鍵。data/verdict.js の CAUSES）。弾は撃った瞬間に持つ。
   function causeNow() {

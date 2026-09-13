@@ -1562,6 +1562,15 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM14: 天啓は本数で色が変わる（白金→橙→深紅）・巨大は雷鳴・重ねは橙');
       assert(!(BALANCE.boss.tiers || []).some((t) => (t.tsunami && (t.tsunami.accel || t.tsunami.waveTints)) || (t.pillar && t.pillar.tints)), 'JAM14: 本編の tiers には accel／waveTints／tints を入れていない');
     }
+    // ★2026-09-14 JAM15：実プレイ41・42・44回目（死因2位＝巨体／欠片を掴んでも投げない）→ 接触 24→16・欠片の投げ先の光の線
+    {
+      const C15 = BALANCE.boss.jamTiers[0], bj15 = read('systems/boss.js');
+      assert(C15.bodyDamage <= 16 && C15.bodyDamage >= 10, 'JAM15: 大聖堂の接触ダメージは 16（拾いに行く設計への支払いを減らす）');
+      assert(/function drawPieceGuide\(\)/.test(bj15) && /held\.piece/.test(bj15) && /q\.role === 'rack'/.test(bj15)
+        && /drawPieceGuide\(\);[^}]*if \(!piece\) return;/.test(bj15),
+        'JAM15: 欠片を手にしている間だけ主人公→薔薇窓（rack）へ光の線を引く（piece が消えたあとも held で描く）');
+      assert(!/drawPieceGuide/.test(read('scenes/Run.js')) && !/drawPieceGuide/.test(read('systems/billiard.js')), 'JAM15: 光の線は boss.js の中だけ（本編の Run/billiard は不変）');
+    }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
       const ids = sv.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);
