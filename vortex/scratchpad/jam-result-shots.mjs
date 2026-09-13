@@ -181,6 +181,11 @@ async function main() {
   const ok2 = await waitScene('Result', 25000);
   console.log('  2回目 Result =', ok2, await ev(`(function(){var s=window.__vortexGame.scene.getScene('Result');var j=s&&s.scene.settings.data&&s.scene.settings.data.jam;return j&&JSON.stringify({v:j.verdict.id,clear:s.scene.settings.data.clear,tries:j.tries,seen:Object.keys(j.seen)});})()`));
   await sleep(3200); await shot('30-result-clear');
+  // 2026-09-14 被弾0（the One）を達成した状態の「裁きの一覧」。ユーザー確認用にデスクトップへも出す。
+  //   一覧は seen にある id だけ名前が出るので、ここで見えている行＝この回に到達した裁き。
+  await ev(`(function(){var s=window.__vortexGame.scene.getScene('Result');var j=s.scene.settings.data.jam;
+    return JSON.stringify({hits:j.stat?j.stat.hits:null, v:j.verdict.id, seen:Object.keys(j.seen)});})()`).then((r) => console.log('  一覧の前提:', r));
+  await key('KeyV', 'v'); await sleep(900); await shot('31-gallery-theone');
   console.log('  EXCEPTIONS=', exceptions);
   console.log(exceptions ? 'JAMRESULT_EXC' : 'JAMRESULT_DONE');
   process.exit(0);

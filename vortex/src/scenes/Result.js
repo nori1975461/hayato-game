@@ -200,7 +200,8 @@ export class ResultScene extends Phaser.Scene {
     //   印は文字でなく絵（王冠1〜3位／金の宝石4〜12／銀13〜19／鉄20〜32）＝一覧でも同じ印が並ぶので、
     //   自分の裁きが全体のどこにいるかが数字と色の両方で分かる。
     const tier = tierOf(v.rank || VERDICTS.length);
-    const rankTxt = this.add.text(W / 2 + 10, 32, `第${v.rank}位 ／ ${VERDICTS.length}　${tier.name}の裁き`, {
+    // 2026-09-14 超越者（1位）だけ「〜の裁き」を付けない＝帯の名前そのものが称号の上に立つ
+    const rankTxt = this.add.text(W / 2 + 10, 32, `第${v.rank}位 ／ ${VERDICTS.length}　${tier.name}${tier.id === 'one' ? '' : 'の裁き'}`, {
       fontFamily: 'monospace', fontSize: '13px', color: tier.color, fontStyle: 'bold',
     }).setOrigin(0.5);
     this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
@@ -371,48 +372,69 @@ export class ResultScene extends Phaser.Scene {
     TIERS.forEach((t) => {
       const list = ranked.filter((vv) => vv.rank >= t.from && vv.rank <= t.to);
       const rows = Math.ceil(list.length / 4), cols = Math.ceil(list.length / rows);
-      const bh = 14 + rows * ROWH + 5;
+      const one = t.id === 'one';
+      const bh = one ? 46 : 14 + rows * ROWH + 5;   // 超越者は大きな宝石を収めるため背を高くし、見出しと行を同じ高さに並べる
       const tc = int(t.color);
       const panel = this.add.graphics();
       panel.fillStyle(FILL[t.id], 0.85); panel.fillRoundedRect(12, by, W - 24, bh, 6);
       panel.lineStyle(1, tc, t.id === 'crown' ? 0.9 : 0.45); panel.strokeRoundedRect(12, by, W - 24, bh, 6);
       gal.add(panel);
-      // ★2026-09-14 頂（1位 the One）の帯だけ燦然と輝く＝白い縁が脈打つ。ここだけ 1 行しか入らないので目で探せる。
-      if (t.id === 'one') {
+      // 2026-09-14 超越者の帯は「明らかに特別」に見せる＝内側に金の二重枠・四隅の光の角・外側に脈打つ白い光。
+      if (one) {
+        const deco = this.add.graphics();
+        deco.lineStyle(1, 0xffd23f, 0.85); deco.strokeRoundedRect(15, by + 3, W - 30, bh - 6, 4);
+        for (const [cx2, cy2] of [[12, by], [W - 12, by], [12, by + bh], [W - 12, by + bh]]) {
+          deco.lineStyle(2, 0xffffff, 0.95);
+          deco.lineBetween(cx2 - 7, cy2, cx2 + 7, cy2);
+          deco.lineBetween(cx2, cy2 - 7, cx2, cy2 + 7);
+        }
+        gal.add(deco);
         const halo = this.add.graphics();
-        halo.lineStyle(2, 0xffffff, 1); halo.strokeRoundedRect(11, by - 1, W - 22, bh + 2, 7);
+        halo.lineStyle(3, 0xffffff, 1); halo.strokeRoundedRect(11, by - 1, W - 22, bh + 2, 7);
         halo.setBlendMode(Phaser.BlendModes.ADD);
         gal.add(halo);
-        this.tweens.add({ targets: halo, alpha: 0.25, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        this.tweens.add({ targets: halo, alpha: 0.3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
-      const hy = by + 8;
-      gal.add(this.drawRankIcon(28, hy, t.id, 1.2));
-      const nm = this.add.text(40, hy, `${t.name}の裁き`, { fontFamily: 'monospace', fontSize: '12px', color: t.color, fontStyle: 'bold' }).setOrigin(0, 0.5);
+      const hy = by + (one ? 23 : 8);
+      // 2026-09-14 超越者は印を大きく（1.2→2.1）して脈打たせる。名前は「超越者　1位」＝「〜の裁き」「n〜m位」を付けない。
+      const icon = this.drawRankIcon(one ? 38 : 28, hy, t.id, one ? 1.8 : 1.2);
+      gal.add(icon);
+      if (one) this.tweens.add({ targets: icon, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      const nm = this.add.text(one ? 62 : 40, hy, one ? t.name : `${t.name}の裁き`, {
+        fontFamily: 'monospace', fontSize: one ? '15px' : '12px', color: t.color, fontStyle: 'bold',
+      }).setOrigin(0, 0.5);
       gal.add(nm);
-      gal.add(this.add.text(nm.x + nm.width + 8, hy, `${t.from}〜${t.to}位`, { fontFamily: 'monospace', fontSize: '10px', color: t.color }).setOrigin(0, 0.5).setAlpha(0.8));
+      gal.add(this.add.text(nm.x + nm.width + 8, hy, t.from === t.to ? `${t.from}位` : `${t.from}〜${t.to}位`, {
+        fontFamily: 'monospace', fontSize: one ? '12px' : '10px', color: t.color,
+      }).setOrigin(0, 0.5).setAlpha(one ? 1 : 0.8));
       const got = list.filter((vv) => (J.seen || {})[vv.id]).length;
       gal.add(this.add.text(W - 20, hy, `${got} ／ ${list.length}`, { fontFamily: 'monospace', fontSize: '11px', color: t.color, fontStyle: 'bold' }).setOrigin(1, 0.5));
       list.forEach((vv, i) => {
         const col = i % cols, row = Math.floor(i / cols);
-        const x = 24 + col * COLW, yy = by + 14 + row * ROWH + ROWH / 2;
+        // 超越者は見出しと同じ行の右側に置く（1件しかないので段を作らない＝「超越者　1位　the One」の一行）
+        const x = one ? 186 : 24 + col * COLW, yy = one ? hy : by + 14 + row * ROWH + ROWH / 2;
         const n = (J.seen || {})[vv.id];
         const cur = vv.id === v.id;
         if (cur) {
           const hl = this.add.graphics();
-          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - 8, COLW - 6, 16, 4);
-          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - 8, COLW - 6, 16, 4);
+          const hw = one ? 210 : COLW - 6, hh = one ? 26 : 16;
+          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
+          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
           gal.add(hl);
         }
         const badge = this.add.graphics();
-        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - 6, 24, 13, 3); }
-        else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - 6, 24, 13, 3); }
+        const bw2 = one ? 26 : 24, bh2 = one ? 16 : 13;
+        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - bh2 / 2, bw2, bh2, 3); }
+        else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - bh2 / 2, bw2, bh2, 3); }
         gal.add(badge);
-        gal.add(this.add.text(x + 12, yy, String(vv.rank), {
-          fontFamily: 'monospace', fontSize: '10px', color: n ? '#1a1206' : t.color, fontStyle: 'bold',
+        gal.add(this.add.text(x + bw2 / 2, yy, String(vv.rank), {
+          fontFamily: 'monospace', fontSize: one ? '12px' : '10px', color: n ? '#1a1206' : t.color, fontStyle: 'bold',
         }).setOrigin(0.5).setAlpha(n ? 1 : 0.5));
-        gal.add(this.add.text(x + 30, yy, n ? vv.title : '？？？', {
-          fontFamily: 'monospace', fontSize: '12px', color: n ? (cur ? '#ffe066' : '#ffffff') : '#4a4f66',
-          fontStyle: cur ? 'bold' : 'normal',
+        gal.add(this.add.text(x + bw2 + 8, yy, n ? vv.title : '？？？', {
+          fontFamily: 'monospace', fontSize: one ? '18px' : '12px',
+          color: n ? (cur ? '#ffe066' : '#ffffff') : '#4a4f66',
+          fontStyle: (cur || one) ? 'bold' : 'normal',
+          stroke: one && n ? '#c9971f' : undefined, strokeThickness: one && n ? 4 : 0,
         }).setOrigin(0, 0.5));
       });
       by += bh + 4;
@@ -445,18 +467,30 @@ export class ResultScene extends Phaser.Scene {
     const k = sc || 1;
     const pts = (arr) => arr.map((p) => ({ x: x + p[0] * k, y: y + p[1] * k }));
     if (kind === 'one') {
-      // 八条の光＋白熱の芯。王冠（尖り3つ）や宝石（菱形）と形で区別する。
-      g.fillStyle(0xffffff, 0.9);
-      for (let i = 0; i < 8; i++) {
-        const a2 = (i / 8) * Math.PI * 2, w = (i % 2 === 0) ? 7.5 : 4.5;
+      // 2026-09-14 超越者の印＝虹の宝石。①十二条の光（金・空・紅の順に色が回る）②六角に切られた石
+      //   ③石の中の色分かれ（左上が空・右下が紅）④白熱の芯とハイライト。王冠の尖り・他階位の菱形とは
+      //   形も色数も別物にする＝一覧で一目で「これだけ違う」と分かるように。
+      const RAY = [0xffe066, 0x8fe6ff, 0xff8fd0];
+      for (let i = 0; i < 12; i++) {
+        const a2 = (i / 12) * Math.PI * 2 - Math.PI / 2, w = (i % 3 === 0) ? 11 : 7;
+        g.fillStyle(RAY[i % 3], i % 3 === 0 ? 0.95 : 0.7);
         g.fillPoints([
           { x: x + Math.cos(a2) * w * k, y: y + Math.sin(a2) * w * k },
-          { x: x + Math.cos(a2 + 0.4) * 1.6 * k, y: y + Math.sin(a2 + 0.4) * 1.6 * k },
-          { x: x + Math.cos(a2 - 0.4) * 1.6 * k, y: y + Math.sin(a2 - 0.4) * 1.6 * k },
+          { x: x + Math.cos(a2 + 0.26) * 2.2 * k, y: y + Math.sin(a2 + 0.26) * 2.2 * k },
+          { x: x + Math.cos(a2 - 0.26) * 2.2 * k, y: y + Math.sin(a2 - 0.26) * 2.2 * k },
         ], true);
       }
-      g.fillStyle(0xffe066, 1); g.fillCircle(x, y, 2.6 * k);
-      g.fillStyle(0xffffff, 1); g.fillCircle(x - 0.6 * k, y - 0.6 * k, 1.2 * k);
+      const hexa = (r) => {
+        const out = [];
+        for (let i = 0; i < 6; i++) { const a3 = (i / 6) * Math.PI * 2 - Math.PI / 2; out.push({ x: x + Math.cos(a3) * r * k, y: y + Math.sin(a3) * r * k }); }
+        return out;
+      };
+      g.fillStyle(0xffffff, 0.95); g.fillPoints(hexa(5.6), true);
+      g.fillStyle(0x8fe6ff, 0.95); g.fillPoints([hexa(4.4)[4], hexa(4.4)[5], hexa(4.4)[0], { x, y }], true);
+      g.fillStyle(0xff8fd0, 0.95); g.fillPoints([hexa(4.4)[1], hexa(4.4)[2], hexa(4.4)[3], { x, y }], true);
+      g.lineStyle(1, 0xffd23f, 1); g.strokePoints(hexa(5.6), true);
+      g.fillStyle(0xffffff, 1); g.fillCircle(x, y, 1.8 * k);
+      g.fillStyle(0xffffff, 0.85); g.fillCircle(x - 1.8 * k, y - 2.2 * k, 1 * k);
     } else if (kind === 'crown') {
       g.fillStyle(0xffe066, 1);
       g.fillPoints(pts([[-6, 4], [-6, -3], [-3, 0], [0, -5], [3, 0], [6, -3], [6, 4]]), true);

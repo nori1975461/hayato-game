@@ -1361,6 +1361,14 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM16: 1位 the One＝被弾0／2位 伝説を作りし者＝被弾3以下');
       assert(/kind === 'one'/.test(rs) && /t\.id === 'one'/.test(rs) && /tier\.id === 'one'/.test(rs),
         'JAM16: 頂は専用の印＋一覧の帯が脈打つ＋結果画面で称号の後ろが光る（燦然と輝く）');
+      // 2026-09-14 第7位「翼を恐れぬ者」は被弾5→15（ユーザー承認）。5 は人間46〜52・ボット57〜259に対して誰も近づけなかった。
+      assert(/if \(s\.hits <= 15\) out\.push\('clear_wing'\);/.test(vj), 'JAM16: 第7位「翼を恐れぬ者」は被弾15以下');
+      // 超越者の帯は「超越者　1位」（「〜の裁き」「n〜m位」を付けない）＋大きな虹の宝石＋二重枠
+      assert(/name: '超越者'/.test(vj) && /one \? t\.name : `\$\{t\.name\}の裁き`/.test(rs)
+        && /t\.from === t\.to \? `\$\{t\.from\}位`/.test(rs) && /tier\.id === 'one' \? '' : 'の裁き'/.test(rs),
+        'JAM16: 一覧と結果画面で超越者だけ「〜の裁き」「n〜m位」を付けない');
+      assert(/const RAY = \[0xffe066, 0x8fe6ff, 0xff8fd0\]/.test(rs) && /const hexa = \(r\)/.test(rs)
+        && /one \? 1\.8 : 1\.2/.test(rs), 'JAM16: 超越者の印は大きな虹の宝石（十二条の光＋六角の石）＝他階位の菱形と別物');
       assert(/金の枠＝今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを金の枠で示し、×n は出さない');
       assert(/const py = Math\.min\(262, y \+ 3 \* 18 \+ 10\);/.test(rs), 'JAM5: 仲間の行は表の下から決める（固定 y の重なり再発防止）');
       assert(/大聖堂を覆した モビットたち/.test(rs) && /ease: 'Back\.easeOut'/.test(rs) && /Sound\.sfx\('pickup', 1, 1 \+ i \* 0\.08\)/.test(rs),

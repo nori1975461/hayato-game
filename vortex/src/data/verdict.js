@@ -85,7 +85,10 @@ export function matches(st) {
     //   全弾命中の上限側）、人間の実プレイは45回で 71・97・123・136・141・152・171・191秒で最速71秒。
     //   条件は「上手い人が狙える」位置に置く＝最速記録のすぐ上に 75 を置き、王冠の3位を到達可能にする。
     if (s.bossSec > 0 && s.bossSec < 75) out.push('clear_fast');
-    if (s.hits <= 5) out.push('clear_wing');
+    // ★2026-09-14 被弾5→15（ユーザー承認）。5 は誰も近づけない条件だった（人間の実測46〜52・ボット57〜259）。
+    //   被弾の62〜90%は「自由に動けたとき」＝腕で減らせる分なので、雑魚の接触をほぼ消せば届く 15 に置く
+    //   （1位 the One＝0／2位 伝説を作りし者＝3 との間に、金の帯の段として成立する距離を取る）。
+    if (s.hits <= 15) out.push('clear_wing');
     if (s.shardShare >= 0.5) out.push('clear_armor');
     if (!s.shardHits && !s.haloHit && !s.specHits) out.push('clear_hand');
     if (s.throws >= 40) out.push('clear_storm');
@@ -118,7 +121,7 @@ export function judge(st, seen) {
 // 階位（順位の帯）。icon は Result が描く印の種類（crown/gold/silver/iron）。
 export const TIERS = [
   // ★2026-09-14 王冠の上に「頂」を新設（1位 the One のためだけの帯）。燦然と輝く＝Result が専用の印と脈打つ光で描く。
-  { id: 'one',    name: '頂',   from: 1,  to: 1,  color: '#ffffff' },
+  { id: 'one',    name: '超越者', from: 1, to: 1,  color: '#ffffff' },   // 一覧では「超越者　1位」と出る（の裁き／n〜m位 を付けない）
   { id: 'crown',  name: '王冠', from: 2,  to: 4,  color: '#ffe066' },
   { id: 'gold',   name: '金',   from: 5,  to: 13, color: '#ffd23f' },
   { id: 'silver', name: '銀',   from: 14, to: 20, color: '#d8dfe8' },
