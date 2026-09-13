@@ -1391,7 +1391,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/bs\.trueForm \|\| bs\.jamFinal/.test(ob7) && /get jamFinal\(\)/.test(jb4) && BALANCE.archetypes.SLEEPY.jamEverySec > 0 && /S\.jamEverySec/.test(ob7),
         'JAM7: ネムッコは大聖堂戦で覚醒する（本編は真の姿のまま）');
       // ★2026-09-13 JAM8：攻撃ごとの被ダメ合計を Result 左下（親向け10px）に出す＝9案のどれを戻すかを実プレイの数字で決める
-      assert(/dmgByCause: \{\}/.test(r2) && /this\.jamSt\.dmgByCause\[c\] = \(this\.jamSt\.dmgByCause\[c\] \|\| 0\) \+ dmg;/.test(r2)
+      assert(/dmgByCause: \{\}/.test(r2) && /this\.jamSt\.dmgByCause\[k\] = \(this\.jamSt\.dmgByCause\[k\] \|\| 0\) \+ dmg;/.test(r2)
+        && /const k = \(c === 'mob' && !\(this\.boss && this\.boss\.active\)\) \? 'pre' : c;/.test(r2) && /this\.jamSt\.lastCause = c;/.test(r2)
+        && /pre: '群\(ボス前\)'/.test(rs)
         && /dmgByCause: js\.dmgByCause, hitsByCause: js\.hitsByCause/.test(r2), 'JAM8: 被弾は攻撃ごとにダメージ合計も数えて Result へ渡す');
       assert(/if \(d\.jam && d\.jam\.dmgByCause\) \{/.test(rs) && /`ひだん \$\{parts\.join\('・'\)\}`/.test(rs) && /fontSize: '10px'/.test(rs),
         'JAM8: Result 左下に「ひだん 薔薇n(m)・…」を10pxで出す（ジャム版だけ・戦闘中には出さない）');

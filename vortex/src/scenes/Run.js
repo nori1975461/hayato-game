@@ -916,9 +916,11 @@ export class RunScene extends Phaser.Scene {
     if (this.jamSt) {
       const c = cause || (this.boss && this.boss.active && this.boss.causeNow ? this.boss.causeNow() : 'mob');
       this.jamSt.hits++;
-      this.jamSt.hitsByCause[c] = (this.jamSt.hitsByCause[c] || 0) + 1;
       // 2026-09-13 攻撃ごとの被ダメ合計（Result 左下の親向け行）。9案のどれが体力を削っているかを実プレイで読むため。
-      this.jamSt.dmgByCause[c] = (this.jamSt.dmgByCause[c] || 0) + dmg;
+      //   群れは「ボス出現前」と「大聖堂戦中」で意味が違うので、出現前だけ 'pre' に分ける（死因の c は変えない）。
+      const k = (c === 'mob' && !(this.boss && this.boss.active)) ? 'pre' : c;
+      this.jamSt.hitsByCause[k] = (this.jamSt.hitsByCause[k] || 0) + 1;
+      this.jamSt.dmgByCause[k] = (this.jamSt.dmgByCause[k] || 0) + dmg;
       this.jamSt.lastCause = c;
     }
     // R56: 白く飛ぶ時間を 0.12→0.16秒。無敵の点滅（0.55秒）に食われて見えなくなるのを防ぐ。
