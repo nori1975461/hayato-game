@@ -274,6 +274,43 @@ export const MINIROBO = {
   },
 };
 
+// ★2026-09-13 ジャム版「堕天の聖歌隊」の1体（堕天の大聖堂の攻撃③で光輪の形に8体）。
+//   ⚠️ **ENEMIES には入れない**（ミニロボと同じ理由＝出現プール／重み検証を汚さない）。湧きは boss.js の doChoir だけ。
+//   実プレイ7回「聖歌隊が分からない」＝雑魚（チビット・12×12・オリーブ）と同じ絵だったのが正体。輪や光を重ねても
+//   「同じ絵の雑魚」に見えるので、**姿そのもの**を変える：白い法衣＋濃紺のフード＋開いた口（歌）＋頭上の金の光輪。
+//   16×16 を 2.5 倍（雑魚は 2 倍）＝画面で 40px。radius 8 は掴みやすさ（チビット 5）。歌い終わると普通に追いかけてくる。
+export const CATH_CHOIR = {
+  id: 'cathChoir',
+  name: 'せいかたい',
+  color: '#fff2a8',
+  movement: 'chase',
+  hp: 4,
+  speed: 50,
+  damage: 7,
+  radius: 8,
+  sprite: {
+    palette: { h: '#ffe066', k: '#2a1f4a', e: '#9fe8ff', m: '#1a1030', w: '#f4f0ff', d: '#b9b0d8', g: '#c9971f' },
+    rows: [
+      '.....hhhhhh.....',
+      '....h......h....',
+      '....h.kkkk.h....',
+      '.....kkkkkk.....',
+      '....kkkkkkkk....',
+      '....keekkeek....',
+      '....kkkkkkkk....',
+      '....kkmmmmkk....',
+      '.....kmmmmk.....',
+      '...wwwwwwwwww...',
+      '..wwwwggggwwww..',
+      '..wwwwwwwwwwww..',
+      '..wwwddwwddwww..',
+      '.wwwwwwwwwwwwww.',
+      '.wwwwddwwddwwww.',
+      '.dddddddddddddd.',
+    ],
+  },
+};
+
 // === ボス群（Wave R3→FB#8：ロボット6体・ボディタイプ別リグ） ===
 // FB#8「6体が似すぎ」への対応。共通7パーツ人型リグをやめ、各ボスの rig 構造そのものを
 // ボディタイプ別に作り分けてシルエットを別物にする（UFO/戦闘機/多脚/戦車/ミサイルキャリア/大型人型）。

@@ -5,7 +5,7 @@
 //   再挑戦は SPACE で**直接 Run へ**（タイトルを挟まない＝2分ループの距離を最短にする）。
 import { MONSTERS } from '../data/monsters.js';
 import { BALANCE } from '../data/balance.js';
-import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint } from '../data/verdict.js';
+import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint, clearHint } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
@@ -202,14 +202,17 @@ export class ResultScene extends Phaser.Scene {
     });
 
     // 中段：死因・残り・前回との差
-    let y = 120;
+    let y = clear ? 116 : 120;   // 撃破は中段3行（覆した・n回目・▶）＋仲間の帯があるので少し詰める
     const line = (txt, color, size) => {
       this.add.text(W / 2, y, txt, { fontFamily: 'monospace', fontSize: (size || 13) + 'px', color }).setOrigin(0.5);
-      y += 20;
+      y += clear ? 18 : 20;
     };
     if (clear) {
       line(`大聖堂を覆した ― ${mmss(d.elapsed || 0)}`, '#ffd23f', 14);
       if (J.tries > 1) line(`${J.tries}回目の挑戦で`, '#9fe8ff', 12);
+      // ★2026-09-13 実プレイ18回目＝欠片なしで第8位。撃破の画面にも「上の位へ行く道」を1行（未使用の鍵→その位）。
+      const ch = clearHint(s, J.seen, v.rank);
+      if (ch) line(`▶ ${ch.text}`, '#ffe9a8', 12);
     } else {
       const c = s.deathCause && CAUSES[s.deathCause];
       if (c) line(`${c.name}に打たれた ― ${c.tip}`, '#ffb3b3');
@@ -234,7 +237,8 @@ export class ResultScene extends Phaser.Scene {
     const gl = (G[b.grade] && G[b.grade].label) || '';
     const tags = [gl, b.piece ? '光輪' : b.shard ? '装甲片' : '', b.core ? '聖核' : ''].filter(Boolean).join('・');
     const bestTxt = b.dmg > 0 ? `${b.dmg}${tags ? '（' + tags + '）' : ''}` : '－';
-    const seenN = Object.keys(J.seen || {}).length;
+    // 2026-09-13 実機で「7／32」なのに帯の合計が6＝旧版の削除済み id（聖核）が保存に残っていた。今の32種にある id だけ数える
+    const seenN = VERDICTS.filter((vv) => (J.seen || {})[vv.id]).length;
     // 2026-09-13 聖核（弱点）は削除＝「聖核ヒット」の行は「光輪の欠片」へ（欠片を掴んだ／当てた＝探す遊びの記録）
     const rowsL = [['投げ', String(s.throws || 0)], ['光輪の欠片', s.haloHit ? '当てた' : s.haloGrabbed ? '掴んだ' : '－'], ['装甲片を返した', String(J.shardHits || 0)]];
     const rowsR = [['聖歌隊 投げ返し', `${s.choirBest || 0}/8`], ['最高の一投', bestTxt],
@@ -259,7 +263,7 @@ export class ResultScene extends Phaser.Scene {
         const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));
         return base ? { base, def: base.id === id ? base : base.evo } : null;
       }).filter(Boolean);
-      const n = list.length, top = 222, ph = 58, pc = top + 30;
+      const n = list.length, top = 226, ph = 56, pc = top + 29;   // ▶ の1行が入っても表の3行目（〜216）と離す
       const panel = this.add.graphics();
       panel.fillStyle(0x0b0d2c, 0.85); panel.fillRoundedRect(40, top, W - 80, ph, 8);
       panel.lineStyle(1, 0xffd6f0, 0.55); panel.strokeRoundedRect(40, top, W - 80, ph, 8);

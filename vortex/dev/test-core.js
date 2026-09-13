@@ -1320,7 +1320,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     const b2 = read('systems/boss.js'), bi2 = read('systems/billiard.js'), h2 = read('ui/hud.js'), rc = read('systems/record.js');
     const C2 = BALANCE.boss.jamTiers[0];
     // A 裁き
-    const ids = [...vj.matchAll(/\{ id: '([a-z0-9_]+)'/g)].map((m) => m[1]);
+    const ids = [...vj.matchAll(/\{ id: '([a-z0-9_]+)', rank:/g)].map((m) => m[1]);   // 2026-09-13 clearHint の { id, cond } は数えない
     assert(ids.length >= 24, 'JAM2: 裁きは24種以上（' + ids.length + '）');
     assert(new Set(ids).size === ids.length, 'JAM2: 裁きの id が重複していない');
     for (const k of ['near', 'clear', 'lost', 'idle', 'stage0', 'stage1', 'stage2']) assert(ids.includes(k), 'JAM2: 裁き ' + k + ' がある');
@@ -1342,7 +1342,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM4: 裁きの順位は全' + ids + '種で 1〜' + ids + ' が一意（第n位が必ず出る）');
       assert(/export const TIERS = \[/.test(vj) && /from: 1,\s+to: 3/.test(vj) && new RegExp("to: " + ids + "\\b").test(vj), 'JAM4: 階位（王冠1〜3…鉄〜' + ids + '）が全順位を覆う');
       assert(/export function keyHint\(st\)/.test(vj) && /choirWaves > 0 && !\(s\.choirBest > 0\)/.test(vj), 'JAM4: 死んだ回に触れなかった鍵を指す（聖歌隊が最優先）');
-      assert(/tierOf, byRank, keyHint \} from '\.\.\/data\/verdict\.js'/.test(rs) && /第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs), 'JAM4: Result が「第n位／全数」を称号の上に出す');
+      assert(/tierOf, byRank, keyHint, clearHint \} from '\.\.\/data\/verdict\.js'/.test(rs) && /第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs), 'JAM4: Result が「第n位／全数」を称号の上に出す');
       assert(/drawRankIcon\(x, y, kind, sc\)/.test(rs) && /kind === 'crown'/.test(rs) && /const ranked = byRank\(\);/.test(rs), 'JAM4: 階位の印は絵（Graphics）で描き、一覧は順位順');
       assert(/const kh = keyHint\(s\);/.test(rs), 'JAM4: Result が鍵の指さしを1行出す');
       // ★2026-09-13 JAM5：一覧は階位ごとの帯／仲間の行は表の下から決める／撃破の裁きは仲間が主役の帯
@@ -1355,7 +1355,18 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/一度は覆した大聖堂/.test(rs), 'JAM5: 撃破済み（傷跡0%）を「残り0%に届かず」と言わない');
       assert(/choirWaves: js\.choirWaves \|\| 0, shardDrops: js\.shardDrops \|\| 0/.test(r2), 'JAM4: Run が聖歌隊の回数と装甲片の枚数を裁きへ渡す');
       const jb4 = read('systems/boss.js'), jbi4 = read('systems/billiard.js');
-      assert(/if \(e\.choir\) \{[\s\S]*?pieceGfx\.lineStyle\(3, 0xfff2a8, 0\.95\)/.test(jb4) && /else if \(e\.shard\) \{[\s\S]*?0xd8dfe8/.test(jb4), 'JAM4: 歌う聖歌隊は白金の輪・装甲片は銀の輪（雑魚と同じ絵なので印で分ける）');
+      assert(/if \(e\.choir\) \{[\s\S]*?pieceGfx\.lineStyle\(3, 0xffe066, 0\.95\)/.test(jb4) && /else if \(e\.shard\) \{[\s\S]*?0xd8dfe8/.test(jb4), 'JAM4: 歌う聖歌隊は金の輪・装甲片は銀の輪');
+      // ★2026-09-13 JAM6：聖歌隊は専用の姿（雑魚と同じ絵をやめる）／撃破の画面にも上の位への道／一覧の数は今の id だけ
+      const en6 = read('data/enemies.js'), bo6 = read('scenes/Boot.js');
+      assert(/export const CATH_CHOIR = \{\s*id: 'cathChoir'/.test(en6) && en6.indexOf('export const CATH_CHOIR') > en6.indexOf('export const MINIROBO'),
+        'JAM6: 聖歌隊の姿 CATH_CHOIR は ENEMIES の外（ミニロボと同じ作法＝湧きプールを汚さない）');
+      assert(/makeGrid\('enemy_' \+ CATH_CHOIR\.id, CATH_CHOIR\.sprite\)/.test(bo6), 'JAM6: Boot が聖歌隊のテクスチャを作る');
+      assert(/enemyId: 'cathChoir'/.test(read('data/balance.js')) && /zunDef === CATH_CHOIR\) \{\s*e\.baseScale = 2\.5;/.test(jb4),
+        'JAM6: 大聖堂の聖歌隊は cathChoir を 2.5 倍（雑魚は 2 倍）で出す');
+      assert(/fillGradientStyle\(0xfff2a8, 0xfff2a8, 0xfff2a8, 0xfff2a8, 0, 0, 0\.3, 0\.3\)/.test(jb4) && /singers\.length >= 3/.test(jb4) && /strokePoints\(singers\.map/.test(jb4),
+        'JAM6: 歌う聖歌隊には光の柱と、8体を結ぶ金の輪');
+      assert(/export function clearHint\(st, seen, curRank\)/.test(vj) && /const ch = clearHint\(s, J\.seen, v\.rank\);/.test(rs), 'JAM6: 撃破の画面にも未使用の鍵→上の位を1行');
+      assert(/const seenN = VERDICTS\.filter\(\(vv\) => \(J\.seen \|\| \{\}\)\[vv\.id\]\)\.length;/.test(rs), 'JAM6: 見た裁きの数は今の32種にある id だけ数える');
       assert(/run\.jamSt\.choirWaves = \(run\.jamSt\.choirWaves \|\| 0\) \+ 1/.test(jb4), 'JAM4: 聖歌隊が出た回数を数える');
       assert(/function dropShards\(bossEnt, fromStep\)/.test(jbi4) && /dropShards\(e, true\);/.test(jbi4) && /if \(fromStep && run\.jamMode\)/.test(jbi4), 'JAM4: 節目落ち（ジャム版）は金の衝撃波＋スロー＋割れる音');
       const C4 = BALANCE.boss.jamTiers[0];

@@ -120,6 +120,26 @@ export function byRank() { return VERDICTS.slice().sort((a, b) => a.rank - b.ran
 // ★2026-09-13 死んだ結果画面で、その回に**触れなかった鍵**を1つだけ指す（実プレイ5回で聖歌隊が分からなかった）。
 //   戦闘中に文字は足さない原則のまま、結果画面で「次に試すこと」を1行だけ手渡す。優先＝出ていたのに使わなかった物。
 //   st: { choirWaves(聖歌隊が出た回数), choirBest, stage, haloGrabbed, shardDrops(剥がれた枚数), shardHits }
+// ★2026-09-13 撃破したのに鍵を使わなかった人へ「上の位へ行く道」を1行（実プレイ18回目＝欠片なしで第8位・上に7つ）。
+//   まだ見ていない中で最も高い位を指す：欠片（4位）→聖歌隊8（5位）→装甲片（7位）→60秒（3位は速さの道・最後に）。
+//   今回の位より上のものだけ。文字は結果画面にだけ足す。
+export function clearHint(st, seen, curRank) {
+  const s = st || {}, sn = seen || {};
+  const cand = [
+    { id: 'clear_halo', cond: !s.haloHit, text: '光輪の欠片を当てて覆せば' },
+    { id: 'clear_choir', cond: !(s.choirBest >= 8), text: '聖歌隊8体を投げ返して覆せば' },
+    { id: 'clear_armor', cond: !(s.shardShare >= 0.5), text: '与ダメの半分を装甲片で覆せば' },
+    { id: 'clear_fast', cond: !(s.bossSec != null && s.bossSec < 60), text: '60秒以内に覆せば' },
+  ];
+  for (const c of cand) {
+    const v = VERDICTS.find((x) => x.id === c.id);
+    if (!v || sn[c.id] || !c.cond) continue;
+    if (curRank != null && v.rank >= curRank) continue;
+    return { key: c.id, text: `${c.text} 第${v.rank}位「${v.title}」` };
+  }
+  return null;
+}
+
 export function keyHint(st) {
   const s = st || {};
   if (s.clear) return null;

@@ -4,7 +4,7 @@
 // 見た目は def.rig で組み、本体そのものが動く。FB#8 で rig 構造をボディタイプ別（UFO/戦闘機/多脚/戦車/
 // ミサイルキャリア/大型人型）に作り分けたため、role も型ごとに増えている（dome/wing/qleg/track/rack/pod/base/thruster）。
 import { BALANCE } from '../data/balance.js';
-import { BOSSES, BOSS_DEFS_ALL, ENEMIES, MINIROBO } from '../data/enemies.js';
+import { BOSSES, BOSS_DEFS_ALL, ENEMIES, MINIROBO, CATH_CHOIR } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
@@ -3509,7 +3509,9 @@ export function createBoss(run) {
   // ③堕天の聖歌隊：光輪の形に8体。holdSec のあいだその場で歌う（＝よろけ＝掴み放題）。
   //   最終ボスが「投げる弾」を自分で供給する＝動詞（掴む→溜める→投げる）が最後まで主役。
   function doChoir() {
-    const zunDef = ENEMIES.find((e) => e.id === cfg.summon.enemyId);
+    // ★2026-09-13 実プレイ7回「聖歌隊が分からない」→ 雑魚と同じ絵をやめ、専用の姿（CATH_CHOIR：白い法衣＋金の光輪）で出す。
+    //   2.5倍（雑魚は2倍）＝40px。輪・光の柱・立ちのぼる粒は drawPieceRing。歌の和音は 1.1 秒おきに3回鳴る。
+    const zunDef = (CATH_CHOIR.id === cfg.summon.enemyId) ? CATH_CHOIR : ENEMIES.find((e) => e.id === cfg.summon.enemyId);
     const n = cfg.summon.count, hpMult = summonHpMult();
     for (let i = 0; i < n; i++) {
       const a = (Math.PI * 2 * i) / n;
@@ -3517,10 +3519,16 @@ export function createBoss(run) {
       const e = run.spawnEnemy(zunDef, x, y, false, hpMult);
       if (e && cfg.summon.holdSec && run.enterStagger) { run.enterStagger(e); e.stagMax = cfg.summon.holdSec; e.stagT = e.stagMax; }
       if (e) e.choir = true;   // 2026-09-13 聖歌隊の1体＝投げ返した数を数える（HUD の n/8・裁き）
+      if (e && zunDef === CATH_CHOIR) {
+        e.baseScale = 2.5; e.spr.setScale(2.5).setDepth(10);
+        e.glow.setTint(0xffe066).setScale(2.4).setAlpha(0.9);
+      }
     }
     if (run.jamSt) { run.jamSt.choirWaveRet = 0; run.jamSt.choirWaveN = n; run.jamSt.choirWaves = (run.jamSt.choirWaves || 0) + 1; }
     run.spawnParticles(boss.x, boss.y, int(def.color), 16);
     Sound.sfx('choirChord', 1, 1.25);
+    run.time.delayedCall(1100, () => { if (run.sys.settings.active) Sound.sfx('choirChord', 0.7, 1.35); });
+    run.time.delayedCall(2200, () => { if (run.sys.settings.active) Sound.sfx('choirChord', 0.55, 1.5); });
   }
   // ④鉄羽の雨：翼の先から鉄の羽根（回る鉄片）を1枚ずつ。扇は featherBase を中心に spreadDeg。
   function fireFeatherOne(fe, i) {
@@ -3646,20 +3654,38 @@ export function createBoss(run) {
     //   よろけの薄い青輪しか印が無かった。欠片（金の輪）と同じ作法で、歌っている聖歌隊＝白金の二重輪＋上下に揺れる光、
     //   剥がれた装甲片＝銀の輪を毎フレーム描く。文字は足さない（隠さない、で足りるはず）。
     if (run.jamMode) {
+      // ★2026-09-13 実プレイ7回「やはり聖歌隊が見えない」→ 姿を専用に（doChoir）＋ここでは
+      //   ①天から差す光の柱（1体ずつ・上が透明で足元が明るい）②金の二重輪③立ちのぼる光の粒3つ
+      //   ④歌っている8体を結ぶ金の輪（光輪の形に立っていることが地面の絵で分かる）。文字は足さない。
+      const singers = [];
       for (const e of run.enemies) {
         if (!e.active || !e.stag || e.haloPiece) continue;
         if (e.choir) {
-          const r = e.radius + 7 + Math.sin(run.elapsed * 9) * 2.5;
-          pieceGfx.lineStyle(3, 0xfff2a8, 0.95); pieceGfx.strokeCircle(e.x, e.y, r);
+          const bw = e.radius + 5;
+          pieceGfx.fillGradientStyle(0xfff2a8, 0xfff2a8, 0xfff2a8, 0xfff2a8, 0, 0, 0.3, 0.3);
+          pieceGfx.fillRect(e.x - bw, e.y - 78, bw * 2, 78);
+          const r = e.radius + 9 + Math.sin(run.elapsed * 9) * 2.5;
+          pieceGfx.lineStyle(3, 0xffe066, 0.95); pieceGfx.strokeCircle(e.x, e.y, r);
           pieceGfx.lineStyle(1.5, 0xffffff, 0.9); pieceGfx.strokeCircle(e.x, e.y, r * 0.7);
-          // 歌＝頭上で上下に揺れる小さな光（音符は文字なので使わない）
-          const fy = e.y - e.radius - 9 + Math.sin(run.elapsed * 6 + e.x * 0.05) * 3;
-          pieceGfx.fillStyle(0xffffff, 0.95); pieceGfx.fillCircle(e.x, fy, 2.2);
-          pieceGfx.fillStyle(0xfff2a8, 0.6); pieceGfx.fillCircle(e.x, fy, 4.5);
+          for (let k = 0; k < 3; k++) {
+            const ph = (run.elapsed * 1.4 + k / 3 + e.x * 0.01) % 1;
+            const fy = e.y - e.radius - 8 - ph * 28, fx = e.x + Math.sin(run.elapsed * 5 + k * 2.1) * 5;
+            pieceGfx.fillStyle(0xffffff, 0.95 * (1 - ph)); pieceGfx.fillCircle(fx, fy, 2.2);
+            pieceGfx.fillStyle(0xffe066, 0.5 * (1 - ph)); pieceGfx.fillCircle(fx, fy, 4.4);
+          }
+          singers.push(e);
         } else if (e.shard) {
           const r = e.radius + 6 + Math.sin(run.elapsed * 7) * 2;
           pieceGfx.lineStyle(2.5, 0xd8dfe8, 0.9); pieceGfx.strokeCircle(e.x, e.y, r);
         }
+      }
+      if (singers.length >= 3) {
+        let cx = 0, cy = 0;
+        for (const e of singers) { cx += e.x; cy += e.y; }
+        cx /= singers.length; cy /= singers.length;
+        singers.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+        pieceGfx.lineStyle(2, 0xffe066, 0.4 + Math.sin(run.elapsed * 4) * 0.12);
+        pieceGfx.strokePoints(singers.map((e) => ({ x: e.x, y: e.y })), true);
       }
     }
     if (!piece) return;

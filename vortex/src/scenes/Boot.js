@@ -1,6 +1,6 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_FISTS } from '../data/monsters.js';
-import { ENEMIES, BOSS_DEFS_ALL, MINIROBO } from '../data/enemies.js';
+import { ENEMIES, BOSS_DEFS_ALL, MINIROBO, CATH_CHOIR } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { ENDING_ART } from '../data/ending_art.js';
 import { createRng } from '../core/rng.js';
@@ -24,6 +24,7 @@ export class BootScene extends Phaser.Scene {
     //   汚すので別 export（BOSSES と同じ扱い）。テクスチャ名だけ enemy_ 系に揃えて
     //   Run.spawnEnemy（'enemy_' + def.id を貼る）へそのまま乗せる。
     this.makeGrid('enemy_' + MINIROBO.id, MINIROBO.sprite);
+    this.makeGrid('enemy_' + CATH_CHOIR.id, CATH_CHOIR.sprite);   // 2026-09-13 ジャム版の聖歌隊（ミニロボと同じ作法）
     // 自機3段階（Run.js は 'player' も参照するため基本形も残す）
     this.makeGrid('player', PLAYER_SPRITE);
     PLAYER_SPRITES.forEach((s, i) => this.makeGrid('player_' + (i + 1), s));

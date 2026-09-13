@@ -2130,7 +2130,9 @@ BALANCE.boss.jamTiers = [
                gapSpinDeg: 40, bulletSpeed: 175, bulletRadius: 6, damage: 14, lifeSec: 2.6,
                kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot' },   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
     // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
-    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6, holdSec: 3.5 },   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
+    // ★2026-09-13 ringRadius 70→150：等倍スクショで判明＝聖歌隊は**大聖堂の体（radius 88・絵はもっと大きい）の内側**に
+    //   立っていて、巨体の模様に溶けていた。輪も光も絵の上に重なるだけで「別の物」に見えない。体の外（宇宙の黒）に立たせる。
+    summon: { count: 8, enemyId: 'cathChoir', ringRadius: 190, telegraphSec: 0.6, holdSec: 3.5 },   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
     // ⑤配線の鞭（maou の wirearm と同値）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
                extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54 },
