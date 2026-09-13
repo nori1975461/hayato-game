@@ -3377,14 +3377,17 @@ export function createBoss(run) {
     const s = disp.spriteScale;
     if (!wire) {
       wire = { arms: [], g: run.add.graphics().setDepth(11) };
+      const censer = cfg.wirearm && cfg.wirearm.style === 'censer';
       for (const side of [1, -1]) {   // 右拳→左拳の2本
         // 拳は前腕(armR 8px×s)より少し大きめの鉄拳（24px×s*0.5≒96px＝ボス本体に埋もれず殴りが映える）
-        const img = run.add.image(0, 0, 'boss_maou_fist').setDepth(13).setOrigin(0.5, 0.5).setScale(s * 0.5);
+        // ★2026-09-14 大聖堂（style:'censer'）は鉄拳のテクスチャを使わない＝香炉を Graphics で毎フレーム描く。
+        const img = censer ? null
+          : run.add.image(0, 0, 'boss_maou_fist').setDepth(13).setOrigin(0.5, 0.5).setScale(s * 0.5);
         wire.arms.push({ side, sx: 0, sy: 0, fx: 0, fy: 0, ang: 0, len: 0, hit: false, backFrom: 0, img });
       }
     }
     wire.g.setVisible(true);
-    for (const arm of wire.arms) arm.img.setVisible(true);
+    for (const arm of wire.arms) if (arm.img) arm.img.setVisible(true);
   }
   // 肩(拳の付け根)のワールド座標。armR ox:11 / oy:-1（左腕はミラー）に合わせる。
   function shoulderOf(arm) {
@@ -3529,6 +3532,7 @@ export function createBoss(run) {
   function drawWire() {
     if (!wire) return;
     const g = wire.g; g.clear();
+    if (cfg.wirearm && cfg.wirearm.style === 'censer') { drawCenserArms(g); return; }
     for (const arm of wire.arms) {
       const sx = arm.sx, sy = arm.sy, fx = arm.fx, fy = arm.fy;
       const ang = Math.atan2(fy - sy, fx - sx);
@@ -3543,6 +3547,81 @@ export function createBoss(run) {
       const segs = 6;
       for (let i = 1; i < segs; i++) { const t = i / segs; g.fillCircle(sx + (fx - sx) * t, sy + (fy - sy) * t, 1.6); }
       arm.img.setPosition(fx, fy).setRotation(ang);   // 拳はテクスチャが右向き＝進行方向へそのまま回転
+    }
+  }
+  // ★2026-09-14 実プレイFB「ロケットパンチの真似はよいが、ビジュアルが堕天の大聖堂に合っていない」。
+  //   マオウレクスの鉄拳＋ガンメタルのケーブル＋シアンの芯は「機械の腕」で、大聖堂（金・深紅・硝子・鐘）と
+  //   同じ画面に並ぶと別のゲームの絵に見える。→ 教会の道具である**振り香炉**へ作り直す。
+  //     ①鎖＝金の環が連なる（芯に深紅の配線が1本這う＝名前「配線の鞭」を裏切らない）
+  //     ②香炉＝金の六角の器。前方に尖った蓋と十字の頭、中で深紅の火が脈打ち、白熱の芯が覗く
+  //     ③飛んでいる間は後ろへ火の粉が流れる（鎖に沿って3つ・位相をずらす＝速度が見える）
+  //   絵はすべて Graphics＝新しいテクスチャを足さない。マオウレクス（style 無し）は従来のまま。
+  function drawCenserArms(g) {
+    const GOLD_L = 0xffd23f, GOLD_D = 0xc9971f, FIRE = 0xff3a4a, FIRE_L = 0xff8f6a;
+    const t = run.elapsed;
+    for (const arm of wire.arms) {
+      const sx = arm.sx, sy = arm.sy, fx = arm.fx, fy = arm.fy;
+      const ang = Math.atan2(fy - sy, fx - sx);
+      const len = Math.hypot(fx - sx, fy - sy);
+      const c = Math.cos(ang), sn = Math.sin(ang);
+      const P = (lx, ly) => ({ x: fx + lx * c - ly * sn, y: fy + lx * sn + ly * c });
+      // ---- 鎖（肩→香炉）----
+      g.lineStyle(4.2, GOLD_D, 1); g.lineBetween(sx, sy, fx, fy);
+      g.lineStyle(1.8, GOLD_L, 1); g.lineBetween(sx, sy, fx, fy);
+      g.lineStyle(1.1, FIRE, 0.8); g.lineBetween(sx, sy, fx, fy);   // 深紅の配線が1本這う
+      const links = Math.max(2, Math.round(len / 26));
+      for (let i = 1; i < links; i++) {
+        const u = i / links, lx = sx + (fx - sx) * u, ly = sy + (fy - sy) * u;
+        g.lineStyle(2, GOLD_L, 0.95);
+        g.strokeEllipse(lx, ly, 9, 5.2);   // 金の環（進行方向に潰れた輪＝鎖に見える）
+      }
+      // ---- 火の粉（鎖に沿って後ろへ流れる）----
+      if (len > 40) {
+        for (let k = 0; k < 3; k++) {
+          const ph = ((t * 1.6 + k / 3) % 1);
+          const u = 1 - ph, ex = sx + (fx - sx) * u, ey = sy + (fy - sy) * u;
+          g.fillStyle(FIRE_L, 0.85 * (1 - ph)); g.fillCircle(ex, ey - 3 * ph * 4, 2.6);
+          g.fillStyle(0xffffff, 0.6 * (1 - ph)); g.fillCircle(ex, ey - 3 * ph * 4, 1.1);
+        }
+      }
+      // ---- 香炉（前＝進行方向）----
+      const pulse = 0.5 + Math.sin(t * 11 + arm.side) * 0.5;
+      const hex = (r, cxl) => {
+        const out = [];
+        for (let i = 0; i < 6; i++) { const a2 = (i / 6) * Math.PI * 2 + Math.PI / 6; out.push(P(cxl + Math.cos(a2) * r, Math.sin(a2) * r)); }
+        return out;
+      };
+      // 香の煙（後ろへ流れて膨らむ＝弾でなく「振り香炉」だと分かる）。器より先に描いて背後に置く。
+      for (let k = 0; k < 3; k++) {
+        const ph = ((t * 0.9 + k / 3) % 1);
+        const sp = P(-34 - ph * 46, Math.sin(t * 3 + k * 2.1) * (3 + ph * 9));
+        g.fillStyle(0x6a5a8a, 0.30 * (1 - ph)); g.fillCircle(sp.x, sp.y, 6 + ph * 13);
+        g.fillStyle(0xcbb8e8, 0.16 * (1 - ph)); g.fillCircle(sp.x, sp.y, 3 + ph * 7);
+      }
+      // 火の暈は器より小さく（大きいと赤い球にしか見えず、金の器の形が消える）
+      g.fillStyle(FIRE, 0.20 + pulse * 0.10); g.fillCircle(fx, fy, 20);
+      g.fillStyle(0x2a1500, 1); g.fillPoints(hex(23, -7), true);                // 影（器の輪郭を締める）
+      g.fillStyle(GOLD_D, 1); g.fillPoints(hex(20, -7), true);                  // 器（濃い金の下地）
+      g.fillStyle(GOLD_L, 1); g.fillPoints(hex(15.5, -7), true);                // 器（金）
+      g.lineStyle(1.6, 0x2a1500, 0.9); g.strokePoints(hex(20, -7), true);       // 六角の稜線
+      g.fillStyle(FIRE, 0.95); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 7 + pulse * 2);        // 中の火
+      g.fillStyle(0xffffff, 0.9); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 2.6 + pulse * 1.2); // 白熱の芯
+      for (const oy of [-10, 10]) {                                             // 器の切り欠き（火が透ける）
+        g.fillStyle(FIRE_L, 0.95);
+        g.fillPoints([P(-14, oy - 2), P(-14, oy + 2), P(-2, oy + 3.4), P(-2, oy - 3.4)], true);
+      }
+      g.fillStyle(0x2a1500, 1); g.fillPoints([P(8, -17), P(8, 17), P(32, 0)], true);   // 前の蓋（影）
+      g.fillStyle(GOLD_D, 1); g.fillPoints([P(9, -14), P(9, 14), P(29, 0)], true);     // 前の蓋（尖り）
+      g.fillStyle(GOLD_L, 1); g.fillPoints([P(10, -9), P(10, 9), P(25, 0)], true);
+      g.lineStyle(3.2, 0x2a1500, 1);                                            // 十字の頭（影→金の二度描き）
+      g.lineBetween(P(28, 0).x, P(28, 0).y, P(40, 0).x, P(40, 0).y);
+      g.lineBetween(P(34, -7).x, P(34, -7).y, P(34, 7).x, P(34, 7).y);
+      g.lineStyle(1.8, GOLD_L, 1);
+      g.lineBetween(P(28, 0).x, P(28, 0).y, P(40, 0).x, P(40, 0).y);
+      g.lineBetween(P(34, -7).x, P(34, -7).y, P(34, 7).x, P(34, 7).y);
+      g.fillStyle(GOLD_D, 1); g.fillPoints([P(-27, -7), P(-27, 7), P(-36, 0)], true);   // 後ろの台座
+      g.lineStyle(1.4, 0xffffff, 0.6);                                          // 器の照り
+      g.lineBetween(P(-15, -11).x, P(-15, -11).y, P(-3, -13).x, P(-3, -13).y);
     }
   }
   function destroyWire() {

@@ -2173,10 +2173,14 @@ BALANCE.boss.jamTiers = [
               // ★2026-09-13 FB「刃もスピードと効果音が足りない」→ 刃は**閉じる**：8体を結ぶ輪が 0.55 秒で中心（大聖堂の足元）へ
               //   締まる（190px→23px＝約300px/s）。輪の内側に居る者を薙ぐ＝歌の終わり 0.8 秒前の赤い点滅で外へ出る。音は bladeSnap。
               bladeSec: 0.55, bladeDamage: 20, bladeShrink: 0.88 },   // ★決めの1瞬：歌い終わっても投げ返されなかった聖歌隊を結ぶ線が1秒だけ刃になる   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
-    // ⑤配線の鞭（maou の wirearm と同値）
+    // ★ 2026-09-14 実プレイFB「マオウレクスのロケットパンチの真似はよいが、ビジュアルが大聖堂に合っていない」
+    //   → style: 'censer'（振り香炉）。鉄拳（boss_maou_fist）とガンメタル＋シアンのケーブルをやめ、
+    //   金の鎖に下がった香炉（中で深紅の火が燃え、火の粉を引く）へ。絵は boss.js drawWire の分岐で描く。
+    //   ⚙ このキーが無いマオウレクス（本編）は従来の鉄拳のまま＝不変。
+    // ⑤配線の鞭（maou の wirearm と同値・見た目だけ大聖堂の香炉）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
                extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54,
-               scissorDeg: 26, secondDelay: 0.3 },   // ★決めの1瞬：両腕を±26°へ開いて撃ち、追尾で挟む。左腕は0.3秒遅れ
+               scissorDeg: 26, secondDelay: 0.3, style: 'censer' },   // ★決めの1瞬：両腕を±26°へ開いて撃ち、追尾で挟む。左腕は0.3秒遅れ
     dash: { telegraphSec: 0.9, speed: 300, durationSec: 0.6, damage: 30 },
     ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.6 },
     idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2, 2.2, 2.2] },

@@ -1369,6 +1369,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM16: 一覧と結果画面で超越者だけ「〜の裁き」「n〜m位」を付けない');
       assert(/const RAY = \[0xffe066, 0x8fe6ff, 0xff8fd0\]/.test(rs) && /const hexa = \(r\)/.test(rs)
         && /one \? 1\.8 : 1\.2/.test(rs), 'JAM16: 超越者の印は大きな虹の宝石（十二条の光＋六角の石）＝他階位の菱形と別物');
+      // 2026-09-14 配線の鞭＝マオウレクスの鉄拳でなく大聖堂の振り香炉（ジャム版だけ・本編は不変）
+      const C17 = BALANCE.boss.jamTiers[0], bj17 = read('systems/boss.js');
+      assert(C17.wirearm.style === 'censer' && /style === 'censer'/.test(bj17)
+        && /function drawCenserArms\(g\)/.test(bj17) && /censer \? null/.test(bj17),
+        'JAM16: 配線の鞭は大聖堂だけ振り香炉（鉄拳のテクスチャを作らない）');
+      assert(!(BALANCE.boss.tiers || []).some((t) => t.wirearm && t.wirearm.style),
+        'JAM16: 本編マオウレクスの wirearm は従来の鉄拳のまま（style を持たない）');
       assert(/金の枠＝今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを金の枠で示し、×n は出さない');
       assert(/const py = Math\.min\(262, y \+ 3 \* 18 \+ 10\);/.test(rs), 'JAM5: 仲間の行は表の下から決める（固定 y の重なり再発防止）');
       assert(/大聖堂を覆した モビットたち/.test(rs) && /ease: 'Back\.easeOut'/.test(rs) && /Sound\.sfx\('pickup', 1, 1 \+ i \* 0\.08\)/.test(rs),
