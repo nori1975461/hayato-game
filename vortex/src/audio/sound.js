@@ -2625,26 +2625,29 @@ const CHORDS_CATH = [
 // 主題（16分解像度・-1＝休符・長さは次の音までの間隔から自動）。2A の主題とは動機を変える：
 //   2A は「同音連打→跳躍」、こちらは「5度の呼びかけ A→D → 半音の導音 C# で吊る」＝聖歌の語法。
 const MELODY_CATH = [
-  // 段1 名乗り：A→D の呼びかけ。C6（自然短音階）で B♭ へ渡し、A7 の導音 C#6 で宙づり
-  [NOTE.A5, -1, NOTE.A5, -1, NOTE.D6, -1, -1, -1, -1, -1, -1, -1, NOTE.C6, -1, -1, -1],
-  [NOTE.As5, -1, -1, -1, NOTE.A5, -1, -1, -1, NOTE.F5, -1, NOTE.G5, -1, NOTE.A5, -1, -1, -1],
-  [NOTE.G5, -1, -1, -1, NOTE.As5, -1, -1, -1, NOTE.A5, -1, NOTE.G5, -1, NOTE.F5, -1, -1, -1],
-  [NOTE.E5, -1, -1, -1, NOTE.A5, -1, -1, -1, NOTE.Cs6, -1, -1, -1, -1, -1, -1, -1],
-  // 段2 堕天：同じ呼びかけを F6 まで上げ、★E♭6（ナポリ）で光が濁る → A7 の分散で駆け上がり → 着地
-  [NOTE.A5, -1, NOTE.A5, -1, NOTE.D6, -1, -1, -1, -1, -1, -1, -1, NOTE.F6, -1, -1, -1],
-  [NOTE.Ds6, -1, -1, -1, NOTE.D6, -1, -1, -1, NOTE.As5, -1, -1, -1, NOTE.G5, -1, -1, -1],
-  [NOTE.A5, -1, -1, -1, NOTE.Cs6, -1, -1, -1, NOTE.E6, -1, -1, -1, NOTE.G6, -1, -1, -1],
-  [NOTE.F6, -1, -1, -1, NOTE.E6, -1, NOTE.D6, -1, NOTE.A5, -1, -1, -1, -1, -1, -1, -1],
-  // 段3 祈り：長い音だけ（聖歌隊が歌う）。平行長調 F を通って一度だけ明るくなる
+  // ★2026-09-13 修正依頼「疾走感」「静かな箇所とクライマックスの濃淡」。
+  //   疾走感＝旋律の語尾に8分の駆け上がり／駆け下がりを足す（長い音だけだと 172BPM でも遅く聞こえる）。
+  //   濃淡＝祈りの段は長い音だけ（伴奏も全部落ちる）、裁きの段は最高音 A6 から8分で走り下りる。
+  // 段1 名乗り：A→D の呼びかけ→語尾で E6 F6 E6 と駆け上がる。A7 は分散和音の駆け上がり
+  [NOTE.A5, -1, NOTE.A5, -1, NOTE.D6, -1, -1, -1, -1, -1, NOTE.E6, -1, NOTE.F6, -1, NOTE.E6, -1],
+  [NOTE.D6, -1, -1, -1, NOTE.C6, -1, NOTE.As5, -1, NOTE.A5, -1, -1, -1, NOTE.G5, -1, NOTE.A5, -1],
+  [NOTE.As5, -1, -1, -1, NOTE.D6, -1, -1, -1, NOTE.C6, -1, NOTE.As5, -1, NOTE.A5, -1, NOTE.G5, -1],
+  [NOTE.E5, -1, NOTE.G5, -1, NOTE.A5, -1, NOTE.Cs6, -1, NOTE.E6, -1, -1, -1, -1, -1, NOTE.Cs6, -1],
+  // 段2 堕天：同じ呼びかけを G6 まで駆け上げ、★E♭6（ナポリ）で光が濁る → A7 の分散で A6 へ → 着地して休符
+  [NOTE.A5, -1, NOTE.A5, -1, NOTE.D6, -1, -1, -1, NOTE.E6, -1, NOTE.F6, -1, NOTE.G6, -1, -1, -1],
+  [NOTE.Ds6, -1, -1, -1, NOTE.D6, -1, -1, -1, NOTE.As5, -1, NOTE.G5, -1, NOTE.As5, -1, NOTE.D6, -1],
+  [NOTE.Cs6, -1, -1, -1, NOTE.E6, -1, NOTE.G6, -1, NOTE.A6, -1, -1, -1, NOTE.G6, -1, NOTE.E6, -1],
+  [NOTE.F6, -1, NOTE.E6, -1, NOTE.D6, -1, -1, -1, NOTE.A5, -1, -1, -1, -1, -1, -1, -1],
+  // 段3 祈り：長い音だけ。独唱（伴奏は聖歌隊の持続とオルガンの全音符だけ）。平行長調 F を通る
   [NOTE.D6, -1, -1, -1, -1, -1, -1, -1, NOTE.F6, -1, -1, -1, -1, -1, -1, -1],
-  [NOTE.E6, -1, -1, -1, -1, -1, NOTE.C6, -1, NOTE.A5, -1, -1, -1, -1, -1, -1, -1],
-  [NOTE.As5, -1, -1, -1, NOTE.D6, -1, -1, -1, NOTE.G6, -1, -1, -1, -1, -1, -1, -1],
-  [NOTE.E6, -1, -1, -1, NOTE.Cs6, -1, -1, -1, NOTE.A5, -1, NOTE.Cs6, -1, NOTE.E6, -1, -1, -1],
-  // 段4 裁き：最高音 A6 から降りる。E♭ の上で D→B♭、Gm を駆け上がり、A7 の導音で振り出しへ
-  [NOTE.A6, -1, -1, -1, -1, -1, -1, -1, NOTE.G6, -1, NOTE.F6, -1, NOTE.E6, -1, -1, -1],
-  [NOTE.F6, -1, -1, -1, NOTE.Ds6, -1, -1, -1, NOTE.D6, -1, -1, -1, NOTE.As5, -1, -1, -1],
-  [NOTE.G5, -1, NOTE.As5, -1, NOTE.D6, -1, -1, -1, NOTE.G6, -1, -1, -1, NOTE.F6, -1, -1, -1],
-  [NOTE.E6, -1, -1, -1, NOTE.Cs6, -1, -1, -1, NOTE.A5, -1, -1, -1, -1, -1, -1, -1],
+  [NOTE.E6, -1, -1, -1, -1, -1, -1, -1, NOTE.C6, -1, -1, -1, NOTE.A5, -1, -1, -1],
+  [NOTE.As5, -1, -1, -1, -1, -1, -1, -1, NOTE.D6, -1, -1, -1, -1, -1, -1, -1],
+  [NOTE.Cs6, -1, -1, -1, -1, -1, -1, -1, NOTE.E6, -1, -1, -1, -1, -1, -1, -1],
+  // 段4 裁き（クライマックス）：最高音 A6 から8分で走り下りる。Gm を駆け下り、A7 の導音で振り出しへ
+  [NOTE.A6, -1, -1, -1, -1, -1, NOTE.G6, -1, NOTE.F6, -1, NOTE.E6, -1, NOTE.F6, -1, NOTE.D6, -1],
+  [NOTE.Ds6, -1, -1, -1, NOTE.F6, -1, NOTE.Ds6, -1, NOTE.D6, -1, -1, -1, NOTE.As5, -1, NOTE.D6, -1],
+  [NOTE.G6, -1, -1, -1, NOTE.F6, -1, NOTE.Ds6, -1, NOTE.D6, -1, NOTE.C6, -1, NOTE.As5, -1, NOTE.A5, -1],
+  [NOTE.Cs6, -1, -1, -1, NOTE.E6, -1, -1, -1, NOTE.A5, -1, -1, -1, -1, -1, -1, -1],
 ];
 
 // 曲テーブル。style で声部・ドラムパターンを分岐する。
@@ -3069,28 +3072,53 @@ function playBgmStep(step) {
     // ★2026-09-13 曲2C「堕天の大聖堂」（CHORDS_CATH の上の解説）。曲2A の6声部を土台に、
     //   大聖堂の声部を3つ足す：パイプオルガンのペダル（低音）・聖歌隊（祈りの段）・トッカータ（裁きの段）。
     //   ⚠️ 2A と同じ絶対条件：3・11 の食い込み禁止・裏拍の和音連打禁止。
+    // ★同日の修正依頼「疾走感を出して」「静かな箇所とクライマックスの濃淡を強調して」。
+    //   テンポは 172 のまま（テンポは軸にしない・R35 の教訓）。動かしたのは**音の密度と有無**：
+    //   疾走感 … ①弦の刻みを「根音と5度の往復」から**8音の走る音型**（根・5・8・5・根・3・5・3）へ
+    //            ②ベースを8分→**16分**（拍頭を強く・裏の16分を弱く＝ギャロップではなくストレート）
+    //            ③ドラムを段ごとに増やす（名乗り 8分ハット → 堕天 キック追加 → 裁き **ツーバス＋16分ハット**）
+    //            ④旋律の語尾に8分の駆け上がり（MELODY_CATH）
+    //   濃淡   … 祈りの段は**弦・ベースの刻み・キック・スネア・ハットを全部落とす**（独唱＋聖歌隊＋オルガンの
+    //            全音符だけ）。12小節目の後半でスネアロールと弦のクレッシェンドで積み上げ、裁きの段は
+    //            主題のオクターブ重ね・クラッシュ・トッカータ・聖歌隊を同時に鳴らす＝曲の中で最大。
+    //            段ごとの音量係数 DYN＝名乗り 0.85／堕天 1.0／祈り 0.45／裁き 1.25。
     const bassF = noteFreq(chord.bass);
     const sec4 = Math.floor(bar / 4);                    // 0=名乗り 1=堕天 2=祈り 3=裁き
     const lastBar = bar === song.bars - 1;
-    const PRAY = sec4 === 2;                             // 祈り：ドラムが引き、聖歌隊が主題を歌う
-    const JUDGE = sec4 === 3;                            // 裁き：オルガンのトッカータが走る
+    const PRAY = sec4 === 2;                             // 祈り：伴奏が落ち、独唱と聖歌隊だけ
+    const JUDGE = sec4 === 3;                            // 裁き：クライマックス
+    const BUILD_UP = bar === 11 && inBar >= 8;           // 祈りの最終小節の後半＝裁きへの積み上げ
+    const DYN = [0.85, 1.0, 0.45, 1.25][sec4];
+    const beat = inBar % 4;
 
-    // ① 弦オスティナート：16分グリッドの全ステップ（祈りの段は弱く・裁きの段は強く）
-    {
-      const f = 2 * noteFreq((inBar % 4 === 2) ? chord.fifth : chord.fifth - 7);
-      tone({ type: 'sawtooth', freq: f, dur: stepSec * 0.85,
-             gain: PRAY ? 0.040 : 0.072 + sec4 * 0.006, dest: bgmGain, attack: 0.003, verb: 0.18 });
-      tone({ type: 'sawtooth', freq: f * 2, dur: stepSec * 0.6,
-             gain: PRAY ? 0.010 : 0.020, dest: bgmGain, attack: 0.003, detune: 7 });
+    // ① 弦オスティナート：**16分グリッドの全ステップ**を8音の走る音型で刻む（根・5・8・5・根・3・5・3）。
+    //    拍頭（0,4,8,12）を強く。祈りの段は沈黙し、12小節目の後半からクレッシェンドで戻る。
+    if (!PRAY || BUILD_UP) {
+      const pat = [0, 2, 0, 2, 0, 1, 2, 1][inBar % 8];
+      const n = chord.pad[pat] + ((inBar % 8) === 2 ? 12 : 0);
+      const f = noteFreq(n);
+      const acc = beat === 0 ? 1.25 : 1.0;
+      const g = (BUILD_UP ? 0.030 + (inBar - 8) * 0.008 : 0.070 * DYN) * acc;
+      tone({ type: 'sawtooth', freq: f, dur: stepSec * 0.85, gain: g, dest: bgmGain, attack: 0.003, verb: 0.18 });
+      tone({ type: 'sawtooth', freq: f * 2, dur: stepSec * 0.6, gain: g * 0.28, dest: bgmGain, attack: 0.003, detune: 7 });
+      if (JUDGE) tone({ type: 'sawtooth', freq: f, dur: stepSec * 0.8, gain: g * 0.5, dest: bgmGain, attack: 0.003, detune: -9, verb: 0.22 });
     }
-    // ② パイプオルガンのペダル＋低弦：ストレートな8分だけ（0,2,4,…,14）。⚠️3・11 には置かない。
-    //    オルガンの16フィート（sine）に 8フィートの矩形（square）を重ねる＝2A のベースと音色で区別する。
-    if (inBar % 2 === 0) {
-      tone({ type: 'sine', freq: bassF, dur: stepSec * 1.7, gain: 0.20, dest: bgmGain, attack: 0.004 });
-      tone({ type: 'square', freq: bassF * 2, dur: stepSec * 1.4, gain: 0.030, dest: bgmGain, attack: 0.010, verb: 0.20 });
-      tone({ type: 'sawtooth', freq: bassF * 2, dur: stepSec * 1.2, gain: 0.030, dest: bgmGain, attack: 0.004 });
+    // ② パイプオルガンのペダル＋ベース：名乗り・堕天・裁きは**16分**（拍頭＝根音を強く、裏の16分は
+    //    根音／オクターブ／5度を弱く＝ストレートな刻み）。祈りの段はオルガンの全音符だけ。
+    if (PRAY && !BUILD_UP) {
+      if (inBar === 0) {
+        tone({ type: 'sine', freq: bassF, dur: stepSec * 15, gain: 0.16, dest: bgmGain, attack: 0.12 });
+        tone({ type: 'square', freq: bassF * 2, dur: stepSec * 15, gain: 0.018, dest: bgmGain, attack: 0.20, verb: 0.30 });
+      }
+    } else {
+      const f = beat === 0 ? bassF : beat === 2 ? bassF * 2 : beat === 1 ? bassF : bassF * 1.4983;
+      const g = (beat === 0 ? 0.20 : 0.10) * (BUILD_UP ? 0.8 : DYN);
+      tone({ type: 'sine', freq: f, dur: stepSec * (beat === 0 ? 1.4 : 0.8), gain: g, dest: bgmGain, attack: 0.003 });
+      tone({ type: 'sawtooth', freq: f * 2, dur: stepSec * 0.7, gain: g * 0.22, dest: bgmGain, attack: 0.003 });
+      if (beat === 0) tone({ type: 'square', freq: bassF * 2, dur: stepSec * 1.4, gain: 0.030 * DYN, dest: bgmGain, attack: 0.010, verb: 0.20 });
     }
-    // ③ 主題：名乗り・堕天・裁きは弦＋ブラスのユニゾン、祈りは聖歌隊（三角波×2・遅い立ち上がり）。
+    // ③ 主題：名乗り・堕天は弦＋ブラスのユニゾン、祈りは独唱（三角波・遅い立ち上がり・深い残響）、
+    //    裁きは**オクターブ重ね**（上に弦、下にブラス）でいちばん厚く。
     const m = song.melody[bar][inBar];
     if (m !== undefined && m !== -1) {
       let hold = 1;
@@ -3098,69 +3126,83 @@ function playBgmStep(step) {
       const mf = noteFreq(m);
       const d = stepSec * Math.min(hold + 0.6, 8);
       if (PRAY) {
-        tone({ type: 'triangle', freq: mf, dur: d, gain: 0.110, dest: bgmGain, attack: 0.08, verb: 0.60 });
-        tone({ type: 'triangle', freq: mf, dur: d * 0.95, gain: 0.060, dest: bgmGain, attack: 0.10, detune: 9, verb: 0.55 });
-        tone({ type: 'sine', freq: mf * 2, dur: d * 0.8, gain: 0.028, dest: bgmGain, attack: 0.12, verb: 0.55 });
+        tone({ type: 'triangle', freq: mf, dur: d, gain: 0.105, dest: bgmGain, attack: 0.10, verb: 0.70 });
+        tone({ type: 'triangle', freq: mf, dur: d * 0.95, gain: 0.055, dest: bgmGain, attack: 0.12, detune: 9, verb: 0.65 });
+        tone({ type: 'sine', freq: mf * 2, dur: d * 0.8, gain: 0.026, dest: bgmGain, attack: 0.14, verb: 0.60 });
       } else {
-        tone({ type: 'sawtooth', freq: mf, dur: d, gain: 0.115, dest: bgmGain, attack: 0.012, verb: 0.30 });
-        tone({ type: 'sawtooth', freq: mf, dur: d * 0.9, gain: 0.055, dest: bgmGain, attack: 0.010, detune: 11, verb: 0.24 });
-        tone({ type: 'square', freq: mf, dur: d * 0.55, gain: 0.055, dest: bgmGain, attack: 0.006 });
-        tone({ type: 'triangle', freq: mf / 2, dur: d * 0.8, gain: 0.045, dest: bgmGain, attack: 0.008 });
+        const g = 0.115 * (JUDGE ? 1.15 : DYN);
+        tone({ type: 'sawtooth', freq: mf, dur: d, gain: g, dest: bgmGain, attack: 0.012, verb: 0.30 });
+        tone({ type: 'sawtooth', freq: mf, dur: d * 0.9, gain: g * 0.48, dest: bgmGain, attack: 0.010, detune: 11, verb: 0.24 });
+        tone({ type: 'square', freq: mf, dur: d * 0.55, gain: g * 0.48, dest: bgmGain, attack: 0.006 });
+        tone({ type: 'triangle', freq: mf / 2, dur: d * 0.8, gain: g * 0.40, dest: bgmGain, attack: 0.008 });
+        if (JUDGE) {
+          tone({ type: 'sawtooth', freq: mf * 2, dur: d * 0.9, gain: 0.040, dest: bgmGain, attack: 0.010, verb: 0.34 });   // 上のオクターブ（弦）
+          tone({ type: 'square', freq: mf / 2, dur: d * 0.6, gain: 0.035, dest: bgmGain, attack: 0.006 });                // 下のオクターブ（ブラス）
+        }
       }
     }
-    // ④ パイプオルガンのトッカータ：裁きの段は**全ステップ**、それ以外は節目（4小節ごとの後半）だけ。
+    // ④ パイプオルガンのトッカータ：裁きの段は**全ステップ**、名乗り・堕天は節目（4小節ごとの後半）だけ。
     //    和音の構成音を2オクターブ駆け上がる（2A のピアノと同じ運指を、オルガンの音色で）。
     if (JUDGE || (bar % 4 === 3 && inBar >= 8 && !PRAY)) {
       const k = JUDGE ? inBar : inBar - 8;
       const n = chord.pad[k % 4] + ((k % 8) >= 4 ? 12 : 0);
       const f = noteFreq(n);
-      tone({ type: 'square', freq: f, dur: stepSec * 0.9, gain: JUDGE ? 0.040 : 0.034, dest: bgmGain, attack: 0.003, verb: 0.40 });
+      tone({ type: 'square', freq: f, dur: stepSec * 0.9, gain: JUDGE ? 0.044 : 0.034, dest: bgmGain, attack: 0.003, verb: 0.40 });
       tone({ type: 'sawtooth', freq: f * 2, dur: stepSec * 0.7, gain: 0.016, dest: bgmGain, attack: 0.003, verb: 0.36 });
     }
-    // ⑤ 決め：4小節ごとの頭に教会の鐘＋オーケストラヒット（祈りの段は鐘だけ）。⚠️裏拍で連打しない。
-    if (inBar === 0 && bar % 4 === 0) {
+    // ⑤ 決め：4小節ごとの頭に教会の鐘＋オーケストラヒット（祈りの段は鐘だけ・小さく）。
+    //    裁きの段は**毎小節の頭**にクラッシュ（裏拍ではなく拍頭＝マーチ化しない）。
+    if (inBar === 0 && (bar % 4 === 0 || JUDGE)) {
       const bell = noteFreq(chord.bass) * 4;
-      tone({ type: 'sine', freq: bell, dur: 1.6, gain: 0.060, attack: 0.004, verb: 0.60, dest: bgmGain });
-      tone({ type: 'sine', freq: bell * 1.5, dur: 1.2, gain: 0.026, attack: 0.006, verb: 0.55, dest: bgmGain });
-      tone({ type: 'sine', freq: bell * 2.67, dur: 0.9, gain: 0.014, attack: 0.008, verb: 0.50, dest: bgmGain });
+      const bg = PRAY ? 0.5 : 1;
+      tone({ type: 'sine', freq: bell, dur: 1.6, gain: 0.060 * bg, attack: 0.004, verb: 0.60, dest: bgmGain });
+      tone({ type: 'sine', freq: bell * 1.5, dur: 1.2, gain: 0.026 * bg, attack: 0.006, verb: 0.55, dest: bgmGain });
+      tone({ type: 'sine', freq: bell * 2.67, dur: 0.9, gain: 0.014 * bg, attack: 0.008, verb: 0.50, dest: bgmGain });
       if (!PRAY) {
         chord.pad.forEach((n, i) => {
-          tone({ type: 'sawtooth', freq: noteFreq(n), dur: 0.26, gain: 0.075 - i * 0.010, dest: bgmGain, attack: 0.004, verb: 0.30 });
-          tone({ type: 'square', freq: noteFreq(n), dur: 0.14, gain: 0.030 - i * 0.005, dest: bgmGain, attack: 0.003 });
+          tone({ type: 'sawtooth', freq: noteFreq(n), dur: 0.26, gain: (0.075 - i * 0.010) * DYN, dest: bgmGain, attack: 0.004, verb: 0.30 });
+          tone({ type: 'square', freq: noteFreq(n), dur: 0.14, gain: (0.030 - i * 0.005) * DYN, dest: bgmGain, attack: 0.003 });
         });
         noiseHit({ dur: 0.05, gain: 0.09, hpFreq: 200, lpFreq: 5000, dest: bgmGain });
-        noiseHit({ dur: 0.45, gain: 0.055, hpFreq: 3000, lpFreq: 14000, dest: bgmGain });
+        noiseHit({ dur: JUDGE ? 0.9 : 0.45, gain: JUDGE ? 0.075 : 0.055, hpFreq: 3000, lpFreq: 14000, dest: bgmGain });   // クラッシュ
         tone({ type: 'sine', freq: 92, freqEnd: 44, dur: 0.35, gain: 0.17, dest: bgmGain, attack: 0.003 });
       }
     }
-    // ⑥ 聖歌隊の持続：祈りの段は和音を歌い続け、堕天の E♭（6小節目）と裁きの E♭（14小節目）では
-    //    偽りの光の和音を上に架ける（イントロと同じ部品＝曲の中で同じ物語が繰り返される）。
-    if (inBar === 0 && (PRAY || bar === 5 || bar === 13)) {
+    // ⑥ 聖歌隊の持続：祈りの段は和音を歌い続け、堕天の E♭（6小節目）と裁きの段（全小節）では
+    //    上に架ける（イントロと同じ部品＝曲の中で同じ物語が繰り返される）。
+    if (inBar === 0 && (PRAY || bar === 5 || JUDGE)) {
       chord.pad.forEach((n, i) => {
         tone({ type: 'triangle', freq: noteFreq(n) * 2, dur: stepSec * 15,
-               gain: (PRAY ? 0.026 : 0.034) - i * 0.005, dest: bgmGain, attack: 0.35, verb: 0.60 });
+               gain: (PRAY ? 0.030 : 0.034) - i * 0.005, dest: bgmGain, attack: 0.35, verb: 0.60 });
       });
     }
-    // ⑦ ロックドラム：キック 0・8・10（裁きは 6 も）／スネア 4・12／ハットは8分のストレート。
-    //    祈りの段はキックとスネアを抜き、ハットだけ（16分の弦は続くので疾走は止まらない）。
-    if (!PRAY && (inBar === 0 || inBar === 8 || inBar === 10 || (JUDGE && inBar === 6))) {
+    // ⑦ ロックドラム。段ごとに増える：
+    //    名乗り キック 0・8・10／スネア 4・12／ハット 8分
+    //    堕天   キック 0・2・6・8・10／スネア 4・12／ハット 8分
+    //    祈り   無し（12小節目の後半だけスネアロール＝積み上げ）
+    //    裁き   **ツーバス（8分すべて）**／スネア 4・12＋14の弱打／**ハット 16分**
+    const KICK = [[0, 8, 10], [0, 2, 6, 8, 10], [], [0, 2, 4, 6, 8, 10, 12, 14]][sec4];
+    if (KICK.includes(inBar)) {
       tone({ type: 'sine', freq: 132, freqEnd: 36, dur: 0.14, gain: 0.27, dest: bgmGain, attack: 0.002 });
       noiseHit({ dur: 0.02, gain: 0.035, hpFreq: 700, lpFreq: 4500, dest: bgmGain });
     }
-    if (!PRAY && (inBar === 4 || inBar === 12)) {
-      noiseHit({ dur: 0.07, gain: 0.105, hpFreq: 1500, lpFreq: 9000, dest: bgmGain });
-      noiseHit({ dur: 0.16, gain: 0.040, hpFreq: 4000, lpFreq: 13000, dest: bgmGain });
-      tone({ type: 'triangle', freq: 210, freqEnd: 130, dur: 0.06, gain: 0.05, dest: bgmGain, attack: 0.001 });
+    if (!PRAY && (inBar === 4 || inBar === 12 || (JUDGE && inBar === 14))) {
+      const gh = (inBar === 14) ? 0.45 : 1;
+      noiseHit({ dur: 0.07, gain: 0.105 * gh, hpFreq: 1500, lpFreq: 9000, dest: bgmGain });
+      noiseHit({ dur: 0.16, gain: 0.040 * gh, hpFreq: 4000, lpFreq: 13000, dest: bgmGain });
+      tone({ type: 'triangle', freq: 210, freqEnd: 130, dur: 0.06, gain: 0.05 * gh, dest: bgmGain, attack: 0.001 });
     }
-    if (inBar % 2 === 0) {
-      noiseHit({ dur: (inBar % 4 === 2) ? 0.030 : 0.018, gain: ((inBar % 4 === 2) ? 0.030 : 0.020) * (PRAY ? 0.6 : 1),
+    if (!PRAY && (JUDGE || inBar % 2 === 0)) {
+      const open = inBar % 4 === 2;
+      noiseHit({ dur: open ? 0.030 : 0.018, gain: (open ? 0.030 : 0.020) * (inBar % 2 ? 0.6 : 1),
                  hpFreq: 7500, lpFreq: 15000, dest: bgmGain });
     }
-    // ⑧ 祈りの最終小節（12小節目）の後半は鐘の連打で裁きへ、曲の最終小節はティンパニの下降フィル。
-    if (bar === 11 && inBar >= 12) {
-      const k = inBar - 12;
-      const bell = noteFreq(NOTE.A4) * (k % 2 ? 1 : 2);
-      tone({ type: 'sine', freq: bell, dur: 0.5, gain: 0.05 + k * 0.012, attack: 0.003, verb: 0.55, dest: bgmGain });
+    // ⑧ 積み上げ（12小節目の後半）：スネアロール＋ティンパニのクレッシェンド（ストレートな16分）で裁きへ。
+    //    曲の最終小節はティンパニの下降フィルでループの頭へ叩き込む。
+    if (BUILD_UP) {
+      const k = inBar - 8;
+      noiseHit({ dur: 0.05, gain: 0.030 + k * 0.011, hpFreq: 1500, lpFreq: 9000, dest: bgmGain });
+      tone({ type: 'sine', freq: 96, freqEnd: 62, dur: 0.10, gain: 0.05 + k * 0.014, dest: bgmGain, attack: 0.002 });
     }
     if (lastBar && inBar >= 12) {
       const k = inBar - 12;

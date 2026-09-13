@@ -1334,6 +1334,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert((chords.match(/NOTE\.Ds4, NOTE\.G4, NOTE\.As4, NOTE\.Ds5/g) || []).length === 2,
       'CATH: ナポリの E♭（偽りの光）が堕天と裁きの段に1回ずつある');
     assert(/name: 'cathedral'/.test(prac), 'CATH: れんしゅうじょう④のBキーで聞ける');
+    // 2026-09-13 修正依頼「疾走感」「濃淡」：祈りの段はキック無し・裁きはツーバス／段ごとの音量係数がある
+    assert(cat.includes('const KICK = [[0, 8, 10], [0, 2, 6, 8, 10], [], [0, 2, 4, 6, 8, 10, 12, 14]][sec4]'),
+      'CATH: ドラムが段ごとに増え、祈りの段は無音・裁きはツーバス（濃淡）');
+    assert(cat.includes('const DYN = [0.85, 1.0, 0.45, 1.25][sec4]'), 'CATH: 段ごとの音量係数（祈り0.45／裁き1.25）');
+    assert(cat.includes('beat === 2 ? bassF * 2'), 'CATH: ベースは16分で刻む（疾走感）');
   }
 
   for (const n of ['maou', 'maouOrch', 'maouSynth']) {
