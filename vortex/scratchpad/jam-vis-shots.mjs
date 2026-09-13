@@ -130,6 +130,7 @@ async function main() {
   // ---- 攻撃：天啓 ／ 鎮魂の鐘（硝子片） ／ 薔薇窓（8本の光柱） ／ 鉄羽 ／ 尖塔（聖釘・段階3）
   await attackShots('pillar', '20-pillar', [[350, 'tele'], [720, 'fall1'], [1300, 'fall2'], [1900, 'fall3']]);
   console.log('  天啓 被弾記録 =', await ev('JSON.stringify(window.__run.jamSt.hitsByCause)'));
+  await attackShots('choir', '25-choir', [[900, 'sing'], [2200, 'sing2']]);
   await attackShots('bell', '30-glass', [[900, 'wave1'], [1400, 'wave2'], [1900, 'wave3']]);
   console.log('  弾の種類 =', await ev('JSON.stringify(window.__run.boss.debugBullets().reduce(function(m,b){m[b.kind]=(m[b.kind]||0)+1;return m;},{}))'));
   await attackShots('rose', '40-rose', [[500, 'tele'], [1050, 'lock'], [1250, 'red'], [1800, 'blue']]);

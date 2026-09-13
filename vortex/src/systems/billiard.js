@@ -1657,7 +1657,7 @@ export function createBilliard(run) {
     return list[st.shardIdx] || { name: '標準', count: (S && S.count) || 0, mul: (S && S.bossMul) || 1 };
   }
 
-  function dropShards(bossEnt) {
+  function dropShards(bossEnt, fromStep) {
     const S = B().shards;
     const M = shardMode();
     if (!S || M.count <= 0 || !bossEnt) return;
@@ -1683,6 +1683,16 @@ export function createBilliard(run) {
     if (made > 0) {
       shockRing(bossEnt.x, bossEnt.y, bossEnt.radius + 26, BALANCE.stagger.tint);
       Sound.sfx('metalSlam', 0.5, 0.8);
+      if (run.jamSt) run.jamSt.shardDrops = (run.jamSt.shardDrops || 0) + made;   // 2026-09-13 鍵の指さし用
+      // ★2026-09-13 ジャム版の節目落ち（堕天66%・破鐘33%で剥がれる）：段階が変わった瞬間に「物が落ちた」と分かるよう、
+      //   金の衝撃波2枚＋短いスロー＋鐘の割れる音を重ねる（通常のブレイク落ちは従来どおり）。
+      if (fromStep && run.jamMode) {
+        shockRing(bossEnt.x, bossEnt.y, bossEnt.radius + 60, 0xffd23f);
+        run.time.delayedCall(90, () => { if (bossEnt.active) shockRing(bossEnt.x, bossEnt.y, bossEnt.radius + 110, 0xfff2a8); });
+        run.slowMotion(0.22, 0.35);
+        run.shake(260, 6);
+        Sound.sfx('haloCrack', 0.6, 1.4);
+      }
       // 初回だけ言葉で教える。「割ると弾が出る」は見ているだけでは繋がらない（小6向け）
       if (!st.shardHinted) {
         st.shardHinted = true;
@@ -1710,7 +1720,7 @@ export function createBilliard(run) {
     const step = maxHp * ratio;
     if (e.__shardAcc < step) return;
     e.__shardAcc -= step;
-    dropShards(e);
+    dropShards(e, true);
   }
 
   // ボスの予告を突きで割る。一撃モード（Run.doStrike）は持っていた経路が、ビリヤードモードでは

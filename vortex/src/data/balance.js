@@ -2130,7 +2130,7 @@ BALANCE.boss.jamTiers = [
                gapSpinDeg: 40, bulletSpeed: 175, bulletRadius: 6, damage: 14, lifeSec: 2.6,
                kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot' },   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
     // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
-    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6, holdSec: 2.0 },
+    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6, holdSec: 3.5 },   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
     // ⑤配線の鞭（maou の wirearm と同値）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
                extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54 },

@@ -5,7 +5,7 @@
 //   再挑戦は SPACE で**直接 Run へ**（タイトルを挟まない＝2分ループの距離を最短にする）。
 import { MONSTERS } from '../data/monsters.js';
 import { BALANCE } from '../data/balance.js';
-import { CAUSES, STAGE_NAMES, VERDICTS } from '../data/verdict.js';
+import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
@@ -177,14 +177,24 @@ export class ResultScene extends Phaser.Scene {
     const W = 640, H = 360;
     const J = d.jam, v = J.verdict || VERDICTS[VERDICTS.length - 1], s = J.stat || {};
     const clear = !!d.clear;
-    this.add.text(W / 2, 20, '― 堕天の大聖堂の裁き ―', {
+    this.add.text(W / 2, 14, '― 堕天の大聖堂の裁き ―', {
       fontFamily: 'monospace', fontSize: '12px', color: '#8a90a8',
     }).setOrigin(0.5);
-    const title = this.add.text(W / 2, 54, '', {
+    // ★2026-09-13 実プレイFB「称号の地位がプレーヤーには見えない」→ 称号の上に**第n位／32**と階位の印。
+    //   印は文字でなく絵（王冠1〜3位／金の宝石4〜12／銀13〜19／鉄20〜32）＝一覧でも同じ印が並ぶので、
+    //   自分の裁きが全体のどこにいるかが数字と色の両方で分かる。
+    const tier = tierOf(v.rank || VERDICTS.length);
+    const rankTxt = this.add.text(W / 2 + 10, 32, `第${v.rank}位 ／ ${VERDICTS.length}　${tier.name}の裁き`, {
+      fontFamily: 'monospace', fontSize: '13px', color: tier.color, fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
+    const above = (v.rank || VERDICTS.length) - 1;
+    if (above > 0) this.add.text(W - 24, 32, `上に あと${above}つ`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(1, 0.5);
+    const title = this.add.text(W / 2, 58, '', {
       fontFamily: 'monospace', fontSize: '30px', color: clear ? '#ffe066' : '#ff8fb3',
       fontStyle: 'bold', stroke: clear ? '#6a3a00' : '#4a1030', strokeThickness: 6,
     }).setOrigin(0.5);
-    const voice = this.add.text(W / 2, 90, '', {
+    const voice = this.add.text(W / 2, 92, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#cfe0ff',
     }).setOrigin(0.5);
     this.typeText(title, v.title, 42, () => {
@@ -203,6 +213,9 @@ export class ResultScene extends Phaser.Scene {
     } else {
       const c = s.deathCause && CAUSES[s.deathCause];
       if (c) line(`${c.name}に打たれた ― ${c.tip}`, '#ffb3b3');
+      // ★2026-09-13 その回に触れなかった鍵を1つだけ指す（聖歌隊→欠片→装甲片の順）。文字は結果画面にだけ足す。
+      const kh = keyHint(s);
+      if (kh) line(`▶ ${kh.text}`, '#ffe9a8');
       if (s.remainPct != null) {
         const st = s.stage != null ? `・第${s.stage + 1}段階（${STAGE_NAMES[s.stage]}）` : '';
         line(`大聖堂 残り ${s.remainPct}%${st}`, '#ffffff', 15);
@@ -261,20 +274,32 @@ export class ResultScene extends Phaser.Scene {
 
     // 裁きの一覧（V で切替）。見たものだけ点灯、まだのものは「？？？」＝空欄が見える（集めきる）。
     const gal = this.add.container(0, 0).setVisible(false).setDepth(50);
-    gal.add(this.add.rectangle(W / 2, H / 2, W, H, 0x05051a, 0.96));
+    gal.add(this.add.rectangle(W / 2, H / 2, W, H, 0x05051a, 0.99));   // 2026-09-13 順位の一覧は下の称号が透けると読みにくい
     gal.add(this.add.text(W / 2, 18, `裁きの一覧　${seenN}/${VERDICTS.length}`, {
       fontFamily: 'monospace', fontSize: '14px', color: '#ffd23f', fontStyle: 'bold',
     }).setOrigin(0.5));
-    const cols = 3, per = Math.ceil(VERDICTS.length / cols);
-    VERDICTS.forEach((vv, i) => {
+    // 階位の凡例（印＝絵。位の帯は数字で示す＝分かりにくさを残さない）
+    TIERS.forEach((t, i) => {
+      const lx = 92 + i * 140;
+      gal.add(this.drawRankIcon(lx, 38, t.id, 1));
+      gal.add(this.add.text(lx + 10, 38, `${t.name}　${t.from}〜${t.to}位`, { fontFamily: 'monospace', fontSize: '10px', color: t.color }).setOrigin(0, 0.5));
+    });
+    // ★2026-09-13 一覧は**順位順**（1位が左上）。見ていない称号も順位と印は見える＝「上に何があるか」が分かる。
+    const ranked = byRank();
+    const cols = 3, per = Math.ceil(ranked.length / cols);
+    ranked.forEach((vv, i) => {
       const col = Math.floor(i / per), row = i % per;
       const n = (J.seen || {})[vv.id];
-      const x = 28 + col * 205, yy = 40 + row * 30;
-      gal.add(this.add.text(x, yy, n ? vv.title : '？？？', {
+      const t = tierOf(vv.rank);
+      const x = 22 + col * 205, yy = 60 + row * 26;
+      gal.add(this.drawRankIcon(x + 6, yy + 7, t.id, 0.85));
+      gal.add(this.add.text(x + 16, yy, String(vv.rank).padStart(2, ' '), {
+        fontFamily: 'monospace', fontSize: '11px', color: n ? t.color : '#4a4f66', fontStyle: 'bold' }));
+      gal.add(this.add.text(x + 38, yy, n ? vv.title : '？？？', {
         fontFamily: 'monospace', fontSize: '12px', color: n ? (vv.id === v.id ? '#ffe066' : '#ffffff') : '#4a4f66',
         fontStyle: n && vv.id === v.id ? 'bold' : 'normal',
       }));
-      if (n) gal.add(this.add.text(x, yy + 14, `×${n}`, { fontFamily: 'monospace', fontSize: '9px', color: '#8a90a8' }));
+      if (n) gal.add(this.add.text(x + 38 + 12 * vv.title.length + 4, yy + 3, `×${n}`, { fontFamily: 'monospace', fontSize: '9px', color: '#8a90a8' }));
     });
     gal.add(this.add.text(W / 2, H - 12, 'V で もどる', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5));
     this._gal = gal;
@@ -295,6 +320,28 @@ export class ResultScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-SPACE', retry);
     this.input.keyboard.on('keydown-R', toTitle);
     this.time.delayedCall(450, () => { this.input.on('pointerdown', retry); });
+  }
+
+  // 階位の印（絵）。crown＝金の王冠（3つの尖り）／gold・silver・iron＝宝石（菱形＋白い照り）。
+  //   文字（👑💎）は端末のフォント依存で崩れるので Graphics で描く。sc は大きさ。戻り値はコンテナへ入れられる。
+  drawRankIcon(x, y, kind, sc) {
+    const g = this.add.graphics();
+    const k = sc || 1;
+    const pts = (arr) => arr.map((p) => ({ x: x + p[0] * k, y: y + p[1] * k }));
+    if (kind === 'crown') {
+      g.fillStyle(0xffe066, 1);
+      g.fillPoints(pts([[-6, 4], [-6, -3], [-3, 0], [0, -5], [3, 0], [6, -3], [6, 4]]), true);
+      g.fillStyle(0xff5a6a, 1); g.fillCircle(x, y + 1.5 * k, 1.4 * k);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(x - 6 * k, y - 3 * k, 1 * k); g.fillCircle(x + 6 * k, y - 3 * k, 1 * k); g.fillCircle(x, y - 5 * k, 1 * k);
+    } else {
+      const col = kind === 'gold' ? 0xffd23f : kind === 'silver' ? 0xd8dfe8 : 0x8a90a8;
+      const dark = kind === 'gold' ? 0x9a6a10 : kind === 'silver' ? 0x6f7a8a : 0x4a4f5e;
+      g.fillStyle(dark, 1); g.fillPoints(pts([[0, -6], [5, 0], [0, 6], [-5, 0]]), true);
+      g.fillStyle(col, 1); g.fillPoints(pts([[0, -4.5], [3.5, 0], [0, 4.5], [-3.5, 0]]), true);
+      g.fillStyle(0xffffff, 0.9); g.fillCircle(x - 1.2 * k, y - 1.8 * k, 1 * k);
+    }
+    return g;
   }
 
   update(_t, delta) {

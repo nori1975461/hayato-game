@@ -3518,7 +3518,7 @@ export function createBoss(run) {
       if (e && cfg.summon.holdSec && run.enterStagger) { run.enterStagger(e); e.stagMax = cfg.summon.holdSec; e.stagT = e.stagMax; }
       if (e) e.choir = true;   // 2026-09-13 聖歌隊の1体＝投げ返した数を数える（HUD の n/8・裁き）
     }
-    if (run.jamSt) { run.jamSt.choirWaveRet = 0; run.jamSt.choirWaveN = n; }
+    if (run.jamSt) { run.jamSt.choirWaveRet = 0; run.jamSt.choirWaveN = n; run.jamSt.choirWaves = (run.jamSt.choirWaves || 0) + 1; }
     run.spawnParticles(boss.x, boss.y, int(def.color), 16);
     Sound.sfx('choirChord', 1, 1.25);
   }
@@ -3640,10 +3640,30 @@ export function createBoss(run) {
   // 欠片を囲む金の輪＝「掴めるもの」の印（装甲片と同じよろけ表示の上に、光輪の色で重ねる）
   function drawPieceRing() {
     if (piece && (!piece.active || !piece.stag)) piece = null;
-    if (!piece) { if (pieceGfx) pieceGfx.clear(); return; }
     if (!pieceGfx) pieceGfx = run.add.graphics().setDepth(12);
-    const r = piece.radius + 8 + Math.sin(run.elapsed * 8) * 3;
     pieceGfx.clear();
+    // ★2026-09-13 実プレイ5回「聖歌隊はいまだ分からない」＝聖歌隊も装甲片も**雑魚と同じ絵（chibit）**で、
+    //   よろけの薄い青輪しか印が無かった。欠片（金の輪）と同じ作法で、歌っている聖歌隊＝白金の二重輪＋上下に揺れる光、
+    //   剥がれた装甲片＝銀の輪を毎フレーム描く。文字は足さない（隠さない、で足りるはず）。
+    if (run.jamMode) {
+      for (const e of run.enemies) {
+        if (!e.active || !e.stag || e.haloPiece) continue;
+        if (e.choir) {
+          const r = e.radius + 7 + Math.sin(run.elapsed * 9) * 2.5;
+          pieceGfx.lineStyle(3, 0xfff2a8, 0.95); pieceGfx.strokeCircle(e.x, e.y, r);
+          pieceGfx.lineStyle(1.5, 0xffffff, 0.9); pieceGfx.strokeCircle(e.x, e.y, r * 0.7);
+          // 歌＝頭上で上下に揺れる小さな光（音符は文字なので使わない）
+          const fy = e.y - e.radius - 9 + Math.sin(run.elapsed * 6 + e.x * 0.05) * 3;
+          pieceGfx.fillStyle(0xffffff, 0.95); pieceGfx.fillCircle(e.x, fy, 2.2);
+          pieceGfx.fillStyle(0xfff2a8, 0.6); pieceGfx.fillCircle(e.x, fy, 4.5);
+        } else if (e.shard) {
+          const r = e.radius + 6 + Math.sin(run.elapsed * 7) * 2;
+          pieceGfx.lineStyle(2.5, 0xd8dfe8, 0.9); pieceGfx.strokeCircle(e.x, e.y, r);
+        }
+      }
+    }
+    if (!piece) return;
+    const r = piece.radius + 8 + Math.sin(run.elapsed * 8) * 3;
     pieceGfx.lineStyle(3, int(cfg.glowOuter), 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r);
     pieceGfx.lineStyle(1.5, 0xfff2a8, 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r * 0.75);
   }

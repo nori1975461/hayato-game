@@ -126,7 +126,7 @@ export class RunScene extends Phaser.Scene {
     if (this.jamMode) {
       const J = readJam();
       this.jamSt = { hits: 0, hitsByCause: {}, lastCause: null, coreHits: 0, shardHits: 0, shardDmg: 0, bossDmg: 0,
-        choirWaveRet: 0, choirWaveN: 8, choirBest: 0, haloGrabbed: false, haloHit: false,
+        choirWaveRet: 0, choirWaveN: 8, choirBest: 0, choirWaves: 0, shardDrops: 0, haloGrabbed: false, haloHit: false,
         best: { dmg: 0 }, tries: (J.tries || 0) + 1 };
       this.jamScar = (J.bestRemain != null && J.bestRemain > 0 && J.bestRemain < 100) ? J.bestRemain / 100 : null;
       writeJam({ tries: this.jamSt.tries });
@@ -2907,6 +2907,7 @@ export class RunScene extends Phaser.Scene {
       const stat = {
         clear, hits: js.hits, throws: bst.throws || 0, shardHits: js.shardHits, specHits: bst.specBossHits || 0,
         coreHits: js.coreHits, shardShare: js.bossDmg > 0 ? js.shardDmg / js.bossDmg : 0, choirBest: js.choirBest,
+        choirWaves: js.choirWaves || 0, shardDrops: js.shardDrops || 0,   // 2026-09-13 鍵の指さし（keyHint）用
         haloHit: js.haloHit, haloGrabbed: js.haloGrabbed, deathCause: clear ? null : js.lastCause,
         remainPct, stage, tries: js.tries,
         // 戦闘秒＝クリア時は最後の bossTimes（撃破で閉じている）、途中なら今までの秒

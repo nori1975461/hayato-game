@@ -1334,6 +1334,25 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/remainPct <= 10\) out\.push\('near'\)/.test(vj), 'JAM2: 残り10%以下は「あと一歩の信徒」');
     assert(/const id = ids\.find\(\(k\) => !S\[k\]\) \|\| ids\[0\];/.test(vj), 'JAM3: 裁きは未見の文言を優先（2回とも同じ文言にならない）');
     assert((vj.match(/\{ id: '/g) || []).length >= 31, 'JAM3: 裁きの文言は31種以上');
+    // ★2026-09-13 JAM4：順位（第n位）・階位の印・鍵の指さし・聖歌隊/装甲片の目印・節目落ちの演出
+    {
+      const ranks = (vj.match(/\{ id: '[a-z0-9_]+', rank:\s*(\d+)/g) || []).map((m) => +m.replace(/^.*rank:\s*/, ''));
+      const ids = (vj.match(/\{ id: '([a-z0-9_]+)', rank:/g) || []).length;   // TIERS の { id: 'crown' } は数えない
+      assert(ranks.length === ids && new Set(ranks).size === ranks.length && Math.min(...ranks) === 1 && Math.max(...ranks) === ranks.length,
+        'JAM4: 裁きの順位は全' + ids + '種で 1〜' + ids + ' が一意（第n位が必ず出る）');
+      assert(/export const TIERS = \[/.test(vj) && /from: 1,\s+to: 3/.test(vj) && new RegExp("to: " + ids + "\\b").test(vj), 'JAM4: 階位（王冠1〜3…鉄〜' + ids + '）が全順位を覆う');
+      assert(/export function keyHint\(st\)/.test(vj) && /choirWaves > 0 && !\(s\.choirBest > 0\)/.test(vj), 'JAM4: 死んだ回に触れなかった鍵を指す（聖歌隊が最優先）');
+      assert(/tierOf, byRank, keyHint \} from '\.\.\/data\/verdict\.js'/.test(rs) && /第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs), 'JAM4: Result が「第n位／全数」を称号の上に出す');
+      assert(/drawRankIcon\(x, y, kind, sc\)/.test(rs) && /kind === 'crown'/.test(rs) && /const ranked = byRank\(\);/.test(rs), 'JAM4: 階位の印は絵（Graphics）で描き、一覧は順位順');
+      assert(/const kh = keyHint\(s\);/.test(rs), 'JAM4: Result が鍵の指さしを1行出す');
+      assert(/choirWaves: js\.choirWaves \|\| 0, shardDrops: js\.shardDrops \|\| 0/.test(r2), 'JAM4: Run が聖歌隊の回数と装甲片の枚数を裁きへ渡す');
+      const jb4 = read('systems/boss.js'), jbi4 = read('systems/billiard.js');
+      assert(/if \(e\.choir\) \{[\s\S]*?pieceGfx\.lineStyle\(3, 0xfff2a8, 0\.95\)/.test(jb4) && /else if \(e\.shard\) \{[\s\S]*?0xd8dfe8/.test(jb4), 'JAM4: 歌う聖歌隊は白金の輪・装甲片は銀の輪（雑魚と同じ絵なので印で分ける）');
+      assert(/run\.jamSt\.choirWaves = \(run\.jamSt\.choirWaves \|\| 0\) \+ 1/.test(jb4), 'JAM4: 聖歌隊が出た回数を数える');
+      assert(/function dropShards\(bossEnt, fromStep\)/.test(jbi4) && /dropShards\(e, true\);/.test(jbi4) && /if \(fromStep && run\.jamMode\)/.test(jbi4), 'JAM4: 節目落ち（ジャム版）は金の衝撃波＋スロー＋割れる音');
+      const C4 = BALANCE.boss.jamTiers[0];
+      assert(C4.summon.holdSec >= 3, 'JAM4: 聖歌隊は3秒以上歌う（気づいてから掴みに行ける）');
+    }
     assert(/export function judge\(/.test(vj), 'JAM2: judge が公開されている');
     assert(/import \{ judge \} from '\.\.\/data\/verdict\.js';/.test(r2), 'JAM2: Run が裁きを読み込む');
     assert(/hitPlayer\(dmg, srcX, srcY, cause\) \{/.test(r2) && /this\.jamSt\.lastCause = c;/.test(r2), 'JAM2: 被弾のたびに死因を記録する');
