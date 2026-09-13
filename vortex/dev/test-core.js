@@ -1531,7 +1531,20 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/ひだりクリック/.test(jo) && /k: 'きりふだ', v: 'SPACE'/.test(jo) && /やじるしキー ／ WASD/.test(jo), 'JAM12: 左クリック・SPACE（切り札）・矢印/WASD もカードに書いてある');
     assert(!/Math\.random\(/.test(jo) && !/^import Phaser/m.test(jo) && /const Phaser = window\.Phaser;/.test(jo) && /Math\.min\(0\.45, alpha\)/.test(jo),
       'JAM12: Math.random 禁止・window.Phaser・白閃 ≤ 0.45');
-    assert(/const skip = \(\) => this\.showCard\(true\);/.test(jo) && /this\.time\.delayedCall\(8000, go\);/.test(jo), 'JAM12: スキップしても操作カードは必ず通る・放置 8 秒で自動開始');
+    // ★2026-09-13 FB3「操作の説明は読み切れない→押すまで表示」＝自動開始のタイマーを持たない
+    assert(/const skip = \(\) => this\.showCard\(true\);/.test(jo) && !/delayedCall\(\d+, go\)/.test(jo) && /keyboard\.once\('keydown-SPACE', go\)/.test(jo),
+      'JAM12: スキップしても操作カードは必ず通る・カードはボタンを押すまで表示（自動開始なし）');
+    // ★2026-09-13 JAM13：装甲片が「どこにあるか分からない」＝dist 62 は大聖堂の当たり 88・絵の幅 300px の内側に湧いていた
+    {
+      const ct = (BALANCE.boss.jamTiers || []).find((t) => t.bossId === 'cathedral');
+      assert(ct && ct.shardDist > ct.radius + 60 && ct.shardHoldSec >= 8, 'JAM13: 大聖堂の装甲片は体の外（当たり+60px 以上）・掴める時間 8 秒以上');
+      assert(/get shardDist\(\)/.test(jb) && /get shardHoldSec\(\)/.test(jb), 'JAM13: boss API に shardDist／shardHoldSec');
+      assert(/const far = run\.boss && run\.boss\.shardDist;/.test(jbi) && /const hold = run\.boss && run\.boss\.shardHoldSec;/.test(jbi)
+        && /if \(hold\) \{ e\.stagMax = hold; e\.stagT = hold; \}/.test(jbi) && /run\.tweens\.add\(\{ targets: e, x: tx, y: ty, duration: 520/.test(jbi),
+        'JAM13: dropShards は大聖堂だけ体の外へ弧を描いて飛び出させ、掴める時間を延ばす（本編は dist 62 のまま）');
+      assert(/\} else if \(e\.shard\) \{[^]*?fillRect\(e\.x - bw, e\.y - 64, bw \* 2, 64\);/.test(jb), 'JAM13: 装甲片に銀の光の柱＋二重輪＋光の粒（聖歌隊と同じ作法・文字なし）');
+      assert(!(BALANCE.boss.tiers || []).some((t) => t.shardDist || t.shardHoldSec), 'JAM13: 本編の tiers に shardDist を入れていない');
+    }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
       const ids = sv.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);

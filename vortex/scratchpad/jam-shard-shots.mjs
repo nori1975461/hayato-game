@@ -1,6 +1,7 @@
-// 2026-09-13 ジャム版オープニング（JamOpening）を実プレイの等倍（640×360）で撮り、カード→Run(jamMode) まで届くかを数で確かめる。
-//   ?autotest=1&jam=1 で Run に入ってから scene を JamOpening へ切り替える（Title は autotest だと Run へ直行するため）。
-// 使い方: node scratchpad/jam-open-shots.mjs [portOffset]   出力: scratchpad/jam-open-shots/*.png
+// 2026-09-13 大聖堂の装甲片が「体の外・画面内・主人公との間」に出るかを等倍（640×360）で数える。
+//   大聖堂を出して chase になったら dealDamage で最大HPの 34% を削り（dropShards の節目）、装甲片の位置を測る。
+//   ①主人公が遠い（撃破位置のまま）②主人公が近い（体の当たりのすぐ外）の2回。
+// 使い方: node scratchpad/jam-shard-shots.mjs [seed] [portOffset]   出力: scratchpad/jam-shard-shots/*.png
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -9,12 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../');
-const OFF = +(process.argv[2] || 13);
+const SEED = +(process.argv[2] || 42);
+const OFF = +(process.argv[3] || 16);
 const PORT = 9110 + OFF, DBG = 9660 + OFF;
 const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const MIME = { '.html': 'text/html', '.js': 'application/javascript', '.mjs': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const OUT = path.join(HERE, 'jam-open-shots');
+const OUT = path.join(HERE, 'jam-shard-shots');
 fs.mkdirSync(OUT, { recursive: true });
 
 const server = http.createServer((req, res) => {
@@ -34,23 +36,23 @@ async function ev(expression) {
   if (r.exceptionDetails) { exceptions++; console.log('  [eval EXC]', (r.exceptionDetails.exception && r.exceptionDetails.exception.description) || r.exceptionDetails.text); return undefined; }
   return r.result && r.result.value;
 }
-const OPEN = "(function(){var g=window.__vortexGame;var s=g.scene.getScene('JamOpening');return s&&s.sys.settings.active?{card:!!s._onCard,fin:!!s._finished,objs:s._objs.length,texts:(s._texts||[]).length}:null;})()";
 async function shot(name) {
   const r = await send('Page.captureScreenshot', { format: 'png' });
   fs.writeFileSync(path.join(OUT, name + '.png'), Buffer.from(r.data, 'base64'));
-  console.log('  shot', name, JSON.stringify(await ev(OPEN)));
+  console.log('  shot', name);
 }
-const RUN_READY = `(function(){var g=window.__vortexGame;if(!g)return false;var r=g.scene.getScene('Run');if(!r||!r.sys||!r.sys.settings.active||!r.boss||!r.player||!r.moveKeys)return false;return true;})()`;
+const RUN_READY = `(function(){var g=window.__vortexGame;if(!g)return false;var r=g.scene.getScene('Run');if(!r||!r.sys||!r.sys.settings.active||!r.boss||!r.player||!r.moveKeys)return false;window.__run=r;return true;})()`;
 async function waitRun(maxMs) { const t0 = Date.now(); while (Date.now() - t0 < maxMs) { if (await ev(RUN_READY)) return true; await sleep(150); } return false; }
-async function key(k, code) {
-  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: k === ' ' ? 32 : k.toUpperCase().charCodeAt(0) });
-  await sleep(40);
-  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: k === ' ' ? 32 : k.toUpperCase().charCodeAt(0) });
-}
+async function waitState(pred, maxMs) { const t0 = Date.now(); while (Date.now() - t0 < maxMs) { const st = await ev('window.__run.boss.state'); if (pred(st)) return st; await sleep(30); } return null; }
+// 装甲片の一覧：ボス中心からの距離・主人公からの距離・画面内か・掴める残り秒
+const SHARDS = `(function(){var r=window.__run;var b=r.boss.entity;var v=r.cameras.main.worldView;var out=[];
+  for(var i=0;i<r.enemies.length;i++){var e=r.enemies[i];if(!e.active||!e.shard)continue;
+    out.push({db:Math.round(Math.hypot(e.x-b.x,e.y-b.y)),dp:Math.round(Math.hypot(e.x-r.player.x,e.y-r.player.y)),on:v.contains(e.x,e.y),stag:!!e.stag,t:+(e.stagT||0).toFixed(1),hp:e.hp});}
+  return JSON.stringify({bossR:b.radius,dPl:Math.round(Math.hypot(r.player.x-b.x,r.player.y-b.y)),shards:out});})()`;
 
 async function main() {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
-  const prof = path.join(HERE, '.chrome-prof-jamopen-' + OFF);
+  const prof = path.join(HERE, '.chrome-prof-jamshard-' + OFF);
   fs.rmSync(prof, { recursive: true, force: true });
   const chrome = spawn(CHROME, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--mute-audio',
     '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
@@ -68,38 +70,33 @@ async function main() {
   ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id).resolve(d.result || d); pending.delete(d.id); } else if (d.method === 'Runtime.exceptionThrown') { exceptions++; console.log('  [page EXC]', d.params.exceptionDetails.exception && d.params.exceptionDetails.exception.description); } };
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 640, height: 360, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/vortex/index.html?autotest=1&jam=1&seed=42` });
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/vortex/index.html?autotest=1&jam=1&seed=${SEED}` });
   if (!await waitRun(20000)) { console.log('RUN_NOT_READY'); process.exit(3); }
+  await ev(`(function(){ var r=window.__run; if(window.__g)clearInterval(window.__g);
+    window.__g=setInterval(function(){ if(!r.sys.settings.active){clearInterval(window.__g);return;} r.player.hp=r.player.maxHp; },16); return 1; })()`);
+  await ev('(function(){ window.__run.progress = 201; return 1; })()');
+  await waitState((s) => s === 'chase', 30000);
+  await sleep(1500);
 
-  // --- 本編：通しで見る（時刻表どおりに撮る） ---
-  await ev("(function(){var g=window.__vortexGame;g.scene.stop('Run');g.scene.start('JamOpening');return true;})()");
-  const t0 = Date.now();
-  const plan = [[1600, '01-gods'], [2900, '02-one'], [4100, '03-descend'], [4800, '04-name'], [6000, '05-line'], [6800, '06-hero'], [7700, '07-eyes'], [8800, '08-mobits'], [9600, '09-grab'], [10500, '10-charge'], [11250, '11-throw'], [11750, '12-hit'], [13000, '13-concept'], [15500, '14-judge'], [17300, '15-card']];
-  for (const [ms, name] of plan) { const w = t0 + ms - Date.now(); if (w > 0) await sleep(w); await shot(name); }
-  const cardInfo = await ev(OPEN);
-  await key(' ', 'Space');
-  const toRun = await waitRun(6000);
-  const jam = await ev("(function(){var r=window.__vortexGame.scene.getScene('Run');return r&&r.sys.settings.active?{jam:!!r.jamMode,audio:!!r.withAudio}:null;})()");
-  console.log('CARD_THEN_SPACE→RUN', toRun, JSON.stringify(cardInfo), JSON.stringify(jam));
+  // ① 主人公が遠いまま（登場位置＝上 130px）：34% を削って剥がす
+  const hit = "(function(){var r=window.__run;var b=r.boss.entity;r.dealDamage(b,Math.round(b.maxHp*0.35),'#ffffff','manual',{x:b.x,y:b.y,hitR:10});return b.hp/b.maxHp;})()";
+  const hp1 = await ev(hit);
+  await sleep(150); await shot('10-far-fly');
+  await sleep(600); await shot('11-far-landed');
+  const far = JSON.parse(await ev(SHARDS));
+  console.log('  ①遠い: hp=', (hp1 * 100).toFixed(0) + '%', JSON.stringify(far));
 
-  // --- スキップ経路：1秒で SPACE → カードへ（Run へは飛ばない）→ もう一度で Run ---
-  await ev("(function(){var g=window.__vortexGame;g.scene.stop('Run');g.scene.start('JamOpening');return true;})()");
-  await sleep(1000);
-  await key(' ', 'Space');
-  await sleep(500);
-  const afterSkip = await ev(OPEN);
-  const runAfterSkip = await ev(RUN_READY);
-  await shot('20-skip-card');
-  await key('j', 'KeyJ');
-  const toRun2 = await waitRun(6000);
-  console.log('SKIP→CARD', JSON.stringify(afterSkip), 'runEarly=', runAfterSkip, 'J→RUN', toRun2);
+  // ② 主人公が近い（当たりのすぐ外 100px）：残りの装甲片を消してから、もう 34%
+  await ev("(function(){var r=window.__run;for(var i=0;i<r.enemies.length;i++){var e=r.enemies[i];if(e.active&&e.shard){e.noReward=true;r.killEnemy(e,0xffffff,'expire');}}var b=r.boss.entity;r.player.x=b.x+100;r.player.y=b.y+40;return 1;})()");
+  await sleep(300);
+  const hp2 = await ev(hit);
+  await sleep(750); await shot('20-near-landed');
+  const near = JSON.parse(await ev(SHARDS));
+  console.log('  ②近い: hp=', (hp2 * 100).toFixed(0) + '%', JSON.stringify(near));
 
-  // --- 放置経路：カードは押すまで表示（自動開始しない）→ 9 秒後もカードのまま ---
-  await ev("(function(){var g=window.__vortexGame;g.scene.stop('Run');g.scene.start('JamOpening');var s=g.scene.getScene('JamOpening');setTimeout(function(){s.showCard(true);},300);return true;})()");
-  await sleep(9200);
-  const toRun3 = await ev(RUN_READY);
-  const still = await ev(OPEN);
-  console.log('CARD_IDLE_9S: run=', toRun3, 'card=', JSON.stringify(still), (toRun3 === false && still && still.card) ? 'CARD_STAYS_OK' : 'CARD_STAYS_NG');
+  const okFar = far.shards.length >= 2 && far.shards.every((s) => s.db > far.bossR + 60 && s.on && s.stag && s.t >= 7.5);
+  const okNear = near.shards.length >= 2 && near.shards.every((s) => s.db > near.bossR + 60 && s.on && s.stag);
+  console.log('SHARD_FAR', okFar ? 'OK' : 'NG', 'SHARD_NEAR', okNear ? 'OK' : 'NG');
   console.log('EXCEPTIONS=', exceptions);
   process.exit(0);
 }

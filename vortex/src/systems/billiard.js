@@ -1665,10 +1665,18 @@ export function createBilliard(run) {
     // 主人公の側へ撒く＝拾いに行く動きがボスへ近づく動きと同じ向きになる（逃げ得にしない）
     const base = Math.atan2(run.player.y - bossEnt.y, run.player.x - bossEnt.x);
     const step = Phaser.Math.DegToRad(S.spreadDeg);
+    // ★2026-09-13 ジャム版の大聖堂（tier.shardDist）：dist 62 は当たり 88・絵の幅 300px の内側＝巨体の絵の下に隠れていた
+    //   （実プレイFB「破片がどこにあるかまったくわからない」）。体の外・主人公との間へ、ボスの中心から**飛び出して**置く。
+    //   主人公が近いときは主人公の少し向こう、遠いときは主人公の手前 40px までで止める（画面外へ飛ばさない）。
+    const far = run.boss && run.boss.shardDist;
+    const hold = run.boss && run.boss.shardHoldSec;
+    const dPl = Math.hypot(run.player.x - bossEnt.x, run.player.y - bossEnt.y);
+    const dist = far ? Math.max(far, Math.min(dPl - 40, far + 90)) : S.dist;
     let made = 0;
     for (let i = 0; i < M.count; i++) {
       const a = base + (i - (M.count - 1) / 2) * step;
-      const e = run.spawnEnemy(def, bossEnt.x + Math.cos(a) * S.dist, bossEnt.y + Math.sin(a) * S.dist, false, 1);
+      const tx = bossEnt.x + Math.cos(a) * dist, ty = bossEnt.y + Math.sin(a) * dist;
+      const e = run.spawnEnemy(def, far ? bossEnt.x + Math.cos(a) * 30 : tx, far ? bossEnt.y + Math.sin(a) * 30 : ty, false, 1);
       if (!e) break;                 // enemyCap に当たったら諦める（弾薬のために上限を破らない）
       e.hp = 1;
       e.shard = true;                // ★これを掴んだ弾はボスへ特効
@@ -1677,6 +1685,13 @@ export function createBilliard(run) {
       e.radius = (e.radius || 10) * S.scaleMul;
       e.spr.setScale(e.baseScale);
       run.enterStagger(e);
+      if (hold) { e.stagMax = hold; e.stagT = hold; }   // 掴める時間を長く（拾いに行く時間を含めて 9 秒）
+      if (far) {
+        // 体の中から弧を描いて飛び出す＝目が追える。着地で銀の輪。
+        run.tweens.add({ targets: e, x: tx, y: ty, duration: 520, ease: 'Quad.out' });
+        run.tweens.add({ targets: e, hopLift: 1, duration: 260, yoyo: true, ease: 'Sine.out' });
+        run.time.delayedCall(520, () => { if (e.active) { shockRing(e.x, e.y, e.radius + 18, 0xd8dfe8); if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, 0xd8dfe8); } });
+      }
       if (run.fx && run.fx.hitSpark) run.fx.hitSpark(e.x, e.y, BALANCE.stagger.tint);
       made++;
     }

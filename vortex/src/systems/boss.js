@@ -3888,8 +3888,20 @@ export function createBoss(run) {
           }
           singers.push(e);
         } else if (e.shard) {
-          const r = e.radius + 6 + Math.sin(run.elapsed * 7) * 2;
-          pieceGfx.lineStyle(2.5, 0xd8dfe8, 0.9); pieceGfx.strokeCircle(e.x, e.y, r);
+          // ★2026-09-13 実プレイFB「破片がどこにあるかまったくわからない」→ 聖歌隊と同じ作法で
+          //   ①天から差す銀の光の柱 ②銀の二重輪 ③立ちのぼる光の粒。色は銀（聖歌隊の金・欠片の光輪色と区別）。文字は足さない。
+          const bw = e.radius + 4;
+          pieceGfx.fillGradientStyle(0xd8e6ff, 0xd8e6ff, 0xd8e6ff, 0xd8e6ff, 0, 0, 0.32, 0.32);
+          pieceGfx.fillRect(e.x - bw, e.y - 64, bw * 2, 64);
+          const r = e.radius + 8 + Math.sin(run.elapsed * 7) * 2.5;
+          pieceGfx.lineStyle(3, 0xd8dfe8, 0.95); pieceGfx.strokeCircle(e.x, e.y, r);
+          pieceGfx.lineStyle(1.5, 0xffffff, 0.9); pieceGfx.strokeCircle(e.x, e.y, r * 0.68);
+          for (let k = 0; k < 3; k++) {
+            const ph = (run.elapsed * 1.6 + k / 3 + e.y * 0.01) % 1;
+            const fy = e.y - e.radius - 6 - ph * 24, fx = e.x + Math.sin(run.elapsed * 6 + k * 2.1) * 4;
+            pieceGfx.fillStyle(0xffffff, 0.95 * (1 - ph)); pieceGfx.fillCircle(fx, fy, 2);
+            pieceGfx.fillStyle(0xd8e6ff, 0.5 * (1 - ph)); pieceGfx.fillCircle(fx, fy, 4);
+          }
         }
       }
       if (singers.length >= 3) {
@@ -5855,7 +5867,9 @@ export function createBoss(run) {
     weakGate, weakPoint, deflect, coreHitFx,
     get hasWeak() { return !!(boss && boss.active && cfg && cfg.weak); },
     get shardCapAfterMul() { return (cfg && cfg.shardCapAfterMul) || 0; },
-    get shardEveryHpRatio() { return (cfg && cfg.shardEveryHpRatio) || 0; },   // 2026-09-13 装甲片の自給間隔（billiard.bossDamaged が読む）   // 2026-09-13 ジャム版（Run.dealDamage が読む）
+    get shardEveryHpRatio() { return (cfg && cfg.shardEveryHpRatio) || 0; },
+    get shardDist() { return (cfg && cfg.shardDist) || 0; },       // 2026-09-13 装甲片を体の外へ（大聖堂だけ・billiard.dropShards が読む）
+    get shardHoldSec() { return (cfg && cfg.shardHoldSec) || 0; },   // 2026-09-13 装甲片の自給間隔（billiard.bossDamaged が読む）   // 2026-09-13 ジャム版（Run.dealDamage が読む）
     get pieceCapMul() { return (cfg && cfg.crack && cfg.crack.pieceCapMul) || 0; },   // 光輪の欠片の上限（同上）
     get cathStage() { return cfg && cfg.stage3HpRatio ? cathStage : null; },   // 裁きの「第n段階」
     causeNow,   // 何にやられたか（Run.hitPlayer が cause 省略時に読む）

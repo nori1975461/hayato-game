@@ -17,7 +17,7 @@
 //   → **逆光の影絵**：本番と同じ rig を黒く塗り、後ろの金の光条で縁だけ読ませる。見えるのは輪郭・金の光輪・薔薇窓の単眼の 3 つ。
 //     全体像は本番の降臨（暗幕→光条→着地）まで取っておく。名前は Title に書いてあるので出す。
 //
-// 尺は約 16 秒＋カード（入力待ち・8秒で自動開始）。SPACE／J／クリックでスキップ（カードへ）。
+// 尺は約 16 秒＋カード（ボタンを押すまで表示・自動開始なし）。SPACE／J／クリックでスキップ（カードへ）。
 // 技術制約は Opening.js と同じ：import Phaser 禁止（window.Phaser）・Math.random 禁止（LCG）・monospace のみ・
 //   白の全画面フラッシュは alpha ≤ 0.45（子ども安全）。
 // 本編は不変：この scene は Title の J からしか始まらず、autotest（?autotest=1）は Title が Run へ直行する。
@@ -463,7 +463,9 @@ export class JamOpeningScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 
-    // 入力待ち（スキップと同じ押下で始めないよう 350ms 遅らせる）。8 秒で自動開始＝放置しても止まらない。
+    // 入力待ち（スキップと同じ押下で始めないよう 350ms 遅らせる）。
+    // ★2026-09-13 実プレイFB「基本の操作の説明は読み切れない。長く映すか、ボタンを押すまで表示に」→ **押すまで表示**
+    //   （自動開始なし。読む速さは人によって違うので秒数で決めない）。
     const go = () => this.startRun();
     this.time.delayedCall(350, () => {
       if (this._finished) return;
@@ -472,7 +474,6 @@ export class JamOpeningScene extends Phaser.Scene {
       this.input.keyboard.once('keydown-ENTER', go);
       this.input.once('pointerdown', go);
     });
-    this.time.delayedCall(8000, go);
   }
 
   startRun() {
