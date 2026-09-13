@@ -2083,7 +2083,7 @@ BALANCE.boss.jamTiers = [
     // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで
     //   63−10＝53px、ロック後に主人公は 148×0.55＝81px 動ける。堕天以降は 20°/秒で片側へ回る。
     rose: { telegraphSec: 1.0, lockSec: 0.55, count: 12, beamWidth: 10, beamLength: 460, damage: 16,
-            activeSec: 0.5, spinDegP2: 20, petalR: 8, redTint: '#ff3a4a', blueTint: '#4f7dff' },
+            activeSec: 0.5, spinDegP2: 20, petalR: 9, petalDotR: 0.95, redTint: '#ff3a4a', blueTint: '#4f7dff' },
     // ②鎮魂の鐘：光輪の欠けの向き（常時回転 −40°/秒・堕天 −70°/秒）が穴。rx/ry＝光輪の楕円（ドット）。
     bell: { telegraphSec: 0.6 },
     halo: { spinDeg: 40, spinDegP2: 70, gapDeg: 64, rx: 19, ry: 5.5, markR: 2.2 },

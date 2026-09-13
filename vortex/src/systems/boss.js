@@ -3356,7 +3356,10 @@ export function createBoss(run) {
       for (let i = 0; i < lit; i++) {
         const a = -Math.PI / 2 + (i * Math.PI * 2) / rk.count;
         lockGfx.fillStyle(i % 2 === 0 ? int(rk.redTint) : int(rk.blueTint), 0.9);
-        lockGfx.fillCircle(c.x + Math.cos(a) * pr, c.y + Math.sin(a) * pr, 2.4);
+        // 点の大きさも縮尺に合わせる（2.4px 固定だと 130px の薔薇窓の上で見えない＝等倍で判定する作法）
+        lockGfx.fillCircle(c.x + Math.cos(a) * pr, c.y + Math.sin(a) * pr, rk.petalDotR * (disp ? disp.spriteScale : cfg.spriteScale));
+        lockGfx.fillStyle(0xffffff, 0.85);
+        lockGfx.fillCircle(c.x + Math.cos(a) * pr, c.y + Math.sin(a) * pr, rk.petalDotR * 0.45 * (disp ? disp.spriteScale : cfg.spriteScale));
       }
     }
     if (!roseAngs) return;
