@@ -1373,7 +1373,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM7: ①薔薇窓は青の拍のあと半枠薙ぐ');
       assert(C7.tsunami.closeLast === true && C7.tsunami.lastRadius > C7.tsunami.bulletRadius && /fireTsunamiWave\(tw, shotIdx, haloAng, last \? 0 : null\)/.test(jb4),
         'JAM7: ②鎮魂の鐘の3波目は穴が閉じる');
-      assert(C7.pillar.lastMul >= 1.5 && C7.pillar.lastTeleSec >= 1.0 && /function spawnPillar\(pl, big\)/.test(jb4) && /if \(big\) bigCue\(/.test(jb4),
+      assert(C7.pillar.lastMul >= 1.5 && C7.pillar.lastTeleSec >= 1.0 && /function spawnPillar\(pl, big, idx\)/.test(jb4) && /if \(big\) bigCue\(/.test(jb4),
         'JAM7: ③天啓の3本目は巨大（予告は長く＝逃げる猶予）');
       assert(C7.summon.bladeSec > 0 && /function updateChoirBlade\(dt\)/.test(jb4) && /updateChoirBlade\(dt\);/.test(jb4) && /run\.hitPlayer\(sm\.bladeDamage \|\| 16, a\.x, a\.y, 'choir'\)/.test(jb4),
         'JAM7: ④投げ返されなかった聖歌隊を結ぶ線が刃になる');
@@ -1544,6 +1544,23 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM13: dropShards は大聖堂だけ体の外へ弧を描いて飛び出させ、掴める時間を延ばす（本編は dist 62 のまま）');
       assert(/\} else if \(e\.shard\) \{[^]*?fillRect\(e\.x - bw, e\.y - 64, bw \* 2, 64\);/.test(jb), 'JAM13: 装甲片に銀の光の柱＋二重輪＋光の粒（聖歌隊と同じ作法・文字なし）');
       assert(!(BALANCE.boss.tiers || []).some((t) => t.shardDist || t.shardHoldSec), 'JAM13: 本編の tiers に shardDist を入れていない');
+    }
+    // ★2026-09-13 JAM14：FB「赤青の四角い弾は遅くて迫力がない／刃は速さと音が足りない／光の柱は色分けと激しい音を」
+    {
+      const ct = (BALANCE.boss.jamTiers || []).find((t) => t.bossId === 'cathedral');
+      const tw = ct.tsunami, sm = ct.summon, pl = ct.pillar;
+      assert(tw.bulletSpeed >= 240 && tw.accel && tw.accel.mul0 < 1 && tw.accel.mul1 >= 1.5 && tw.waveTints && tw.waveTints.length === tw.waves && tw.spin >= 12,
+        'JAM14: 鎮魂の鐘の硝子片＝速く（240）・止まってから襲う（accel 0.5→1.6）・波ごとの色・速い回転');
+      assert(/acc: opts\.accel \? \{ vx0: vx, vy0: vy/.test(jb) && /if \(b\.acc\) \{/.test(jb) && /b\.vx = b\.acc\.vx0 \* m; b\.vy = b\.acc\.vy0 \* m;/.test(jb),
+        'JAM14: 弾の加速（accel）は spawnBullet2→updateBullets で実装されている');
+      assert(/Sound\.sfx\('glassRain', 1, 1 \+ w \* 0\.12\)/.test(jb) && /^  glassRain\(vol, pitch\) \{/m.test(jsnd) && /^  bladeSnap\(vol, pitch\) \{/m.test(jsnd),
+        'JAM14: 波ごとに硝子の雨（glassRain）・刃は bladeSnap（新規SFX2種）');
+      assert(sm.bladeSec <= 0.6 && sm.bladeShrink >= 0.8 && sm.bladeDamage >= 20 && /choirBladeBase = \{ cx, cy, pts:/.test(jb) && /s = 1 - sm\.bladeShrink \* k \* k/.test(jb)
+        && /Sound\.sfx\('bladeSnap', 1, 1\.0\)/.test(jb), 'JAM14: 聖歌隊の刃は 0.55 秒で中心へ閉じる（加速して締まる）・音は bladeSnap');
+      assert(pl.tints && pl.tints.length === pl.count && pl.edgeTints && pl.edgeTints.length === pl.count && /const tint = int\(\(pl\.tints && pl\.tints\[/.test(jb)
+        && /if \(pl\.tints && s\.big\) Sound\.sfx\('thunder', 0\.9\)/.test(jb) && /spawnPillar\(cfg\.pillar, false, 1\)/.test(jb),
+        'JAM14: 天啓は本数で色が変わる（白金→橙→深紅）・巨大は雷鳴・重ねは橙');
+      assert(!(BALANCE.boss.tiers || []).some((t) => (t.tsunami && (t.tsunami.accel || t.tsunami.waveTints)) || (t.pillar && t.pillar.tints)), 'JAM14: 本編の tiers には accel／waveTints／tints を入れていない');
     }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';

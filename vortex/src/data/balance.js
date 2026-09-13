@@ -2095,6 +2095,9 @@ BALANCE.boss.jamTiers = [
     //   避け方＝止まらず走る（輪の半径44＋主人公。0.7秒で走れる103px＞44）。
     pillar: { telegraphSec: 0.7, count: 3, interval: 0.6, radius: 44, damage: 26, leadSec: 0.3, height: 250,
               tint: '#ffe9a8', edgeTint: '#c9971f',
+              // ★2026-09-13 FB「光の柱は白だけでなく赤やオレンジで色分けし、効果音をもっと激しく」→ 1本目 白金・2本目 橙・
+              //   3本目（巨大）深紅＝色が「何本目か・次が大きい」を告げる。重ね（overlayPillar）は橙。3本目は雷鳴を重ねる。
+              tints: ['#ffe9a8', '#ff9a3a', '#ff3a4a'], edgeTints: ['#c9971f', '#ff6a1a', '#c81736'],
               lastMul: 2.0, lastTeleSec: 1.0 },   // ★決めの1瞬：3本目は半径2倍（88）・画面いっぱい。予告1.0秒＝148px 走れる＞88＋主人公
     overlayPillar: true,   // ★堕天以降：鎮魂の鐘／鉄羽の発射と同時に天啓を1本重ねる（弾幕の上に別の攻撃）
     // ★2026-09-13 登場演出（実プレイFB「もっと荘厳さを。間・音楽・エフェクト」）：
@@ -2150,15 +2153,23 @@ BALANCE.boss.jamTiers = [
     // ★2026-09-13 聖核（弱点）は削除（ユーザー指示「弱点は不要」）。実プレイで聖核ヒット8発（最高3240＝最大HPの36%）が
     //   HP9000を4発で削り切り、戦闘51秒＝歯ごたえ不足の主因だった。絵の上でも巨体に赤丸は合わない。
     // ②鎮魂の鐘の弾の輪（wavelord の tsunami の機構）。穴 64°＝光輪の欠け（向きは halo の回転角）。
+    // ★2026-09-13 実プレイFB（38回目）「赤青の四角い弾がバラバラ来る攻撃は動きも遅いしビジュアルもイマイチ。迫力も全くない。
+    //   神の四柱の一角の攻撃は恐怖と驚きを与えるべき」→ 硝子片は**止まってから襲う**：発射直後は 0.5 倍で漂い（accelSec の間）
+    //   1.6 倍まで一気に加速する（240×0.5=120 → 384px/s・鉄羽 300 より速い）。波ごとに色を変える（赤→藍→金＝3波目は穴なし）。
+    //   一回り大きく・速く回る。穴（光輪の欠け）で抜ける遊びは不変＝理不尽にはしない。
     tsunami: { telegraphSec: 0.6, waves: 3, waveInterval: 0.45, count: 24, gapDeg: 64,
-               gapSpinDeg: 40, bulletSpeed: 175, bulletRadius: 6, damage: 14, lifeSec: 2.6,
+               gapSpinDeg: 40, bulletSpeed: 240, bulletRadius: 7, damage: 14, lifeSec: 2.4,
                kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot',   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
-               closeLast: true, lastRadius: 9 },   // ★決めの1瞬：3波目は穴が閉じる（全周・一回り大きい）＝弾の間を抜ける
+               waveTints: ['#ff3a4a', '#4f7dff', '#ffd23f'], spin: 14,
+               accel: { mul0: 0.5, mul1: 1.6, sec: 0.7 },
+               closeLast: true, lastRadius: 10 },   // ★決めの1瞬：3波目は穴が閉じる（全周・一回り大きい）＝弾の間を抜ける
     // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
     // ★2026-09-13 ringRadius 70→150：等倍スクショで判明＝聖歌隊は**大聖堂の体（radius 88・絵はもっと大きい）の内側**に
     //   立っていて、巨体の模様に溶けていた。輪も光も絵の上に重なるだけで「別の物」に見えない。体の外（宇宙の黒）に立たせる。
     summon: { count: 8, enemyId: 'cathChoir', ringRadius: 190, telegraphSec: 0.6, holdSec: 3.5,
-              bladeSec: 1.0, bladeDamage: 16 },   // ★決めの1瞬：歌い終わっても投げ返されなかった聖歌隊を結ぶ線が1秒だけ刃になる   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
+              // ★2026-09-13 FB「刃もスピードと効果音が足りない」→ 刃は**閉じる**：8体を結ぶ輪が 0.55 秒で中心（大聖堂の足元）へ
+              //   締まる（190px→23px＝約300px/s）。輪の内側に居る者を薙ぐ＝歌の終わり 0.8 秒前の赤い点滅で外へ出る。音は bladeSnap。
+              bladeSec: 0.55, bladeDamage: 20, bladeShrink: 0.88 },   // ★決めの1瞬：歌い終わっても投げ返されなかった聖歌隊を結ぶ線が1秒だけ刃になる   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
     // ⑤配線の鞭（maou の wirearm と同値）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
                extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54,

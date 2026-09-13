@@ -166,6 +166,7 @@ export function createBoss(run) {
   let wingRaiseL = 0, featherSecond = false;   // 2026-09-13 鉄羽の雨（両翼）：左翼の持ち上げ・2薙ぎ目に入ったか
   let roseSwept = false, roseSweepRate = 0;   // 2026-09-13 薔薇窓：青の拍のあとの薙ぎ（一度だけ）
   let choirList = null, choirT = 0, choirBladeT = 0, choirBladePts = null, choirBladeHit = false;   // 2026-09-13 聖歌隊の刃
+  let choirBladeBase = null;   // 2026-09-13 閉じる刃の元の輪（中心と8点）
   let featherBase = 0;              // 同：扇の基準角（発射開始時に固定＝走れば扇の端から抜ける）
   // ★2026-09-13 実プレイFB対応（堕天の大聖堂）：天啓／歩み／登場
   const pillars = [];               // 天啓：足元の光の輪→天から落ちる光の柱（updatePillars が寿命管理・clearPillars が破棄）
@@ -1390,7 +1391,7 @@ export function createBoss(run) {
         shotAcc += dt;
         while (shotIdx < pl.count && (shotIdx === 0 || shotAcc >= pl.interval)) {
           if (shotIdx > 0) shotAcc -= pl.interval;
-          spawnPillar(pl, !!(pl.lastMul && shotIdx === pl.count - 1)); shotIdx++;
+          spawnPillar(pl, !!(pl.lastMul && shotIdx === pl.count - 1), shotIdx); shotIdx++;
         }
         if (shotIdx >= pl.count && pillars.length === 0 && stateT <= 0) afterAttack();
         break;
@@ -2786,14 +2787,23 @@ export function createBoss(run) {
     const gapCenter = gapOverride != null ? gapOverride : aim + Math.PI + w * tw.gapSpinDeg * D2R;   // 1枚目の穴は主人公の背後側
     const half = (gapDegOverride != null ? gapDegOverride : tw.gapDeg) * 0.5 * D2R;
     const br = (gapDegOverride === 0 && tw.lastRadius) ? tw.lastRadius : tw.bulletRadius;
+    // 2026-09-13 作り直し：波ごとの色（waveTints）・速い回転（spin）・止まってから襲う加速（accel）。tier が持つときだけ＝本編は不変
+    const waveTint = tw.waveTints ? int(tw.waveTints[w % tw.waveTints.length]) : null;
+    const sp = tw.spin || 7;
     for (let i = 0; i < tw.count; i++) {
       const a = (Math.PI * 2 * i) / tw.count;
       if (half > 0 && Math.abs(Phaser.Math.Angle.Wrap(a - gapCenter)) < half) continue;   // ここが抜け道
       spawnBullet2(boss.x, boss.y, Math.cos(a) * tw.bulletSpeed, Math.sin(a) * tw.bulletSpeed,
         { radius: br, damage: tw.damage, life: tw.lifeSec, glowMul: 1.9,
           // 2026-09-13 tier が kind/tints を持てば専用弾（硝子片＝赤/藍が交互・左右逆に回る）
-          kind: tw.kind, spin: tw.kind ? (i % 2 ? 7 : -7) : 0,
-          tint: tw.tints ? int(tw.tints[i % tw.tints.length]) : undefined });
+          kind: tw.kind, spin: tw.kind ? (i % 2 ? sp : -sp) : 0, accel: tw.accel,
+          tint: waveTint != null ? waveTint : tw.tints ? int(tw.tints[i % tw.tints.length]) : undefined });
+    }
+    if (waveTint != null) {
+      // 波の色で画面の縁が染まり、砕けた硝子の雨が鳴る＝「神の攻撃」の重さ
+      bigCue(waveTint);
+      Sound.sfx('glassRain', 1, 1 + w * 0.12);
+      spawnRingFx(boss.x, boss.y, waveTint, boss.radius * 0.6, boss.radius * 0.6 + tw.bulletSpeed * tw.accel.mul0 * 0.6, 0.6, 0.8, 5);
     }
     // 抜け道の方向にだけ光の筋を出す＝穴の位置を目で探せるようにする（理不尽にしない）
     if (half > 0 && run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
@@ -3260,21 +3270,27 @@ export function createBoss(run) {
   // ============ 2026-09-13 天啓（堕天の大聖堂）：足元の光の輪 → 天から落ちる光の柱 ============
   // 着弾予告（strike）と同じ考え方＝**位置が先に見える**。違いは「爆発」でなく「天から光が落ちる」絵と音。
   // 2026-09-13 ③決めの1瞬：最後の1本（big）は半径 lastMul 倍・画面いっぱいの高さ・予告は lastTeleSec（逃げる猶予は保つ）
-  function spawnPillar(pl, big) {
+  function spawnPillar(pl, big, idx) {
     const lx = run.player.x + (run.player.vx || 0) * pl.leadSec;
     const ly = run.player.y + (run.player.vy || 0) * pl.leadSec;
     const r = pl.radius * (big ? (pl.lastMul || 1) : 1), h = big ? Math.max(pl.height, 420) : pl.height;
     const tele = big ? (pl.lastTeleSec || pl.telegraphSec) : pl.telegraphSec;
+    // 2026-09-13 FB「白だけでなく赤やオレンジで色分け」：何本目かで色が変わる（tints／edgeTints）。無い tier は従来の1色
+    const ci = idx == null ? 0 : idx;
+    const tint = int((pl.tints && pl.tints[Math.min(ci, pl.tints.length - 1)]) || pl.tint);
+    const edge = int((pl.edgeTints && pl.edgeTints[Math.min(ci, pl.edgeTints.length - 1)]) || pl.edgeTint);
     const g = run.add.graphics().setDepth(5);
-    const halo = run.add.image(lx, ly, 'glow').setBlendMode(ADD).setDepth(5).setTint(int(pl.tint))
+    const halo = run.add.image(lx, ly, 'glow').setBlendMode(ADD).setDepth(5).setTint(tint)
       .setScale(r / 40).setAlpha(0.12);
-    pillars.push({ x: lx, y: ly, t: tele, max: tele, pl, g, halo, r, h, big: !!big });
-    Sound.sfx('pillarWarn', big ? 1 : 0.9, big ? 0.7 : 1 + pillars.length * 0.08);
-    if (big) bigCue(int(pl.edgeTint));
+    pillars.push({ x: lx, y: ly, t: tele, max: tele, pl, g, halo, r, h, big: !!big, tint, edge });
+    // 2026-09-13 音を激しく：予告は本数で上がる高い鐘＋鉄の軋み。巨大は低く長く
+    Sound.sfx('pillarWarn', big ? 1.2 : 1.0, big ? 0.7 : 1 + ci * 0.16);
+    if (pl.tints) Sound.sfx('ironCreak', big ? 0.7 : 0.4, big ? 0.8 : 1.1 + ci * 0.1);
+    if (big) bigCue(edge);
   }
-  // 2026-09-13 ⑨堕天以降は弾幕の上に別の攻撃を1つ乗せる＝鎮魂の鐘／鉄羽の発射と同時に天啓を1本
+  // 2026-09-13 ⑨堕天以降は弾幕の上に別の攻撃を1つ乗せる＝鎮魂の鐘／鉄羽の発射と同時に天啓を1本（重ねは橙＝2本目の色）
   function overlayPillar() {
-    if (cathStage >= 1 && cfg.overlayPillar && cfg.pillar) spawnPillar(cfg.pillar, false);
+    if (cathStage >= 1 && cfg.overlayPillar && cfg.pillar) spawnPillar(cfg.pillar, false, 1);
   }
   function updatePillars(dt) {
     for (let i = pillars.length - 1; i >= 0; i--) {
@@ -3286,9 +3302,9 @@ export function createBoss(run) {
       s.g.clear();
       // 天からの光の予感：細い光の帯が上から降りてきて、落ちる直前に輪の幅まで広がる
       const bw = s.r * 2 * (0.12 + 0.88 * p * p);
-      s.g.fillStyle(int(pl.tint), 0.05 + 0.16 * p);
+      s.g.fillStyle(s.tint != null ? s.tint : int(pl.tint), 0.05 + 0.16 * p);
       s.g.fillRect(s.x - bw / 2, s.y - s.h, bw, s.h);
-      s.g.lineStyle(3, int(pl.edgeTint), 0.9 * blink);
+      s.g.lineStyle(3, s.edge != null ? s.edge : int(pl.edgeTint), 0.9 * blink);
       s.g.strokeCircle(s.x, s.y, s.r);                      // 落ちる範囲（動かない）
       s.g.lineStyle(2, 0xffffff, 0.85 * blink);
       s.g.strokeCircle(s.x, s.y, s.r * (1 - p * 0.85));     // 収束する内側の輪＝残り時間
@@ -3296,18 +3312,20 @@ export function createBoss(run) {
     }
   }
   function fallPillar(s) {
-    const pl = s.pl, tint = int(pl.tint);
+    const pl = s.pl, tint = s.tint != null ? s.tint : int(pl.tint), edge = s.edge != null ? s.edge : int(pl.edgeTint);
     const dx = run.player.x - s.x, dy = run.player.y - s.y, rr = s.r + run.player.radius;
     if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(pl.damage, s.x, s.y, 'pillar');
     spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.9, s.h, 0.55, 0.95);
     spawnPillarFx(s.x, s.y + 6, tint, s.r * 2.0, s.h * 1.1, 0.42, 0.7);
     spawnRingFx(s.x, s.y, 0xffffff, s.r * 0.3, s.r * 1.6, 0.30, 0.9, 5);
-    spawnRingFx(s.x, s.y, int(pl.edgeTint), s.r * 0.2, s.r * 2.4, 0.45, 0.7, 5);
+    spawnRingFx(s.x, s.y, edge, s.r * 0.2, s.r * 2.4, 0.45, 0.7, 5);
     for (let k = 0; k < 8; k++) spawnStreakFx(s.x, s.y, (Math.PI * 2 * k) / 8 + 0.2, s.r * 1.5, tint, 0.28, 0.7, 2);
     run.spawnParticles(s.x, s.y, 0xffffff, 10);
     run.spawnParticles(s.x, s.y, tint, 14);
     whiteFlash(s.big ? 0.34 : 0.14, s.big ? 0xffffff : tint, s.big ? 220 : 110);
-    Sound.sfx('pillarFall', 1, s.big ? 0.7 : 1);
+    // 2026-09-13 音を激しく（色分け tier だけ）：落下は大きく、巨大は雷鳴を重ねる。本編の tier は従来どおり
+    Sound.sfx('pillarFall', pl.tints ? (s.big ? 1.4 : 1.15) : 1, s.big ? 0.7 : 1);
+    if (pl.tints && s.big) Sound.sfx('thunder', 0.9);
     run.shake(s.big ? 480 : 230, s.big ? 13 : 6);
     if (s.big) run.slowMotion(0.14, 0.45);
   }
@@ -3719,13 +3737,23 @@ export function createBoss(run) {
           alive.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
           choirBladePts = alive.map((e) => ({ x: e.x, y: e.y }));
           choirBladeT = sm.bladeSec; choirBladeHit = false;
+          // 2026-09-13 FB「刃もスピードと効果音が足りない」→ 刃は閉じる：輪が bladeSec で中心へ締まる（bladeShrink）
+          choirBladeBase = { cx, cy, pts: choirBladePts.map((p) => ({ x: p.x, y: p.y })) };
           bigCue(0xffd23f);
-          Sound.sfx('choirChord', 1, 0.7); Sound.sfx('darkLaser', 0.7, 1.4);
+          whiteFlash(0.14, 0xffd23f, 90);
+          Sound.sfx('bladeSnap', 1, 1.0); Sound.sfx('choirChord', 0.8, 0.7);
+          run.shake(200, 5);
         }
       }
     }
     if (choirBladeT > 0 && choirBladePts) {
       choirBladeT -= dt;
+      if (choirBladeBase && sm.bladeShrink) {
+        const k = clamp01(1 - choirBladeT / sm.bladeSec), s = 1 - sm.bladeShrink * k * k;   // 加速して締まる
+        const B0 = choirBladeBase;
+        choirBladePts = B0.pts.map((p) => ({ x: B0.cx + (p.x - B0.cx) * s, y: B0.cy + (p.y - B0.cy) * s }));
+        if (k > 0.5 && !choirBladeHit && (Math.floor(run.elapsed * 30) % 3 === 0)) run.spawnParticles(B0.cx, B0.cy, 0xffd23f, 2);
+      }
       if (!choirBladeHit) {
         const pts = choirBladePts, m = pts.length, half = 4 + run.player.radius;
         for (let i = 0; i < m; i++) {
@@ -4885,6 +4913,8 @@ export function createBoss(run) {
       decel: opts.decel || 0, noHit: !!opts.noHit,   // R29: 転がって止まる爆弾（触れても爆ぜない＝時間で爆発）
       cause: d.cause,   // 2026-09-13 ⚠️ d.cause は表示物に付けていて弾には無かった＝弾の死因が命中時の state で決まっていた
       stick: opts.stick || null, stuck: false, flyT: 0,   // 2026-09-13 ⑧聖釘：after 秒で地面に刺さり holdSec 後に爆ぜる
+      // 2026-09-13 止まってから襲う（鎮魂の鐘の硝子片）：発射速度 × mul0 → mul1 を sec 秒で。updateBullets が読む
+      acc: opts.accel ? { vx0: vx, vy0: vy, mul0: opts.accel.mul0, mul1: opts.accel.mul1, sec: opts.accel.sec || 0.7, t: 0 } : null,
       // R52b: ドリルシェルが**1回だけ**曲がるための3点（bendAt 秒後に最大 bendDeg まで向き直す）
       bendAt: opts.bendAt || 0, bendMax: (opts.bendDeg || 0) * D2R, bent: false,
       life: opts.life != null ? opts.life : 3,
@@ -5057,6 +5087,13 @@ export function createBoss(run) {
         const bl = b.life < 0.5 ? (Math.floor(b.life * 16) % 2 === 0) : (Math.floor(b.life * 6) % 2 === 0);
         b.spr.setAlpha(bl ? 1 : 0.5); b.glow.setAlpha(b.life < 0.5 ? 1 : 0.45);
         if (b.life < 0.5) b.glow.setDisplaySize(b.stick.burstR * 2 * (1 - b.life), b.stick.burstR * 2 * (1 - b.life));
+      }
+      // 2026-09-13 止まってから襲う（accel）：発射時の速度 × mul0 から mul1 へ sec 秒で線形に。硝子片（鎮魂の鐘）が使う
+      if (b.acc) {
+        b.acc.t += dt;
+        const k = clamp01(b.acc.t / b.acc.sec), m = b.acc.mul0 + (b.acc.mul1 - b.acc.mul0) * k;
+        b.vx = b.acc.vx0 * m; b.vy = b.acc.vy0 * m;
+        if (k >= 1) b.acc = null;
       }
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       b.spr.setPosition(b.x, b.y);

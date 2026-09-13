@@ -915,6 +915,33 @@ const SFX = {
     noiseHit({ start: 0.32, dur: 0.16, gain: 0.12 * g, hpFreq: 2500, lpFreq: 10000 });
     tone({ start: 0.32, type: 'sine', freq: 3200 * p, freqEnd: 2200 * p, dur: 0.12, gain: 0.05 * g, attack: 0.002 });
   },
+  // 2026-09-13 鎮魂の鐘の作り直し：硝子の雨＝砕けた硝子が一斉に降る（高い割れ音の束が少しずつずれて鳴る＋地の底の衝撃＋深いダッキング）。
+  //   1波ごとに鳴る。pitch は波ごとに上げる（3波目がいちばん高く大きい）。
+  glassRain(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.20, 0.14, 0.40);
+    tone({ type: 'sine', freq: 70 * p, freqEnd: 24 * p, dur: 0.55, gain: 0.30 * g, attack: 0.002 });
+    noiseHit({ dur: 0.10, gain: 0.30 * g, hpFreq: 900, lpFreq: 9000, lpEnd: 1200 });
+    const fs = [4186, 3520, 4699, 3136, 5274, 3951, 4435, 2794];
+    for (let i = 0; i < fs.length; i++) {
+      const t = i * 0.022;
+      tone({ start: t, type: 'sine', freq: fs[i] * p, dur: 0.16 + (i % 3) * 0.04, gain: 0.045 * g, attack: 0.001, verb: 0.5 });
+      noiseHit({ start: t, dur: 0.03, gain: 0.09 * g, hpFreq: 5000, lpFreq: 15000 });
+    }
+    tone({ start: 0.05, type: 'triangle', freq: 1046 * p, freqEnd: 700 * p, dur: 0.28, gain: 0.08 * g, attack: 0.002 });
+    tone({ start: 0.02, type: 'sine', freq: 2093 * p, freqEnd: 1568 * p, dur: 0.45, gain: 0.07 * g, attack: 0.002, verb: 0.55 });
+  },
+  // 2026-09-13 聖歌隊の刃が閉じる：金属の刃が空を裂く（高い正弦の急降下＋鉄の擦れ＋鞭の破裂＋低い締まり）。
+  bladeSnap(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.22, 0.10, 0.35);
+    tone({ type: 'sine', freq: 5200 * p, freqEnd: 900 * p, dur: 0.34, gain: 0.14 * g, attack: 0.001 });
+    tone({ type: 'sawtooth', freq: 2400 * p, freqEnd: 400 * p, dur: 0.30, gain: 0.06 * g, attack: 0.002 });
+    noiseHit({ dur: 0.30, gain: 0.20 * g, hpFreq: 2400, lpFreq: 14000, lpEnd: 2000 });
+    noiseHit({ start: 0.30, dur: 0.05, gain: 0.34 * g, hpFreq: 1200, lpFreq: 12000 });
+    tone({ start: 0.30, type: 'sine', freq: 180 * p, freqEnd: 40 * p, dur: 0.40, gain: 0.30 * g, attack: 0.002 });
+    tone({ start: 0.31, type: 'sine', freq: 6400 * p, dur: 0.25, gain: 0.05 * g, attack: 0.001, verb: 0.5 });
+  },
   // 2026-09-13 撃破「祈りの終わり」の昇天：光の中を昇る（D ハーモニックマイナーの音が1つずつ上へ抜けていく＋高い空気＋地の底の持続音が上がる）。sec＝昇る尺。
   cathAscend(sec) {
     const S = sec == null ? 1.8 : sec, n = 10, d = S / n;
