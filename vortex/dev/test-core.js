@@ -4120,7 +4120,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R52a: 最終ボスの警告は従来どおり warning 1回（強化は非finalの側にだけ入っている）');
   assert(/if \(cfg\.final\) Sound\.sfx\('bigBoom'\);[\s\S]{0,260}?else bossArrival\(x, y\);/.test(boss),
     'R52a: 最終ボスの登場音は従来どおり bigBoom（着地演出は非finalの側にだけ入っている）');
-  assert(/if \(cfg\.final\) Sound\.startBgm\('maou'\);/.test(boss),
+  // 2026-09-13 ジャム版の堕天の大聖堂が専用曲を持つので tier の bgm を優先（無ければ maou＝従来どおり）
+  assert(/if \(cfg\.final\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(boss),
     'R52a: 最終ボスのBGMは遅延なしで即時（maouIntro が音の間を持っている）');
   assert(/state = 'maouIntro';\s*\n\s*stateT = MAOU_INTRO\.dur;/.test(boss),
     'R52a: maouIntro（暗幕＋セリフ2行＋テロップ）の入口はそのまま');
@@ -4365,8 +4366,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/Sound\.sfx\('talkTick'\)/.test(boss) && /talkTick\(\) \{/.test(snd),
     'R53: 数文字ごとに小さな打鍵音が鳴る');
   // 会話3種が typing=true で呼ばれている
-  assert(/introText\('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3, true\)/.test(boss)
-      && /introText\('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3, true\)/.test(boss),
+  // 2026-09-13 セリフは tier の introLines から引く。既定（マオウレクス）は従来の2行・色・位置そのまま。
+  assert(/\{ text: 'よくぞ来た 小さき光よ', color: '#bff5ff' \}/.test(boss)
+      && /\{ text: 'この世界の光は 我が手で消す', color: '#ff7a7a' \}/.test(boss)
+      && /introText\(IL\[0\]\.text, IL\[0\]\.color, 108, 16, 3, true\)/.test(boss)
+      && /introText\(IL\[1\]\.text, IL\[1\]\.color, 140, 16, 3, true\)/.test(boss),
     'R53: マオウレクス登場の2行がタイプ表示');
   assert(/introText\(tf\.text2, '#ffedb0', 140, 20, 4, true\)/.test(boss)
       && /introText\(tf\.text3, '#ff7a7a', 150, 21, 5, true\)/.test(boss),
@@ -4398,8 +4402,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R53: floatText（ダメージ数値など）はタイプしない');
   assert(!/typeInto|typeMs/.test(fx.replace(/finishSpeech/g, '')),
     'R53: fx.announce（バナー）もタイプしない＝会話と気づかせる文を見た目で分ける');
-  for (const plain of ["introText\\('【マオウレクスが現れた】', '#ffffff', 186, 22, 5\\)",
-                       "introText\\('よわてん：むねの コアを ねらえ！', cfg\\.weak\\.coreTint, 216, 17, 3\\)"]) {
+  for (const plain of ["introText\\(cfg\\.telop \\|\\| '【マオウレクスが現れた】', '#ffffff', 186, 22, 5\\)",
+                       "'よわてん：むねの コアを ねらえ！',\\s*cfg\\.weak\\.coreTint, 216, 17, 3\\)"]) {
     assert(new RegExp(plain).test(boss),
       'R53: テロップと弱点ヒントは会話ではないので一気に出す（typing を渡していない）');
   }
@@ -4923,7 +4927,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R57: 開始時に一度だけ「がめん すっきり」と名乗る（どっちで遊んでいるか分かる）');
 
   // --- ⑤ 中断→やりなおし（ポーズ中の R）でモードが外れない ---
-  assert(/scene\.restart\(\{[\s\S]{0,160}?tidyRun: this\.tidyRun \}\)/.test(runjs),
+  assert(/scene\.restart\(\{[\s\S]{0,160}?tidyRun: this\.tidyRun[^}]*\}\)/.test(runjs),
     'R57: やりなおしてもすっきりのまま（途中で普通の画面に戻らない）');
 
   // --- ⑥ 死んで戻ってきても続けられる（ここが抜けると感想が混ざる） ---
@@ -5454,7 +5458,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ① 進行度は倒した数だけで進み、次のボスの地点で頭打ち・ボスの予告中/戦闘中は止まる ---
   assert(BALANCE.progress && BALANCE.progress.secPerKill > 0, 'R68: BALANCE.progress.secPerKill がある');
   assert(/if \(by !== 'expire'\) this\.advanceProgress\(\);/.test(runjs), 'R68: 雑魚を倒すたびに進行度が進む（時間切れ消滅は数えない）');
-  assert(/this\.progress = Math\.min\(gate, this\.progress \+ BALANCE\.progress\.secPerKill\)/.test(runjs),
+  assert(/const per = BALANCE\.progress\.secPerKill \* \(this\.jamMode \? BALANCE\.jam\.progressMul : 1\)/.test(runjs)
+      && /this\.progress = Math\.min\(gate, this\.progress \+ per\)/.test(runjs),
     'R68: 進行度は次のボスの地点で頭打ち＝大量撃破でもボスの間の雑魚区間を飛ばさない');
   assert((runjs.match(/this\.progress\s*[+-]?=/g) || []).length === 2, 'R68: 進行度を書き換えるのは初期化と advanceProgress の2か所だけ（時間では進まない）');
   const gateFn = bossjs.slice(bossjs.indexOf('function progressGate()'), bossjs.indexOf('function progressGate()') + 400);

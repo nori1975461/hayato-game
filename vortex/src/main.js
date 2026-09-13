@@ -17,7 +17,8 @@ const seedParam = parseInt(params.get('seed'), 10);
 const seed = Number.isFinite(seedParam) && seedParam > 0 ? seedParam : 20260720;
 const autotest = params.get('autotest') === '1';
 const practice = params.get('practice') === '1';   // れんしゅうじょうへ直行（検証用）
-window.VORTEX = { seed, autotest, practice };
+const jam = params.get('jam') === '1';             // 2026-09-13 ジャム版へ直行（ボット検証用・タイトルの J と同じ）
+window.VORTEX = { seed, autotest, practice, jam };
 
 const Phaser = window.Phaser;
 

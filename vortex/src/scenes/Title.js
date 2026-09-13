@@ -60,19 +60,23 @@ export class TitleScene extends Phaser.Scene {
       this.squad.push({ g, spr, x, y: 248, phase: i * 1.3 });
     }
 
-    this.add.text(W / 2, 322, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
+    this.add.text(W / 2, 316, 'T キー で れんしゅうじょう（あたらしい しくみを ためす）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#7fffcf',
     }).setOrigin(0.5);
     // ★おためしモードの入口。実プレイFB「画面内に情報量が多くて処理しきれない」を
     //   短いループで比べるための場所なので、切替キー(I)まで含めてここに書いておく
     //   （本編を1周してから気づく作りだと、比べる前に疲れる）。
-    this.add.text(W / 2, 336, 'R キー で 1めんボス おためし（I キーで じょうほうりょう きりかえ）', {
+    this.add.text(W / 2, 329, 'R キー で 1めんボス おためし（I キーで じょうほうりょう きりかえ）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
     }).setOrigin(0.5);
     // ★R57 すっきりモードの入口。おためし(R)は1面で終わるので「本編を最後まですっきりで遊ぶ」が
     //   できなかった。感想をもらうには本編を通しで遊べる必要があるので、専用の入口を分ける。
-    this.add.text(W / 2, 350, 'S キー で ほんぺんを がめんすっきりで あそぶ', {
+    this.add.text(W / 2, 342, 'S キー で ほんぺんを がめんすっきりで あそぶ', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
+    }).setOrigin(0.5);
+    // ★2026-09-13 ジャム版（unity1week 向け・3分・ボス2体）の入口。
+    this.add.text(W / 2, 355, 'J キー で ジャムばん（3ぷん・ボス2たい）', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#ffd23f',
     }).setOrigin(0.5);
 
     // 版番号。実プレイFB「私が見てるURLが違うのか？」への恒久対策。
@@ -128,6 +132,13 @@ export class TitleScene extends Phaser.Scene {
       this._started = true;
       Sound.init();
       this.scene.start('Run', { withAudio: true, bossTrial: true });
+    });
+    // ★2026-09-13 ジャム版：3分・ボス2体（ウズバルカン→堕天の大聖堂）。入口は scene のデータ1本。
+    this.input.keyboard.once('keydown-J', () => {
+      if (this._started) return;
+      this._started = true;
+      Sound.init();
+      this.scene.start('Run', { withAudio: true, jamRun: true });
     });
     // ★R57 すっきりモード：**本編そのもの**を最初から「がめん すっきり」で遊ぶ。
     //   ⚠️ プレイ中の切替（Iキー）は効かせない。感想をもらうのが目的なので、
@@ -188,6 +199,6 @@ export class TitleScene extends Phaser.Scene {
     const V = window.VORTEX || {};
     // ★R57 一度 S で入っていたら SPACE／クリックでもすっきりのまま始める（上の注釈の理由）。
     this.scene.start('Run', { withAudio: !!withAudio, practice: !!V.practice,
-      tidyRun: !!V.tidySticky });
+      tidyRun: !!V.tidySticky, jamRun: !!V.jam });
   }
 }

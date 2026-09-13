@@ -1,6 +1,6 @@
 // scenes/Boot.js — テキストグリッドをテクスチャ化してから Title へ（PROTOTYPE_SPEC §5.1）。
 import { MONSTERS, PLAYER_SPRITE, PLAYER_SPRITES, HERO_FISTS } from '../data/monsters.js';
-import { ENEMIES, BOSSES, MINIROBO } from '../data/enemies.js';
+import { ENEMIES, BOSS_DEFS_ALL, MINIROBO } from '../data/enemies.js';
 import { UPGRADE_ICONS } from '../ui/icons.js';
 import { ENDING_ART } from '../data/ending_art.js';
 import { createRng } from '../core/rng.js';
@@ -31,7 +31,7 @@ export class BootScene extends Phaser.Scene {
     // R12: 主人公の主武器（クラッシュアーム＝殴る瞬間だけ突き出す拳）。
     HERO_FISTS.forEach((s, i) => this.makeGrid('hero_fist' + (i + 1), s));
     // ボス（Wave R3：ロボット6体・7パーツリグ）。sprites の各パーツを boss_<id>_<part> でテクスチャ化。
-    for (const d of BOSSES) {
+    for (const d of BOSS_DEFS_ALL) {   // 2026-09-13 ジャム版の堕天の大聖堂も含む
       for (const [k, s] of Object.entries(d.sprites)) this.makeGrid('boss_' + d.id + '_' + k, s);
     }
     // 強化アイコン7種

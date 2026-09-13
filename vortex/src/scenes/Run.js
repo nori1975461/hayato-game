@@ -79,6 +79,9 @@ export class RunScene extends Phaser.Scene {
     //      （ここで独自の「すっきり」を作ると、比べた結果がどちらの話か分からなくなる）。
     //   ⚠️ 入口は scene のデータ1本（practiceMode と同じ理由）。
     this.tidyRun = !!(data && data.tidyRun);
+    // ★2026-09-13 ジャム版（タイトルの J キー）。unity1week 向けの3分・ボス2体（ウズバルカン→堕天の大聖堂）。
+    //   進行度と成長を BALANCE.jam で圧縮し、ボスは BALANCE.boss.jamTiers を使う。入口は scene のデータ1本。
+    this.jamMode = !!(data && data.jamRun);
     this._trialDone = false;   // シーンは再利用されるので再入のたびに戻す
     this._infoDmgT = null;     // 数字間引きの時計も戻す（elapsed が巻き戻るので、残すと数字が長く消える）
     // 情報レベル。0=ふつう（従来と完全に同じ）／1=ひかえめ（③装飾を間引く）／2=すっきり（②HUDも整理）。
@@ -437,7 +440,7 @@ export class RunScene extends Phaser.Scene {
   restartRun() {
     if (this.withAudio) Sound.stopBgm();
     this.scene.restart({ withAudio: this.withAudio, practice: this.practiceMode,
-      bossTrial: this.trialMode, tidyRun: this.tidyRun });
+      bossTrial: this.trialMode, tidyRun: this.tidyRun, jamRun: this.jamMode });
   }
 
   // v3でドラフトUIは廃止（★は自動強化）。外部参照の保険として no-op で残す。
@@ -2214,7 +2217,8 @@ export class RunScene extends Phaser.Scene {
   //   次のボスの地点で頭打ちにする＝一度の大量撃破で次のボスを飛び越えない（ボスの間は必ず雑魚の区間になる）。
   advanceProgress() {
     const gate = this.boss && this.boss.progressGate ? this.boss.progressGate() : Infinity;
-    if (this.progress < gate) this.progress = Math.min(gate, this.progress + BALANCE.progress.secPerKill);
+    const per = BALANCE.progress.secPerKill * (this.jamMode ? BALANCE.jam.progressMul : 1);   // ジャム版は圧縮
+    if (this.progress < gate) this.progress = Math.min(gate, this.progress + per);
   }
 
   // R21W2: by は撃破の帰属。手動でよろけを割った撃破だけがXP倍になる。
@@ -2809,7 +2813,7 @@ export class RunScene extends Phaser.Scene {
       const pf = this.perf || {};
       const hasF = pf.frames > 0;
       saveRun({
-        mode: this.tidyRun ? 'すっきり' : 'ふつう',
+        mode: this.jamMode ? 'ジャム' : this.tidyRun ? 'すっきり' : 'ふつう',
         clear: !!clear,
         t: Math.round(this.elapsed),
         k: this.kills, cap: this.captures, coin: this.coins,

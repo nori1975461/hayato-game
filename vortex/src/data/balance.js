@@ -11,6 +11,16 @@ export const BALANCE = {
   //   ボス・エリート・ラッシュ・洞窟・祠・祭壇・枠・湧きの強さの「〜Sec」はすべてこの進行度の値
   //   （名前は互換のため据え置き）。経過時間は表示と記録（Result のタイム・ボス秒）にだけ使う。
   progress: { secPerKill: 0.5 },
+  // ★2026-09-13 ジャム版（unity1week・1プレイ3分・ボス2体＝ウズバルカン→堕天の大聖堂）。
+  //   進行度を本編の progressMul 倍で進める＝雑魚の強さ・エリート・切り札の配布・ボスの地点がすべて圧縮される
+  //   （ユーザー決定「ジャム版の成長曲線を圧縮して」）。XP も xpMul 倍。
+  //   尺の設計（設計書2章）：雑魚45秒 → ウズバルカン35秒 → 休み25秒 → 大聖堂75秒 ＝ 180秒。
+  //   progressMul 4 の根拠：本編の進行度は実時間とほぼ同速（コロガンナー60→実測52〜57秒）なので、
+  //   ウズバルカンの地点 180 は 45秒、そこから大聖堂 280 までの 100 は 25秒になる。
+  //   ⚠️ HP・尺は実装後に本番条件のボット（kid/boss）で実測して確定する（R64 の教訓）。
+  //   ⚠️2026-09-13 実測（ボスを狙うボット・seed42）：mul 4 では 30秒で倒88＝進176（5.9/秒）→ウズバルカン33秒・大聖堂65秒＝速すぎ。
+  //   目標（45秒／105秒）に合わせて 3 へ（4.4/秒 → 180 は約41秒・280 は約78秒＋戦闘）。最終値は段階Bのあと kid/boss 両ボットで確定。
+  jam: { progressMul: 3, xpMul: 1.5 },
   // R12: 被弾に「押し返される」重みを持たせる（hurtKnockback）。lowHpRatio を割ると画面周縁が赤く脈打つ。
   // R22: 実プレイFB「主人公の動きを最初からもう少し早く。遅くてストレス」→ 120→148（+23%）。
   //   敵の最速はチビット62px/s なので、逃げ切れる余地は元々あった。問題は「操作した実感が鈍い」こと。
@@ -2038,3 +2048,57 @@ export const BALANCE = {
     { untilSec: 9999, weights: { chibit: 0.18, gareon: 0.22, snipa: 0.22, turret: 0.20, bomba: 0.18 } },
   ],
 };
+
+// ★2026-09-13 ジャム版のボス表（Run.jamMode のとき boss.js が tiers の代わりに読む）。
+//   ①ウズバルカン＝本編の tier をそのまま借りて HP と地点だけ変える（攻撃4種・phase2 は本編と同じ）。
+//     HP 9000→4500 の根拠：ジャムではボス①＝装備はコロガンナー時点相当。人間の実測DPSは 53〜90/秒
+//     （製作者 90・息子さん 53〜90）で、目標35秒×90〜130＝3150〜4550。撃破で全回復（R66 と同じ healOnKill）。
+//   ②堕天の大聖堂＝最終ボス。HP 9000・ゲージ3本（3000×3）。出現105秒＝ジェットバイパー時点の人間DPS 71〜119/秒 ×
+//     目標75秒＝9000。切り札3発（15%×3）と全回復込みで初見の大人が90〜100秒、製作者60秒前後の想定。
+//     聖核（weak）は gate:false＝**ボーナス**（本体にも通り、コアなら2.4倍）。段階は 66%（堕天・硝子が深紅）／33%（破鐘）。
+//     攻撃7種（薔薇窓の裁き／鎮魂の鐘／堕天の聖歌隊／鉄羽の雨／配線の鞭／破鐘／尖塔の連打）は boss.js に順次実装。
+BALANCE.boss.jamTiers = [
+  {
+    ...BALANCE.boss.tiers.find((t) => t.bossId === 'uzuking'),
+    warnSec: 178, spawnSec: 180,
+    hp: 4500, healOnKill: true, rewardCoins: 300,
+  },
+  {
+    tier: 'final', bossId: 'cathedral', final: true,
+    warnSec: 278, spawnSec: 280, spawnDist: 350,
+    bgm: 'cathedral',
+    introLines: [{ text: 'いのりとどかぬものへ', color: '#cfe0ff' }, { text: 'さばきを', color: '#ff5a6a' }],
+    telop: '【堕天の大聖堂が現れた】',
+    hp: 9000, radius: 88, spriteScale: 6.2, glowScale: 11.0,
+    gaugeSegments: 3,
+    specialBulletMul: 0.5,     // らいこうだん1発＝30%×0.5＝15%＝ゲージ半本
+    glowOuter: '#c9971f', glowInner: '#1f47b8',
+    chaseSpeed: 40, bodyDamage: 24,
+    // ⚠️ 段階A（骨組み）は既存の攻撃だけで動かす。署名攻撃4種は段階Bで差し替える。
+    attacks: ['tsunami', 'summon', 'barrage', 'vulcan'],
+    weak: {
+      radius: 40, offY: 0.28, swayX: 0, swaySec: 1, phase2SwaySec: 1,
+      mul: 2.4, gate: false, tint: '#ff5a6a', coreTint: '#fff2a8', label: 'コアヒット！',
+    },
+    // ②鎮魂の鐘の土台（wavelord の tsunami）。穴 64°＝光輪の欠け。
+    tsunami: { telegraphSec: 0.6, waves: 3, waveInterval: 0.45, count: 24, gapDeg: 64,
+               gapSpinDeg: 40, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.4 },
+    // ③堕天の聖歌隊＝投げ弾の供給
+    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6 },
+    // ④鉄羽の雨の土台（missilga の barrage）
+    barrage: { telegraphSec: 0.9, count: 14, launchInterval: 0.050, spread: 130, leadSec: 0.55,
+               warnSec: 0.9, blastRadius: 56, damage: 18 },
+    // ⑦尖塔の連打の土台（maou の vulcan）
+    vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 300,
+              bulletRadius: 5, damage: 14, lifeSec: 1.9 },
+    // ⑤配線の鞭（maou の wirearm と同値）
+    wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
+               extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54 },
+    dash: { telegraphSec: 0.9, speed: 300, durationSec: 0.6, damage: 30 },
+    ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.6 },
+    idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2, 2.2, 2.2] },
+    phase2: true, phase2HpRatio: 0.667, phase2IdleMult: 0.75, phase2DashSpeedMult: 1.1,
+    rageText: '大聖堂が くずれはじめた！', bulletTint: '#ff5a6a',
+    rewardCoins: 900, deathCinematicSec: 2.5,
+  },
+];

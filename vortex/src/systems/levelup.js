@@ -15,7 +15,7 @@ export function createLevelup(run) {
   }
 
   function addXp(amount) {
-    run.xp += amount;
+    run.xp += amount * (run.jamMode && BALANCE.jam ? BALANCE.jam.xpMul : 1);   // 2026-09-13 ジャム版は成長を圧縮
     while (run.xp >= run.xpNeed) {
       run.xp -= run.xpNeed;
       run.level += 1;

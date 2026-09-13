@@ -4,7 +4,7 @@
 // 見た目は def.rig で組み、本体そのものが動く。FB#8 で rig 構造をボディタイプ別（UFO/戦闘機/多脚/戦車/
 // ミサイルキャリア/大型人型）に作り分けたため、role も型ごとに増えている（dome/wing/qleg/track/rack/pod/base/thruster）。
 import { BALANCE } from '../data/balance.js';
-import { BOSSES, ENEMIES, MINIROBO } from '../data/enemies.js';
+import { BOSSES, BOSS_DEFS_ALL, ENEMIES, MINIROBO } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
 
 const Phaser = window.Phaser;
@@ -46,10 +46,11 @@ const INTRO_LIFT = 1000;
 export function createBoss(run) {
   const B = BALANCE.boss;
   const W = BALANCE.wave;
-  const tiers = B.tiers;
+  // ★2026-09-13 ジャム版（run.jamMode）は専用の tier 表（BALANCE.boss.jamTiers＝ウズバルカン→堕天の大聖堂）
+  const tiers = (run.jamMode && B.jamTiers) ? B.jamTiers : B.tiers;
   const killsPerCharge = BALANCE.special.killsPerCharge;
   const bossMap = {};
-  for (const d of BOSSES) bossMap[d.id] = d;
+  for (const d of BOSS_DEFS_ALL) bossMap[d.id] = d;
 
   // --- スケジューラ状態（BALANCE は書き換えない・ローカルで進行管理） ---
   const warnedArr = tiers.map(() => false);
@@ -174,7 +175,7 @@ export function createBoss(run) {
 
   // --- Boot.js がボステクスチャ未生成でも動くよう自前生成（全ボスの全パーツ＋弾） ---
   function ensureTextures() {
-    for (const d of BOSSES) {
+    for (const d of BOSS_DEFS_ALL) {
       for (const [k, s] of Object.entries(d.sprites)) makeSprite(`boss_${d.id}_${k}`, s);
       // ★真の姿（第4形態）のパーツ。BOSSES には別エントリとして足さない＝ステージの並びに影響させない。
       //   キーは `boss_maou_T<tex>` と接頭辞で分ける（通常パーツと名前が衝突しない）。
@@ -187,6 +188,12 @@ export function createBoss(run) {
       if (d.palette3) {
         for (const [k, s] of Object.entries(d.sprites)) {
           makeSprite(`boss_${d.id}_P${k}`, { palette: d.palette3, rows: s.rows });
+        }
+      }
+      // ★2026-09-13 堕天の大聖堂：段階2「堕天」で硝子が全部深紅になる焼き直し（R 接頭辞・enterPhase2 で差し替え）
+      if (d.palette2) {
+        for (const [k, s] of Object.entries(d.sprites)) {
+          makeSprite(`boss_${d.id}_R${k}`, { palette: d.palette2, rows: s.rows });
         }
       }
     }
@@ -449,7 +456,7 @@ export function createBoss(run) {
     // ★R52 非finalは着地の衝撃音（metalSlam＋bigBoom）と頭がぶつかるので 0.38 秒だけ遅らせる。
     //   同時に鳴らすと「ドン！」も「曲が変わった」も両方ぼやける＝どちらも届かなくなる。
     if (run.withAudio) {
-      if (cfg.final) Sound.startBgm('maou');
+      if (cfg.final) Sound.startBgm(cfg.bgm || 'maou');   // 2026-09-13 堕天の大聖堂は専用曲 cathedral
       else run.time.delayedCall(380, () => { if (boss && boss.active) Sound.startBgm('boss'); });
     }
   }
@@ -703,27 +710,33 @@ export function createBoss(run) {
         //   （小6・漢字OK。世界がひらがなの中で、この者だけ漢字で話す＝異質さと格）。
         //   意味のつながり＝オープニングの命令「セカイから ひかりを けせ」を出した張本人が、
         //   主人公を「小さき光」と呼んで同じ宣告を重ねる。エンディング「ひかりが もどった」の対句。
+        // ★2026-09-13 セリフ・テロップは tier の introLines/telop から引く（ジャム版の堕天の大聖堂が別の言葉を持つ）。
+        //   無ければマオウレクスの既定＝従来と1文字も変わらない。
+        const IL = cfg.introLines || [{ text: 'よくぞ来た 小さき光よ', color: '#bff5ff' },
+                                      { text: 'この世界の光は 我が手で消す', color: '#ff7a7a' }];
         if (introStage < 1 && it >= MAOU_INTRO.line1At) {
           introStage = 1;
           // R53 この2行は**会話**なので1文字ずつ出す（末尾の true）。テロップと弱点ヒントは
           //   会話ではないので一気に出す＝「読む文」と「知らせる文」を見た目で分ける。
-          introText('よくぞ来た 小さき光よ', '#bff5ff', 108, 16, 3, true);
+          introText(IL[0].text, IL[0].color, 108, 16, 3, true);
         }
         if (introStage < 2 && it >= MAOU_INTRO.line2At) {
           introStage = 2;
-          introText('この世界の光は 我が手で消す', '#ff7a7a', 140, 16, 3, true);
+          if (IL[1]) introText(IL[1].text, IL[1].color, 140, 16, 3, true);
         }
         if (introStage < 3 && it >= MAOU_INTRO.telopAt) {
           introStage = 3;
-          introText('【マオウレクスが現れた】', '#ffffff', 186, 22, 5);
+          introText(cfg.telop || '【マオウレクスが現れた】', '#ffffff', 186, 22, 5);
           run.shake(220, 4);
           Sound.sfx('bigBoom');   // 「現れた」の一撃感（既存SFX）
         }
         // ★弱点コアの遊び方は、最初に必ず言葉で教える。
         //   「当たっているのに減らない」は、理由が分からないと理不尽にしか感じられないため。
+        //   ★2026-09-13 weak.gate === false（堕天の大聖堂）はコアが**ボーナス**＝本体にも通るので言葉も変える。
         if (introStage < 4 && cfg.weak && it >= MAOU_INTRO.hintAt) {
           introStage = 4;
-          introText('よわてん：むねの コアを ねらえ！', cfg.weak.coreTint, 216, 17, 3);
+          introText(cfg.weak.gate === false ? 'むねの コアに あてると ダメージ 2.4ばい！' : 'よわてん：むねの コアを ねらえ！',
+            cfg.weak.coreTint, 216, 17, 3);
           Sound.sfx('warning');
         }
         if (stateT <= 0) endIntro();
@@ -1344,6 +1357,13 @@ export function createBoss(run) {
     // ★R30 マオウレクスは phase2 ＝ 分離。節目を1つにまとめる（節目が多いほど1つ1つが薄まる）。
     if (cfg.split) { startSplit(); return; }
     if (cfg.rageText) run.floatText(boss.x, boss.y - 40, cfg.rageText, '#ff5e5e');
+    // ★2026-09-13 堕天の大聖堂：段階2「堕天」で硝子が全部深紅になる（ユーザー決定）。tint では藍は赤にならない
+    //   （マオウレクスの紫と同じ理由）ので、深紅パレットで焼いた別テクスチャへ白フラッシュ越しに差し替える。
+    if (def.palette2 && disp) {
+      for (const p of disp.parts) { if (p.tex) p.img.setTexture(`boss_${def.id}_R${p.tex}`); }
+      whiteFlash(0.30);
+      Sound.sfx('thunder', 0.8);
+    }
   }
 
   // ============ R30 分離／再合体（マオウレクス専用） ============
@@ -3220,6 +3240,9 @@ export function createBoss(run) {
     const dx = at.x - w.x, dy = at.y - w.y;
     const rr = w.r + (at.r || at.hitR || 0);
     if (dx * dx + dy * dy <= rr * rr) return { pass: true, mul: at.r ? 1 : weakCfg().mul, core: !at.r };
+    // ★2026-09-13 weak.gate === false＝コアはゲートでなくボーナス（堕天の大聖堂）。外しても本体に等倍で通る。
+    //   R67 の教訓＝「通らない場所」のルールは初見に読めない。ジャム版は初見の大人が1回で読み切る必要がある。
+    if (weakCfg().gate === false) return { pass: true, mul: 1 };
     return { pass: false, mul: 0 };
   }
   // 弾かれた（＝コアを外した）ときの反応。多発するので音と文字は間引く。
