@@ -75,7 +75,10 @@ export function matches(st) {
     if (s.hits === 0) out.push('clear_pure');
     if (s.haloHit) out.push('clear_halo');
     if (s.choirBest >= 8) out.push('clear_choir');
-    if (s.bossSec > 0 && s.bossSec < 60) out.push('clear_fast');
+    // ★2026-09-14 60→75秒（ユーザー承認）。60秒は届かない条件だった：無敵ボットでも 47〜56秒（雑魚なし・
+    //   全弾命中の上限側）、人間の実プレイは45回で 71・97・123・136・141・152・171・191秒で最速71秒。
+    //   条件は「上手い人が狙える」位置に置く＝最速記録のすぐ上に 75 を置き、王冠の3位を到達可能にする。
+    if (s.bossSec > 0 && s.bossSec < 75) out.push('clear_fast');
     if (s.hits <= 5) out.push('clear_wing');
     if (s.shardShare >= 0.5) out.push('clear_armor');
     if (!s.shardHits && !s.haloHit && !s.specHits) out.push('clear_hand');
@@ -129,7 +132,7 @@ export function clearHint(st, seen, curRank) {
     { id: 'clear_halo', cond: !s.haloHit, text: '光輪の欠片を当てて覆せば' },
     { id: 'clear_choir', cond: !(s.choirBest >= 8), text: '聖歌隊8体を投げ返して覆せば' },
     { id: 'clear_armor', cond: !(s.shardShare >= 0.5), text: '与ダメの半分を装甲片で覆せば' },
-    { id: 'clear_fast', cond: !(s.bossSec != null && s.bossSec < 60), text: '60秒以内に覆せば' },
+    { id: 'clear_fast', cond: !(s.bossSec != null && s.bossSec < 75), text: '75秒以内に覆せば' },
   ];
   for (const c of cand) {
     const v = VERDICTS.find((x) => x.id === c.id);

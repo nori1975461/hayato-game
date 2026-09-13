@@ -1574,6 +1574,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/hitPlayer\(b\.blast, b\.x, b\.y, b\.cause\)/.test(bj15), 'JAM15: 爆風の被ダメも弾が持つ cause で振り分ける（chase 中に「巨体」へ化けない）');
       const rs15 = read('scenes/Result.js');
       assert(/ばん \$\{BUILD\}/.test(rs15) && /import \{ BUILD \}/.test(rs15), 'JAM15: 結果画面の左下に版番号を出す（どの版の記録か画面で分かる）');
+      // ★2026-09-14 第3位「刹那に裁きし者」は 60→75秒（ユーザー承認）。60秒は無敵ボットでも 47〜56秒・人間の最速は71秒で到達不能だった
+      const vd16 = read('data/verdict.js');
+      assert(/s\.bossSec > 0 && s\.bossSec < 75/.test(vd16) && /bossSec < 75\), text: '75秒以内に覆せば'/.test(vd16),
+        'JAM15: 第3位の条件は 75 秒（matches と clearHint の両方・数字がずれていると一覧と案内が食い違う）');
     }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
