@@ -7,6 +7,7 @@ import { MONSTERS } from '../data/monsters.js';
 import { BALANCE } from '../data/balance.js';
 import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint, clearHint } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
+import { BUILD } from '../data/version.js';
 
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
@@ -163,7 +164,9 @@ export class ResultScene extends Phaser.Scene {
       const p = d.perf;
       const fps = p.frames / Math.max(0.001, p.ms / 1000);
       const pct = (n) => (n / p.frames * 100).toFixed(1);
-      this.add.text(6, H - 4, `しょり ${fps.toFixed(0)}fps・30fpsわれ ${pct(p.slow)}%・おくれ ${pct(p.clamp)}%`, {
+      // ★2026-09-14 版番号をここに出す。45回目の結果は巨体72(3)＝1発24で、その版の接触は16＝**古い版で遊んでいた**
+      //   （キャッシュ）と分かったが、画面からは特定できなかった。以後この行で「どの版の記録か」が読める。
+      this.add.text(6, H - 4, `しょり ${fps.toFixed(0)}fps・30fpsわれ ${pct(p.slow)}%・おくれ ${pct(p.clamp)}%・ばん ${BUILD}`, {
         fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8',
       }).setOrigin(0, 1).setAlpha(0.85);
     }

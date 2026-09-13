@@ -5127,7 +5127,9 @@ export function createBoss(run) {
         } else if (b.kind === 'missile' && b.blast > 0) {
           const dx = b.x - px, dy = b.y - py, rr = 30 + run.player.radius;
           const near = dx * dx + dy * dy <= rr * rr;
-          if (near) run.hitPlayer(b.blast, b.x, b.y);
+          // ★2026-09-14 cause を渡していなかった＝着弾時の state で振り分けられ、chase 中なら「巨体」に化けていた
+          //   （弾は撃った瞬間の b.cause を持つ。5150 の直撃と同じ扱いにする）
+          if (near) run.hitPlayer(b.blast, b.x, b.y, b.cause);
           missileBoom(b.x, b.y, near);   // R31: 寿命切れの自爆も爆発として見せる
         } else if (b.kind === 'bomb' && cfg && cfg.rollbomb) {
           // 導火線が尽きた＝止まった場所に予告円を出し、warnSec 後に爆発（逃げる猶予を必ず作る）

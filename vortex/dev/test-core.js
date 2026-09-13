@@ -1570,6 +1570,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && /drawPieceGuide\(\);[^}]*if \(!piece\) return;/.test(bj15),
         'JAM15: 欠片を手にしている間だけ主人公→薔薇窓（rack）へ光の線を引く（piece が消えたあとも held で描く）');
       assert(!/drawPieceGuide/.test(read('scenes/Run.js')) && !/drawPieceGuide/.test(read('systems/billiard.js')), 'JAM15: 光の線は boss.js の中だけ（本編の Run/billiard は不変）');
+      // ★2026-09-14 45回目の結果から：被ダメの振り分けは「撃った瞬間の cause」で、着弾時の state で決めない
+      assert(/hitPlayer\(b\.blast, b\.x, b\.y, b\.cause\)/.test(bj15), 'JAM15: 爆風の被ダメも弾が持つ cause で振り分ける（chase 中に「巨体」へ化けない）');
+      const rs15 = read('scenes/Result.js');
+      assert(/ばん \$\{BUILD\}/.test(rs15) && /import \{ BUILD \}/.test(rs15), 'JAM15: 結果画面の左下に版番号を出す（どの版の記録か画面で分かる）');
     }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
