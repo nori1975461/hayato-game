@@ -1573,6 +1573,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     // ★2026-09-13 FB2「全体像で出すと出現のドキドキ感がなくなる」→ 影絵／「モビットの存在をうまく出して」
     assert(/buildShadow\(/.test(jo) && /const SHADOW = 0x000000;/.test(jo) && /img\.setTint\(SHADOW\)/.test(jo) && !/buildCathedral\(/.test(jo),
       'JAM12: 大聖堂は逆光の影絵（全体像は本番の降臨まで出さない）');
+    // ★2026-09-13 FB「影絵をもっとわかりにくく／文字が速い・重なる／文言」＝黒い霧・70ms/文字・beatOne は前の行を消す・指定の文言
+    assert(/makeFogTexture\(\)/.test(jo) && /'jam_fog'/.test(jo) && /_role = 'fog'/.test(jo),
+      'JAM12: 影絵は黒い霧（jam_fog）で体を沈める＝光輪と単眼だけが読める');
+    assert(/delay \+ i \* 70,/.test(jo), 'JAM12: オープニングの文字は 70ms/文字（会話の 42ms より遅い＝初見が読める速さ）');
+    assert(/beatOne\(\) \{[\s\S]*?this\.clearTexts\(\);[\s\S]*?typeText\(/.test(jo), 'JAM12: beatOne は前の行を消してから打つ（同じ y の重なり防止）');
+    assert(/つかんで なげろ！\\nかみに いどめ！/.test(jo), 'JAM12: コンセプトの一言はユーザー指定「つかんで なげろ！／かみに いどめ！」');
     {
       const mk = (jo.match(/key: 'mon_([a-z]+)'/g) || []).map((x) => x.replace(/key: 'mon_([a-z]+)'/, '$1'));
       const mons = jr('data/monsters.js');

@@ -8,7 +8,7 @@
 //   遊ぶかどうかを 10 秒で決める場なので、伝えることを 4 つに絞る。
 //     ① 相手は神（金属生命体マキナの四柱の神のひとつ＝荘厳）
 //     ② 遊びは 1 本＝**J を押して つかむ → 押し続けて ためる → 離して なげる**（実装：Run._jKey＝KC.J／左クリックも同じ）
-//     ③ それを**神に投げ返す**（影の薔薇窓に当たる絵で「効く」と分かる）
+//     ③ 「つかんで なげろ！ かみに いどめ！」（影の薔薇窓に当たる絵で「効く」と分かる）
 //     ④ 倒しても倒れても 32 種の「裁き」が返る＝もう一回の理由
 //     ⑤ **モビット**＝このゲームの差別化要素。ひとりではない。暗がりの目が 1 つずつ点いて歩み出し、投げの瞬間に一緒に神へ突っ込む
 //   最後に操作の一枚（カード）を置き、スキップしてもカードは必ず通る＝基礎情報が届かない経路を作らない。
@@ -17,7 +17,7 @@
 //   → **逆光の影絵**：本番と同じ rig を黒く塗り、後ろの金の光条で縁だけ読ませる。見えるのは輪郭・金の光輪・薔薇窓の単眼の 3 つ。
 //     全体像は本番の降臨（暗幕→光条→着地）まで取っておく。名前は Title に書いてあるので出す。
 //
-// 尺は約 16 秒＋カード（ボタンを押すまで表示・自動開始なし）。SPACE／J／クリックでスキップ（カードへ）。
+// 尺は約 21 秒＋カード（ボタンを押すまで表示・自動開始なし）。SPACE／J／クリックでスキップ（カードへ）。
 // 技術制約は Opening.js と同じ：import Phaser 禁止（window.Phaser）・Math.random 禁止（LCG）・monospace のみ・
 //   白の全画面フラッシュは alpha ≤ 0.45（子ども安全）。
 // 本編は不変：この scene は Title の J からしか始まらず、autotest（?autotest=1）は Title が Run へ直行する。
@@ -73,6 +73,7 @@ export class JamOpeningScene extends Phaser.Scene {
     this._onCard = false;     // 操作カード表示中
     this._lcg = 0x5a17c0de;
     this.cameras.main.setBackgroundColor('#050508');
+    this.makeFogTexture();
 
     const cx = this.W / 2;
     this.reg(this.add.tileSprite(cx, this.H / 2, this.W, this.H, 'stars2').setAlpha(0.35).setDepth(D_STARS));
@@ -93,6 +94,15 @@ export class JamOpeningScene extends Phaser.Scene {
     });
   }
 
+  // 影絵用の黒い霧（Boot の 'glow' は中心でも 6 割しか暗くならず、輪郭が消えなかった）。128px・16 段・中心 alpha≈0.98。
+  makeFogTexture() {
+    if (this.textures.exists('jam_fog')) return;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const r = 64, steps = 16;
+    for (let i = steps; i >= 1; i--) { g.fillStyle(0x000000, 0.22); g.fillCircle(r, r, (r * i) / steps); }
+    g.generateTexture('jam_fog', 128, 128);
+    g.destroy();
+  }
   rnd() { this._lcg = (this._lcg * 1103515245 + 12345) & 0x7fffffff; return this._lcg / 0x7fffffff; }
   reg(o) { this._objs.push(o); return o; }
   seq(ms, fn) {
@@ -104,19 +114,21 @@ export class JamOpeningScene extends Phaser.Scene {
 
   // =============== 時刻表（ms） ===============
   playSequence() {
-    this.seq(200, () => this.beatGods());        // 四柱の神
-    this.seq(2400, () => this.beatOne());        // そのひとつが
-    this.seq(3200, () => this.beatDescend());    // 影絵の降臨・名乗り
-    this.seq(5000, () => this.beatLine());       // 「いのりとどかぬものへ、さばきを」
-    this.seq(6300, () => this.beatHero());       // 主人公ひとり
-    this.seq(7000, () => this.beatMobitEyes());  // 暗がりに目が点く
-    this.seq(7900, () => this.beatMobitsIn());   // モビットが歩み出る「ひとりじゃない」
-    this.seq(9200, () => this.verbGrab());       // J を おす → つかむ
-    this.seq(10100, () => this.verbCharge());    // おしつづける → ためる
-    this.seq(11000, () => this.verbThrow());     // はなす → なげる！（モビットも突っ込む）
-    this.seq(12400, () => this.beatConcept());   // 「かみを、なげかえせ。」
-    this.seq(13600, () => this.beatJudge());     // 32 の裁き
-    this.seq(16700, () => this.showCard(false)); // 操作カード
+    // ★2026-09-13 FB「説明が読み取れない。文字が速い・重なっている」→ 1文字 42→70ms・各行を読み切る間を取る・
+    //   前の行は必ず消してから次を打つ（beatOne が消し忘れて 2 行が同じ y に重なっていた）。尺 16→21 秒。
+    this.seq(200, () => this.beatGods());        // 四柱の神（本文 29 文字＝約 2.0 秒）
+    this.seq(3800, () => this.beatOne());        // そのひとつが（19 文字）
+    this.seq(5600, () => this.beatDescend());    // 影絵の降臨・名乗り
+    this.seq(7400, () => this.beatLine());       // 「いのりとどかぬものへ、さばきを」（18 文字・9.2 秒まで読める）
+    this.seq(9400, () => this.beatHero());       // 主人公ひとり
+    this.seq(10100, () => this.beatMobitEyes()); // 暗がりに目が点く
+    this.seq(11000, () => this.beatMobitsIn());  // モビットが歩み出る「ひとりじゃない」（22 文字・13.0 秒まで）
+    this.seq(12600, () => this.verbGrab());      // J を おす → つかむ
+    this.seq(13500, () => this.verbCharge());    // おしつづける → ためる
+    this.seq(14400, () => this.verbThrow());     // はなす → なげる！（モビットも突っ込む）
+    this.seq(15800, () => this.beatConcept());   // 「つかんで なげろ！／かみに いどめ！」
+    this.seq(17400, () => this.beatJudge());     // 32 の裁き（3 行＝約 4 秒）
+    this.seq(21600, () => this.showCard(false)); // 操作カード
   }
 
   // =============== 幕1 四柱の神 ===============
@@ -145,6 +157,7 @@ export class JamOpeningScene extends Phaser.Scene {
       this.tweens.add({ targets: [h.g, h.r], alpha: 0.12, duration: 500 });
     });
     const one = this.halos[2];
+    this.clearTexts();   // 前の行と同じ y に打つので必ず消す（重なりの原因だった）
     this.sfx('bellToll', 1.0, 0.7);
     this.tweens.add({ targets: one.r, x: this.W / 2, y: 60, scale: 2.4, duration: 700, ease: 'Cubic.inOut' });
     this.tweens.add({ targets: one.g, x: this.W / 2, y: 60, scale: 4.5, alpha: 0.7, duration: 700, ease: 'Cubic.inOut' });
@@ -165,7 +178,7 @@ export class JamOpeningScene extends Phaser.Scene {
         .setBlendMode(ADD).setDepth(D_RAY).setOrigin(0.5, 0).setAngle((i - 3) * 4));
       ray.setAlpha(0);
       this.rays.push(ray);
-      this.tweens.add({ targets: ray, alpha: 0.25, duration: 500, delay: i * 60 });
+      this.tweens.add({ targets: ray, alpha: 0.14, duration: 500, delay: i * 60 });
       this.tweens.add({ targets: ray, scaleX: 1.4, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: i * 130 });
     }
     this.wash(GOLD, 0.25, 900);
@@ -192,9 +205,11 @@ export class JamOpeningScene extends Phaser.Scene {
   //   後ろ（D_BOSS より下）に金の逆光を置くので、黒い体は縁で読める。
   buildShadow(x, y, s) {
     const parts = [];
-    const glowP = this.reg(this.add.image(x, y - 10 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 2).setTint(GOLD).setScale(10));
-    const glowM = this.reg(this.add.image(x, y - 10 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 1).setTint(0xffe9a0).setScale(6));
-    glowP.setAlpha(0.7); glowM.setAlpha(0.55);
+    // ★2026-09-13 FB「影絵の姿をもっとわかりにくく」→ 逆光を小さく弱く（10/0.7→6/0.38）＝縁が闇に溶けて形が読めない。
+    //   光輪の周りだけ明るい。さらに影の上に黒い霧（fog）を掛けて体の凹凸を潰す（光輪と単眼は霧より前）。
+    const glowP = this.reg(this.add.image(x, y - 16 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 2).setTint(GOLD).setScale(6));
+    const glowM = this.reg(this.add.image(x, y - 22 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 1).setTint(0xffe9a0).setScale(3.2));
+    glowP.setAlpha(0.38); glowM.setAlpha(0.5);
     for (const r of CATHEDRAL.rig) {
       const key = `boss_${CATHEDRAL.id}_${r.tex}`;
       if (!this.textures.exists(key)) continue;
@@ -202,9 +217,17 @@ export class JamOpeningScene extends Phaser.Scene {
       const img = this.reg(this.add.image(x + r.ox * s, y + r.oy * s, key).setOrigin(o[0], o[1])
         .setScale(r.mirror ? -s : s, s).setDepth(D_BOSS + (PART_DEPTH[r.role] || 2)));
       img._role = r.role;
-      if (r.role === 'dome') img.setAlpha(0.95);        // 光輪だけ本来の金
+      if (r.role === 'dome') img.setAlpha(0.95).setDepth(D_BOSS + 7);   // 光輪だけ本来の金・帳より前
       else img.setTint(SHADOW).setAlpha(0.97);          // それ以外は影
       parts.push(img);
+    }
+    // 黒い霧（jam_fog＝中心 98%・半径の半分で 86%・縁 0 の暗がり）を体の上に掛ける。黒い体は「後ろの光条」で
+    //   切り抜かれて形が読めていたので、体の周りの光条ごと霧で沈める＝残るのは光輪・単眼・翼の先の気配だけ。
+    //   矩形の帳だと帳そのものの縁が四角く読めるので使わない。影と一緒に動かすので parts に入れる。
+    for (const [oy, sc, al] of [[8, 2.7, 1.0], [12, 1.6, 0.9]]) {
+      const fog = this.reg(this.add.image(x, y + oy * s, 'jam_fog').setScale(sc).setAlpha(al).setDepth(D_BOSS + 6.5));
+      fog._role = 'fog';
+      parts.push(fog);
     }
     const ey = y - 13 * s;
     const eye = this.reg(this.add.image(x, ey, 'glow').setBlendMode(ADD).setTint(0xffffff).setScale(0.3).setAlpha(0).setDepth(D_BOSS + 8));
@@ -312,8 +335,9 @@ export class JamOpeningScene extends Phaser.Scene {
     const ball = this.prey;
     const tx = this.cathHome.x, ty = this.cathHome.y - 13 * CATH_SCALE;   // 薔薇窓（rig rack: oy −13）＝単眼の位置
     // モビットは玉の少しあとに続いて影へ突っ込む。1体ごとに数字（1,2,3,4）と音程が上がる＝数えられる快感。
+    //   出だしは 700ms＝「はなす → なげる！」のスタンプ（840ms で消える）と数字が重ならない。
     (this.mobits || []).forEach((m, i) => {
-      this.seq(260 + i * 130, () => {
+      this.seq(700 + i * 130, () => {
         if (!m.spr.active) return;
         const gx = tx + (i - 1.5) * 44, gy = ty + 60 + this.rnd() * 30;
         this.tweens.add({ targets: m.spr, x: gx, y: gy, duration: 220, ease: 'Quart.in' });
@@ -369,7 +393,10 @@ export class JamOpeningScene extends Phaser.Scene {
   // =============== 幕6 コンセプト ===============
   beatConcept() {
     this.sfx('bellToll', 1.0, 1.0);
-    this.stamp('かみを、なげかえせ。', this.W / 2, 208, GOLD_S, 30, 1000);
+    // ★2026-09-13 ユーザー指定の文言（「かみを、なげかえせ。」から差し替え）
+    // モビットは薔薇窓の下（y≈170〜200）に集まったままなので、その帯を避けて主人公の高さに置く（前の行は消す）
+    this.clearTexts();
+    this.stamp('つかんで なげろ！\nかみに いどめ！', this.W / 2 + 12, 262, GOLD_S, 30, 1300);
   }
 
   // =============== 幕7 32 の裁き ===============
@@ -486,7 +513,7 @@ export class JamOpeningScene extends Phaser.Scene {
   }
 
   // =============== 局所ヘルパ ===============
-  // 1文字ずつ（会話と同じ 42ms・3文字ごとに打鍵音）。delay 後に打ち始める。
+  // 1文字ずつ（70ms＝会話の 42ms より遅い。初見の他人が読む速さ・3文字ごとに打鍵音）。delay 後に打ち始める。
   typeText(x, y, str, color, size, delay) {
     this._texts = this._texts || [];
     const t = this.reg(this.add.text(x, y, '', {
@@ -494,7 +521,7 @@ export class JamOpeningScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(D_TEXT));
     this._texts.push(t);
     for (let i = 1; i <= str.length; i++) {
-      this.seq(delay + i * 42, () => {
+      this.seq(delay + i * 70, () => {
         if (!t.active) return;
         t.setText(str.slice(0, i));
         if (i % 3 === 0) this.sfx('talkTick');
@@ -511,7 +538,7 @@ export class JamOpeningScene extends Phaser.Scene {
   // 大きな一言（登場の名乗り・コンセプト）。hold ms 残してから消える。
   stamp(txt, x, y, color, size, hold) {
     const t = this.reg(this.add.text(x, y, txt, {
-      fontFamily: 'monospace', fontSize: size + 'px', color, fontStyle: 'bold', stroke: '#0a0d12', strokeThickness: 6,
+      fontFamily: 'monospace', fontSize: size + 'px', color, fontStyle: 'bold', stroke: '#0a0d12', strokeThickness: 6, align: 'center',
     }).setOrigin(0.5).setScale(1.5).setAlpha(0).setDepth(D_TEXT));
     this.tweens.add({ targets: t, scale: 1, alpha: 1, duration: 180, ease: 'Back.easeOut' });
     this.tweens.add({ targets: t, alpha: 0, y: y - 12, duration: 300, delay: 180 + hold, onComplete: () => t.active && t.destroy() });
@@ -519,7 +546,8 @@ export class JamOpeningScene extends Phaser.Scene {
   }
   // 動詞スタンプ＝キー（枠つき）＋動作＋動詞。3つとも同じ位置に順に出して「1本の手順」に見せる。
   keyStamp(key, act, verb, colorS, colorI) {
-    const x = this.heroX + 150, y = this.heroY - 92;
+    // y は主人公の頭上より高い 132（モビットが薔薇窓の下 y≈170〜200 に集まるので、その帯より上に置く＝「なげる！」が隠れない）
+    const x = this.heroX + 150, y = this.heroY - 134;
     const cap = this.reg(this.add.graphics().setDepth(D_TEXT));
     cap.fillStyle(colorI, 0.18); cap.fillRoundedRect(x - 90, y - 15, 30, 30, 5);
     cap.lineStyle(2, colorI, 1); cap.strokeRoundedRect(x - 90, y - 15, 30, 30, 5);
