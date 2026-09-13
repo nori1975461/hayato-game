@@ -171,6 +171,7 @@ export function createBoss(run) {
   const pillars = [];               // 天啓：足元の光の輪→天から落ちる光の柱（updatePillars が寿命管理・clearPillars が破棄）
   let stepT = 0, stepProg = -1, stepDx = 0, stepDy = 0, stepFlap = 0, glideTrailT = 0;   // 歩み（cfg.motion）
   let introLanded = false;          // 登場：降下が終わって着地したか
+  let spawnHoldT = 0;               // 2026-09-13 雑魚の湧き止め（Infinity＝登場が終わるまで／秒＝登場後の猶予）
   let rayGfx = null;                // 登場：背後の光条（暗幕の上・ボスの下）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
@@ -4183,6 +4184,47 @@ export function createBoss(run) {
     run.time.delayedCall(170, () => { if (boss) spawnRingFx(x, y, 0xd8b060, 6, 420, 0.75, 0.45, 5); });
     run.spawnParticles(x, y, 0xffffff, 16);
     run.spawnParticles(x, y, 0x9a8a6a, 30);
+    if (cfg.intro && cfg.intro.kneel) ascendKneeling(x, y);
+  }
+
+  // ★2026-09-13 神の降臨には、マキナが平伏す（cfg.intro.kneel＝堕天の大聖堂だけ。本編のマオウレクスは通らない）。
+  //   実プレイFB「登場するときに雑魚がいすぎ。わらわらして荘厳さがない」。堕天の大聖堂は軌道神核と並ぶマキナ4神の一柱＝
+  //   同じマキナである雑魚は、神の前で戦わない。予告の鐘でその場にひれ伏し（Run.updateEnemies：止まる・攻撃しない・
+  //   触れても痛くない・掴むのは自由）、着地の衝撃波で近い順に光の粒となって天へ還る（報酬なし・たおした数に入れない）。
+  //   エリート／珍しい敵（マグマン）は平伏すだけで消えない＝報酬の経路を壊さない。
+  function kneelAll() {
+    for (const e of run.enemies) {
+      if (!e.active || e.isBoss || e.choir || e.kneel) continue;
+      e.kneel = true;
+      run.spawnParticles(e.x, e.y + 6, 0x9a8a6a, 3);
+    }
+  }
+  function isRareEnemy(e) {
+    const R = BALANCE.rareEnemy;
+    return !!(R && e.def && e.def.id === R.enemyId);
+  }
+  function ascendKneeling(cx, cy) {
+    const sec = (cfg.intro && cfg.intro.ascendSec) || 0.8;
+    const list = [];
+    let maxD = 1;
+    for (const e of run.enemies) {
+      if (!e.active || !e.kneel || e.isBoss || e.isElite || isRareEnemy(e)) continue;
+      const d = Math.hypot(e.x - cx, e.y - cy);
+      list.push([e, d]);
+      if (d > maxD) maxD = d;
+    }
+    for (const [e, d] of list) {
+      run.time.delayedCall((d / maxD) * sec * 1000, () => {
+        if (!e.active || !e.kneel) return;   // その間に掴まれた／倒された個体はそのまま
+        e.active = false; e.noReward = true;
+        e.spr.setVisible(false); e.glow.setVisible(false);
+        run.spawnRise(e.x, e.y, 0xffe9a8, 6, INTRO_DIM_DEPTH + 3);   // 暗幕より前＝沈まない金
+        run.spawnRise(e.x, e.y, 0xffffff, 2, INTRO_DIM_DEPTH + 3);
+      });
+    }
+  }
+  function standAll() {
+    for (const e of run.enemies) if (e.kneel) e.kneel = false;
   }
 
   function bossArrival(x, y) {
@@ -4405,6 +4447,8 @@ export function createBoss(run) {
   }
   function endIntro() {
     if (rayGfx) { rayGfx.destroy(); rayGfx = null; }
+    if (cfg.intro && cfg.intro.kneel) { standAll(); spawnHoldT = cfg.intro.graceSec || 0; }   // 2026-09-13 平伏を解き、猶予のあと湧きが戻る
+    else spawnHoldT = 0;
     clearIntroDim();          // 暗幕をフェードアウト＝通常画面へ完全復帰
     setBossDepthLift(0);      // ボスパーツ/グロウの depth を元へ戻す（雑魚と同層の通常描画に復帰）
     state = 'chase';
@@ -5466,6 +5510,7 @@ export function createBoss(run) {
 
   // ============ 毎フレーム ============
   function update(dt) {
+    if (spawnHoldT > 0 && spawnHoldT !== Infinity) spawnHoldT = Math.max(0, spawnHoldT - dt);   // 2026-09-13 登場後の湧き猶予
     // ★れんしゅうじょうでは時間で自動的にボスを出さない（practiceSpawn で名指しで出す）。
     // ★1めんボスおためし：コロガンナー(tier 0)を倒したあとは1体も出さない。
     //   出現時刻・tier の中身（HP・攻撃・ごほうび）は本番とまったく同じものをそのまま使う＝
@@ -5482,7 +5527,10 @@ export function createBoss(run) {
         if (run.withAudio) Sound.stopBgm();
         // ★R52 マオウレクスより前の5体は警報3連＋赤い周縁の脈動へ強化。
         //   最終ボスは専用の登場イベントを持つので従来どおり警報1回のまま。
-        if (t.intro) cathWarnFx(t);   // 2026-09-13 堕天の大聖堂：警報でなく暗転＋低い鐘3打（3.6秒の間）
+        if (t.intro) {   // 2026-09-13 堕天の大聖堂：警報でなく暗転＋低い鐘3打（3.6秒の間）
+          cathWarnFx(t);
+          if (t.intro.kneel) { kneelAll(); spawnHoldT = Infinity; }   // 神の降臨には、マキナが平伏す（湧きも止める）
+        }
         else {
           if (t.final) Sound.sfx('warning');
           else bossWarnCharge();
@@ -5565,6 +5613,7 @@ export function createBoss(run) {
   }
 
   function destroy() {
+    spawnHoldT = 0; standAll();   // 2026-09-13 降臨の途中で終わっても平伏・湧き止めを残さない
     releaseCamera();
     clearBullets();
     clearStrikes(); clearPillars();
@@ -5586,6 +5635,7 @@ export function createBoss(run) {
   return {
     update, onBossKilled, destroy, progressGate,
     get active() { return !!(boss && boss.active); },
+    get spawnHold() { return spawnHoldT > 0; },   // 2026-09-13 spawner が読む＝降臨中は雑魚を湧かせない
     get warned() { return warnedArr.some(Boolean); },
     // 撃破して endFight まで終わった tier の数。おためしモードの終了判定が読む
     //（小ボスは撃破しても endRun が走らないので、Run 側からは「戦闘が畳まれた」ことしか見えない）

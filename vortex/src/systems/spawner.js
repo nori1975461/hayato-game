@@ -153,6 +153,9 @@ export function createSpawner(run) {
 
   function update(dt) {
     run.enemyCap = Math.max(8, Math.round(currentCap() * modeMul('capMul')));
+    // 2026-09-13 神の降臨には、マキナが平伏す：堕天の大聖堂の予告〜登場〜直後 graceSec は雑魚の湧きを止める
+    //   （boss.spawnHold）。タイマーは負に溜めない＝解けた瞬間にまとめて湧かない。
+    const hold = !!(run.boss && run.boss.spawnHold);
     // レア雑魚（不定期・ボス戦中も止めない）
     if (RARE && byId[RARE.enemyId]) {
       // ★R46「ボス戦中だけ間隔を詰めて。ボス戦でこそ真価を発揮する」。
@@ -165,6 +168,8 @@ export function createSpawner(run) {
         if (onBoss && RARE.bossFirstSec != null) rareT = Math.min(rareT, RARE.bossFirstSec);
       }
       rareT -= dt;
+      // 2026-09-13 堕天の大聖堂の降臨中（予告〜登場〜直後）は珍しい敵も出さない＝「しゅつげん！」の告知が荘厳さを壊す
+      if (hold) rareT = Math.max(rareT, 0.5);
       if (rareT <= 0) {
         // 次の間隔を毎回引き直す＝「不定期」。ボス戦中だけ短い方の帯から引く
         rareT = onBoss && RARE.bossEveryMin != null
@@ -208,6 +213,7 @@ export function createSpawner(run) {
     }
 
     spawnTimer -= dt;
+    if (hold) spawnTimer = Math.max(spawnTimer, 0.5);
     if (spawnTimer <= 0) {
       spawnTimer += interval;
       countAcc += count;

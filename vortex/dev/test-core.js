@@ -1397,6 +1397,20 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && /dmgByCause: js\.dmgByCause, hitsByCause: js\.hitsByCause/.test(r2), 'JAM8: 被弾は攻撃ごとにダメージ合計も数えて Result へ渡す');
       assert(/if \(d\.jam && d\.jam\.dmgByCause\) \{/.test(rs) && /`ひだん \$\{parts\.join\('・'\)\}`/.test(rs) && /fontSize: '10px'/.test(rs),
         'JAM8: Result 左下に「ひだん 薔薇n(m)・…」を10pxで出す（ジャム版だけ・戦闘中には出さない）');
+      // ★2026-09-13 JAM9：神の降臨には、マキナが平伏す（登場時の雑魚わらわら→平伏・昇天・湧き止め。cfg.intro.kneel＝大聖堂だけ）
+      const I9 = BALANCE.boss.jamTiers[0].intro, sp9 = read('systems/spawner.js');
+      assert(I9.kneel === true && I9.ascendSec > 0 && I9.ascendSec <= I9.silenceSec + 0.2 && I9.graceSec >= 3,
+        'JAM9: 昇天は無音の間に収まり、登場後の湧き猶予は3秒以上');
+      assert(/function kneelAll\(\)/.test(jb4) && /if \(t\.intro\.kneel\) \{ kneelAll\(\); spawnHoldT = Infinity; \}/.test(jb4), 'JAM9: 予告の鐘で平伏＋湧き止め');
+      assert(/function ascendKneeling\(cx, cy\)/.test(jb4) && /if \(cfg\.intro && cfg\.intro\.kneel\) ascendKneeling\(x, y\);/.test(jb4)
+        && /e\.isElite \|\| isRareEnemy\(e\)/.test(jb4) && /BALANCE\.rareEnemy/.test(jb4), 'JAM9: 着地で近い順に昇天（エリート・珍しい敵は残す）');
+      assert(/standAll\(\); spawnHoldT = cfg\.intro\.graceSec \|\| 0;/.test(jb4) && /get spawnHold\(\) \{ return spawnHoldT > 0; \}/.test(jb4)
+        && /spawnHoldT = 0; standAll\(\);/.test(jb4), 'JAM9: 登場終了で立ち上がり・猶予のあと湧きが戻る・破棄で後始末');
+      assert(/const hold = !!\(run\.boss && run\.boss\.spawnHold\);/.test(sp9) && /if \(hold\) spawnTimer = Math\.max\(spawnTimer, 0\.5\);/.test(sp9)
+        && /if \(hold\) rareT = Math\.max\(rareT, 0\.5\);/.test(sp9), 'JAM9: spawner は降臨中に雑魚も珍しい敵も出さない（負に溜めない）');
+      assert(/if \(e\.kneel\) \{ vx = 0; vy = 0; e\.dashT = 0; \}/.test(r2) && /if \(e\.kneel\) continue;/.test(r2) && /spawnRise\(x, y, color, count, depth\)/.test(r2),
+        'JAM9: 平伏中は止まる・攻撃しない・接触ダメージなし／天へ還る粒');
+      assert(!/kneel/.test(read('data/balance.js').split('jamTiers')[0]), 'JAM9: 本編の tiers に kneel を入れていない（マオウレクスは不変）');
       assert(/run\.jamSt\.choirWaves = \(run\.jamSt\.choirWaves \|\| 0\) \+ 1/.test(jb4), 'JAM4: 聖歌隊が出た回数を数える');
       assert(/function dropShards\(bossEnt, fromStep\)/.test(jbi4) && /dropShards\(e, true\);/.test(jbi4) && /if \(fromStep && run\.jamMode\)/.test(jbi4), 'JAM4: 節目落ち（ジャム版）は金の衝撃波＋スロー＋割れる音');
       const C4 = BALANCE.boss.jamTiers[0];
@@ -1506,7 +1520,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/if \(cfg\.intro\) \{ whiteFlash\(0\.32, 0xffe9a8, 300\); if \(run\.withAudio\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\); \}/.test(jb), 'JAM3: 登場演出ではテロップの瞬間にBGM');
     assert(C.intro && C.intro.descendSec + C.intro.silenceSec < C.intro.line1At && C.intro.telopAt < C.intro.dur, 'JAM3: 登場は降下→無音→セリフ→テロップの順（時刻表が矛盾しない）');
     assert(Math.abs((C.spawnSec - C.warnSec) - 3.6) < 1e-6, 'JAM3: 予告は3.6秒＝鐘3打（cathWarn）');
-    assert(/if \(t\.intro\) cathWarnFx\(t\);/.test(jb) && /cathWarn\(\) \{/.test(jr('audio/sound.js')), 'JAM3: 予告は警報でなく暗転＋低い鐘3打');
+    assert(/if \(t\.intro\) \{[^]*?cathWarnFx\(t\);/.test(jb) && /cathWarn\(\) \{/.test(jr('audio/sound.js')), 'JAM3: 予告は警報でなく暗転＋低い鐘3打');
     assert(C.motion && C.motion.stepDist / C.motion.stepSec < 148 && C.motion.glideSpeed < 148, 'JAM3: 歩み（' + Math.round(C.motion.stepDist / C.motion.stepSec) + 'px/秒）も滑り（' + C.motion.glideSpeed + '）も主人公148より遅い');
     assert(/if \(cfg\.motion\) updateStepMotion\(dt, nx, ny\);/.test(jb) && /const bob = cfg\.motion \? 0 :/.test(jb), 'JAM3: 建物は歩く（浮遊 bob をやめる）');
     // --- ③ 攻撃7種（設計書6章のローテーション） ---

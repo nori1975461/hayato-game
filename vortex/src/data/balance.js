@@ -2094,7 +2094,12 @@ BALANCE.boss.jamTiers = [
     // ★2026-09-13 登場演出（実プレイFB「もっと荘厳さを。間・音楽・エフェクト」）：
     //   予告3.6秒＝BGM停止→暗転→低い鐘3打（打つたびに揺れと光の輪）→ 出現＝光条を背に上から降りてくる（descendSec）
     //   →着地の衝撃→**無音の間**（silenceSec）→オルガン→セリフ2行→テロップ＋白フラッシュでBGM開始。
-    intro: { dur: 7.6, descendSec: 2.6, dropPx: 260, silenceSec: 0.9, line1At: 4.1, line2At: 5.2, telopAt: 6.4, dimAlpha: 0.42, rays: 9 },
+    //   ★2026-09-13 実プレイFB「登場するときに雑魚がいすぎ。わらわらして荘厳さがない」（堕天の大聖堂は軌道神核と並ぶ
+    //   マキナ4神の一柱）→ **神の降臨には、マキナが平伏す**：予告の鐘で場の雑魚は全員その場にひれ伏し（止まる・攻撃しない・
+    //   触れても痛くない）、着地の衝撃波で近い順に光の粒になって天へ還る（ascendSec の間・無音の間を埋める・報酬なし）。
+    //   予告〜登場〜直後 graceSec は雑魚の湧きも止める＝大聖堂だけの画面から戦いが始まる。エリート/珍しい敵は平伏すだけで消えない。
+    intro: { dur: 7.6, descendSec: 2.6, dropPx: 260, silenceSec: 0.9, line1At: 4.1, line2At: 5.2, telopAt: 6.4, dimAlpha: 0.42, rays: 9,
+      kneel: true, ascendSec: 0.8, graceSec: 6 },
     // ★2026-09-13 歩み（実プレイFB「ふわふわ浮遊しているだけ」）：建物が歩く＝stepSec ごとに地響きと軋みで stepDist 進む。
     //   堕天以降は翼を打って踏み込み（lungeMul）、破鐘以降は尖塔の推進炎で滑る（glideSpeed）。
     motion: { stepSec: 1.3, stepDist: 64, stepDur: 0.38, lungeMul: 1.5, glideSpeed: 85 },

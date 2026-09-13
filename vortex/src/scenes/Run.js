@@ -1771,6 +1771,8 @@ export class RunScene extends Phaser.Scene {
         if (e.def.attack.type === 'selfdestruct') { vx = e.lockX * e.speed; vy = e.lockY * e.speed; }
         else { vx = 0; vy = 0; }
       }
+      // 2026-09-13 平伏（堕天の大聖堂の降臨・boss.js kneelAll）：その場で止まる。突進も解く。
+      if (e.kneel) { vx = 0; vy = 0; e.dashT = 0; }
       e.x += vx * slow * dt;
       e.y += vy * slow * dt;
       // R12: 殴られたノックバック。減衰しながら押し出される＝拳で押し返せる手応え。
@@ -1793,9 +1795,10 @@ export class RunScene extends Phaser.Scene {
         sqx = 1 + (e.squashAmp || 0) * k;
         sqy = 1 - (e.squashAmp || 0) * k * 0.75;
       }
+      if (e.kneel) { sqx *= 1.18; sqy *= 0.6; }   // 平伏＝低く広く（ぷるぷるは残す＝死んでいない）
       e.spr.setScale(bs * (1 + bob * X.bobAmp) * sqx, bs * (1 - bob * X.bobAmp) * sqy);
       e.spr.setRotation(bob * X.tiltAmp);
-      e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6);
+      e.spr.setPosition(e.x, e.y - (e.hopLift || 0) * 6 + (e.kneel ? 5 : 0));
       e.glow.setPosition(e.x, e.y);
       if (e.crownSpr) {
         const cs = BALANCE.crown.starScale || 1.5;
@@ -1821,6 +1824,8 @@ export class RunScene extends Phaser.Scene {
         const G = BALANCE.stagger;
         const warn = e.stagT <= G.warnSec && Math.sin(this.elapsed * Math.PI * 8) > 0;
         e.spr.setTint(warn ? 0xffa62b : G.tint);
+      } else if (e.kneel) {
+        e.spr.setTint(0x8c8cb0);   // 平伏＝色が沈む（暗幕の下でさらに一段）
       } else if (e.chargeState !== 'wind') {
         e.spr.clearTint();
       }
@@ -1854,6 +1859,7 @@ export class RunScene extends Phaser.Scene {
 
       // Wave R1: 予告付き攻撃（quake/divebomb/selfdestruct/lockbeam/spread）
       // R25: よろけ中は攻撃しない。ただし断末魔(e.throe)だけは進める＝「よろけ＝安全」を崩す。
+      if (e.kneel) continue;   // 2026-09-13 平伏中は攻撃も接触ダメージも無い（掴んで投げるのは自由）
       if (e.def.attack && (!e.stag || e.throe)) {
         this.updateEnemyAttack(e, dt);
         if (!e.active) continue;   // selfdestruct で自壊した個体は接触判定に進めない
@@ -2745,6 +2751,21 @@ export class RunScene extends Phaser.Scene {
       this.particles.push({
         active: true, x, y,
         vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        life, maxLife: life, spr,
+      });
+    }
+  }
+
+  // 2026-09-13 天へ還る粒（堕天の大聖堂の降臨で雑魚が光に還る）。上へ昇る・暗幕より前の depth に置ける。
+  spawnRise(x, y, color, count, depth) {
+    for (let i = 0; i < count; i++) {
+      const spr = this._sparkPool.pop() || this.add.image(0, 0, 'spark').setBlendMode(ADD);
+      const life = this.rng.range(0.55, 0.95);
+      spr.setVisible(true).setDepth(depth || 13).setTint(color)
+        .setScale(this.rng.range(0.9, 1.6)).setAlpha(1).setPosition(x + this.rng.range(-6, 6), y + this.rng.range(-4, 4));
+      this.particles.push({
+        active: true, x: spr.x, y: spr.y,
+        vx: this.rng.range(-30, 30), vy: -this.rng.range(160, 320),
         life, maxLife: life, spr,
       });
     }
