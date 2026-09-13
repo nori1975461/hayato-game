@@ -2100,6 +2100,12 @@ BALANCE.boss.jamTiers = [
     //   予告〜登場〜直後 graceSec は雑魚の湧きも止める＝大聖堂だけの画面から戦いが始まる。エリート/珍しい敵は平伏すだけで消えない。
     intro: { dur: 7.6, descendSec: 2.6, dropPx: 260, silenceSec: 0.9, line1At: 4.1, line2At: 5.2, telopAt: 6.4, dimAlpha: 0.42, rays: 9,
       kneel: true, ascendSec: 0.8, graceSec: 6 },
+    // ★2026-09-13 撃破＝「祈りの終わり」（実プレイFB「ボスであり神の一柱である堕天の大聖堂にふさわしい撃破演出を」）。
+    //   最後の一撃で時間が粘りBGMが止まる → 硝子が砕け鐘が狂う（〜glassSec）→ 翼が落ちる（wingAt）→ 砕けたはずの光輪が
+    //   天から還る（haloAt）→ 光条の中を体が昇る（riseAt〜riseSec・risePx）→ 最後の鐘で光に弾け、平伏したマキナも聖歌隊も
+    //   一緒に光へ還る（burstAt）→ 最後の一行（lineAt）→ dur で Result。登場と同じ語彙（暗幕・光条・鐘・聖歌・無音の間）。
+    death: { dur: 7.6, glassSec: 1.6, wingAt: 1.5, haloAt: 2.5, riseAt: 3.5, riseSec: 1.8, risePx: 150, burstAt: 5.4, lineAt: 5.9,
+      dimAlpha: 0.48, line: { text: '……いのりは、おわった', color: '#cfe0ff' } },
     // ★2026-09-13 歩み（実プレイFB「ふわふわ浮遊しているだけ」）：建物が歩く＝stepSec ごとに地響きと軋みで stepDist 進む。
     //   堕天以降は翼を打って踏み込み（lungeMul）、破鐘以降は尖塔の推進炎で滑る（glideSpeed）。
     motion: { stepSec: 1.3, stepDist: 64, stepDur: 0.38, lungeMul: 1.5, glideSpeed: 85 },

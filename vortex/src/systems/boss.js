@@ -172,6 +172,8 @@ export function createBoss(run) {
   let stepT = 0, stepProg = -1, stepDx = 0, stepDy = 0, stepFlap = 0, glideTrailT = 0;   // 歩み（cfg.motion）
   let introLanded = false;          // 登場：降下が終わって着地したか
   let spawnHoldT = 0;               // 2026-09-13 雑魚の湧き止め（Infinity＝登場が終わるまで／秒＝登場後の猶予）
+  let deathT = -1, deathStage = 0, deathGlassAcc = 0, deathRiseAcc = 0;   // 2026-09-13 撃破「祈りの終わり」（cfg.death）
+  let haloRetGfx = null;            // 撃破：天から還る光輪（本体より前に描く）
   let rayGfx = null;                // 登場：背後の光条（暗幕の上・ボスの下）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
@@ -808,6 +810,54 @@ export function createBoss(run) {
           Sound.sfx('warning');
         }
         if (stateT <= 0) endIntro();
+        break;
+      }
+      // ★2026-09-13 撃破「祈りの終わり」（cfg.death・堕天の大聖堂だけ）。時刻表は balance.js の death。
+      case 'cathDeath': {
+        const D = cfg.death;
+        deathT += dt;
+        const t = deathT;
+        // 硝子が砕ける：0.18秒ごとに深紅／青の硝子片が飛び、割れる音が少しずつ下がる。揺れは増していく
+        if (t < D.glassSec) {
+          deathGlassAcc += dt;
+          if (deathGlassAcc >= 0.18) {
+            deathGlassAcc -= 0.18;
+            const k = t / D.glassSec;
+            const gx = boss.x + run.rng.range(-44, 44), gy = boss.y + run.rng.range(-56, 10);
+            run.spawnParticles(gx, gy, cathStage >= 1 ? 0xff4a5a : 0x5aa0ff, 10);
+            run.spawnParticles(gx, gy, 0xffffff, 4);
+            Sound.sfx('glassShot', 0.9, 1.3 - k * 0.6);
+            run.shake(120, 3 + k * 4);
+          }
+        }
+        if (deathStage < 1 && t >= 0.5) { deathStage = 1; Sound.sfx('bellToll', 1.0, 0.9); }     // 鐘が狂う（下がる）
+        if (deathStage < 2 && t >= 1.1) { deathStage = 2; Sound.sfx('bellToll', 1.0, 0.8); }
+        if (deathStage < 3 && t >= D.wingAt) { deathStage = 3; fallWings(); }                     // 翼が落ちる
+        if (deathStage < 4 && t >= D.haloAt) {                                                    // 光輪が還る
+          deathStage = 4;
+          Sound.sfx('bellToll', 0.9, 1.5);
+          Sound.sfx('choirChord', 0.8, 1.0);
+        }
+        if (deathStage < 5 && t >= D.riseAt) {                                                    // 昇天
+          deathStage = 5;
+          Sound.sfx('cathAscend', D.riseSec);
+          run.time.delayedCall(700, () => { if (boss && state === 'cathDeath') Sound.sfx('choirChord', 0.9, 1.5); });
+        }
+        if (t >= D.riseAt && t < D.burstAt) {
+          deathRiseAcc += dt;
+          if (deathRiseAcc >= 0.05) {
+            deathRiseAcc -= 0.05;
+            const fx = cathDeathFx();
+            run.spawnRise(boss.x + run.rng.range(-70, 70), boss.y + fx.drop + run.rng.range(-60, 60), 0xffe9a8, 3, INTRO_DIM_DEPTH + 3);
+          }
+        }
+        if (deathStage < 6 && t >= D.burstAt) { deathStage = 6; finalBurst(); }                   // 最後の鐘＝光に弾ける
+        if (deathStage < 7 && t >= D.lineAt && D.line) {                                          // 最後の一行（会話＝1文字ずつ）
+          deathStage = 7;
+          introText(D.line.text, D.line.color, 150, 18, 3, true);
+        }
+        drawDeathRays(t);
+        if (stateT <= 0) endCathDeath();
         break;
       }
 
@@ -3922,7 +3972,7 @@ export function createBoss(run) {
     //   「再合体した際に体の色がメタリックパープルへ変化するはずだが。それもなかった」の正体はこれ。
     //   演出の途中で倒せてしまう限り、演出をどれだけ豪華にしても**原理的に見えない**。
     if (state === 'maouIntro' || state === 'splitCine' || state === 'mergeCine'
-      || state === 'awakenCine' || awakening) {
+      || state === 'awakenCine' || state === 'cathDeath' || awakening) {
       return { pass: false, mul: 0 };
     }
     if (ent && ent.isLowerHalf) return { pass: false, mul: 0 };
@@ -4192,9 +4242,9 @@ export function createBoss(run) {
   //   同じマキナである雑魚は、神の前で戦わない。予告の鐘でその場にひれ伏し（Run.updateEnemies：止まる・攻撃しない・
   //   触れても痛くない・掴むのは自由）、着地の衝撃波で近い順に光の粒となって天へ還る（報酬なし・たおした数に入れない）。
   //   エリート／珍しい敵（マグマン）は平伏すだけで消えない＝報酬の経路を壊さない。
-  function kneelAll() {
+  function kneelAll(includeChoir) {
     for (const e of run.enemies) {
-      if (!e.active || e.isBoss || e.choir || e.kneel) continue;
+      if (!e.active || e.isBoss || (e.choir && !includeChoir) || e.kneel) continue;
       e.kneel = true;
       run.spawnParticles(e.x, e.y + 6, 0x9a8a6a, 3);
     }
@@ -4203,12 +4253,12 @@ export function createBoss(run) {
     const R = BALANCE.rareEnemy;
     return !!(R && e.def && e.def.id === R.enemyId);
   }
-  function ascendKneeling(cx, cy) {
+  function ascendKneeling(cx, cy, all) {   // all＝撃破のとき：エリートも珍しい敵も一緒に還る
     const sec = (cfg.intro && cfg.intro.ascendSec) || 0.8;
     const list = [];
     let maxD = 1;
     for (const e of run.enemies) {
-      if (!e.active || !e.kneel || e.isBoss || e.isElite || isRareEnemy(e)) continue;
+      if (!e.active || !e.kneel || e.isBoss || (!all && (e.isElite || isRareEnemy(e)))) continue;
       const d = Math.hypot(e.x - cx, e.y - cy);
       list.push([e, d]);
       if (d > maxD) maxD = d;
@@ -4225,6 +4275,106 @@ export function createBoss(run) {
   }
   function standAll() {
     for (const e of run.enemies) if (e.kneel) e.kneel = false;
+  }
+
+  // ★2026-09-13 撃破＝「祈りの終わり」（cfg.death・堕天の大聖堂だけ）。実プレイFB「ボスであり神の一柱にふさわしい撃破演出を」。
+  //   登場（intro）と同じ語彙＝暗幕・光条・鐘・聖歌・無音の間。登場の逆再生ではなく「迎えた光へ帰る」。
+  //   最後の一撃で時間が粘りBGMが止まる → 硝子が砕け鐘が狂う → 翼が落ちる → 砕けた光輪が天から還る → 光条の中を昇る
+  //   → 最後の鐘で光に弾け、平伏したマキナも聖歌隊も一緒に還る → 最後の一行 → Result。文字はその一行だけ。
+  function startCathDeath() {
+    const D = cfg.death;
+    killing = true;
+    boss.active = false;           // Run がボス秒を閉じる・投げが当たらない・HUD のゲージが消える
+    boss.hp = 0;
+    state = 'cathDeath'; stateT = D.dur; deathT = 0; deathStage = 0; deathGlassAcc = 0; deathRiseAcc = 0;
+    clearBullets(); clearStrikes(); clearPillars(); clearMinions(); destroyAnchor(); destroyWire();
+    beam = null;
+    if (beamImg) beamImg.setVisible(false);
+    if (beamCore) beamCore.setVisible(false);
+    choirList = null; choirT = 0; choirBladeT = 0; choirBladePts = null;
+    if (disp && disp.muzzle) disp.muzzle.setVisible(false);
+    if (run.withAudio) Sound.stopBgm();
+    kneelAll(true); spawnHoldT = Infinity;     // 神の最期にも、マキナは平伏す（聖歌隊も）
+    if (!introDim) spawnIntroDim(D.dimAlpha);
+    setBossDepthLift(INTRO_LIFT);
+    spawnIntroRays();
+    whiteFlash(0.5, 0xffe9a8, 520); run.shake(640, 12); run.slowMotion(0.6, 0.15);
+    bigCue(int(cfg.glowOuter));
+    Sound.sfx('haloCrack', 1.2, 0.7); Sound.sfx('bigBoom');
+    run.spawnParticles(boss.x, boss.y, int(cfg.glowOuter), 40);
+    spawnRingFx(boss.x, boss.y, 0xffffff, 20, 300, 0.5, 0.9, INTRO_DIM_DEPTH + 2);
+  }
+  // 体の動き（updateDisp が introFx と同じ経路で読む）：砕ける間は震え、昇る間は上へ、弾けたら消える。翼は wing。
+  function cathDeathFx() {
+    const D = cfg.death, t = deathT;
+    const jitter = t < D.glassSec ? Math.sin(t * 70) * 3 * (1 - t / D.glassSec) : 0;
+    const rp = clamp01((t - D.riseAt) / D.riseSec);
+    const rise = D.risePx * rp * rp;
+    const alpha = t >= D.burstAt ? Math.max(0, 1 - (t - D.burstAt) / 0.25) : 1;
+    const wp = clamp01((t - D.wingAt) / 0.9);
+    return { alpha, scale: 1 + rp * 0.05, drop: jitter - rise,
+      wing: { drop: 170 * wp * wp, rot: 0.8 * wp, alpha: 1 - clamp01((wp - 0.75) / 0.25) } };
+  }
+  function fallWings() {
+    Sound.sfx('ironCreak', 1.2, 0.7);
+    run.time.delayedCall(880, () => {
+      if (!boss || state !== 'cathDeath') return;
+      for (const sd of [-1, 1]) {
+        const w = wingTip(sd), gy = boss.y + boss.radius * 0.9;
+        spawnRingFx(w.x, gy, 0xd8c8a0, 10, 110, 0.45, 0.6, INTRO_DIM_DEPTH + 2);
+        run.spawnParticles(w.x, gy, 0x9a8a6a, 14);
+      }
+      Sound.sfx('cathLand'); run.shake(420, 9);
+    });
+  }
+  // 光条（登場と同じ幾何＝天から本体へ）と、天から降りて頭上で止まる金の光輪。暗幕の上・本体の下。
+  function drawDeathRays(t) {
+    if (!rayGfx || !boss) return;
+    const D = cfg.death, n = (cfg.intro && cfg.intro.rays) || 9;
+    const fx = cathDeathFx();
+    const a = clamp01((t - D.haloAt) / 0.8) * (t >= D.burstAt ? Math.max(0, 1 - (t - D.burstAt) / 0.6) : 1);
+    rayGfx.clear();
+    if (!haloRetGfx) haloRetGfx = run.add.graphics().setDepth(INTRO_LIFT + 40).setBlendMode(ADD);
+    haloRetGfx.clear();
+    if (a <= 0) return;
+    const ax = boss.x, ay = boss.y - 300, base = boss.y + 260;
+    for (let i = 0; i < n; i++) {
+      const k = (i + 0.5) / n - 0.5;
+      const x0 = ax + k * 900, w = 26 + 30 * Math.abs(Math.sin(i * 2.1 + run.elapsed * 0.7));
+      rayGfx.fillStyle(0xffe9a8, (0.07 + 0.09 * (0.5 + 0.5 * Math.sin(run.elapsed * 1.3 + i))) * a);
+      rayGfx.fillTriangle(ax, ay, x0 - w, base, x0 + w, base);
+    }
+    // 光輪が還る：天から降りて頭上（dome の上）で止まる。本体より前＝体に隠れない
+    const hp = clamp01((t - D.haloAt) / 1.0), he = 1 - (1 - hp) * (1 - hp);
+    const hy = boss.y - 215 + fx.drop - (1 - he) * 200, hr = lerp(170, 64, he);
+    const pulse = 0.5 + 0.5 * Math.sin(run.elapsed * 9);
+    haloRetGfx.fillStyle(0xffe9a8, 0.10 * a * he); haloRetGfx.fillCircle(ax, hy, hr * 1.12);
+    haloRetGfx.lineStyle(8, 0xc9971f, 0.7 * a); haloRetGfx.strokeCircle(ax, hy, hr);
+    haloRetGfx.lineStyle(4, 0xffe9a8, 0.9 * a); haloRetGfx.strokeCircle(ax, hy, hr * 0.97);
+    haloRetGfx.lineStyle(2, 0xffffff, (0.6 + 0.4 * pulse) * a); haloRetGfx.strokeCircle(ax, hy, hr * 0.90);
+  }
+  function finalBurst() {
+    const fx = cathDeathFx(), x = boss.x, y = boss.y + fx.drop;
+    whiteFlash(0.5, 0xffffff, 700); run.shake(760, 14); run.slowMotion(0.5, 0.2);
+    Sound.sfx('cathFinale');
+    spawnRingFx(x, y, 0xffffff, 20, 460, 0.7, 0.95, INTRO_DIM_DEPTH + 4);
+    run.time.delayedCall(90, () => { if (boss) spawnRingFx(x, y, 0xffe9a8, 10, 560, 0.9, 0.7, INTRO_DIM_DEPTH + 4); });
+    run.time.delayedCall(200, () => { if (boss) spawnRingFx(x, y, 0xc9971f, 6, 680, 1.1, 0.5, INTRO_DIM_DEPTH + 4); });
+    for (let i = 0; i < 14; i++) {
+      run.spawnRise(x + run.rng.range(-90, 90), y + run.rng.range(-80, 60), i % 3 ? 0xffe9a8 : 0xffffff, 6, INTRO_DIM_DEPTH + 3);
+    }
+    ascendKneeling(x, y, true);   // 平伏したマキナも聖歌隊も、神と一緒に光へ還る
+  }
+  function endCathDeath() {
+    if (rayGfx) { rayGfx.destroy(); rayGfx = null; }
+    if (haloRetGfx) { haloRetGfx.destroy(); haloRetGfx = null; }
+    standAll(); spawnHoldT = 0; deathT = -1;
+    allDone = !run.practiceMode;
+    const keep = ti;
+    destroyDisp();          // 最後の一行・暗幕もここで片付く（clearIntroEls／destroyIntroDim）
+    endFight();
+    if (run.practiceMode) { ti = keep; allDone = false; return; }
+    run.endRun(true);
   }
 
   function bossArrival(x, y) {
@@ -5163,7 +5313,7 @@ export function createBoss(run) {
     const rcx = -Math.cos(recoilAng) * rk, rcy = -Math.sin(recoilAng) * rk;
 
     // 最終ボス登場中：全パーツ/グロウをフェードイン＋スケールイン＋上から降下させる（重量感のある登場）。
-    const introFx = state === 'maouIntro' ? maouIntroFx() : null;
+    const introFx = state === 'maouIntro' ? maouIntroFx() : state === 'cathDeath' ? cathDeathFx() : null;   // 2026-09-13 撃破も同じ経路で体を動かす
 
     // ★R30 分離中は脚パーツだけを下半身(lower)の座標へ付け替える。新しい絵は作らない。
     //   分離のカットシーン中は「切り離されて離れていく」途中経過を補間で見せる。
@@ -5234,8 +5384,15 @@ export function createBoss(run) {
       //   ゴロゴロ回って突っ込んでくる（加速したことが「回転が速くなった」で分かる）。
       if (rollSpin) rot += rollSpin;
       if (introFx) {
-        py += introFx.drop;
-        p.img.setAlpha(introFx.alpha).setScale((p.mirror ? -1 : 1) * s * introFx.scale, s * introFx.scale);
+        let dy = introFx.drop, al = introFx.alpha;
+        // 2026-09-13 撃破：翼だけ外へ傾きながら落ちて消える（wing＝cathDeathFx が返す）
+        if (introFx.wing && (p.role === 'wingL' || p.role === 'wingR')) {
+          dy += introFx.wing.drop;
+          rot += (p.role === 'wingL' ? -1 : 1) * introFx.wing.rot;
+          al = Math.min(al, introFx.wing.alpha);
+        }
+        py += dy;
+        p.img.setAlpha(al).setScale((p.mirror ? -1 : 1) * s * introFx.scale, s * introFx.scale);
       } else if (isLeg) {
         p.img.setScale((p.mirror ? -1 : 1) * ls, ls);
       } else if (p.img.scaleY !== s) {
@@ -5346,6 +5503,8 @@ export function createBoss(run) {
     // ★★ 真マオウレクス：メタリックパープルのHPが0になっても、そこは終わりではなく**転生**。
     //    撃破処理より前に横取りして、亀裂→粉砕→出現のカットシーンへ渡す。
     if (cfg && cfg.final && cfg.trueForm && !trueForm && !awakening) { startAwaken(); return; }
+    // ★2026-09-13 堕天の大聖堂：撃破は「祈りの終わり」（cfg.death）。汎用の回転フェード＋花火は通らない。
+    if (cfg && cfg.death && cfg.intro) { startCathDeath(); return; }
     killing = true;
     boss.active = false;
     const x = boss.x, y = boss.y;
@@ -5544,6 +5703,12 @@ export function createBoss(run) {
       }
     }
 
+    // 2026-09-13 撃破「祈りの終わり」：active は落としてある（Run がボス秒を閉じる・投げが当たらない・ゲージが消える）が、
+    //   体と演出は動かし続ける。updateAI は state の分岐だけを通る（攻撃・移動は cathDeath の case に無い）。
+    if (boss && !boss.active && state === 'cathDeath') {
+      updateAI(dt);
+      if (boss && disp && state === 'cathDeath') updateDisp(dt);   // 同じフレームで endCathDeath が畳んだら描かない
+    }
     if (boss && boss.active) {
       updateAI(dt);
       updateDisp(dt);
@@ -5555,7 +5720,7 @@ export function createBoss(run) {
       //    実プレイでも、HP33%超から一撃で0にすれば同じことが起きる（R34 の実測でコアへの
       //    渾身の一投は最大HPの23%＝十分あり得る）。転生中と真の姿では段の判定を止める。
       //    真の姿は maxHp そのものが別物なので、cfg.hp 基準の比較はどのみち意味を持たない。
-      if (!awakening && !trueForm) {
+      if (!awakening && !trueForm && !killing) {   // 2026-09-13 撃破演出中（HP0）は段の判定を止める
         if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
         // ★2026-09-13 堕天の大聖堂：ゲージ2本目が消えた（33%）→ 破鐘（一度だけ）
         if (cfg.stage3HpRatio && cathStage < 2 && boss.hp <= cfg.hp * cfg.stage3HpRatio
@@ -5592,7 +5757,7 @@ export function createBoss(run) {
       const dx = run.player.x - boss.x, dy = run.player.y - boss.y;
       const rr = run.player.radius + boss.radius;
       // カットシーン中は体当たりで削らない。見せている最中に理不尽に減るのが一番しらける
-      const cine = state === 'splitCine' || state === 'mergeCine' || state === 'awakenCine';
+      const cine = state === 'splitCine' || state === 'mergeCine' || state === 'awakenCine' || state === 'cathDeath';
       if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y, 'body');
       // R44W5 かげおに：真の姿のあいだは主人公の足あとを常に記録する（影の材料）。
       //   カットシーン中も記録は止めない＝影の再生に穴を作らない。
@@ -5614,6 +5779,8 @@ export function createBoss(run) {
 
   function destroy() {
     spawnHoldT = 0; standAll();   // 2026-09-13 降臨の途中で終わっても平伏・湧き止めを残さない
+    if (haloRetGfx) { haloRetGfx.destroy(); haloRetGfx = null; }
+    deathT = -1;
     releaseCamera();
     clearBullets();
     clearStrikes(); clearPillars();

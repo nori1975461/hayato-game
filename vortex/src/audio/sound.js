@@ -874,6 +874,36 @@ const SFX = {
     tone({ type: 'square', freq: f * 0.5, freqEnd: f * 0.22, dur: 1.0, gain: 0.10 * g, attack: 0.004 });
     tone({ start: 0.10, type: 'triangle', freq: 120, freqEnd: 28, dur: 0.9, gain: 0.20 * g, attack: 0.004 });
   },
+  // 2026-09-13 撃破「祈りの終わり」の昇天：光の中を昇る（D ハーモニックマイナーの音が1つずつ上へ抜けていく＋高い空気＋地の底の持続音が上がる）。sec＝昇る尺。
+  cathAscend(sec) {
+    const S = sec == null ? 1.8 : sec, n = 10, d = S / n;
+    const steps = [0, 2, 3, 5, 7, 8, 11, 12, 14, 15];
+    for (let i = 0; i < n; i++) {
+      const f = noteFreq(NOTE.D4 + steps[i]);
+      tone({ start: i * d, type: 'sine', freq: f, freqEnd: f * 2, dur: d * 3.0, gain: 0.05 + i * 0.008, attack: 0.05, verb: 0.7 });
+      tone({ start: i * d, type: 'triangle', freq: f * 2, freqEnd: f * 4, dur: d * 2.4, gain: 0.025, attack: 0.05, verb: 0.7 });
+    }
+    noiseHit({ start: 0, dur: S, gain: 0.05, hpFreq: 4000, lpFreq: 14000 });
+    tone({ type: 'sawtooth', freq: 36, freqEnd: 110, dur: S, gain: 0.09, attack: 0.3 });
+  },
+  // 2026-09-13 撃破の最後の鐘：低い鐘1打（D3・長い尾）のあと、D メジャーの和音が静かに開く（短調の曲の終わりが長調で閉じる＝救い）。
+  cathFinale() {
+    const f = noteFreq(NOTE.D4) * 0.5;
+    noiseHit({ dur: 0.10, gain: 0.34, hpFreq: 1500, lpFreq: 12000 });
+    noiseHit({ start: 0.04, dur: 0.6, gain: 0.16, hpFreq: 200, lpFreq: 3000, lpEnd: 300 });
+    tone({ type: 'sine', freq: 70, freqEnd: 24, dur: 1.4, gain: 0.40, attack: 0.002 });
+    tone({ type: 'sine', freq: f, dur: 4.5, gain: 0.34, attack: 0.003, verb: 0.75 });
+    tone({ type: 'sine', freq: f * 2.0, dur: 3.2, gain: 0.14, attack: 0.003, verb: 0.6 });
+    tone({ type: 'sine', freq: f * 2.76, dur: 2.4, gain: 0.10, attack: 0.003, verb: 0.6 });
+    tone({ type: 'sine', freq: f * 5.4, dur: 1.0, gain: 0.05, attack: 0.002 });
+    const chord = [NOTE.D5, NOTE.D5 + 4, NOTE.D5 + 7, NOTE.D5 + 12, NOTE.D5 + 16];   // D F# A D F#
+    chord.forEach((nn, i) => {
+      for (const det of [-5, 5]) {
+        tone({ start: 0.55 + i * 0.05, type: 'sine', freq: noteFreq(nn), dur: 3.4, gain: 0.06, attack: 0.5, detune: det, verb: 0.75 });
+        tone({ start: 0.55 + i * 0.05, type: 'triangle', freq: noteFreq(nn), dur: 3.0, gain: 0.025, attack: 0.6, detune: det * 1.4, verb: 0.75 });
+      }
+    });
+  },
   thunder(power) {
     const p = (power == null) ? 1 : Math.max(0, Math.min(1, power));
     const k = 0.8 + 0.5 * p;

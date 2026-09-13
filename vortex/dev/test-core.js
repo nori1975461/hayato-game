@@ -1401,9 +1401,22 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       const I9 = BALANCE.boss.jamTiers[0].intro, sp9 = read('systems/spawner.js');
       assert(I9.kneel === true && I9.ascendSec > 0 && I9.ascendSec <= I9.silenceSec + 0.2 && I9.graceSec >= 3,
         'JAM9: 昇天は無音の間に収まり、登場後の湧き猶予は3秒以上');
-      assert(/function kneelAll\(\)/.test(jb4) && /if \(t\.intro\.kneel\) \{ kneelAll\(\); spawnHoldT = Infinity; \}/.test(jb4), 'JAM9: 予告の鐘で平伏＋湧き止め');
-      assert(/function ascendKneeling\(cx, cy\)/.test(jb4) && /if \(cfg\.intro && cfg\.intro\.kneel\) ascendKneeling\(x, y\);/.test(jb4)
-        && /e\.isElite \|\| isRareEnemy\(e\)/.test(jb4) && /BALANCE\.rareEnemy/.test(jb4), 'JAM9: 着地で近い順に昇天（エリート・珍しい敵は残す）');
+      assert(/function kneelAll\(includeChoir\)/.test(jb4) && /if \(t\.intro\.kneel\) \{ kneelAll\(\); spawnHoldT = Infinity; \}/.test(jb4), 'JAM9: 予告の鐘で平伏＋湧き止め');
+      assert(/function ascendKneeling\(cx, cy, all\)/.test(jb4) && /if \(cfg\.intro && cfg\.intro\.kneel\) ascendKneeling\(x, y\);/.test(jb4)
+        && /\(!all && \(e\.isElite \|\| isRareEnemy\(e\)\)\)/.test(jb4) && /BALANCE\.rareEnemy/.test(jb4), 'JAM9: 着地で近い順に昇天（エリート・珍しい敵は残す）');
+      // ★2026-09-13 JAM10：撃破「祈りの終わり」（cfg.death・大聖堂だけ。本編の撃破経路は不変）
+      const D10 = BALANCE.boss.jamTiers[0].death, snd10 = read('audio/sound.js');
+      assert(D10 && D10.glassSec < D10.wingAt + 0.2 && D10.wingAt < D10.haloAt && D10.haloAt < D10.riseAt && D10.riseAt + D10.riseSec <= D10.burstAt + 0.1
+        && D10.burstAt < D10.lineAt && D10.lineAt + 1.2 <= D10.dur && D10.dimAlpha < 0.5, 'JAM10: 時刻表の順序（硝子→翼→光輪→昇天→最後の鐘→一行→Result）・暗幕<0.5');
+      assert(/function startCathDeath\(\)/.test(jb4) && /boss\.active = false;\s*\/\/ Run がボス秒を閉じる/.test(jb4) && /kneelAll\(true\); spawnHoldT = Infinity;/.test(jb4)
+        && /if \(run\.withAudio\) Sound\.stopBgm\(\);\s*\n\s*kneelAll\(true\)/.test(jb4), 'JAM10: 最後の一撃で BGM 停止・マキナも聖歌隊も平伏・湧き止め');
+      assert(/case 'cathDeath': \{/.test(jb4) && /if \(boss && !boss\.active && state === 'cathDeath'\) \{/.test(jb4) && /state === 'cathDeath' \|\| awakening\)/.test(jb4)
+        && /state === 'awakenCine' \|\| state === 'cathDeath';/.test(jb4), 'JAM10: 撃破中は動き続けるが、ダメージも接触も通らない');
+      assert(/function finalBurst\(\)/.test(jb4) && /ascendKneeling\(x, y, true\);/.test(jb4) && /function endCathDeath\(\)/.test(jb4) && /run\.endRun\(true\);\s*\n\s*\}/.test(jb4),
+        'JAM10: 最後の鐘で全員が光へ還り、Result へ');
+      assert(/cathAscend\(sec\) \{/.test(snd10) && /cathFinale\(\) \{/.test(snd10) && /Sound\.sfx\('cathAscend', D\.riseSec\)/.test(jb4) && /Sound\.sfx\('cathFinale'\)/.test(jb4),
+        'JAM10: 昇天と最後の鐘の専用SFX');
+      assert(!(BALANCE.boss.tiers || []).some((t) => t.death), 'JAM10: 本編の tiers に death を入れていない（撃破経路は不変）');
       assert(/standAll\(\); spawnHoldT = cfg\.intro\.graceSec \|\| 0;/.test(jb4) && /get spawnHold\(\) \{ return spawnHoldT > 0; \}/.test(jb4)
         && /spawnHoldT = 0; standAll\(\);/.test(jb4), 'JAM9: 登場終了で立ち上がり・猶予のあと湧きが戻る・破棄で後始末');
       assert(/const hold = !!\(run\.boss && run\.boss\.spawnHold\);/.test(sp9) && /if \(hold\) spawnTimer = Math\.max\(spawnTimer, 0\.5\);/.test(sp9)
@@ -1980,7 +1993,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   //   startAwaken が boss.hp を 1 に落とすので、同じフレームで「HP50%で分離」「33%で再合体」が
   //   両方成立し、startSplit() が state='awakenCine' を上書きしていた（実測：awakening=true の
   //   まま state=chase・trueForm=false＝転生が丸ごと起きない）。
-  assert(/if \(!awakening && !trueForm\) \{[\s\S]{0,400}?enterPhase2\(\);[\s\S]{0,900}?startMerge\(\);/.test(boss),
+  assert(/if \(!awakening && !trueForm && !killing\) \{[\s\S]{0,400}?enterPhase2\(\);[\s\S]{0,900}?startMerge\(\);/.test(boss),
     'true: 転生中と真の姿では phase2/分離/再合体の判定を止めている（カットシーンの横取り防止）');
 
   // --- ★実バグ②：弱点コアのUIが、描き下ろした眼を完全に覆っていた ---
@@ -2085,7 +2098,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       `true: 100秒をゲージ4本で数えられる（${tf.gaugeSegments}本・1本≒25秒＝激化の段と同数）`);
   }
   // HPが0になった瞬間を、撃破処理より**前**に横取りしていること（順序が逆だと1回で終わる）
-  assert(/function onBossKilled\(e\) \{[\s\S]{0,1200}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n\s*killing = true;/.test(boss),
+  // 2026-09-13 転生のあとに堕天の大聖堂の「祈りの終わり」（cfg.death）が1行入る＝どちらも汎用の撃破より前
+  assert(/function onBossKilled\(e\) \{[\s\S]{0,1200}?cfg\.trueForm && !trueForm[\s\S]{0,60}?startAwaken\(\);[\s\S]{0,40}?\}\s*\n(?:\s*\/\/[^\n]*\n)*\s*if \(cfg && cfg\.death && cfg\.intro\) \{ startCathDeath\(\); return; \}\s*\n\s*killing = true;/.test(boss),
     'true: HP0 は「撃破」より先に「転生」を見る（順序が逆だと真の姿が出ないまま終わる）');
   assert(tf.name && tf.name !== MAOU.name,
     `true: 真の姿は名前も変わる（${MAOU.name} → ${tf.name}）＝HPバーで別物だと分かる`);
