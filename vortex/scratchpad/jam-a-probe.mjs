@@ -13,6 +13,7 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import { judge } from '../src/data/verdict.js';   // 2026-09-13 裁き
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -290,6 +291,7 @@ async function main() {
   if (!R) { console.log('R63_NG'); process.exit(1); }
   R.seed = SEED; R.endT = st && st.t; R.hostExceptions = exceptions;
   R.bossTimes = await ev('JSON.stringify(window.__run.bossTimes || null)');
+  R.jam = await ev('JSON.stringify(window.__run.jamSt || null)');   // 2026-09-13 裁きの統計
   console.log('  Run.bossTimes（R63・Result表示の元データ）:', R.bossTimes);
   const TAG = process.env.TAG || '';
   const out = path.join(HERE, `jam-a-out-seed${SEED}-${PROFILE}${TAG}.json`);
@@ -309,6 +311,13 @@ async function main() {
     console.log(`     予告 ${f.teles}回・ブレイク ${f.breaks}回（${f.teles ? Math.round(100 * f.breaks / f.teles) : 0}%）${f.breakDenied ? '・CDで拒否 ' + f.breakDenied : ''}／状態遷移: ${Object.keys(f.states).map((k) => k + ' ' + f.states[k]).join(', ')}`);
   }
   console.log(`  死亡: ${R.deaths.map((d) => d.t + 's@' + (d.boss || '雑魚') + (d.bossHpPct != null ? d.bossHpPct + '%' : '') + ' Lv' + d.level).join(' / ') || 'なし'}`);
+  if (R.jam) {
+    const j = JSON.parse(R.jam); const last = R.deaths[R.deaths.length - 1];
+    const stat = { clear: false, hits: j.hits, throws: 30, coreHits: j.coreHits, shardShare: j.bossDmg > 0 ? j.shardDmg / j.bossDmg : 0,
+      choirBest: j.choirBest, haloHit: j.haloHit, haloGrabbed: j.haloGrabbed, deathCause: j.lastCause,
+      remainPct: last && last.bossHpPct != null ? last.bossHpPct : null, stage: null, tries: j.tries, bossSec: 20 };
+    console.log(`  裁き: 被弾${j.hits} 内訳${JSON.stringify(j.hitsByCause)} 聖核${j.coreHits} 装甲片${j.shardHits}(${Math.round(100 * stat.shardShare)}%) 聖歌隊${j.choirBest}/8 欠片 掴${j.haloGrabbed ? 1 : 0} 当${j.haloHit ? 1 : 0} 最高の一投${JSON.stringify(j.best)} → ${judge(stat).title}`);
+  }
   console.log(`  被ダメ総計: ボス ${R.takenAll ? R.takenAll.boss : 0} / 雑魚 ${R.takenAll ? R.takenAll.mob : 0} ／ 回復総計: 文言 ${R.heal.text}(${R.heal.textCount}回)・HP増分計 ${Math.round(R.heal.frameGain)}`);
   console.log(`  推移: ${R.samples.filter((s) => s.t % 30 === 0).map((s) => s.t + 's 倒' + s.kills + ' 進' + s.prog + ' HP' + s.hp + '/' + s.maxHp + ' Lv' + s.level + ' 攻' + s.heroMult + ' 敵' + s.enemies + ' 仲間' + s.party).join(' | ')}`);
   console.log('R63_DONE');

@@ -65,3 +65,20 @@ export function dumpText() {
   });
   return `クルット・モビット あそんだ きろく（${list.length}かい ぶん）\n` + lines.join('\n');
 }
+
+// ★2026-09-13 ジャム版の持ち越し（別の鍵）。再挑戦の動機に使う3つだけ：挑戦回数／最良到達（大聖堂の残りHP%の最小）／
+//   見た裁き（id→回数）。本編の記録（vortex.runs）とは混ぜない＝本編の dumpText を汚さない。
+const JKEY = 'vortex.jam';
+export function readJam() {
+  try {
+    const o = JSON.parse(window.localStorage.getItem(JKEY) || '{}');
+    return o && typeof o === 'object' ? o : {};
+  } catch (e) { return {}; }
+}
+export function writeJam(patch) {
+  try {
+    const o = Object.assign(readJam(), patch || {});
+    window.localStorage.setItem(JKEY, JSON.stringify(o));
+    return o;
+  } catch (e) { return null; }
+}

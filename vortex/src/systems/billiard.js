@@ -140,6 +140,8 @@ export function createBilliard(run) {
       scale: e.baseScale || 1,
       radius: e.radius || 10,
       shard: !!e.shard,        // ボスの装甲片＝ボスへ投げ返すと特効
+      piece: !!e.haloPiece,    // 2026-09-13 ジャム版：光輪の欠片（超装甲片・上限は crack.pieceCapMul）
+      choir: !!e.choir,        // 2026-09-13 ジャム版：聖歌隊の1体（投げ返した数を数える）
       // R24: レア雑魚（マグマン）を掴んだ弾は**炎の炸裂弾**になる。
       // 掴んだ敵の絵をそのまま持つので、赤い機体が手の中にあること自体が「特別な弾」の合図になる。
       // R29W2: 導火線が燃えているボンバを掴んだ弾は**ばくだん**になる。時間内に投げ切れば
@@ -162,6 +164,7 @@ export function createBilliard(run) {
     st.chargeT = machineOn() ? B().chargeMaxSec : 0;
     st.maxRung = machineOn();
     st.grabs++;
+    if (run.jamSt && e.haloPiece) run.jamSt.haloGrabbed = true;   // 2026-09-13 ジャム版：光輪の欠片を掴んだ（裁きが読む）
     st.gradeGrabs[st.held.grade] = (st.gradeGrabs[st.held.grade] || 0) + 1;
     if (st.held.crown) st.crownGrabs++;
     st.fuseBeep = 0;
@@ -299,7 +302,7 @@ export function createBilliard(run) {
     screenFlash(0.22, 0xff8a1f);
     run.shake(300, 12);
     Sound.sfx('bigBoom', 0.9);
-    run.hitPlayer(F.heldDamage, px, py - 20);
+    run.hitPlayer(F.heldDamage, px, py - 20, 'held');
     run.floatText(px, py - 46, 'てのなかで ばくはつ！', '#ff8a3d');
   }
 
@@ -722,6 +725,7 @@ export function createBilliard(run) {
       // ★R33 スーパーボールだけは跳ね返るぶん長く生きる（設定に lifeSec があればそちらが勝つ）
       life: (L && L.lifeSec) || b.lifeSec,
       hit: new Set(), kills: 0, chain: 0, tier: T, shard: !!h.shard, spec: kind,
+      piece: !!h.piece, choir: !!h.choir,   // 2026-09-13 ジャム版（光輪の欠片／聖歌隊）
       biricco: !!h.biricco,   // R70d ビリッコの手渡しから生まれた弾か（命中率を出す分母になる）
       grade: h.grade || 0, crown: !!h.crown, suna,
       hero: heroMul(),   // 投げた時点の攻撃力で固定する（飛んでいる間に強化が入っても揺れない）
@@ -1246,13 +1250,15 @@ export function createBilliard(run) {
         dmg = Math.round(dmg * shardMode().mul);
         // ★R63 1枚の上限＝ボス最大HPの割合（序盤のボスを装甲片1枚で半壊させない。理由は balance.shards.bossHpCap）
         const cap = B().shards && B().shards.bossHpCap;
-        if (cap) dmg = Math.min(dmg, Math.max(1, Math.round((e.maxHp || 1) * cap)));
-        run.floatText(e.x, e.y - e.radius - 22, 'アーマーブレイク！', '#ffd23f');
+        // 2026-09-13 光輪の欠片は本編の上限を通らない（ジャム版のボスだけが持つ pieceCapMul を Run.dealDamage が掛ける）
+        if (cap && !s.piece) dmg = Math.min(dmg, Math.max(1, Math.round((e.maxHp || 1) * cap)));
+        run.floatText(e.x, e.y - e.radius - 22, s.piece ? '光輪返し！' : 'アーマーブレイク！', '#ffd23f');
       }
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
       const hpBefore = e.hp;
       // R29: 命中座標＝弱点コア判定。R31: hitR で判定円を上の当たり判定(s.radius + weak.r)とそろえる。
-      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y, hitR: s.radius, shard: !!s.shard });   // shard: 2026-09-13 ジャム版の上限（Run.dealDamage）
+      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y, hitR: s.radius, shard: !!s.shard,
+        piece: !!s.piece, choir: !!s.choir, grade: s.grade || 0 });   // shard/piece/choir/grade: 2026-09-13 ジャム版（上限と裁きの統計）
       if (e.isBoss) bossImpact(s, e, Math.max(0, hpBefore - e.hp), T);
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）

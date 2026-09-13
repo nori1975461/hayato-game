@@ -2050,29 +2050,28 @@ export const BALANCE = {
 };
 
 // ★2026-09-13 ジャム版のボス表（Run.jamMode のとき boss.js が tiers の代わりに読む）。
-//   ①ウズバルカン＝本編の tier をそのまま借りて HP と地点だけ変える（攻撃4種・phase2 は本編と同じ）。
-//     HP 9000→4500 の根拠：ジャムではボス①＝装備はコロガンナー時点相当。人間の実測DPSは 53〜90/秒
-//     （製作者 90・息子さん 53〜90）で、目標35秒×90〜130＝3150〜4550。撃破で全回復（R66 と同じ healOnKill）。
-//   ②堕天の大聖堂＝最終ボス。HP 9000・ゲージ3本（3000×3）。出現105秒＝ジェットバイパー時点の人間DPS 71〜119/秒 ×
-//     目標75秒＝9000。切り札3発（15%×3）と全回復込みで初見の大人が90〜100秒、製作者60秒前後の想定。
-//     聖核（weak）は gate:false＝**ボーナス**（本体にも通り、コアなら2.4倍）。段階は 66%（堕天・硝子が深紅）／33%（破鐘）。
-//     攻撃7種（薔薇窓の裁き／鎮魂の鐘／堕天の聖歌隊／鉄羽の雨／配線の鞭／破鐘／尖塔の連打）は boss.js に順次実装。
+//   ★2026-09-13 14時 ユーザー決定「Unity1week・コメント100に全振り。思い切って堕天の大聖堂1体にする」。
+//     根拠：評価者は最初の1〜2分で判断して離脱する（632人中クリア79人＝87.5%離脱の実例）。作品の売り（大聖堂＋専用曲）を
+//     81〜128秒に置いていた旧構成（ウズバルカン→大聖堂・3分）は、売りを評価者の大半が去ったあとに置く形だった。
+//     ウズバルカンは本編の使い回しで、同業者には既製感として映る。よって大聖堂1体・登場50〜60秒・全体2分のループ型へ。
+//   堕天の大聖堂＝唯一のボス。ゲージ3本。段階 66%（堕天・硝子が深紅）／33%（破鐘）の3段階がそのまま3幕になる。
+//     聖核（weak）は gate:false＝**ボーナス**（本体にも通り、コアなら2.4倍）。
+//     ⚠️ HP は「登場55秒時点の装備（Lv11前後）」で当たるので、旧構成の 9000 から実測で下げ直す（R64 の作法）。
 BALANCE.boss.jamTiers = [
   {
-    ...BALANCE.boss.tiers.find((t) => t.bossId === 'uzuking'),
-    warnSec: 178, spawnSec: 180,
-    hp: 4500, healOnKill: true, rewardCoins: 300,
-  },
-  {
     tier: 'final', bossId: 'cathedral', final: true,
-    warnSec: 278, spawnSec: 280, spawnDist: 350,
+    warnSec: 198, spawnSec: 200, spawnDist: 350,   // 進行度200＝実測 3.3〜4.4/秒 → 約50〜60秒
     bgm: 'cathedral',
     introLines: [{ text: 'いのりとどかぬものへ', color: '#cfe0ff' }, { text: 'さばきを', color: '#ff5a6a' }],
     telop: '【堕天の大聖堂が現れた】',
     hp: 9000, radius: 88, spriteScale: 6.2, glowScale: 11.0,
     gaugeSegments: 3,
     specialBulletMul: 0.5,     // らいこうだん1発＝30%×0.5＝15%＝ゲージ半本
-    shardCapAfterMul: 0.10,    // 装甲片1枚＝倍率込みで最大10%（切り札15%より下）。理由は Run.dealDamage
+    // 装甲片1枚＝倍率込みで最大HPの割合。理由は Run.dealDamage。
+    // ★2026-09-13 10%→6%（ユーザー承認）。1体構成のボット4本で与ダメの37〜58%が装甲片（4〜6発）＝装甲片は
+    //   「20%削るごとに2枚」で自給されるので、10%だと一度20%削れば残りは装甲片だけで足りてしまい、HPが尺を決めない。
+    //   HPを上げるより上限を下げるほうが投げの手数が増えて動詞が立つ。
+    shardCapAfterMul: 0.06,
     glowOuter: '#c9971f', glowInner: '#1f47b8',
     chaseSpeed: 40, bodyDamage: 24,
     // 段階ごとの表（設計書6章）。破鐘（stage3）は光輪が無いので鎮魂の鐘（bell）が消え、尖塔の連打（spires）が入る。
@@ -2093,7 +2092,11 @@ BALANCE.boss.jamTiers = [
                 raiseRad: 0.44, downRad: 0.30, tipOx: 30, tipOy: -14 },
     // ⑥破鐘：1.2秒のシネマ→光輪が外れて転がる（画面端で3回跳ねる・speed 480・damage 24）→砕けて全方位弾（nova）
     crack: { cineSec: 1.2, speed: 480, damage: 24, bounces: 3, radius: 60, spinSpeed: 9, maxSec: 6,
-             text: 'はしょう' },   // 段階の合図は絵（光輪が外れる）＋この1語だけ。floatText は足さない（R54 の作法）
+             text: 'はしょう',   // 段階の合図は絵（光輪が外れる）＋この1語だけ。floatText は足さない（R54 の作法）
+             // ★2026-09-13 光輪の欠片（ユーザー承認）：砕けたあと欠片が1枚だけ残り、掴んで投げ返せる**超装甲片**。
+             //   倍率込みで最大HPの pieceCapMul（25%）＝残り33%の大半を1投で消す隠し手（説明しない・砕けるのは画面で見える）。
+             //   発見した人が書き、掴めなかった人が聞く＝コメントの両側を狙う。pieceHoldSec は掴める猶予。
+             pieceCapMul: 0.25, pieceHoldSec: 6.0, pieceScale: 2.2 },
     nova: { waves: 3, waveInterval: 0.18, perWave: 14, bulletSpeed: 265, bulletRadius: 8, damage: 18, lifeSec: 2.4, spinDeg: 13 },
     // ⑦尖塔の連打：左右の塔（本体中心から ±28×scale・上へ 30×scale）から交互にバルカン。弾は藍の光弾。
     spires: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 300, bulletRadius: 5,

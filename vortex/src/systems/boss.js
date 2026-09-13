@@ -157,6 +157,8 @@ export function createBoss(run) {
   let haloGfx = null;               // 光輪の欠けの印（楕円の上を回る黒い切れ目＋白熱の縁）
   let halo = null;                  // 転がる光輪 { x, y, vx, vy, r, rot, bounces, hitCd, g, glow }
   let haloBreak = null;             // 砕けた位置（全方位弾の中心）
+  let piece = null;                 // 2026-09-13 光輪の欠片（砕けたあと1枚だけ残る超装甲片・掴んで投げ返せる）
+  let pieceGfx = null;              // 欠片を囲む金の輪（「掴めるもの」の印。文字は出さない）
   let roseBeat = 0;                 // 薔薇窓の裁き：0 赤の拍 / 1 青の拍（15° ずれ）
   let roseHit = false;              // 同：この拍で当てたか（回転中は毎フレーム判定するので1拍1回に絞る）
   let roseAngs = null;              // 同：12本の射線 { ox, oy, angs }（予告の最後 lockSec で固定）
@@ -3413,7 +3415,9 @@ export function createBoss(run) {
       const x = boss.x + Math.cos(a) * cfg.summon.ringRadius, y = boss.y + Math.sin(a) * cfg.summon.ringRadius;
       const e = run.spawnEnemy(zunDef, x, y, false, hpMult);
       if (e && cfg.summon.holdSec && run.enterStagger) { run.enterStagger(e); e.stagMax = cfg.summon.holdSec; e.stagT = e.stagMax; }
+      if (e) e.choir = true;   // 2026-09-13 聖歌隊の1体＝投げ返した数を数える（HUD の n/8・裁き）
     }
+    if (run.jamSt) { run.jamSt.choirWaveRet = 0; run.jamSt.choirWaveN = n; }
     run.spawnParticles(boss.x, boss.y, int(def.color), 16);
     Sound.sfx('choirChord', 1, 1.25);
   }
@@ -3503,12 +3507,56 @@ export function createBoss(run) {
     run.spawnParticles(hx, hy, int(cfg.glowOuter), 30);
     spawnRingFx(hx, hy, 0xffffff, 20, 160, 0.35, 0.9, 5);
     state = 'haloNova'; stateT = nv.waves * nv.waveInterval + 0.1; shotAcc = nv.waveInterval; shotIdx = 0;
+    spawnHaloPiece(hx, hy);
   }
   function destroyHalo() {
     if (!halo) return;
     if (halo.g) halo.g.destroy();
     if (halo.glow) halo.glow.destroy();
     halo = null;
+  }
+  // ⑥' 光輪の欠片（2026-09-13・ユーザー承認）：砕けた場所に**1枚だけ**残る超装甲片。掴んで投げ返すと
+  //   倍率込みで最大HPの crack.pieceCapMul（25%）＝残り33%の大半を1投で消す隠し手。
+  //   説明しない＝「砕ける」は画面で見えるので供給経路は隠れていない（R65 の作法）。発見した人が書き、
+  //   掴めなかった人が聞く＝コメントの両側。ジャム版でだけ出る。
+  function spawnHaloPiece(x, y) {
+    const ck = cfg.crack;
+    if (!ck || !ck.pieceCapMul || !run.jamMode) return;
+    const S = BALANCE.hero.billiard && BALANCE.hero.billiard.shards;
+    const pdef = ENEMIES.find((q) => q.id === (S && S.enemyId)) || ENEMIES[0];
+    const e = run.spawnEnemy(pdef, x, y, false, 1);
+    if (!e) return;
+    e.hp = 1; e.shard = true; e.haloPiece = true; e.noReward = true;
+    e.baseScale = (e.baseScale || 1) * ck.pieceScale;
+    e.radius = (e.radius || 10) * ck.pieceScale;
+    e.spr.setScale(e.baseScale);
+    run.enterStagger(e); e.stagMax = ck.pieceHoldSec; e.stagT = e.stagMax;
+    piece = e;
+    run.spawnParticles(x, y, int(cfg.glowOuter), 20);
+    spawnRingFx(x, y, int(cfg.glowOuter), 10, 90, 0.5, 0.9, 4);
+    Sound.sfx('bellToll', 0.9, 1.3);
+  }
+  // 欠片を囲む金の輪＝「掴めるもの」の印（装甲片と同じよろけ表示の上に、光輪の色で重ねる）
+  function drawPieceRing() {
+    if (piece && (!piece.active || !piece.stag)) piece = null;
+    if (!piece) { if (pieceGfx) pieceGfx.clear(); return; }
+    if (!pieceGfx) pieceGfx = run.add.graphics().setDepth(12);
+    const r = piece.radius + 8 + Math.sin(run.elapsed * 8) * 3;
+    pieceGfx.clear();
+    pieceGfx.lineStyle(3, int(cfg.glowOuter), 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r);
+    pieceGfx.lineStyle(1.5, 0xfff2a8, 0.9); pieceGfx.strokeCircle(piece.x, piece.y, r * 0.75);
+  }
+  // 2026-09-13 いま何の攻撃か（state → 死因の鍵。data/verdict.js の CAUSES）。弾は撃った瞬間に持つ。
+  function causeNow() {
+    const s = state || '';
+    if (s.indexOf('rose') === 0) return 'rose';
+    if (s.indexOf('bell') === 0) return 'bell';
+    if (s.indexOf('feather') === 0) return 'feathers';
+    if (s.indexOf('wire') === 0) return 'whip';
+    if (s === 'crackCine' || s === 'haloRoll' || s === 'haloNova') return 'crack';
+    if (s.indexOf('spire') === 0) return 'spires';
+    if (s.indexOf('choir') === 0) return 'choir';
+    return 'body';
   }
   // 光輪の欠けの印：光輪（楕円）の上を欠けの向き（haloAng）に回る黒い切れ目＋白熱の縁
   //   ＝鎮魂の鐘の穴の向きが**常に**見えている（絵のパーツがそのまま攻略情報）。
@@ -4131,6 +4179,7 @@ export function createBoss(run) {
       glow: run.add.image(0, 0, 'glow').setBlendMode(ADD),
       spr: run.add.image(0, 0, 'core'),
     };
+    d.cause = opts.cause || causeNow();   // 2026-09-13 何の攻撃の弾か（撃った瞬間の state で決まる）。ジャム版の裁きが読む
     // FB#2: 汎用弾(orb)は丸い危険弾(foe_orb)＝味方の星弾と形で区別。ミサイル/カッターは既存の見た目を維持。
     // tomahawk（最終ボスのナックルウェーブ）は細長い巨大トマホーク＝進行方向へ向けて発射。
     // R20 Gate2: 汎用弾(orb)は丸い点からプラズマ・ボルト（boss_bolt・鏃形）へ。dart/shellと同じ
@@ -4378,7 +4427,7 @@ export function createBoss(run) {
           + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : b.kind === 'drill' ? b.r : 6);
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
-          run.hitPlayer(b.dmg, b.x, b.y); b.active = false;
+          run.hitPlayer(b.dmg, b.x, b.y, b.cause); b.active = false;
           // R31: 直撃こそがユーザーの言う「主人公に当たった先の爆発」。ここが `hit` の軽い音だった。
           if (b.kind === 'missile') missileBoom(b.x, b.y, true);
           // R34W2: トマホークは直撃しても無音だった（爆発も起きていない）
@@ -4785,6 +4834,7 @@ export function createBoss(run) {
       haloAng += (cathStage >= 1 ? -cfg.halo.spinDegP2 : -cfg.halo.spinDeg) * D2R * dt;
       const dm = disp.parts.find((q) => q.role === 'dome');
       drawHaloMark(dm ? dm.img.x : cx, dm ? dm.img.y : cy);
+      drawPieceRing();
     }
   }
 
@@ -4936,6 +4986,8 @@ export function createBoss(run) {
     trueForm = false; awakening = false; shellDmg = 0; tfTier = 0;
     cathStage = 0; haloGone = false; roseAngs = null; wingRaise = 0; destroyHalo();
     if (haloGfx) { haloGfx.destroy(); haloGfx = null; }
+    if (pieceGfx) { pieceGfx.destroy(); pieceGfx = null; }
+    piece = null;
     killing = false;
     ti++;
   }
@@ -5064,7 +5116,7 @@ export function createBoss(run) {
       const rr = run.player.radius + boss.radius;
       // カットシーン中は体当たりで削らない。見せている最中に理不尽に減るのが一番しらける
       const cine = state === 'splitCine' || state === 'mergeCine' || state === 'awakenCine';
-      if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y);
+      if (!cine && dx * dx + dy * dy <= rr * rr) run.hitPlayer(dmg, boss.x, boss.y, 'body');
       // R44W5 かげおに：真の姿のあいだは主人公の足あとを常に記録する（影の材料）。
       //   カットシーン中も記録は止めない＝影の再生に穴を作らない。
       if (trueForm) {
@@ -5116,6 +5168,9 @@ export function createBoss(run) {
     weakGate, weakPoint, deflect, coreHitFx,
     get hasWeak() { return !!(boss && boss.active && cfg && cfg.weak); },
     get shardCapAfterMul() { return (cfg && cfg.shardCapAfterMul) || 0; },   // 2026-09-13 ジャム版（Run.dealDamage が読む）
+    get pieceCapMul() { return (cfg && cfg.crack && cfg.crack.pieceCapMul) || 0; },   // 光輪の欠片の上限（同上）
+    get cathStage() { return cfg && cfg.stage3HpRatio ? cathStage : null; },   // 裁きの「第n段階」
+    causeNow,   // 何にやられたか（Run.hitPlayer が cause 省略時に読む）
     get telegraphing() { return isTelegraph(state); },
     get staggered() { return bossStagT > 0; },
     // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）

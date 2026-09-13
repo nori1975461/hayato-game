@@ -74,8 +74,8 @@ export class TitleScene extends Phaser.Scene {
     this.add.text(W / 2, 342, 'S キー で ほんぺんを がめんすっきりで あそぶ', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffcd75',
     }).setOrigin(0.5);
-    // ★2026-09-13 ジャム版（unity1week 向け・3分・ボス2体）の入口。
-    this.add.text(W / 2, 355, 'J キー で ジャムばん（3ぷん・ボス2たい）', {
+    // ★2026-09-13 ジャム版（unity1week 向け・2分ループ・堕天の大聖堂1体）の入口。
+    this.add.text(W / 2, 355, 'J キー で ジャムばん（2ふん・だてんの だいせいどう）', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd23f',
     }).setOrigin(0.5);
 
@@ -95,11 +95,15 @@ export class TitleScene extends Phaser.Scene {
     //      **ふつうの画面で遊び続けてしまう**＝感想がどちらの話か分からなくなる。
     //      いま何で始まるのかを必ず文字に出し、戻す手段（N キー）も同じ行に書く。
     const sticky = !!(window.VORTEX && window.VORTEX.tidySticky);
+    // ★2026-09-13 ジャム版も同じ作法で持続する。死んで戻った SPACE が本編を始めてしまう欠陥があった＝
+    //   再挑戦の動機をいくら作っても、再挑戦した先が別のゲームでは無意味になる。
+    const jamSticky = !!(window.VORTEX && window.VORTEX.jam);
     const prompt = this.add.text(W / 2, 306,
-      sticky ? 'SPACE で スタート（がめん すっきり）　N キーで ふつうに もどす'
+      jamSticky ? 'SPACE で スタート（ジャムばん）　N キーで ふつうに もどす'
+        : sticky ? 'SPACE で スタート（がめん すっきり）　N キーで ふつうに もどす'
              : 'SPACE か クリックで スタート', {
-        fontFamily: 'monospace', fontSize: sticky ? '13px' : '15px',
-        color: sticky ? '#ffcd75' : '#ffffff',
+        fontFamily: 'monospace', fontSize: (sticky || jamSticky) ? '13px' : '15px',
+        color: (sticky || jamSticky) ? '#ffcd75' : '#ffffff',
       }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.25, duration: 650,
       yoyo: true, repeat: -1 });
@@ -137,6 +141,8 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard.once('keydown-J', () => {
       if (this._started) return;
       this._started = true;
+      window.VORTEX = window.VORTEX || {};
+      window.VORTEX.jam = true;          // 死んで戻ってきても、そのままジャム版で続けられる（startRun が読む）
       Sound.init();
       this.scene.start('Run', { withAudio: true, jamRun: true });
     });
@@ -154,8 +160,9 @@ export class TitleScene extends Phaser.Scene {
     // すっきりを解除して、ふつうの画面に戻す。⚠️ 解除できないと「元に戻すには再読み込み」に
     //   なってしまい、親子で見比べるときに手間が増える（比べるのがこのモードの目的なので）。
     this.input.keyboard.on('keydown-N', () => {
-      if (this._started || !sticky) return;
+      if (this._started || !(sticky || jamSticky)) return;
       window.VORTEX.tidySticky = false;
+      window.VORTEX.jam = false;
       this.scene.restart();             // 表示（いま何で始まるか）を書き直すため入り直す
     });
     // ★R69 遊んだ記録をクリップボードへ。ゲームは何も送らない（外部送信なし・手元にコピーするだけ）。

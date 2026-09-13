@@ -10,7 +10,8 @@ import { createLevelup } from '../systems/levelup.js';
 import { createFx } from '../systems/fx.js';
 import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
-import { saveRun } from '../systems/record.js';
+import { saveRun, readJam, writeJam } from '../systems/record.js';
+import { judge } from '../data/verdict.js';
 import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
 import { createBilliard } from '../systems/billiard.js';
@@ -120,6 +121,16 @@ export class RunScene extends Phaser.Scene {
     // R63: ボスごとの戦闘秒数（出現→撃破）。Result に小さく出す＝実プレイの「歯ごたえ」を数字で読むため。
     //   負の値は「その戦闘の途中で終わった（死んだ）」印。
     this.bossTimes = [];
+    // ★2026-09-13 ジャム版「裁き」の統計（結果画面の主役・data/verdict.js）。戦闘中に文字は出さない。
+    //   jamScar＝前回いちばん削れた位置（残りHPの割合 0..1）。HUD がボスのHPバーに刻みを描く。
+    if (this.jamMode) {
+      const J = readJam();
+      this.jamSt = { hits: 0, hitsByCause: {}, lastCause: null, coreHits: 0, shardHits: 0, shardDmg: 0, bossDmg: 0,
+        choirWaveRet: 0, choirWaveN: 8, choirBest: 0, haloGrabbed: false, haloHit: false,
+        best: { dmg: 0 }, tries: (J.tries || 0) + 1 };
+      this.jamScar = (J.bestRemain != null && J.bestRemain > 0 && J.bestRemain < 100) ? J.bestRemain / 100 : null;
+      writeJam({ tries: this.jamSt.tries });
+    }
     this._bossOn = false; this._bossT0 = 0;
     // R21 Wave 2: 手動の一撃（ブレイクストライク）。旧ワイヤーアーム／アームスラムは廃止した
     // （どちらも自動発動＝1回の攻撃に対するプレイヤーの入力が0回で、演出を何倍しても手応えが出ない）。
@@ -468,6 +479,14 @@ export class RunScene extends Phaser.Scene {
       const bAct = !!(this.boss && this.boss.active);
       if (bAct && !this._bossOn) { this._bossOn = true; this._bossT0 = this.elapsed; }
       else if (!bAct && this._bossOn) { this._bossOn = false; this.bossTimes.push(Math.round(this.elapsed - this._bossT0)); }
+    }
+    // ジャム版「前回の傷跡」を越えた瞬間＝一音（HUD の刻みが点滅する）。文字は出さない。
+    if (this.jamSt && this.jamScar != null && !this._scarPassed && this.boss && this.boss.active && this.boss.entity) {
+      const en = this.boss.entity;
+      if (en.maxHp > 0 && en.hp / en.maxHp < this.jamScar) {
+        this._scarPassed = true; this._scarPassT = this.elapsed;
+        Sound.sfx('healRise', 1);
+      }
     }
     let dt = delta / 1000;
     if (dt > 0.05) dt = 0.05; // タブ復帰などの巨大dtを抑制
@@ -868,7 +887,8 @@ export class RunScene extends Phaser.Scene {
   // 被弾。R12で srcX/srcY（加害者の位置）を任意で受け取れるようにした。渡されたときは
   // その反対方向へ押し返され、画面端の光り方でも「どっちからやられたか」が分かる。
   // 引数なしの旧呼び出しもそのまま動く（方向演出とノックバックが省かれるだけ）。
-  hitPlayer(dmg, srcX, srcY) {
+  // ★2026-09-13 cause（何にやられたか）はジャム版の裁きが読む。省略時はボスの今の攻撃（boss.causeNow）。
+  hitPlayer(dmg, srcX, srcY, cause) {
     if (this.player.invuln > 0 || this._strikeIfr > 0) return;   // R21W2: 踏み込み中は無敵
     // ★R45 命の盾（マモリン）。ボス戦に1回だけ、HPが落ちた瞬間に張られる光の壁。
     //   ⚠️ 無音・無表示で0にすると「当たったのに減らない＝バグ」に見える（[[1つの命中に判定を2つ]]
@@ -893,6 +913,12 @@ export class RunScene extends Phaser.Scene {
     if (cut > 0) dmg = Math.max(1, Math.round(dmg * (1 - cut)));
     this.player.hp -= dmg;
     this.player.invuln = BALANCE.player.invulnSec;
+    if (this.jamSt) {
+      const c = cause || (this.boss && this.boss.active && this.boss.causeNow ? this.boss.causeNow() : 'mob');
+      this.jamSt.hits++;
+      this.jamSt.hitsByCause[c] = (this.jamSt.hitsByCause[c] || 0) + 1;
+      this.jamSt.lastCause = c;
+    }
     // R56: 白く飛ぶ時間を 0.12→0.16秒。無敵の点滅（0.55秒）に食われて見えなくなるのを防ぐ。
     this.player.flashT = 0.16;
     // R12: 被弾で連撃ヒートが半分に落ちる。踏み込んで殴り続けるほど積み上がるものを、
@@ -1831,7 +1857,7 @@ export class RunScene extends Phaser.Scene {
 
       // プレイヤー接触（R12: ぶつかってきた敵の位置を渡して、その反対へ押し返される）
       const rr = this.player.radius + e.radius;
-      if (dist <= rr) this.hitPlayer(e.damage, e.x, e.y);
+      if (dist <= rr) this.hitPlayer(e.damage, e.x, e.y, e.choir ? 'choir' : 'mob');
     }
   }
 
@@ -1982,7 +2008,7 @@ export class RunScene extends Phaser.Scene {
     const dist = Math.hypot(dx, dy) || 1;
     if (A.type === 'quake') {
       // 地面叩き：自分中心の衝撃波。範囲内ならダメージ＋拡大リング演出
-      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
+      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y, 'mob');
       const ring = this.add.image(e.x, e.y, 'w_ring').setBlendMode(ADD).setDepth(11)
         .setTint(e.color).setScale(0.4).setAlpha(0.45);
       this.tweens.add({
@@ -1995,7 +2021,7 @@ export class RunScene extends Phaser.Scene {
       e.dashT = A.dashSec;
     } else if (A.type === 'selfdestruct') {
       // 自爆：範囲内ならダメージ→自壊（XP/コアは通常付与）。派手なバースト＋ポン
-      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y);
+      if (dist <= A.aoe + this.player.radius) this.hitPlayer(A.damage, e.x, e.y, 'mob');
       this.spawnParticles(e.x, e.y, e.color, 22);
       this.popFx(e.x, e.y, e.color);
       // R21W3: 自爆は「主人公が倒した」ではない。必殺ゲージ・スターコア・回復ハートは渡さない
@@ -2066,7 +2092,7 @@ export class RunScene extends Phaser.Scene {
       const rr = this.player.radius + b.radius;
       const dx = b.x - px, dy = b.y - py;
       const d2 = dx * dx + dy * dy;
-      if (d2 <= rr * rr) { this.hitPlayer(b.dmg, b.x, b.y); b.active = false; continue; }
+      if (d2 <= rr * rr) { this.hitPlayer(b.dmg, b.x, b.y, 'mob'); b.active = false; continue; }
       // R21W3: グレイズ。判定+9px をすれ違った弾に1発1回だけ「ヒュッ」。避けた自覚が無いと
       //   緊張が快感に変わらない。多発するので音だけ（揺れ・数字・スパークは出さない）。
       //   ⚠️ 当たる弾も命中の直前に判定帯を通るので、「遠ざかり始めた」＝最接近を過ぎた弾に限る。
@@ -2093,11 +2119,12 @@ export class RunScene extends Phaser.Scene {
     if (!e.active) return;
     // ★弱点コア（マオウレクス）。本体に当たった攻撃はダメージにならず弾かれる。
     //   ここに置くのは dealDamage が全経路の合流点だから（個別の攻撃側に散らすと必ず漏れる）。
+    let coreHit = false;
     if (e.isBoss && this.boss && this.boss.hasWeak) {
       const w = this.boss.weakGate(src, at, e);   // R30: 分離した下半身はコアを持たない＝必ず弾く
       if (!w.pass) { this.boss.deflect(at && at.x, at && at.y); return; }
       if (w.mul !== 1) dmg = Math.max(1, Math.round(dmg * w.mul));
-      if (w.core) this.boss.coreHitFx(at.x, at.y);
+      if (w.core) { this.boss.coreHitFx(at.x, at.y); coreHit = true; }
     }
     // ボス倍率：全経路がここを通るので orbit.js を触らずに漏れなく効く。
     // 従来は仲間に倍率が無く主人公だけ半減という、方針と真逆の構造だった。
@@ -2112,8 +2139,26 @@ export class RunScene extends Phaser.Scene {
       //   本編の上限（R63 bossHpCap 5%）は倍率の前に掛かるので、コア2.4×追撃2.4＝1枚で最大HPの28.8%。
       //   堕天の大聖堂はコアがどこでも通るボーナスなので、そのままだと装甲片3枚で勝負が終わり HP が尺を
       //   決めない（実測：与ダメの57〜78%が装甲片）。本編の tier はこの値を持たない＝従来どおり。
-      if (at && at.shard && this.boss && this.boss.shardCapAfterMul) {
+      if (at && at.shard && !at.piece && this.boss && this.boss.shardCapAfterMul) {
         dmg = Math.min(dmg, Math.max(1, Math.round((e.maxHp || 1) * this.boss.shardCapAfterMul)));
+      }
+      // 光輪の欠片（超装甲片）は**固定で**最大HPの crack.pieceCapMul（25%）。装甲片の上限は通らない。
+      //   欠片は HP1 で湧くので投げの格が「かるい」になり、倍率で決めると 8.6%（実測 775/9000）にしかならない。
+      //   「光輪を返す」は当てたこと自体が成果なので、溜めや格に関係なく一定の一撃にする。
+      if (at && at.piece && this.boss && this.boss.pieceCapMul) {
+        dmg = Math.max(1, Math.round((e.maxHp || 1) * this.boss.pieceCapMul));
+      }
+      // ジャム版の裁きの統計（何で削ったか・最高の一投・聖歌隊の投げ返し）
+      if (this.jamSt) {
+        const js = this.jamSt;
+        js.bossDmg += dmg;
+        if (src === 'manual' && at) {
+          if (coreHit) js.coreHits++;
+          if (at.shard) { js.shardHits++; js.shardDmg += dmg; }
+          if (at.piece) js.haloHit = true;
+          if (at.choir) { js.choirWaveRet++; js.choirBest = Math.max(js.choirBest, js.choirWaveRet); }
+          if (dmg > js.best.dmg) js.best = { dmg, shard: !!at.shard, piece: !!at.piece, core: coreHit, grade: at.grade || 0 };
+        }
       }
     }
     // よろけ中は仲間・自動拳が一切通らない（削りも無効＝再よろけのループを作らない）。
@@ -2849,6 +2894,33 @@ export class RunScene extends Phaser.Scene {
     // R29: クリアだけはエンディングを挟む（ゲームオーバーは従来どおり直行）。
     //   Ending 側が終わったら同じ payload で Result へ渡すので、リザルトの表示は不変。
     //   clear SFX はエンディング側の「ひかりが もどった」で鳴らす（ここで鳴らすと二重になる）。
+    // ★2026-09-13 ジャム版：裁き（称号・死因・残り%・傷跡の更新）を決めて Result へ。クリアもエンディングを挟まない
+    //   （2分ループ＝次の挑戦までの距離を最短にする。物語の結末は本編のもの）。
+    if (this.jamSt) {
+      const js = this.jamSt;
+      const en = this.boss && this.boss.entity;
+      const reached = !!(this.boss && (this.boss.active || clear));
+      const remainPct = clear ? 0
+        : (reached && en && en.maxHp > 0 ? Math.max(1, Math.round(100 * Math.max(0, en.hp) / en.maxHp)) : null);
+      const stage = (reached && this.boss.cathStage != null) ? this.boss.cathStage : null;
+      const stat = {
+        clear, hits: js.hits, throws: (this.billiard && this.billiard.st) ? this.billiard.st.throws : 0,
+        coreHits: js.coreHits, shardShare: js.bossDmg > 0 ? js.shardDmg / js.bossDmg : 0, choirBest: js.choirBest,
+        haloHit: js.haloHit, haloGrabbed: js.haloGrabbed, deathCause: clear ? null : js.lastCause,
+        remainPct, stage, tries: js.tries, bossSec: this._bossOn ? this.elapsed - this._bossT0 : 0,
+      };
+      const verdict = judge(stat);
+      const J = readJam();
+      const seen = Object.assign({}, J.seen || {});
+      seen[verdict.id] = (seen[verdict.id] || 0) + 1;
+      const prevBest = J.bestRemain;
+      const improved = remainPct != null && (prevBest == null || remainPct < prevBest);
+      writeJam({ seen, cleared: (J.cleared || 0) + (clear ? 1 : 0), bestRemain: improved ? remainPct : prevBest });
+      payload.jam = { verdict, stat, prevBest, improved, seen, best: js.best, tries: js.tries, shardHits: js.shardHits };
+      if (clear) Sound.sfx('clear'); else Sound.sfx('gameover');
+      this.scene.start('Result', payload);
+      return;
+    }
     if (clear) { this.scene.start('Ending', payload); return; }
     Sound.sfx('gameover');
     this.scene.start('Result', payload);

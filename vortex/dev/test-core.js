@@ -1311,6 +1311,57 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   }
 
   // --- 聞き比べ：3つの編曲が実在し、れんしゅうじょうから切り替えられること ---
+  // ★2026-09-13 JAM2：再挑戦とコメントの動機の仕掛け（到達タイム以外）。ユーザー決定「コメント100に全振り・大聖堂1体」。
+  //   A 裁き（称号＋死因＋残り%）／B 前回の傷跡／C 聖歌隊 n/8＋光輪の欠片／D 最高の一投／E 一行の呼びかけ／持続（死後もジャム版）
+  {
+    const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+    const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+    const vj = read('data/verdict.js'), r2 = read('scenes/Run.js'), t2 = read('scenes/Title.js'), rs = read('scenes/Result.js');
+    const b2 = read('systems/boss.js'), bi2 = read('systems/billiard.js'), h2 = read('ui/hud.js'), rc = read('systems/record.js');
+    const C2 = BALANCE.boss.jamTiers[0];
+    // A 裁き
+    const ids = [...vj.matchAll(/\{ id: '([a-z0-9_]+)'/g)].map((m) => m[1]);
+    assert(ids.length >= 24, 'JAM2: 裁きは24種以上（' + ids.length + '）');
+    assert(new Set(ids).size === ids.length, 'JAM2: 裁きの id が重複していない');
+    for (const k of ['near', 'clear', 'lost', 'idle', 'stage0', 'stage1', 'stage2']) assert(ids.includes(k), 'JAM2: 裁き ' + k + ' がある');
+    const causes = [...vj.matchAll(/^\s{2}([a-z]+):\s+\{ name:/gm)].map((m) => m[1]);
+    assert(causes.length >= 10, 'JAM2: 死因は10種以上');
+    for (const c of causes) {
+      assert(ids.includes(c), 'JAM2: 死因 ' + c + ' に対応する裁きがある');
+      const used = new RegExp("'" + c + "'").test(b2 + r2 + bi2);
+      assert(used, 'JAM2: 死因 ' + c + ' がゲーム側のどこかで付けられている');
+    }
+    assert(/remainPct <= 10\) \? 'near'/.test(vj), 'JAM2: 残り10%以下は「あと一歩の信徒」');
+    assert(/export function judge\(/.test(vj), 'JAM2: judge が公開されている');
+    assert(/import \{ judge \} from '\.\.\/data\/verdict\.js';/.test(r2), 'JAM2: Run が裁きを読み込む');
+    assert(/hitPlayer\(dmg, srcX, srcY, cause\) \{/.test(r2) && /this\.jamSt\.lastCause = c;/.test(r2), 'JAM2: 被弾のたびに死因を記録する');
+    assert(/function causeNow\(\)/.test(b2) && /d\.cause = opts\.cause \|\| causeNow\(\);/.test(b2) && /run\.hitPlayer\(b\.dmg, b\.x, b\.y, b\.cause\)/.test(b2),
+      'JAM2: ボスの弾は撃った瞬間の攻撃名を持ち、当たったときに渡す');
+    assert(/run\.hitPlayer\(dmg, boss\.x, boss\.y, 'body'\)/.test(b2), 'JAM2: 体当たりは body');
+    assert(/payload\.jam = \{ verdict, stat,/.test(r2), 'JAM2: Result へ裁きを渡す');
+    assert(/if \(this\.jamSt\) \{[\s\S]*?this\.scene\.start\('Result', payload\);\s*return;\s*\}\s*if \(clear\) \{ this\.scene\.start\('Ending', payload\)/.test(r2),
+      'JAM2: ジャム版のクリアはエンディングを挟まず Result（2分ループ）');
+    assert(/createJam\(d\)/.test(rs) && /typeText\(/.test(rs) && /'？？？'/.test(rs), 'JAM2: Result に裁きの画面（1文字ずつ・一覧の空欄）がある');
+    assert(/あなたの裁きを、コメントで教えてください/.test(rs), 'JAM2: E 一行の呼びかけ');
+    assert(/this\.scene\.start\('Run', \{ withAudio: !!d\.withAudio, jamRun: true \}\)/.test(rs), 'JAM2: SPACE で Run へ直接（タイトルを挟まない）');
+    // B 傷跡
+    assert(/readJam, writeJam/.test(r2) && /'vortex\.jam'/.test(rc), 'JAM2: 傷跡・挑戦回数・見た裁きは別鍵 vortex.jam に持つ');
+    assert(/this\.jamScar = /.test(r2) && /run\.jamScar/.test(h2) && /Sound\.sfx\('healRise', 1\)/.test(r2), 'JAM2: HPバーに前回の刻み・越えたら一音');
+    // C 聖歌隊 n/8・光輪の欠片
+    assert(/e\.choir = true;/.test(b2) && /聖歌隊 なげかえし/.test(h2) && /js\.choirWaveRet\+\+/.test(r2), 'JAM2: 聖歌隊の投げ返しを数えて歌っている間だけ出す');
+    assert(/function spawnHaloPiece\(/.test(b2) && /e\.haloPiece = true;/.test(b2) && /spawnHaloPiece\(hx, hy\);/.test(b2), 'JAM2: 破鐘のあと欠片が1枚残る');
+    assert(C2.crack.pieceCapMul === 0.25 && C2.crack.pieceHoldSec >= 4, 'JAM2: 欠片は最大HPの25%・掴める猶予4秒以上');
+    assert(/at\.piece && this\.boss && this\.boss\.pieceCapMul/.test(r2) && /if \(cap && !s\.piece\)/.test(bi2), 'JAM2: 欠片は装甲片の上限を通らず固定25%');
+    assert(/piece: !!e\.haloPiece/.test(bi2) && /haloGrabbed = true/.test(bi2), 'JAM2: 欠片を掴んだ・投げた印が billiard から伝わる');
+    assert(Math.abs(C2.shardCapAfterMul - 0.06) < 1e-9, 'JAM2: 装甲片の上限は6%（ユーザー承認・ボット4本の実測から）');
+    assert(!/(introText|announce)\([^)]*(欠片|光輪返し)/.test(b2), 'JAM2: 欠片をテロップで教えない（砕けるのが見える＝供給は隠れていない）');
+    // D 最高の一投
+    assert(/js\.best = \{ dmg, shard: !!at\.shard, piece: !!at\.piece, core: coreHit/.test(r2) && /最高の一投/.test(rs), 'JAM2: 最高の一投を記録して見せる');
+    // 持続（死後も SPACE でジャム版）
+    assert(/window\.VORTEX\.jam = true;/.test(t2) && /window\.VORTEX\.jam = false;/.test(t2) && /jamSticky/.test(t2), 'JAM2: ジャム版は死んで戻っても持続し N で戻せる');
+    assert(/2ふん/.test(t2), 'JAM2: J キー行の文言が1体・2分になっている');
+  }
+
   for (const n of ['maou', 'maouOrch', 'maouSynth']) {
     assert(new RegExp(`^\\s*${n}:\\s*\\{ bpm:`, 'm').test(snd),
       `R35: 曲「${n}」が SONGS に実在する`);
@@ -1365,13 +1416,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/'ジャム'/.test(jrun), 'JAM: 遊んだ記録の mode に「ジャム」が残る');
     // --- ② ボス表 ---
     const JT = BALANCE.boss.jamTiers;
-    assert(Array.isArray(JT) && JT.length === 2, 'JAM: ジャムのボスは2体');
+    // 2026-09-13 14時 ユーザー決定：Unity1week に全振り＝堕天の大聖堂1体（評価者は1〜2分で離脱する。売りを先頭に置く）
+    assert(Array.isArray(JT) && JT.length === 1, 'JAM: ジャムのボスは堕天の大聖堂1体');
     assert(BALANCE.boss.tiers.length === 6, 'JAM: 本編の tiers は6段のまま（ジャムは別表）');
-    assert(JT[0].bossId === 'uzuking' && JT[0].hp === 4500 && JT[0].healOnKill === true && JT[0].spawnSec === 180,
-      'JAM: ①ウズバルカン＝地点180・HP4500・撃破で全回復');
-    const C = JT[1];
-    assert(C.bossId === 'cathedral' && C.final === true && C.spawnSec === 280 && C.hp === 9000 && C.gaugeSegments === 3,
-      'JAM: ②堕天の大聖堂＝最終・地点280・HP9000・ゲージ3本');
+    const C = JT[0];
+    assert(C.bossId === 'cathedral' && C.final === true && C.spawnSec <= 220 && C.gaugeSegments === 3,
+      'JAM: 堕天の大聖堂＝唯一のボス・地点220以内（実測50〜60秒）・ゲージ3本');
     assert(C.bgm === 'cathedral', 'JAM: 大聖堂は専用曲 cathedral');
     assert(C.introLines && C.introLines[0].text === 'いのりとどかぬものへ' && C.introLines[1].text === 'さばきを',
       'JAM: 登場セリフ「いのりとどかぬものへ　さばきを」（ユーザー決定）');
@@ -1432,7 +1482,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/むねの コアに あてると ダメージ 2\.4ばい！/.test(jb), 'JAM: ヒントの文言もボーナス用');
     // 装甲片の上限は倍率のあと（ジャム版だけ）
     assert(C.shardCapAfterMul > 0 && C.shardCapAfterMul <= 0.15, 'JAM: 装甲片1枚の上限（倍率込み）が切り札15%以下');
-    assert(/shard: !!s\.shard/.test(jbi) && /at\.shard && this\.boss && this\.boss\.shardCapAfterMul/.test(jrun),
+    assert(/shard: !!s\.shard/.test(jbi) && /at\.shard && !at\.piece && this\.boss && this\.boss\.shardCapAfterMul/.test(jrun),
       'JAM: 装甲片の上限は Run.dealDamage で倍率のあとに掛かる');
     assert(!BALANCE.boss.tiers.some((t) => t.shardCapAfterMul), 'JAM: 本編の tier は shardCapAfterMul を持たない（本編不変）');
     // SFX 5種（定義と使用）
@@ -3508,7 +3558,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R45: 命の盾はボス戦ごとに1回のみ（FBの指定どおり）');
   assert(A.SHIELD.durSec >= 3 && A.SHIELD.durSec <= 8,
     `R45: 盾は ${A.SHIELD.durSec}秒＝「ここぞ」で効き、無敵が戦闘を潰さない長さ`);
-  assert(/if \(this\._shieldT > 0\) \{/.test(runjs) && /hitPlayer\(dmg, srcX, srcY\) \{/.test(runjs),
+  assert(/if \(this\._shieldT > 0\) \{/.test(runjs) && /hitPlayer\(dmg, srcX, srcY, cause\) \{/.test(runjs),
     'R45: hitPlayer が盾でダメージを無効化する');
   // ★実測：盾の6秒で 2163回 弾いていた（接触ダメージは毎フレーム来る）。演出をそのまま
   //   出すと音が毎フレーム重なり文字で画面が埋まる。**数は全部数え、見せ方だけ間引く**。
@@ -5380,7 +5430,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   for (let i = 0; i < 4; i++) assert(T[i].hp < T[i + 1].hp, `R63: 通常ボス5体のHPは単調増加（${T[i].bossId} < ${T[i + 1].bossId}）`);
   // --- ③ 装甲片1枚の上限＝最大HPの5%（ミサイルガ以降は素の値のほうが小さい＝不変） ---
   assert(Math.abs(B.shards.bossHpCap - 0.05) < 1e-9, 'R63: shards.bossHpCap は 0.05');
-  assert(/const cap = B\(\)\.shards && B\(\)\.shards\.bossHpCap;\s*\r?\n\s*if \(cap\) dmg = Math\.min\(dmg, Math\.max\(1, Math\.round\(\(e\.maxHp \|\| 1\) \* cap\)\)\);/.test(bil),
+  // 2026-09-13 光輪の欠片（ジャム版）だけ本編の上限を通らない（!s.piece）。通常の装甲片は従来どおり
+  assert(/const cap = B\(\)\.shards && B\(\)\.shards\.bossHpCap;\s*\r?\n(\s*\/\/[^\n]*\r?\n)?\s*if \(cap && !s\.piece\) dmg = Math\.min\(dmg, Math\.max\(1, Math\.round\(\(e\.maxHp \|\| 1\) \* cap\)\)\);/.test(bil),
     'R63: 装甲片の倍率（shardMode().mul）の直後に上限を掛けている');
   {
     const koro = 90 * 1.18 * 1.5 * 2.5, cap = 1800 * 0.05;
@@ -5618,7 +5669,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       `R69: ${name} に記録を外部へ送る経路がない（手元のブラウザに残すだけ）`);
   }
 
-  assert(runjs.includes("import { saveRun } from '../systems/record.js';"), 'R69: Run が record を読み込む');
+  assert(runjs.includes("import { saveRun, readJam, writeJam } from '../systems/record.js';"), 'R69: Run が record を読み込む');
   const gate = 'if (!this.practiceMode && !this.trialMode) {';
   assert(runjs.includes(gate) && runjs.indexOf('saveRun({') > runjs.indexOf(gate),
     'R69: れんしゅうじょう／おためしは記録しない（本番の数字が汚れない）');

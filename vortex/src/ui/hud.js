@@ -122,6 +122,11 @@ export function createHud(run) {
   const bossName = run.add.text(320, 28, 'BOSS', {
     fontFamily: 'monospace', fontSize: '12px', color: '#ff8fb3', fontStyle: 'bold',
   }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 3).setVisible(false);
+  // ★2026-09-13 ジャム版：聖歌隊の投げ返し「n/8」。歌っている2秒間（＋余韻1.2秒）だけ出す＝②状態の情報で、
+  //   ①脅威（予告）と同時刻には出ない。数えられることが快感（テトリスの4段消し）。
+  const jamNote = run.add.text(320, 56, '', {
+    fontFamily: 'monospace', fontSize: '11px', color: '#ffd6a0', fontStyle: 'bold', stroke: '#2a1408', strokeThickness: 3,
+  }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(D + 3).setVisible(false);
 
   // ★R44W2 ボスの方向指示。実プレイFB「ボスとの戦闘中に**退避行動をとりたい**。
   //   その際にボスがどこにいるか矢印でしめして」。
@@ -353,6 +358,17 @@ export function createHud(run) {
       }
       bossBar.lineStyle(1, 0xffffff, 0.5);
       bossBar.strokeRect(bx, by, bw, 8);
+      // ★2026-09-13 ジャム版「前回の傷跡」：前回いちばん削れた位置（残りHPの割合）に白い刻みを1本。
+      //   越えた瞬間は Run が音を鳴らし（_scarPassT）、ここでは刻みを太く点滅させる。
+      //   タイムを使わずに「前回より進んだ」が戦闘中に分かる＝死んでもゼロに戻らない感覚。
+      const scar = run.jamMode ? run.jamScar : null;
+      if (scar != null && scar > 0 && scar < 1) {
+        const sx = bx + bw * scar;
+        const passed = ratio < scar;
+        const blink = run._scarPassT != null && run.elapsed - run._scarPassT < 0.7 && Math.floor(run.elapsed * 12) % 2 === 0;
+        bossBar.fillStyle(passed ? 0x9fe8ff : 0xffffff, 0.95);
+        bossBar.fillRect(sx - (blink ? 2 : 1), by - 4, blink ? 4 : 2, 16);
+      }
       if (ent && ent.def && ent.def.name) bossName.setText(ent.def.name);
       bossName.setVisible(true);
       drawBossArrow(ent);
@@ -361,6 +377,17 @@ export function createHud(run) {
       bossArrow.clear();
       bossArrowText.setVisible(false);
     }
+
+    // ジャム版：聖歌隊の投げ返し n/8（歌っている間＋余韻だけ）
+    if (run.jamMode && run.jamSt && boss && boss.active) {
+      const js = run.jamSt;
+      let alive = 0;
+      for (const e of run.enemies) if (e.active && e.choir) alive++;
+      if (alive > 0) js.choirLastT = run.elapsed;
+      const show = alive > 0 || (js.choirLastT != null && run.elapsed - js.choirLastT < 1.2);
+      if (show) jamNote.setText(`聖歌隊 なげかえし ${js.choirWaveRet}/${js.choirWaveN}`).setVisible(true);
+      else jamNote.setVisible(false);
+    } else jamNote.setVisible(false);
 
     // パーティ枠
     for (let i = 0; i < 5; i++) {
