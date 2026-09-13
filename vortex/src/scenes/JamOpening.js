@@ -8,11 +8,16 @@
 //   遊ぶかどうかを 10 秒で決める場なので、伝えることを 4 つに絞る。
 //     ① 相手は神（金属生命体マキナの四柱の神のひとつ＝荘厳）
 //     ② 遊びは 1 本＝**J を押して つかむ → 押し続けて ためる → 離して なげる**（実装：Run._jKey＝KC.J／左クリックも同じ）
-//     ③ それを**神に投げ返す**（薔薇窓に当たる絵で「効く」と分かる）
+//     ③ それを**神に投げ返す**（影の薔薇窓に当たる絵で「効く」と分かる）
 //     ④ 倒しても倒れても 32 種の「裁き」が返る＝もう一回の理由
+//     ⑤ **モビット**＝このゲームの差別化要素。ひとりではない。暗がりの目が 1 つずつ点いて歩み出し、投げの瞬間に一緒に神へ突っ込む
 //   最後に操作の一枚（カード）を置き、スキップしてもカードは必ず通る＝基礎情報が届かない経路を作らない。
 //
-// 尺は約 13 秒＋カード（入力待ち・8秒で自動開始）。SPACE／J／クリックでスキップ（カードへ）。
+// ★実プレイFB（2 回目）「大聖堂を全体像で出すのはやめて。出現時のドキドキ感がなくなる。影絵にするか、他のマキナにするか」
+//   → **逆光の影絵**：本番と同じ rig を黒く塗り、後ろの金の光条で縁だけ読ませる。見えるのは輪郭・金の光輪・薔薇窓の単眼の 3 つ。
+//     全体像は本番の降臨（暗幕→光条→着地）まで取っておく。名前は Title に書いてあるので出す。
+//
+// 尺は約 16 秒＋カード（入力待ち・8秒で自動開始）。SPACE／J／クリックでスキップ（カードへ）。
 // 技術制約は Opening.js と同じ：import Phaser 禁止（window.Phaser）・Math.random 禁止（LCG）・monospace のみ・
 //   白の全画面フラッシュは alpha ≤ 0.45（子ども安全）。
 // 本編は不変：この scene は Title の J からしか始まらず、autotest（?autotest=1）は Title が Run へ直行する。
@@ -44,7 +49,17 @@ const CARD_LINES = [
   { k: 'うごく', v: 'やじるしキー ／ WASD' },
   { k: 'つかむ→ためる→なげる', v: 'J キー を おす → おしつづける → はなす　（ひだりクリックでも）' },
   { k: 'きりふだ', v: 'SPACE' },
+  // capture.js onEnemyKilled＝撃破したマキナがコアを落とし、拾うとモビットが仲間になる（ミニロボは除く）
+  { k: 'モビット', v: 'たおした マキナが おとす コアを ひろうと、なかまに なる' },
 ];
+// 暗がりから歩み出すモビット（Title の隊列と同じ 4 体・monsters.js の id）。主人公の左後ろ→前へ並ぶ。
+const MOBITS = [
+  { key: 'mon_togeron', dx: -104 },
+  { key: 'mon_starpuppy', dx: -70 },
+  { key: 'mon_terabit', dx: -38 },
+  { key: 'mon_samet', dx: 34 },
+];
+const SHADOW = 0x000000;   // 影絵＝tint を黒にする（形だけ残る）
 // 裁きの見本＝本物の一覧（verdict.js）から3つ。ここに無い id を書くと test-core が落とす。
 const SAMPLE_VERDICTS = ['clear_fast', 'clear_halo', 'lost'];
 
@@ -90,16 +105,18 @@ export class JamOpeningScene extends Phaser.Scene {
   // =============== 時刻表（ms） ===============
   playSequence() {
     this.seq(200, () => this.beatGods());        // 四柱の神
-    this.seq(2600, () => this.beatOne());        // そのひとつが
-    this.seq(3400, () => this.beatDescend());    // 降臨・名乗り
-    this.seq(5200, () => this.beatLine());       // 「いのりとどかぬものへ、さばきを」
-    this.seq(6600, () => this.beatHero());       // 主人公とマキナ
-    this.seq(7300, () => this.verbGrab());       // J を おす → つかむ
-    this.seq(8200, () => this.verbCharge());     // おしつづける → ためる
-    this.seq(9100, () => this.verbThrow());      // はなす → なげる！
-    this.seq(10300, () => this.beatConcept());   // 「かみを、なげかえせ。」
-    this.seq(11500, () => this.beatJudge());     // 32 の裁き
-    this.seq(14600, () => this.showCard(false)); // 操作カード
+    this.seq(2400, () => this.beatOne());        // そのひとつが
+    this.seq(3200, () => this.beatDescend());    // 影絵の降臨・名乗り
+    this.seq(5000, () => this.beatLine());       // 「いのりとどかぬものへ、さばきを」
+    this.seq(6300, () => this.beatHero());       // 主人公ひとり
+    this.seq(7000, () => this.beatMobitEyes());  // 暗がりに目が点く
+    this.seq(7900, () => this.beatMobitsIn());   // モビットが歩み出る「ひとりじゃない」
+    this.seq(9200, () => this.verbGrab());       // J を おす → つかむ
+    this.seq(10100, () => this.verbCharge());    // おしつづける → ためる
+    this.seq(11000, () => this.verbThrow());     // はなす → なげる！（モビットも突っ込む）
+    this.seq(12400, () => this.beatConcept());   // 「かみを、なげかえせ。」
+    this.seq(13600, () => this.beatJudge());     // 32 の裁き
+    this.seq(16700, () => this.showCard(false)); // 操作カード
   }
 
   // =============== 幕1 四柱の神 ===============
@@ -152,24 +169,32 @@ export class JamOpeningScene extends Phaser.Scene {
       this.tweens.add({ targets: ray, scaleX: 1.4, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: i * 130 });
     }
     this.wash(GOLD, 0.25, 900);
-    // 本番と同じ rig から組む。着地は 1.4 秒かけて降りる（登場演出の「降りてくる」と同じ向き）。
-    this.cath = this.buildCathedral(cx, cy - 260, CATH_SCALE);
+    // 逆光の影絵。本番と同じ rig を黒く塗り、後ろの金の光条と glow で輪郭だけ読ませる。
+    //   見えるのは形・金の光輪・薔薇窓の単眼だけ＝全体像は本番の降臨まで取っておく（ユーザーFB「ドキドキ感」）。
+    //   着地は 1.4 秒かけて降りる（登場演出の「降りてくる」と同じ向き）。
+    this.cath = this.buildShadow(cx, cy - 260, CATH_SCALE);
     this.cathHome = { x: cx, y: cy };
-    this.tweens.add({ targets: this.cath.parts, y: '+=260', duration: 1400, ease: 'Cubic.out' });
-    this.tweens.add({ targets: [this.cath.glowP, this.cath.glowM], y: '+=260', duration: 1400, ease: 'Cubic.out' });
+    const all = this.cath.parts.concat([this.cath.glowP, this.cath.glowM, this.cath.eye, this.cath.eyeCore]);
+    this.tweens.add({ targets: all, y: '+=260', duration: 1400, ease: 'Cubic.out' });
     this.seq(1400, () => {
       this.sfx('cathLand', 1.0);
       this.cameras.main.shake(260, 0.006);
       this.flash(0.30, GOLD);
+      // 着地で単眼が点く（生きている一点）
+      this.tweens.add({ targets: this.cath.eye, alpha: 0.9, scale: 0.9, duration: 220, ease: 'Cubic.out' });
+      this.tweens.add({ targets: this.cath.eyeCore, alpha: 1, duration: 160 });
+      this.tweens.add({ targets: this.cath.eye, scale: 1.1, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: 220 });
       this.stamp('だてんの だいせいどう', cx, 292, GOLD_S, 30, 900);
     });
   }
 
-  buildCathedral(x, y, s) {
+  // 影絵。parts は黒（tint 0x000000＝形だけ）・光輪（dome）だけ金のまま・薔薇窓（rack oy −13）の位置に単眼。
+  //   後ろ（D_BOSS より下）に金の逆光を置くので、黒い体は縁で読める。
+  buildShadow(x, y, s) {
     const parts = [];
-    const glowP = this.reg(this.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 2).setTint(GOLD).setScale(9));
-    const glowM = this.reg(this.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 1).setTint(INDIGO).setScale(5));
-    glowP.setAlpha(0.55); glowM.setAlpha(0.6);
+    const glowP = this.reg(this.add.image(x, y - 10 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 2).setTint(GOLD).setScale(10));
+    const glowM = this.reg(this.add.image(x, y - 10 * s, 'glow').setBlendMode(ADD).setDepth(D_BOSS - 1).setTint(0xffe9a0).setScale(6));
+    glowP.setAlpha(0.7); glowM.setAlpha(0.55);
     for (const r of CATHEDRAL.rig) {
       const key = `boss_${CATHEDRAL.id}_${r.tex}`;
       if (!this.textures.exists(key)) continue;
@@ -177,9 +202,19 @@ export class JamOpeningScene extends Phaser.Scene {
       const img = this.reg(this.add.image(x + r.ox * s, y + r.oy * s, key).setOrigin(o[0], o[1])
         .setScale(r.mirror ? -s : s, s).setDepth(D_BOSS + (PART_DEPTH[r.role] || 2)));
       img._role = r.role;
+      if (r.role === 'dome') img.setAlpha(0.95);        // 光輪だけ本来の金
+      else img.setTint(SHADOW).setAlpha(0.97);          // それ以外は影
       parts.push(img);
     }
-    return { parts, glowP, glowM };
+    const ey = y - 13 * s;
+    const eye = this.reg(this.add.image(x, ey, 'glow').setBlendMode(ADD).setTint(0xffffff).setScale(0.3).setAlpha(0).setDepth(D_BOSS + 8));
+    const eyeCore = this.reg(this.add.image(x, ey, 'spark').setTint(0xffffff).setScale(1.2).setAlpha(0).setDepth(D_BOSS + 9));
+    return { parts, glowP, glowM, eye, eyeCore };
+  }
+
+  cathAll() {
+    const c = this.cath;
+    return c ? c.parts.concat([c.glowP, c.glowM, c.eye, c.eyeCore]) : [];
   }
 
   // =============== 幕4 大聖堂の声 ===============
@@ -189,23 +224,58 @@ export class JamOpeningScene extends Phaser.Scene {
     this.seq(900, () => this.sfx('haloCrack', 0.5, 1.1));
   }
 
-  // =============== 幕5 主人公とマキナ ===============
+  // =============== 幕5 主人公ひとり ===============
   beatHero() {
     this.sfx('powerup', 0.8, 1.15);
     this.clearTexts();
-    // 大聖堂は上へ寄せて、下半分を「遊びの場」にする。
+    // 影は上へ寄せて、下半分を「遊びの場」にする。
     this.cathHome = { x: this.W / 2, y: 136 };
-    this.tweens.add({ targets: this.cath.parts.concat([this.cath.glowP, this.cath.glowM]), y: '-=14', duration: 500, ease: 'Cubic.inOut' });
-    this.heroX = 150; this.heroY = 262;
+    this.tweens.add({ targets: this.cathAll(), y: '-=14', duration: 500, ease: 'Cubic.inOut' });
+    this.heroX = 170; this.heroY = 266;
     this.hero = this.reg(this.add.image(-40, this.heroY, 'player_1').setScale(3.0).setDepth(D_HERO));
     this.tweens.add({ targets: this.hero, x: this.heroX, duration: 360, ease: 'Quart.out' });
     this.heroGlow = this.reg(this.add.image(this.heroX, this.heroY, 'glow').setBlendMode(ADD)
       .setTint(CYAN).setScale(1.6).setAlpha(0).setDepth(D_HERO - 1));
     this.tweens.add({ targets: this.heroGlow, alpha: 0.5, duration: 300, delay: 240 });
+  }
+
+  // =============== 幕6 モビット：暗がりに目が点く → 歩み出る ===============
+  // 「ひとりじゃない」を絵の順序で語る：まず主人公だけが神の前に立ち、後ろの暗がりで目が 1 つずつ点き
+  //   （音程が上がる＝数えられる）、光の中へ歩み出て隊列になる。可愛さではなく**並んで戦う種族**として出す。
+  beatMobitEyes() {
+    this.mobits = [];
+    MOBITS.forEach((m, i) => {
+      const x = this.heroX + m.dx, y = this.heroY + 6;
+      const eyeL = this.reg(this.add.image(x - 4, y - 8, 'glow').setBlendMode(ADD).setTint(EMBER).setScale(0.22).setAlpha(0).setDepth(D_MOB + 1));
+      const eyeR = this.reg(this.add.image(x + 4, y - 8, 'glow').setBlendMode(ADD).setTint(EMBER).setScale(0.22).setAlpha(0).setDepth(D_MOB + 1));
+      const spr = this.reg(this.add.image(x, y + 10, m.key).setScale(2.0).setAlpha(0).setDepth(D_MOB));
+      const glow = this.reg(this.add.image(x, y + 2, 'glow').setBlendMode(ADD).setTint(0xffb27a).setScale(1.1).setAlpha(0).setDepth(D_MOB - 1));
+      this.mobits.push({ spr, glow, eyeL, eyeR, x, y });
+      this.seq(i * 170, () => {
+        this.sfx('tick', 0.9, 0.8 + i * 0.15);
+        this.tweens.add({ targets: [eyeL, eyeR], alpha: 1, duration: 90 });
+      });
+    });
+  }
+
+  beatMobitsIn() {
+    if (!this.mobits) return;
+    this.sfx('evolve', 0.7, 1.1);
+    this.mobits.forEach((m, i) => {
+      this.seq(i * 110, () => {
+        this.sfx('stepPlant', 0.6, 1 + i * 0.06);
+        this.tweens.add({ targets: m.spr, alpha: 1, y: m.y, duration: 240, ease: 'Back.easeOut' });
+        this.tweens.add({ targets: m.glow, alpha: 0.45, duration: 300 });
+        this.tweens.add({ targets: [m.eyeL, m.eyeR], alpha: 0, duration: 200 });
+      });
+    });
+    this.typeText(this.W / 2, 306, 'ひとりじゃない。モビットが、ともに たたかう。', PALE_S, 14, 300);
     // 手前のマキナ1体（本番の雑魚と同じ絵）。右から歩いてくる＝掴む相手。
-    this.prey = this.reg(this.add.image(520, this.heroY, 'enemy_gareon').setScale(2.4).setDepth(D_MOB));
-    this.preyEye = this.reg(this.add.image(520, this.heroY - 6, 'glow').setBlendMode(ADD).setTint(0xff4d4d).setScale(0.35).setDepth(D_MOB + 1));
-    this.tweens.add({ targets: [this.prey, this.preyEye], x: '-=250', duration: 650, ease: 'Sine.inOut' });
+    this.seq(500, () => {
+      this.prey = this.reg(this.add.image(560, this.heroY, 'enemy_gareon').setScale(2.4).setDepth(D_MOB));
+      this.preyEye = this.reg(this.add.image(560, this.heroY - 6, 'glow').setBlendMode(ADD).setTint(0xff4d4d).setScale(0.35).setDepth(D_MOB + 1));
+      this.tweens.add({ targets: [this.prey, this.preyEye], x: '-=260', duration: 650, ease: 'Sine.inOut' });
+    });
   }
 
   // 動詞①「J を おす → つかむ」
@@ -234,13 +304,32 @@ export class JamOpeningScene extends Phaser.Scene {
     this.keyStamp('J', 'おしつづける', 'ためる', YELLOW_S, YELLOW);
   }
 
-  // 動詞③「はなす → なげる！」＝神の薔薇窓へ。
+  // 動詞③「はなす → なげる！」＝影の薔薇窓（単眼）へ。同じ瞬間にモビットも突っ込む＝共闘の1カット。
   verbThrow() {
     this.sfx('throwHeavy', 1.0);
     this.keyStamp('J', 'はなす', 'なげる！', EMBER_S, EMBER);
     if (!this.prey || !this.cath) return;
     const ball = this.prey;
-    const tx = this.cathHome.x, ty = this.cathHome.y - 13 * CATH_SCALE + 6;   // 薔薇窓（rig rack: oy −13）
+    const tx = this.cathHome.x, ty = this.cathHome.y - 13 * CATH_SCALE;   // 薔薇窓（rig rack: oy −13）＝単眼の位置
+    // モビットは玉の少しあとに続いて影へ突っ込む。1体ごとに数字（1,2,3,4）と音程が上がる＝数えられる快感。
+    (this.mobits || []).forEach((m, i) => {
+      this.seq(260 + i * 130, () => {
+        if (!m.spr.active) return;
+        const gx = tx + (i - 1.5) * 44, gy = ty + 60 + this.rnd() * 30;
+        this.tweens.add({ targets: m.spr, x: gx, y: gy, duration: 220, ease: 'Quart.in' });
+        this.tweens.add({ targets: m.glow, x: gx, y: gy + 2, duration: 220, ease: 'Quart.in' });
+        this.seq(220, () => {
+          this.sfx('crush', 1, 1 + i * 0.09);
+          this.burst(gx, gy - 6, EMBER, 7, D_TEXT - 1);
+          this.cameras.main.shake(90, 0.003);
+          const cnt = this.reg(this.add.text(gx, gy - 22, String(i + 1), {
+            fontFamily: 'monospace', fontSize: (16 + i * 4) + 'px', color: YELLOW_S, fontStyle: 'bold', stroke: '#3a2000', strokeThickness: 4,
+          }).setOrigin(0.5).setDepth(D_TEXT + 1));
+          this.tweens.add({ targets: cnt, y: gy - 46 - i * 3, alpha: 0, duration: 620, ease: 'Cubic.out', onComplete: () => cnt.active && cnt.destroy() });
+          if (this.cath.eye.active) this.tweens.add({ targets: this.cath.eye, alpha: 0.4, duration: 60, yoyo: true });
+        });
+      });
+    });
     const travel = 420;
     ball.setDepth(D_HERO + 1);
     this.tweens.add({ targets: ball, x: tx, y: ty, duration: travel, ease: 'Quad.in' });
@@ -261,11 +350,10 @@ export class JamOpeningScene extends Phaser.Scene {
       this.burst(tx, ty, CRIMSON, 12, D_TEXT - 1);
       this.burst(tx, ty, GOLD, 8, D_TEXT - 1);
       this.ripple(tx, ty, CRIMSON, D_TEXT - 2);
-      // 巨体がのけぞる（当たった、が絵で分かる）
-      const all = this.cath.parts.concat([this.cath.glowP, this.cath.glowM]);
-      this.tweens.add({ targets: all, y: '-=8', duration: 90, yoyo: true, ease: 'Quad.out' });
-      const rack = this.cath.parts.find((p) => p._role === 'rack');
-      if (rack) this.tweens.add({ targets: rack, alpha: 0.35, duration: 60, yoyo: true, repeat: 3 });
+      // 影がのけぞり、単眼が白く灼ける（当たった、が絵で分かる。体は見せない）
+      this.tweens.add({ targets: this.cathAll(), y: '-=8', duration: 90, yoyo: true, ease: 'Quad.out' });
+      this.tweens.add({ targets: this.cath.eye, scale: 2.4, alpha: 1, duration: 80, yoyo: true, ease: 'Quad.out' });
+      this.seq(160, () => { if (this.cath.eye.active) this.cath.eye.setTint(CRIMSON); });
       // 硝子片（本番の cath_glass）が薔薇窓から散る＝「効いた」が絵で残る。深紅の残光は 1.4 秒。
       for (let i = 0; i < 10; i++) {
         const a = -Math.PI * (0.15 + this.rnd() * 0.7), sp = 120 + this.rnd() * 160;
@@ -287,7 +375,8 @@ export class JamOpeningScene extends Phaser.Scene {
   // =============== 幕7 32 の裁き ===============
   beatJudge() {
     this.clearTexts();
-    const fadeOut = this.cath.parts.concat([this.cath.glowP, this.cath.glowM, this.hero, this.heroGlow]).concat(this.rays || []);
+    const fadeOut = this.cathAll().concat([this.hero, this.heroGlow]).concat(this.rays || [])
+      .concat((this.mobits || []).flatMap((m) => [m.spr, m.glow]));
     for (const o of fadeOut) if (o && o.active) this.tweens.add({ targets: o, alpha: 0.10, duration: 500 });
     this.typeText(this.W / 2, 92, 'たおしても、たおれても、かみが きみを さばく。', PALE_S, 14, 0);
     SAMPLE_VERDICTS.forEach((id, i) => {
@@ -337,21 +426,25 @@ export class JamOpeningScene extends Phaser.Scene {
 
     // 操作。J が主役なので枠を付けて大きく。
     const panel = this.add.graphics().setDepth(D_TEXT - 1);
-    panel.fillStyle(0x0d1226, 0.85); panel.fillRoundedRect(40, 96, this.W - 80, 150, 8);
-    panel.lineStyle(1, 0x45588a, 0.9); panel.strokeRoundedRect(40, 96, this.W - 80, 150, 8);
-    this.add.text(60, 112, 'そうさ', { fontFamily: 'monospace', fontSize: '13px', color: '#8ea3d4' }).setOrigin(0, 0.5).setDepth(D_TEXT);
-    const ys = [142, 178, 218];
+    panel.fillStyle(0x0d1226, 0.85); panel.fillRoundedRect(40, 92, this.W - 80, 178, 8);
+    panel.lineStyle(1, 0x45588a, 0.9); panel.strokeRoundedRect(40, 92, this.W - 80, 178, 8);
+    this.add.text(60, 106, 'そうさ', { fontFamily: 'monospace', fontSize: '13px', color: '#8ea3d4' }).setOrigin(0, 0.5).setDepth(D_TEXT);
+    const ys = [132, 162, 210, 244];
     CARD_LINES.forEach((l, i) => {
-      const big = i === 1;
+      const big = i === 1, mob = i === 3;
       this.add.text(60, ys[i], l.k, {
-        fontFamily: 'monospace', fontSize: big ? '15px' : '14px', color: big ? CYAN_S : '#ffffff', fontStyle: big ? 'bold' : 'normal',
+        fontFamily: 'monospace', fontSize: big ? '15px' : '14px', color: big ? CYAN_S : mob ? '#ffb27a' : '#ffffff', fontStyle: (big || mob) ? 'bold' : 'normal',
       }).setOrigin(0, 0.5).setDepth(D_TEXT);
       this.add.text(big ? 60 : 250, big ? ys[i] + 20 : ys[i], l.v, {
-        fontFamily: 'monospace', fontSize: big ? '14px' : '14px', color: big ? YELLOW_S : '#ffffff',
+        fontFamily: 'monospace', fontSize: mob ? '13px' : '14px', color: big ? YELLOW_S : '#ffffff',
       }).setOrigin(0, 0.5).setDepth(D_TEXT);
     });
+    // モビットの顔（カードでも「仲間」が絵で目に入る）
+    MOBITS.forEach((m, i) => {
+      this.add.image(172 + i * 18, ys[3], m.key).setScale(1.0).setDepth(D_TEXT);
+    });
     // J のキーキャップ（絵で目に入る）
-    const kx = 560, ky = 160;
+    const kx = 560, ky = 156;
     const cap = this.add.graphics().setDepth(D_TEXT);
     cap.fillStyle(0x36e0ff, 0.18); cap.fillRoundedRect(kx - 22, ky - 22, 44, 44, 6);
     cap.lineStyle(2, 0x36e0ff, 1); cap.strokeRoundedRect(kx - 22, ky - 22, 44, 44, 6);
@@ -359,14 +452,14 @@ export class JamOpeningScene extends Phaser.Scene {
     this.tweens.add({ targets: capT, scale: 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.add.text(kx, ky + 34, 'なげかえせ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
 
-    this.add.text(cx, 268, 'たおしても たおれても、32しゅるいの「さばき」が きみを まつ。', {
+    this.add.text(cx, 288, 'たおしても たおれても、32しゅるいの「さばき」が きみを まつ。', {
       fontFamily: 'monospace', fontSize: '12px', color: PALE_S,
     }).setOrigin(0.5).setDepth(D_TEXT);
-    const prompt = this.add.text(cx, 306, '▶ SPACE ／ J ／ クリック で はじめる', {
+    const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で はじめる', {
       fontFamily: 'monospace', fontSize: '16px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(D_TEXT);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 620, yoyo: true, repeat: -1 });
-    this.add.text(cx, 334, 'しんだら、そのまま もういちど。ボスの HP には まえの きずあとが のこる。', {
+    this.add.text(cx, 342, 'しんだら、そのまま もういちど。ボスの HP には まえの きずあとが のこる。', {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 

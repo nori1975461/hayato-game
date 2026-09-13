@@ -1540,6 +1540,15 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     }
     assert(/for \(const r of CATHEDRAL\.rig\)/.test(jo) && /boss_\$\{CATHEDRAL\.id\}_\$\{r\.tex\}/.test(jo) && /textures\.exists\(key\)/.test(jo),
       'JAM12: 大聖堂の絵は本番と同じ rig（Boot が焼く boss_cathedral_<tex>）から組む');
+    // ★2026-09-13 FB2「全体像で出すと出現のドキドキ感がなくなる」→ 影絵／「モビットの存在をうまく出して」
+    assert(/buildShadow\(/.test(jo) && /const SHADOW = 0x000000;/.test(jo) && /img\.setTint\(SHADOW\)/.test(jo) && !/buildCathedral\(/.test(jo),
+      'JAM12: 大聖堂は逆光の影絵（全体像は本番の降臨まで出さない）');
+    {
+      const mk = (jo.match(/key: 'mon_([a-z]+)'/g) || []).map((x) => x.replace(/key: 'mon_([a-z]+)'/, '$1'));
+      const mons = jr('data/monsters.js');
+      assert(mk.length >= 4 && mk.every((id) => new RegExp("id: '" + id + "'").test(mons)) && /beatMobitEyes\(\)/.test(jo) && /beatMobitsIn\(\)/.test(jo)
+        && /k: 'モビット'/.test(jo) && /ひとりじゃない/.test(jo), 'JAM12: モビットは monsters.js の実 id で出て、暗がりの目→歩み出る→共闘→カードの4か所に居る');
+    }
     assert(/params\.get\('jam'\) === '1'/.test(jm) && /jamRun: !!V\.jam/.test(jt), 'JAM: ?jam=1 でも入れる（ボット検証用）');
     assert(/BALANCE\.jam\.progressMul/.test(jrun), 'JAM: 進行度が progressMul 倍で進む（雑魚・エリート・切り札・ボス地点が全部圧縮される）');
     assert(/BALANCE\.jam\.xpMul/.test(jl), 'JAM: XP が xpMul 倍');
