@@ -220,6 +220,7 @@ export class ResultScene extends Phaser.Scene {
         const st = s.stage != null ? `・第${s.stage + 1}段階（${STAGE_NAMES[s.stage]}）` : '';
         line(`大聖堂 残り ${s.remainPct}%${st}`, '#ffffff', 15);
         if (J.improved) line(J.prevBest == null ? '初めて大聖堂に届いた' : `前回より ${J.prevBest - s.remainPct}% 前進`, '#9fe8ff');
+        else if (J.prevBest === 0) line('一度は覆した大聖堂 ― 今回は届かず', '#8a90a8', 12);   // 撃破済み＝傷跡0%を「残り0%」と言わない
         else if (J.prevBest != null) line(`前回の傷跡（残り ${J.prevBest}%）には届かず`, '#8a90a8', 12);
       } else {
         line('大聖堂に届かず', '#8a90a8');
@@ -246,62 +247,98 @@ export class ResultScene extends Phaser.Scene {
 
     // ★2026-09-13 実プレイFB「一緒に戦った仲間の説明とイラストを」→ ジャム版は本編のエンディングを挟まない
     //   （2分ループ）ので、裁きの画面に「共に戦った者」を1行。絵は本編と同じドット絵（エンディングの一枚絵は使わない）。
+    //   ⚠️ 2026-09-13 実プレイのスクショで「装甲片を返した」の行と重なっていた（死んだ回は中段が4行になり y が下がる）
+    //   → 位置は表の下から決める（固定 252 をやめる）。
     const ids = Array.isArray(d.party) ? d.party : [];
+    const py = Math.min(262, y + 3 * 18 + 10);
     if (ids.length) {
-      this.add.text(70, 252, '共に戦った者', { fontFamily: 'monospace', fontSize: '11px', color: '#ffd6f0' }).setOrigin(0, 0.5);
+      this.add.text(70, py, '共に戦った者', { fontFamily: 'monospace', fontSize: '11px', color: '#ffd6f0' }).setOrigin(0, 0.5);
       ids.slice(0, 5).forEach((id, i) => {
         const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));
         const def = base && (base.id === id ? base : base.evo);
         if (!def) return;
         const x = 190 + i * 88;
-        this.add.image(x, 252, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(int(base.color)).setScale(1.1);
-        this.add.image(x, 252, 'mon_' + def.id).setScale(1.7);
-        this.add.text(x, 270, def.name, { fontFamily: 'monospace', fontSize: '9px', color: '#cfe6ff' }).setOrigin(0.5);
+        this.add.image(x, py, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(int(base.color)).setScale(1.1);
+        this.add.image(x, py, 'mon_' + def.id).setScale(1.7);
+        this.add.text(x, py + 17, def.name, { fontFamily: 'monospace', fontSize: '9px', color: '#cfe6ff' }).setOrigin(0.5);
       });
     }
 
     // 一行の呼びかけ（コメント欄はゲームの外にある＝書く一文を手渡した直後に頼む。押しつけないよう一行・小さく）
-    this.add.text(W / 2, 290, 'あなたの裁きを、コメントで教えてください', {
+    this.add.text(W / 2, 294, 'あなたの裁きを、コメントで教えてください', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6a0',
     }).setOrigin(0.5);
 
     this.drawFooter(d);
 
-    const prompt = this.add.text(W / 2, 314, 'SPACE で もう一度 裁きを　／　V で 裁きの一覧　／　R で タイトル', {
+    const prompt = this.add.text(W / 2, 316, 'SPACE で もう一度 裁きを　／　V で 裁きの一覧　／　R で タイトル', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffffff',
     }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 650, yoyo: true, repeat: -1 });
 
     // 裁きの一覧（V で切替）。見たものだけ点灯、まだのものは「？？？」＝空欄が見える（集めきる）。
+    // ★2026-09-13 実プレイFB「ごちゃごちゃ・黒地に白文字は味気ない」→ 3列の羅列をやめ、**階位ごとの4つの帯**に整理。
+    //   帯＝その階位の色で塗った板。左上に大きな印と「王冠の裁き 1〜3位」、右上にその帯の「見た数／総数」。
+    //   行＝順位の札（階位色の小さな札に番号）＋称号。見た＝札が塗られ称号は白／まだ＝札は縁だけで「？？？」／
+    //   今回の裁き＝金の枠。「×n」は消した（読むものを減らす）。一覧は**順位順**（1位が左上）で、
+    //   見ていない称号も順位と札は見える＝「上に何があるか」が分かる。
     const gal = this.add.container(0, 0).setVisible(false).setDepth(50);
-    gal.add(this.add.rectangle(W / 2, H / 2, W, H, 0x05051a, 0.99));   // 2026-09-13 順位の一覧は下の称号が透けると読みにくい
-    gal.add(this.add.text(W / 2, 18, `裁きの一覧　${seenN}/${VERDICTS.length}`, {
+    const bgG = this.add.graphics();
+    bgG.fillGradientStyle(0x10123a, 0x10123a, 0x040412, 0x040412, 1);
+    bgG.fillRect(0, 0, W, H);
+    gal.add(bgG);
+    gal.add(this.add.text(W / 2, 13, `裁きの一覧　${seenN} ／ ${VERDICTS.length}`, {
       fontFamily: 'monospace', fontSize: '14px', color: '#ffd23f', fontStyle: 'bold',
     }).setOrigin(0.5));
-    // 階位の凡例（印＝絵。位の帯は数字で示す＝分かりにくさを残さない）
-    TIERS.forEach((t, i) => {
-      const lx = 92 + i * 140;
-      gal.add(this.drawRankIcon(lx, 38, t.id, 1));
-      gal.add(this.add.text(lx + 10, 38, `${t.name}　${t.from}〜${t.to}位`, { fontFamily: 'monospace', fontSize: '10px', color: t.color }).setOrigin(0, 0.5));
-    });
-    // ★2026-09-13 一覧は**順位順**（1位が左上）。見ていない称号も順位と印は見える＝「上に何があるか」が分かる。
+    const rule = this.add.graphics();
+    rule.lineStyle(1, 0xffd23f, 0.45); rule.lineBetween(40, 24, W - 40, 24);
+    gal.add(rule);
     const ranked = byRank();
-    const cols = 3, per = Math.ceil(ranked.length / cols);
-    ranked.forEach((vv, i) => {
-      const col = Math.floor(i / per), row = i % per;
-      const n = (J.seen || {})[vv.id];
-      const t = tierOf(vv.rank);
-      const x = 22 + col * 205, yy = 60 + row * 26;
-      gal.add(this.drawRankIcon(x + 6, yy + 7, t.id, 0.85));
-      gal.add(this.add.text(x + 16, yy, String(vv.rank).padStart(2, ' '), {
-        fontFamily: 'monospace', fontSize: '11px', color: n ? t.color : '#4a4f66', fontStyle: 'bold' }));
-      gal.add(this.add.text(x + 38, yy, n ? vv.title : '？？？', {
-        fontFamily: 'monospace', fontSize: '12px', color: n ? (vv.id === v.id ? '#ffe066' : '#ffffff') : '#4a4f66',
-        fontStyle: n && vv.id === v.id ? 'bold' : 'normal',
-      }));
-      if (n) gal.add(this.add.text(x + 38 + 12 * vv.title.length + 4, yy + 3, `×${n}`, { fontFamily: 'monospace', fontSize: '9px', color: '#8a90a8' }));
+    const FILL = { crown: 0x3a2c08, gold: 0x2c2108, silver: 0x1a2130, iron: 0x15151d };
+    const COLW = 152, ROWH = 19;
+    let by = 30;
+    TIERS.forEach((t) => {
+      const list = ranked.filter((vv) => vv.rank >= t.from && vv.rank <= t.to);
+      const rows = Math.ceil(list.length / 4), cols = Math.ceil(list.length / rows);
+      const bh = 16 + rows * ROWH + 6;
+      const tc = int(t.color);
+      const panel = this.add.graphics();
+      panel.fillStyle(FILL[t.id], 0.85); panel.fillRoundedRect(12, by, W - 24, bh, 6);
+      panel.lineStyle(1, tc, t.id === 'crown' ? 0.9 : 0.45); panel.strokeRoundedRect(12, by, W - 24, bh, 6);
+      gal.add(panel);
+      const hy = by + 9;
+      gal.add(this.drawRankIcon(28, hy, t.id, 1.2));
+      const nm = this.add.text(40, hy, `${t.name}の裁き`, { fontFamily: 'monospace', fontSize: '12px', color: t.color, fontStyle: 'bold' }).setOrigin(0, 0.5);
+      gal.add(nm);
+      gal.add(this.add.text(nm.x + nm.width + 8, hy, `${t.from}〜${t.to}位`, { fontFamily: 'monospace', fontSize: '10px', color: t.color }).setOrigin(0, 0.5).setAlpha(0.8));
+      const got = list.filter((vv) => (J.seen || {})[vv.id]).length;
+      gal.add(this.add.text(W - 20, hy, `${got} ／ ${list.length}`, { fontFamily: 'monospace', fontSize: '11px', color: t.color, fontStyle: 'bold' }).setOrigin(1, 0.5));
+      list.forEach((vv, i) => {
+        const col = i % cols, row = Math.floor(i / cols);
+        const x = 24 + col * COLW, yy = by + 16 + row * ROWH + ROWH / 2;
+        const n = (J.seen || {})[vv.id];
+        const cur = vv.id === v.id;
+        if (cur) {
+          const hl = this.add.graphics();
+          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - 9, COLW - 6, 18, 4);
+          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - 9, COLW - 6, 18, 4);
+          gal.add(hl);
+        }
+        const badge = this.add.graphics();
+        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - 7, 24, 14, 3); }
+        else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - 7, 24, 14, 3); }
+        gal.add(badge);
+        gal.add(this.add.text(x + 12, yy, String(vv.rank), {
+          fontFamily: 'monospace', fontSize: '10px', color: n ? '#1a1206' : t.color, fontStyle: 'bold',
+        }).setOrigin(0.5).setAlpha(n ? 1 : 0.5));
+        gal.add(this.add.text(x + 30, yy, n ? vv.title : '？？？', {
+          fontFamily: 'monospace', fontSize: '12px', color: n ? (cur ? '#ffe066' : '#ffffff') : '#4a4f66',
+          fontStyle: cur ? 'bold' : 'normal',
+        }).setOrigin(0, 0.5));
+      });
+      by += bh + 4;
     });
-    gal.add(this.add.text(W / 2, H - 12, 'V で もどる', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5));
+    gal.add(this.add.text(W / 2, H - 11, '金の枠＝今回の裁き　／　V で もどる', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5));
     this._gal = gal;
 
     const retry = () => {

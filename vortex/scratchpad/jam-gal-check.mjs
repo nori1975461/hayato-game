@@ -113,6 +113,14 @@ async function main() {
   await key('KeyV', 'v'); await sleep(400);
   console.log('gal =', await ev("(function(){var s=window.__vortexGame.scene.getScene('Result');return s&&s._gal?JSON.stringify({vis:s._gal.visible,n:s._gal.list.length,depth:s._gal.depth}):'nogal';})()"));
   await shot('91-check-gallery');
+  // 2026-09-13 実プレイのスクショと同じ「中段4行＋仲間3体」の最悪ケース＝仲間の行が表と重ならないか
+  await ev(`(function(){ var g=window.__vortexGame; var rs=g.scene.getScene('Result'); var d=rs.scene.settings.data;
+    d.clear=false; d.party=['billiko','samet','neonworm']; d.bossTimes=[-144];
+    d.jam.stat.deathCause='whip'; d.jam.stat.remainPct=13; d.jam.stat.stage=2; d.jam.stat.haloGrabbed=false; d.jam.stat.choirWaves=3; d.jam.stat.choirBest=1;
+    d.jam.stat.throws=47; d.jam.prevBest=0; d.jam.improved=false; d.jam.tries=17; d.jam.seen={};
+    var vs=d.jam.verdict; rs.scene.restart(d); return 1; })()`);
+  await sleep(2600); await shot('92-check-result-full');
+  await key('KeyV', 'v'); await sleep(400); await shot('93-check-gallery-cur');
   console.log('EXCEPTIONS=', exceptions); process.exit(0);
 }
 main().catch((e) => { console.log('落ちました:', e && e.message); process.exit(1); });
