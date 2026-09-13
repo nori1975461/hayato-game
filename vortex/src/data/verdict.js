@@ -31,38 +31,43 @@ export const STAGE_NAMES = ['聖務', '堕天', '破鐘'];
 //   順位の根拠＝クリアは条件の厳しさ（無被弾＞借り物なし＞60秒＞欠片＞聖歌隊8＞被弾5以下＞…＞回数）、
 //   死は「どこまで届いたか」（残り10%＞欠片を掴んだ＞聖歌隊8＞破鐘＞第3段階の技＞第2段階の技＞…＞手を出さず＞迷い子）。
 export const VERDICTS = [
-  { id: 'clear_pure', rank:  1,  title: '傷なき異端者',         line: '……我が裁きは、届かなかった。' },
-  { id: 'clear_halo', rank:  4,  title: '光輪を返せし者',       line: '我が輪で、我を穿つとは。' },
-  { id: 'clear_choir', rank:  5, title: '聖歌隊を黙らせし者',   line: '歌は、途絶えた。' },
-  { id: 'clear_fast', rank:  3,  title: '刹那に裁きし者',       line: '祈る暇も、なかったか。' },
-  { id: 'clear_wing', rank:  6,  title: '翼を恐れぬ者',         line: '鉄の羽も、汝を止められぬか。' },
-  { id: 'clear_armor', rank:  7, title: '鎧を返せし者',         line: '我が装甲が、我を砕くか。' },
-  { id: 'clear_hand', rank:  2,  title: '己が手で覆せし者',     line: '借り物なしで、ここまで来たか。' },
-  { id: 'clear_storm', rank:  8, title: '投げ続けし者',         line: '数で、祈りを押し流したな。' },
-  { id: 'clear_blood', rank: 11, title: '血にまみれし勝者',     line: '傷だらけで、なお立つか。' },
-  { id: 'clear_long', rank: 10,  title: '長き祈りを断ちし者',   line: '長い、長い祈りだった。' },
-  { id: 'clear_again', rank: 12, title: '幾度も立ち上がりし者', line: '何度でも来るがよい……もう、来ぬのか。' },
-  { id: 'clear', rank:  9,       title: '裁きを覆せし者',       line: '祈り届かぬ者よ……汝が、裁いたのだ。' },
-  { id: 'near', rank: 13,        title: 'あと一歩の信徒',       line: 'あと一歩。それが、永遠に遠い。' },
-  { id: 'halo_dead', rank: 14,   title: '光輪を掴みし者',       line: '我が輪に触れたな。次は、投げよ。' },
-  { id: 'choir_dead', rank: 15,  title: '聖歌を止めし者',       line: '歌を止めても、鐘は鳴る。' },
-  { id: 'again', rank: 17,       title: '幾度も立ち上がる者',   line: '何度倒れても来るか。……よい。' },
-  { id: 'lost', rank: 32,        title: '祈りの迷い子',         line: '何に打たれたかも、分からぬままか。' },
-  { id: 'idle', rank: 31,        title: '手を出さぬ巡礼者',     line: '投げぬ者に、裁きは軽い。' },
-  { id: 'rose', rank: 21,        title: '硝子に裁かれし者',     line: '赤と青。その間に、道はあった。' },
-  { id: 'bell', rank: 23,        title: '鐘の音に怯えし者',     line: '欠けた向きへ。輪は、そう告げていた。' },
-  { id: 'feathers', rank: 24,    title: '鉄の羽に貫かれし者',   line: '翼が上がるのを、見ていなかったな。' },
-  { id: 'whip', rank: 22,        title: '配線に縛られし者',     line: '正面に立つ者を、鞭は逃さぬ。' },
-  { id: 'crack', rank: 19,       title: '光輪に轢かれし者',     line: '外れた輪は、もう我の物ではない。' },
-  { id: 'spires', rank: 18,      title: '尖塔の雨に沈みし者',   line: '塔は、二本ある。' },
-  { id: 'pillar', rank: 20,      title: '天啓に灼かれし者',     line: '光は、逃げた先にも降る。' },
-  { id: 'body', rank: 25,        title: '巨体に潰されし者',     line: '近づきすぎた。祈りの間合いを知れ。' },
-  { id: 'choir', rank: 26,       title: '聖歌に呑まれし者',     line: '歌う者は、掴めるのだ。' },
-  { id: 'mob', rank: 29,         title: '群れに呑まれし者',     line: '我の前に、まず群れを払え。' },
-  { id: 'held', rank: 28,        title: '溜めすぎし者',         line: '掴んだ手を、離す時を誤ったな。' },
-  { id: 'stage0', rank: 30,      title: '聖務に倒れし者',       line: 'まだ、最初の祈りの途中だ。' },
-  { id: 'stage1', rank: 27,      title: '堕天を見し者',         line: '硝子は深紅に染まった。そこで終わるか。' },
-  { id: 'stage2', rank: 16,      title: '破鐘を聞きし者',       line: '鐘は割れた。あと少し、だった。' },
+  // ★2026-09-14 頂点（ユーザー指示）。被弾0＝一度も打たれずに覆した者だけ。一覧の最上段に単独で君臨する。
+  //   実装上は到達可能（主人公148px/s に対し雑魚は26〜62／掴みの間合い78px は投げの拘束0.72秒に雑魚が詰める45pxより長い）。
+  { id: 'clear_one', rank:  1,   title: 'the One',              line: '……傷ひとつ無く。汝は、何だ。' },
+  // ★2026-09-14 旧「傷なき異端者」（被弾0）は到達不能な条件だった（実測の最小は46・ボット57〜80）。
+  //   被弾3＝3回まで間違えられる＝挑戦が成立する位置へ。無傷は上の the One が引き取った。
+  { id: 'clear_pure', rank:  2,  title: '伝説を作りし者',       line: '……我が裁きは、届かなかった。' },
+  { id: 'clear_halo', rank:  5,  title: '光輪を返せし者',       line: '我が輪で、我を穿つとは。' },
+  { id: 'clear_choir', rank:  6, title: '聖歌隊を黙らせし者',   line: '歌は、途絶えた。' },
+  { id: 'clear_fast', rank:  4,  title: '刹那に裁きし者',       line: '祈る暇も、なかったか。' },
+  { id: 'clear_wing', rank:  7,  title: '翼を恐れぬ者',         line: '鉄の羽も、汝を止められぬか。' },
+  { id: 'clear_armor', rank:  8, title: '鎧を返せし者',         line: '我が装甲が、我を砕くか。' },
+  { id: 'clear_hand', rank:  3,  title: '己が手で覆せし者',     line: '借り物なしで、ここまで来たか。' },
+  { id: 'clear_storm', rank:  9, title: '投げ続けし者',         line: '数で、祈りを押し流したな。' },
+  { id: 'clear_blood', rank: 12, title: '血にまみれし勝者',     line: '傷だらけで、なお立つか。' },
+  { id: 'clear_long', rank: 11,  title: '長き祈りを断ちし者',   line: '長い、長い祈りだった。' },
+  { id: 'clear_again', rank: 13, title: '幾度も立ち上がりし者', line: '何度でも来るがよい……もう、来ぬのか。' },
+  { id: 'clear', rank: 10,       title: '裁きを覆せし者',       line: '祈り届かぬ者よ……汝が、裁いたのだ。' },
+  { id: 'near', rank: 14,        title: 'あと一歩の信徒',       line: 'あと一歩。それが、永遠に遠い。' },
+  { id: 'halo_dead', rank: 15,   title: '光輪を掴みし者',       line: '我が輪に触れたな。次は、投げよ。' },
+  { id: 'choir_dead', rank: 16,  title: '聖歌を止めし者',       line: '歌を止めても、鐘は鳴る。' },
+  { id: 'again', rank: 18,       title: '幾度も立ち上がる者',   line: '何度倒れても来るか。……よい。' },
+  { id: 'lost', rank: 33,        title: '祈りの迷い子',         line: '何に打たれたかも、分からぬままか。' },
+  { id: 'idle', rank: 32,        title: '手を出さぬ巡礼者',     line: '投げぬ者に、裁きは軽い。' },
+  { id: 'rose', rank: 22,        title: '硝子に裁かれし者',     line: '赤と青。その間に、道はあった。' },
+  { id: 'bell', rank: 24,        title: '鐘の音に怯えし者',     line: '欠けた向きへ。輪は、そう告げていた。' },
+  { id: 'feathers', rank: 25,    title: '鉄の羽に貫かれし者',   line: '翼が上がるのを、見ていなかったな。' },
+  { id: 'whip', rank: 23,        title: '配線に縛られし者',     line: '正面に立つ者を、鞭は逃さぬ。' },
+  { id: 'crack', rank: 20,       title: '光輪に轢かれし者',     line: '外れた輪は、もう我の物ではない。' },
+  { id: 'spires', rank: 19,      title: '尖塔の雨に沈みし者',   line: '塔は、二本ある。' },
+  { id: 'pillar', rank: 21,      title: '天啓に灼かれし者',     line: '光は、逃げた先にも降る。' },
+  { id: 'body', rank: 26,        title: '巨体に潰されし者',     line: '近づきすぎた。祈りの間合いを知れ。' },
+  { id: 'choir', rank: 27,       title: '聖歌に呑まれし者',     line: '歌う者は、掴めるのだ。' },
+  { id: 'mob', rank: 30,         title: '群れに呑まれし者',     line: '我の前に、まず群れを払え。' },
+  { id: 'held', rank: 29,        title: '溜めすぎし者',         line: '掴んだ手を、離す時を誤ったな。' },
+  { id: 'stage0', rank: 31,      title: '聖務に倒れし者',       line: 'まだ、最初の祈りの途中だ。' },
+  { id: 'stage1', rank: 28,      title: '堕天を見し者',         line: '硝子は深紅に染まった。そこで終わるか。' },
+  { id: 'stage2', rank: 17,      title: '破鐘を聞きし者',       line: '鐘は割れた。あと少し、だった。' },
 ];
 
 // 当てはまる裁きを優先順に**全部**列挙する（珍しい行いほど上）。
@@ -72,7 +77,8 @@ export function matches(st) {
   const s = st || {};
   const out = [];
   if (s.clear) {
-    if (s.hits === 0) out.push('clear_pure');
+    if (s.hits === 0) out.push('clear_one');     // 頂（1位）＝一度も打たれていない
+    if (s.hits <= 3) out.push('clear_pure');    // 2位＝3回まで。被弾0はこの上の行が拾う
     if (s.haloHit) out.push('clear_halo');
     if (s.choirBest >= 8) out.push('clear_choir');
     // ★2026-09-14 60→75秒（ユーザー承認）。60秒は届かない条件だった：無敵ボットでも 47〜56秒（雑魚なし・
@@ -111,10 +117,12 @@ export function judge(st, seen) {
 
 // 階位（順位の帯）。icon は Result が描く印の種類（crown/gold/silver/iron）。
 export const TIERS = [
-  { id: 'crown',  name: '王冠', from: 1,  to: 3,  color: '#ffe066' },
-  { id: 'gold',   name: '金',   from: 4,  to: 12, color: '#ffd23f' },
-  { id: 'silver', name: '銀',   from: 13, to: 19, color: '#d8dfe8' },
-  { id: 'iron',   name: '鉄',   from: 20, to: 32, color: '#8a90a8' },
+  // ★2026-09-14 王冠の上に「頂」を新設（1位 the One のためだけの帯）。燦然と輝く＝Result が専用の印と脈打つ光で描く。
+  { id: 'one',    name: '頂',   from: 1,  to: 1,  color: '#ffffff' },
+  { id: 'crown',  name: '王冠', from: 2,  to: 4,  color: '#ffe066' },
+  { id: 'gold',   name: '金',   from: 5,  to: 13, color: '#ffd23f' },
+  { id: 'silver', name: '銀',   from: 14, to: 20, color: '#d8dfe8' },
+  { id: 'iron',   name: '鉄',   from: 21, to: 33, color: '#8a90a8' },
 ];
 export function tierOf(rank) { return TIERS.find((t) => rank >= t.from && rank <= t.to) || TIERS[TIERS.length - 1]; }
 // 順位順の一覧（一覧画面用）
@@ -133,6 +141,8 @@ export function clearHint(st, seen, curRank) {
     { id: 'clear_choir', cond: !(s.choirBest >= 8), text: '聖歌隊8体を投げ返して覆せば' },
     { id: 'clear_armor', cond: !(s.shardShare >= 0.5), text: '与ダメの半分を装甲片で覆せば' },
     { id: 'clear_fast', cond: !(s.bossSec != null && s.bossSec < 75), text: '75秒以内に覆せば' },
+    { id: 'clear_pure', cond: !(s.hits <= 3), text: '被弾3回までで覆せば' },
+    { id: 'clear_one', cond: !(s.hits === 0), text: '一度も打たれずに覆せば' },
   ];
   for (const c of cand) {
     const v = VERDICTS.find((x) => x.id === c.id);

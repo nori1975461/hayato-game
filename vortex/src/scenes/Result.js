@@ -206,9 +206,23 @@ export class ResultScene extends Phaser.Scene {
     this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
     const above = (v.rank || VERDICTS.length) - 1;
     if (above > 0) this.add.text(W - 24, 32, `上に あと${above}つ`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(1, 0.5);
+    // ★2026-09-14 頂（the One）を取った回だけ、称号の後ろで光が脈打つ。ここでしか見られない絵にする。
+    if (tier.id === 'one' && this.textures.exists('glow')) {
+      const gl = this.add.image(W / 2, 62, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xffffff).setScale(11).setAlpha(0.18);
+      this.tweens.add({ targets: gl, alpha: 0.42, scale: 13.5, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      // 左右に伸びる光の帯（称号の高さに1本ずつ）。頂の回だけ画面が白く抜ける。
+      for (const sx of [-1, 1]) {
+        const ray = this.add.image(W / 2 + sx * 150, 60, 'glow').setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(0xffffff).setScale(5.5, 0.55).setAlpha(0.16);
+        this.tweens.add({ targets: ray, alpha: 0.34, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+    }
+    // 頂（the One）の称号は白熱＝金の縁取り。金の帯（他のクリア）と一目で違う色にする。
+    const oneTop = tier.id === 'one';
     const title = this.add.text(W / 2, 58, '', {
-      fontFamily: 'monospace', fontSize: '30px', color: clear ? '#ffe066' : '#ff8fb3',
-      fontStyle: 'bold', stroke: clear ? '#6a3a00' : '#4a1030', strokeThickness: 6,
+      fontFamily: 'monospace', fontSize: oneTop ? 34 + 'px' : '30px',
+      color: oneTop ? '#ffffff' : (clear ? '#ffe066' : '#ff8fb3'),
+      fontStyle: 'bold', stroke: oneTop ? '#c9971f' : (clear ? '#6a3a00' : '#4a1030'), strokeThickness: oneTop ? 7 : 6,
     }).setOrigin(0.5);
     const voice = this.add.text(W / 2, 92, '', {
       fontFamily: 'monospace', fontSize: '13px', color: '#cfe0ff',
@@ -350,19 +364,28 @@ export class ResultScene extends Phaser.Scene {
     rule.lineStyle(1, 0xffd23f, 0.45); rule.lineBetween(40, 24, W - 40, 24);
     gal.add(rule);
     const ranked = byRank();
-    const FILL = { crown: 0x3a2c08, gold: 0x2c2108, silver: 0x1a2130, iron: 0x15151d };
-    const COLW = 152, ROWH = 19;
+    const FILL = { one: 0x2e2a46, crown: 0x3a2c08, gold: 0x2c2108, silver: 0x1a2130, iron: 0x15151d };
+    // ★2026-09-14 帯が4→5本（頂を新設）になり、19px 行では画面下（H-11 の案内）にぶつかる計算だったので詰めた。
+    const COLW = 152, ROWH = 17;
     let by = 30;
     TIERS.forEach((t) => {
       const list = ranked.filter((vv) => vv.rank >= t.from && vv.rank <= t.to);
       const rows = Math.ceil(list.length / 4), cols = Math.ceil(list.length / rows);
-      const bh = 16 + rows * ROWH + 6;
+      const bh = 14 + rows * ROWH + 5;
       const tc = int(t.color);
       const panel = this.add.graphics();
       panel.fillStyle(FILL[t.id], 0.85); panel.fillRoundedRect(12, by, W - 24, bh, 6);
       panel.lineStyle(1, tc, t.id === 'crown' ? 0.9 : 0.45); panel.strokeRoundedRect(12, by, W - 24, bh, 6);
       gal.add(panel);
-      const hy = by + 9;
+      // ★2026-09-14 頂（1位 the One）の帯だけ燦然と輝く＝白い縁が脈打つ。ここだけ 1 行しか入らないので目で探せる。
+      if (t.id === 'one') {
+        const halo = this.add.graphics();
+        halo.lineStyle(2, 0xffffff, 1); halo.strokeRoundedRect(11, by - 1, W - 22, bh + 2, 7);
+        halo.setBlendMode(Phaser.BlendModes.ADD);
+        gal.add(halo);
+        this.tweens.add({ targets: halo, alpha: 0.25, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+      const hy = by + 8;
       gal.add(this.drawRankIcon(28, hy, t.id, 1.2));
       const nm = this.add.text(40, hy, `${t.name}の裁き`, { fontFamily: 'monospace', fontSize: '12px', color: t.color, fontStyle: 'bold' }).setOrigin(0, 0.5);
       gal.add(nm);
@@ -371,18 +394,18 @@ export class ResultScene extends Phaser.Scene {
       gal.add(this.add.text(W - 20, hy, `${got} ／ ${list.length}`, { fontFamily: 'monospace', fontSize: '11px', color: t.color, fontStyle: 'bold' }).setOrigin(1, 0.5));
       list.forEach((vv, i) => {
         const col = i % cols, row = Math.floor(i / cols);
-        const x = 24 + col * COLW, yy = by + 16 + row * ROWH + ROWH / 2;
+        const x = 24 + col * COLW, yy = by + 14 + row * ROWH + ROWH / 2;
         const n = (J.seen || {})[vv.id];
         const cur = vv.id === v.id;
         if (cur) {
           const hl = this.add.graphics();
-          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - 9, COLW - 6, 18, 4);
-          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - 9, COLW - 6, 18, 4);
+          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - 8, COLW - 6, 16, 4);
+          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - 8, COLW - 6, 16, 4);
           gal.add(hl);
         }
         const badge = this.add.graphics();
-        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - 7, 24, 14, 3); }
-        else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - 7, 24, 14, 3); }
+        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - 6, 24, 13, 3); }
+        else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - 6, 24, 13, 3); }
         gal.add(badge);
         gal.add(this.add.text(x + 12, yy, String(vv.rank), {
           fontFamily: 'monospace', fontSize: '10px', color: n ? '#1a1206' : t.color, fontStyle: 'bold',
@@ -421,7 +444,20 @@ export class ResultScene extends Phaser.Scene {
     const g = this.add.graphics();
     const k = sc || 1;
     const pts = (arr) => arr.map((p) => ({ x: x + p[0] * k, y: y + p[1] * k }));
-    if (kind === 'crown') {
+    if (kind === 'one') {
+      // 八条の光＋白熱の芯。王冠（尖り3つ）や宝石（菱形）と形で区別する。
+      g.fillStyle(0xffffff, 0.9);
+      for (let i = 0; i < 8; i++) {
+        const a2 = (i / 8) * Math.PI * 2, w = (i % 2 === 0) ? 7.5 : 4.5;
+        g.fillPoints([
+          { x: x + Math.cos(a2) * w * k, y: y + Math.sin(a2) * w * k },
+          { x: x + Math.cos(a2 + 0.4) * 1.6 * k, y: y + Math.sin(a2 + 0.4) * 1.6 * k },
+          { x: x + Math.cos(a2 - 0.4) * 1.6 * k, y: y + Math.sin(a2 - 0.4) * 1.6 * k },
+        ], true);
+      }
+      g.fillStyle(0xffe066, 1); g.fillCircle(x, y, 2.6 * k);
+      g.fillStyle(0xffffff, 1); g.fillCircle(x - 0.6 * k, y - 0.6 * k, 1.2 * k);
+    } else if (kind === 'crown') {
       g.fillStyle(0xffe066, 1);
       g.fillPoints(pts([[-6, 4], [-6, -3], [-3, 0], [0, -5], [3, 0], [6, -3], [6, 4]]), true);
       g.fillStyle(0xff5a6a, 1); g.fillCircle(x, y + 1.5 * k, 1.4 * k);

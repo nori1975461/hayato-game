@@ -1340,14 +1340,27 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       const ids = (vj.match(/\{ id: '([a-z0-9_]+)', rank:/g) || []).length;   // TIERS の { id: 'crown' } は数えない
       assert(ranks.length === ids && new Set(ranks).size === ranks.length && Math.min(...ranks) === 1 && Math.max(...ranks) === ranks.length,
         'JAM4: 裁きの順位は全' + ids + '種で 1〜' + ids + ' が一意（第n位が必ず出る）');
-      assert(/export const TIERS = \[/.test(vj) && /from: 1,\s+to: 3/.test(vj) && new RegExp("to: " + ids + "\\b").test(vj), 'JAM4: 階位（王冠1〜3…鉄〜' + ids + '）が全順位を覆う');
+      // 2026-09-14 帯は 頂1／王冠2-4／金5-13／銀14-20／鉄21-33 の5本（頂を新設）。1 から全順位を隙間なく覆うことを数で確かめる。
+      {
+        const tb = (vj.match(/\{ id: '(?:one|crown|gold|silver|iron)',[^}]*from: (\d+),\s*to: (\d+)/g) || [])
+          .map((m) => m.match(/from: (\d+),\s*to: (\d+)/)).map((m) => [+m[1], +m[2]]);
+        assert(tb.length === 5 && tb[0][0] === 1 && tb[tb.length - 1][1] === ids
+          && tb.every((t, i) => i === 0 || t[0] === tb[i - 1][1] + 1), 'JAM4: 階位（頂1／王冠…鉄〜' + ids + '）が全順位を隙間なく覆う');
+      }
       assert(/export function keyHint\(st\)/.test(vj) && /choirWaves > 0 && !\(s\.choirBest > 0\)/.test(vj), 'JAM4: 死んだ回に触れなかった鍵を指す（聖歌隊が最優先）');
       assert(/tierOf, byRank, keyHint, clearHint \} from '\.\.\/data\/verdict\.js'/.test(rs) && /第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs), 'JAM4: Result が「第n位／全数」を称号の上に出す');
       assert(/drawRankIcon\(x, y, kind, sc\)/.test(rs) && /kind === 'crown'/.test(rs) && /const ranked = byRank\(\);/.test(rs), 'JAM4: 階位の印は絵（Graphics）で描き、一覧は順位順');
       assert(/const kh = keyHint\(s\);/.test(rs), 'JAM4: Result が鍵の指さしを1行出す');
       // ★2026-09-13 JAM5：一覧は階位ごとの帯／仲間の行は表の下から決める／撃破の裁きは仲間が主役の帯
-      assert(/const FILL = \{ crown: 0x[0-9a-f]+, gold: 0x[0-9a-f]+, silver: 0x[0-9a-f]+, iron: 0x[0-9a-f]+ \};/.test(rs)
-        && /TIERS\.forEach\(\(t\) => \{\s*const list = ranked\.filter/.test(rs), 'JAM5: 一覧は階位ごとの帯（王冠／金／銀／鉄の板・順位順）');
+      assert(/const FILL = \{ one: 0x[0-9a-f]+, crown: 0x[0-9a-f]+, gold: 0x[0-9a-f]+, silver: 0x[0-9a-f]+, iron: 0x[0-9a-f]+ \};/.test(rs)
+        && /TIERS\.forEach\(\(t\) => \{\s*const list = ranked\.filter/.test(rs), 'JAM5: 一覧は階位ごとの帯（頂／王冠／金／銀／鉄の板・順位順）');
+      // 2026-09-14 頂（1位 the One）＝被弾0・2位「伝説を作りし者」＝被弾3以下（ユーザー指示）
+      assert(/\{ id: 'clear_one', rank:\s*1,/.test(vj) && /title: 'the One'/.test(vj)
+        && /if \(s\.hits === 0\) out\.push\('clear_one'\);/.test(vj)
+        && /if \(s\.hits <= 3\) out\.push\('clear_pure'\);/.test(vj) && /title: '伝説を作りし者'/.test(vj),
+        'JAM16: 1位 the One＝被弾0／2位 伝説を作りし者＝被弾3以下');
+      assert(/kind === 'one'/.test(rs) && /t\.id === 'one'/.test(rs) && /tier\.id === 'one'/.test(rs),
+        'JAM16: 頂は専用の印＋一覧の帯が脈打つ＋結果画面で称号の後ろが光る（燦然と輝く）');
       assert(/金の枠＝今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを金の枠で示し、×n は出さない');
       assert(/const py = Math\.min\(262, y \+ 3 \* 18 \+ 10\);/.test(rs), 'JAM5: 仲間の行は表の下から決める（固定 y の重なり再発防止）');
       assert(/大聖堂を覆した モビットたち/.test(rs) && /ease: 'Back\.easeOut'/.test(rs) && /Sound\.sfx\('pickup', 1, 1 \+ i \* 0\.08\)/.test(rs),
