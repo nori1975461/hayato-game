@@ -1252,7 +1252,7 @@ export function createBilliard(run) {
       // src='manual' ＝ とどめの権利。dealDamage 側で bossBreakMul も掛かる。
       const hpBefore = e.hp;
       // R29: 命中座標＝弱点コア判定。R31: hitR で判定円を上の当たり判定(s.radius + weak.r)とそろえる。
-      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y, hitR: s.radius });
+      run.dealDamage(e, dmg, T.color, 'manual', { x: s.x, y: s.y, hitR: s.radius, shard: !!s.shard });   // shard: 2026-09-13 ジャム版の上限（Run.dealDamage）
       if (e.isBoss) bossImpact(s, e, Math.max(0, hpBefore - e.hp), T);
       if (alive && !e.active) s.kills++;
       // 生き残った敵は弾き飛ばす＝弾が通過したことが目に見える（貫通の手応え）

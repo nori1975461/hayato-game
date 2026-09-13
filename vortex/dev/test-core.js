@@ -1344,6 +1344,108 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(cat.includes("for (const [mul, det] of [[1, -8], [1, 8], [1.4983, 0]])"), 'CATH: パワーコードの壁は BGM① と同じ部品');
   }
 
+  // ============ 2026-09-13 ジャム版（unity1week・3分・ボス2体＝ウズバルカン→堕天の大聖堂） ============
+  //   設計書「クルット・モビット_堕天の大聖堂の攻撃設計とHP_2026-09-13.docx」。本編の不変条件（BOSSES 6・tiers 6）は
+  //   壊さず、BOSS_DEFS_ALL と BALANCE.boss.jamTiers で足す。
+  {
+    const JSRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+    const jr = (rel) => fs.readFileSync(path.join(JSRC, rel), 'utf8');
+    const jb = jr('systems/boss.js'), jrun = jr('scenes/Run.js'), jt = jr('scenes/Title.js'), jm = jr('main.js');
+    const jl = jr('systems/levelup.js'), jbo = jr('scenes/Boot.js'), jbi = jr('systems/billiard.js'), jsnd = jr('audio/sound.js');
+    const jen = jr('data/enemies.js');
+    // --- ① 入口と圧縮 ---
+    assert(BALANCE.jam && BALANCE.jam.progressMul >= 2 && BALANCE.jam.xpMul >= 1,
+      'JAM: BALANCE.jam（進行度と成長の圧縮）がある');
+    assert(/this\.jamMode = !!\(data && data\.jamRun\);/.test(jrun), 'JAM: Run は scene のデータ jamRun でジャム版に入る');
+    assert(/keydown-J/.test(jt) && /jamRun: true/.test(jt), 'JAM: タイトルの J キーで入れる');
+    assert(/params\.get\('jam'\) === '1'/.test(jm) && /jamRun: !!V\.jam/.test(jt), 'JAM: ?jam=1 でも入れる（ボット検証用）');
+    assert(/BALANCE\.jam\.progressMul/.test(jrun), 'JAM: 進行度が progressMul 倍で進む（雑魚・エリート・切り札・ボス地点が全部圧縮される）');
+    assert(/BALANCE\.jam\.xpMul/.test(jl), 'JAM: XP が xpMul 倍');
+    assert(/jamRun: this\.jamMode/.test(jrun), 'JAM: やりなおしてもジャム版のまま');
+    assert(/'ジャム'/.test(jrun), 'JAM: 遊んだ記録の mode に「ジャム」が残る');
+    // --- ② ボス表 ---
+    const JT = BALANCE.boss.jamTiers;
+    assert(Array.isArray(JT) && JT.length === 2, 'JAM: ジャムのボスは2体');
+    assert(BALANCE.boss.tiers.length === 6, 'JAM: 本編の tiers は6段のまま（ジャムは別表）');
+    assert(JT[0].bossId === 'uzuking' && JT[0].hp === 4500 && JT[0].healOnKill === true && JT[0].spawnSec === 180,
+      'JAM: ①ウズバルカン＝地点180・HP4500・撃破で全回復');
+    const C = JT[1];
+    assert(C.bossId === 'cathedral' && C.final === true && C.spawnSec === 280 && C.hp === 9000 && C.gaugeSegments === 3,
+      'JAM: ②堕天の大聖堂＝最終・地点280・HP9000・ゲージ3本');
+    assert(C.bgm === 'cathedral', 'JAM: 大聖堂は専用曲 cathedral');
+    assert(C.introLines && C.introLines[0].text === 'いのりとどかぬものへ' && C.introLines[1].text === 'さばきを',
+      'JAM: 登場セリフ「いのりとどかぬものへ　さばきを」（ユーザー決定）');
+    assert(C.weak && C.weak.gate === false && C.weak.mul === 2.4, 'JAM: 聖核はゲートでなく 2.4倍ボーナス（ユーザー決定・R67 の教訓）');
+    assert(C.phase2HpRatio > 0.66 && C.phase2HpRatio < 0.67 && C.stage3HpRatio > 0.33 && C.stage3HpRatio < 0.34,
+      'JAM: 段階は 66%（堕天）と 33%（破鐘）＝ゲージの区切りと一致');
+    assert(/tiers = \(run\.jamMode && B\.jamTiers\) \? B\.jamTiers : B\.tiers/.test(jb), 'JAM: boss.js はジャム版だけ jamTiers を読む');
+    assert(/if \(cfg\.final\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(jb), 'JAM: 最終ボスの曲は tier の bgm（無ければ maou）');
+    // --- ③ 攻撃7種（設計書6章のローテーション） ---
+    const ALL7 = ['rose', 'bell', 'choir', 'feathers', 'whip', 'spires'];
+    assert(JSON.stringify(C.attacks) === JSON.stringify(['rose', 'bell', 'choir', 'feathers']), 'JAM: 段階1＝薔薇窓→鐘→聖歌隊→鉄羽');
+    assert(C.attacksStage2.includes('whip') && C.attacksStage2.includes('bell'), 'JAM: 段階2から配線の鞭');
+    assert(C.attacksStage3.includes('spires') && !C.attacksStage3.includes('bell'), 'JAM: 段階3は光輪なし＝鐘が消えて尖塔の連打');
+    for (const a of ALL7) assert(new RegExp("case '" + a + "':").test(jb), 'JAM: startAttackByName に ' + a + ' がある');
+    for (const st of ['roseTele', 'roseFire', 'bellTele', 'bellFire', 'choirTele', 'featherTele', 'featherFire',
+                      'spireTele', 'spireFire', 'crackCine', 'haloRoll', 'haloNova']) {
+      assert(new RegExp("case '" + st + "'").test(jb), 'JAM: updateAI に state ' + st + ' がある');
+    }
+    assert(/if \(haloGone\) \{ startAttackByName\('spires'\); break; \}/.test(jb), 'JAM: 光輪が無いとき bell は spires へ逃がす（無音の空振りにしない）');
+    // 薔薇窓の公平性（設計書5章①）：ロック後に主人公は 148×lockSec 動ける＞射線の半幅＋主人公
+    const R = C.rose;
+    assert(R.count === 12 && R.lockSec >= 0.5 && 148 * R.lockSec > R.beamWidth * 0.5 + 12,
+      'JAM: 薔薇窓＝12本・ロック 0.5秒以上・ロック後に射線から出られる（' + Math.round(148 * R.lockSec) + 'px）');
+    assert(200 * R.spinDegP2 * Math.PI / 180 < 148, 'JAM: 堕天以降の回転（距離200pxでの横移動 ' + Math.round(200 * R.spinDegP2 * Math.PI / 180) + 'px/秒）は主人公148より遅い');
+    assert(/angs\.push\(aim \+ \(i \+ 0\.5\) \* \(Math\.PI \* 2 \/ rk\.count\)\)/.test(jb), 'JAM: 赤の拍は主人公の正面を外した角（aim±15°）＝「赤の間に立つ」が成立する');
+    assert(/hitRoseRays\(\)/.test(jb) && /if \(roseHit \|\| !roseAngs\) return;/.test(jb), 'JAM: 射線は何本触れても1拍1回');
+    // 鎮魂の鐘：穴の向き＝光輪の欠け（haloAng）。角度は halo と tsunami で一致
+    assert(C.halo && C.tsunami && C.halo.gapDeg === C.tsunami.gapDeg, 'JAM: 光輪の欠け（' + C.halo.gapDeg + '°）と波の穴が同じ角度');
+    assert(/fireTsunamiWave\(tw, shotIdx, haloAng\)/.test(jb), 'JAM: 波の穴の向きは光輪の回転角そのもの');
+    assert(/function fireTsunamiWave\(tw, w, gapOverride\)/.test(jb) && /gapOverride != null \? gapOverride : aim \+ Math\.PI/.test(jb),
+      'JAM: 本編の tsunami（穴＝主人公の背後）は不変');
+    assert(/haloAng \+= \(cathStage >= 1 \? -cfg\.halo\.spinDegP2 : -cfg\.halo\.spinDeg\) \* D2R \* dt;/.test(jb), 'JAM: 光輪は常時回る（堕天で速く）');
+    // 聖歌隊：8体・その場で歌う（よろけ＝掴み放題）
+    assert(C.summon.count === 8 && C.summon.holdSec >= 1.5 && /run\.enterStagger\(e\); e\.stagMax = cfg\.summon\.holdSec;/.test(jb),
+      'JAM: 聖歌隊8体は holdSec のあいだよろけ＝投げ弾の供給');
+    // 鉄羽：翼の持ち上げ予告＋扇の基準角は発射時に固定（R43：引き直さない）
+    assert(C.feathers.telegraphSec >= 0.55 && /wingRaise/.test(jb) && /featherBase = Math\.atan2/.test(jb),
+      'JAM: 鉄羽の雨は翼の持ち上げで予告し、扇の基準角を固定して薙ぐ');
+    assert(/if \(p\.role === 'wingR' && wingRaise\) rot = -wingRaise \+ tilt;/.test(jb), 'JAM: 右翼だけ持ち上がる（絵のパーツが予告）');
+    // 破鐘：33% で一度だけ・光輪が外れ（dome 非表示）・3回跳ねて砕ける
+    assert(/cathStage < 2 && boss\.hp <= cfg\.hp \* cfg\.stage3HpRatio/.test(jb), 'JAM: 破鐘は33%で一度だけ');
+    assert(/dome\.img\.setVisible\(false\)/.test(jb) && /haloGone = true;/.test(jb), 'JAM: 光輪が首から外れる（絵が欠ける＝段階の合図）');
+    assert(C.crack.bounces === 3 && /halo\.bounces >= ck\.bounces\) \{ breakHalo\(\)/.test(jb), 'JAM: 光輪は3回跳ねて砕ける');
+    assert(/fireNovaWave\(shotIdx, haloBreak\.x, haloBreak\.y\)/.test(jb), 'JAM: 砕けた位置から全方位弾');
+    // 尖塔：左右の塔から交互
+    assert(/spireTip\(Math\.floor\(shotIdx \/ v\.perBurst\) % 2\)/.test(jb) && C.spires.ox > 0, 'JAM: 尖塔の連打は左右の塔から交互');
+    // 段階2の深紅の硝子（palette2）
+    assert(/export const BOSS_DEFS_ALL = \[\.\.\.BOSSES, CATHEDRAL\];/.test(jen), 'JAM: BOSS_DEFS_ALL＝本編6体＋大聖堂');
+    assert(/for \(const d of BOSS_DEFS_ALL\)/.test(jbo) && /for \(const d of BOSS_DEFS_ALL\) bossMap\[d\.id\] = d;/.test(jb),
+      'JAM: Boot と boss.js は BOSS_DEFS_ALL を焼く');
+    const palA = /const CATH_PAL = \{([^}]*)\}/.exec(jen)[1].match(/[A-Za-z]:/g).join();
+    const palR = /const CATH_PAL_R = \{([^}]*)\}/.exec(jen)[1].match(/[A-Za-z]:/g).join();
+    assert(palA === palR, 'JAM: 深紅パレット CATH_PAL_R のキー集合は CATH_PAL と一致（rageRemap 空振りの罠）');
+    assert(/if \(def\.palette2 && disp\) \{[\s\S]{0,200}?boss_\$\{def\.id\}_R\$\{p\.tex\}/.test(jb), 'JAM: 段階2で R テクスチャへ差し替える');
+    assert(/else if \(phase2 && !def\.palette2\) tint = 0xff6a6a;/.test(jb), 'JAM: 深紅パレットを持つボスは phase2 の赤 tint を重ねない');
+    // 聖核＝ボーナス（gate:false は本体にも通る）
+    assert(/if \(weakCfg\(\)\.gate === false\) return \{ pass: true, mul: 1 \};/.test(jb), 'JAM: gate:false は外しても本体に等倍で通る');
+    assert(/むねの コアに あてると ダメージ 2\.4ばい！/.test(jb), 'JAM: ヒントの文言もボーナス用');
+    // 装甲片の上限は倍率のあと（ジャム版だけ）
+    assert(C.shardCapAfterMul > 0 && C.shardCapAfterMul <= 0.15, 'JAM: 装甲片1枚の上限（倍率込み）が切り札15%以下');
+    assert(/shard: !!s\.shard/.test(jbi) && /at\.shard && this\.boss && this\.boss\.shardCapAfterMul/.test(jrun),
+      'JAM: 装甲片の上限は Run.dealDamage で倍率のあとに掛かる');
+    assert(!BALANCE.boss.tiers.some((t) => t.shardCapAfterMul), 'JAM: 本編の tier は shardCapAfterMul を持たない（本編不変）');
+    // SFX 5種（定義と使用）
+    for (const n of ['bellToll', 'organRise', 'ironCreak', 'choirChord', 'haloCrack']) {
+      assert(new RegExp('^  ' + n + '\\(', 'm').test(jsnd), 'JAM: SFX ' + n + ' が定義されている');
+      assert(new RegExp("Sound\\.sfx\\('" + n + "'").test(jb), 'JAM: SFX ' + n + ' が使われている');
+    }
+    // 文字を足していない（R54 の作法）：ジャム版の署名攻撃はテロップを1つも持たない
+    for (const nm of ['薔薇窓', 'ばらまど', '鎮魂', 'ちんこん', '鉄羽', 'てつばね', '聖歌隊', 'せいかたい', '尖塔', 'せんとう']) {
+      assert(!new RegExp("(introText|announce|floatText)\\([^)]*" + nm).test(jb), 'JAM: 「' + nm + '」をテロップにしていない');
+    }
+  }
+
   for (const n of ['maou', 'maouOrch', 'maouSynth']) {
     assert(new RegExp(`name: '${n}'`).test(prac), `R35: 切り替え先に ${n} が入っている`);
   }

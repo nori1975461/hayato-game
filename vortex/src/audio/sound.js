@@ -757,6 +757,63 @@ const SFX = {
   // ★R28 実プレイFB「らいこうだんの効果音をもっと派手に。派手すぎるぐらいでいい」。
   //   power(0..1) で規模が変わる。投げ出しは0.75・着弾は1.0で呼ぶ。
   //   本物の雷が怖いのは「裂ける音が何度も重なる」から。1発ではなく3段に割って重ねる。
+  // ★2026-09-13 堕天の大聖堂（ジャム版 最終ボス）の専用音5種。汎用音の使い回しはしない（R54 の作法）。
+  // 鐘1打（鎮魂の鐘の予告・波ごと・光輪の跳ね返り）。D4 の基音＋非整数倍音（鐘は倍音が割れている）＋打撃のノイズ。
+  bellToll(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.30, 0.12, 0.40);
+    const f = noteFreq(NOTE.D4) * p;
+    noiseHit({ dur: 0.04, gain: 0.18 * g, hpFreq: 1800, lpFreq: 9000 });
+    tone({ type: 'sine', freq: f, dur: 2.4, gain: 0.30 * g, attack: 0.003, verb: 0.6 });
+    tone({ type: 'sine', freq: f * 2.0, dur: 1.6, gain: 0.14 * g, attack: 0.003, verb: 0.5 });
+    tone({ type: 'sine', freq: f * 2.76, dur: 1.2, gain: 0.10 * g, attack: 0.003, verb: 0.5 });
+    tone({ type: 'sine', freq: f * 5.4, dur: 0.6, gain: 0.05 * g, attack: 0.002 });
+    tone({ type: 'triangle', freq: f * 0.5, dur: 1.8, gain: 0.12 * g, attack: 0.004 });
+  },
+  // 薔薇窓の裁きの予告：パイプオルガンの上昇（12枚の硝子が1枚ずつ点くのと同じ刻み）。sec＝予告の尺。
+  organRise(sec) {
+    const n = 12, S = sec == null ? 1.0 : sec, d = S / (n + 1);
+    const steps = [0, 2, 3, 5, 7, 8, 11, 12, 14, 15, 17, 19];   // D ハーモニックマイナー（C#＝導音）
+    for (let i = 0; i < n; i++) {
+      const f = noteFreq(NOTE.D4 + steps[i]);
+      tone({ start: i * d, type: 'square', freq: f, dur: d * 2.2, gain: 0.05 + i * 0.006, attack: 0.01, verb: 0.35 });
+      tone({ start: i * d, type: 'sine', freq: f * 2, dur: d * 2.0, gain: 0.03, attack: 0.01, verb: 0.35 });
+    }
+    duckBgm(0.5, S, 0.3);
+  },
+  // 鉄羽の雨の予告／配線の鞭：鉄の軋み（下降するノイズ＋きしむ矩形のうねり）。
+  ironCreak(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.55, gain: 0.14 * g, hpFreq: 900 * p, lpFreq: 5200 * p, lpEnd: 1400 * p });
+    tone({ type: 'square', freq: 420 * p, freqEnd: 180 * p, dur: 0.50, gain: 0.07 * g, attack: 0.05 });
+    tone({ type: 'sawtooth', freq: 210 * p, freqEnd: 95 * p, dur: 0.55, gain: 0.06 * g, attack: 0.08 });
+    tone({ start: 0.30, type: 'square', freq: 640 * p, freqEnd: 300 * p, dur: 0.22, gain: 0.05 * g, attack: 0.01 });
+  },
+  // 堕天の聖歌隊：合唱の和音（Dm＝D4 F4 A4 D5 F5・声部を少しずつずらし、±6セントで厚みを出す）。
+  choirChord(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    const notes = [NOTE.D4, NOTE.F4, NOTE.A4, NOTE.D5, NOTE.F5];
+    notes.forEach((nn, i) => {
+      const f = noteFreq(nn) * p;
+      for (const det of [-6, 6]) {
+        tone({ start: i * 0.04, type: 'sine', freq: f, dur: 1.3, gain: 0.07 * g, attack: 0.12, detune: det, verb: 0.6 });
+        tone({ start: i * 0.04, type: 'triangle', freq: f, dur: 1.1, gain: 0.03 * g, attack: 0.15, detune: det * 1.5, verb: 0.6 });
+      }
+    });
+    duckBgm(0.45, 0.5, 0.4);
+  },
+  // 破鐘：鐘が割れる（金属の裂け＋濁って下がる鐘＋低い落下）。段階3の開幕と、転がった光輪が砕ける瞬間。
+  haloCrack(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.22, 0.20, 0.5);
+    noiseHit({ dur: 0.08, gain: 0.30 * g, hpFreq: 2500, lpFreq: 14000 });
+    noiseHit({ start: 0.05, dur: 0.35, gain: 0.18 * g, hpFreq: 600, lpFreq: 8000, lpEnd: 900 });
+    const f = noteFreq(NOTE.D4) * p;
+    tone({ type: 'sine', freq: f * 1.06, freqEnd: f * 0.72, dur: 1.4, gain: 0.26 * g, attack: 0.003, verb: 0.5 });
+    tone({ type: 'sine', freq: f * 2.9, freqEnd: f * 1.9, dur: 0.9, gain: 0.12 * g, attack: 0.003 });
+    tone({ type: 'square', freq: f * 0.5, freqEnd: f * 0.22, dur: 1.0, gain: 0.10 * g, attack: 0.004 });
+    tone({ start: 0.10, type: 'triangle', freq: 120, freqEnd: 28, dur: 0.9, gain: 0.20 * g, attack: 0.004 });
+  },
   thunder(power) {
     const p = (power == null) ? 1 : Math.max(0, Math.min(1, power));
     const k = 0.8 + 0.5 * p;

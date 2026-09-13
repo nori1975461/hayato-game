@@ -2108,6 +2108,13 @@ export class RunScene extends Phaser.Scene {
       else if (src === 'manual' && this.boss && this.boss.staggered) {
         dmg = Math.round(dmg * BALANCE.hero.strike.bossBreakMul);
       }
+      // ★2026-09-13 ジャム版のボス（tier.shardCapAfterMul）：装甲片の上限を**倍率のあと**に掛ける。
+      //   本編の上限（R63 bossHpCap 5%）は倍率の前に掛かるので、コア2.4×追撃2.4＝1枚で最大HPの28.8%。
+      //   堕天の大聖堂はコアがどこでも通るボーナスなので、そのままだと装甲片3枚で勝負が終わり HP が尺を
+      //   決めない（実測：与ダメの57〜78%が装甲片）。本編の tier はこの値を持たない＝従来どおり。
+      if (at && at.shard && this.boss && this.boss.shardCapAfterMul) {
+        dmg = Math.min(dmg, Math.max(1, Math.round((e.maxHp || 1) * this.boss.shardCapAfterMul)));
+      }
     }
     // よろけ中は仲間・自動拳が一切通らない（削りも無効＝再よろけのループを作らない）。
     // 音も数字も出さずに素通りさせる＝「仲間が引いた」ことが静けさで分かる。

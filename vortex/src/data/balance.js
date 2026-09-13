@@ -2072,25 +2072,41 @@ BALANCE.boss.jamTiers = [
     hp: 9000, radius: 88, spriteScale: 6.2, glowScale: 11.0,
     gaugeSegments: 3,
     specialBulletMul: 0.5,     // らいこうだん1発＝30%×0.5＝15%＝ゲージ半本
+    shardCapAfterMul: 0.10,    // 装甲片1枚＝倍率込みで最大10%（切り札15%より下）。理由は Run.dealDamage
     glowOuter: '#c9971f', glowInner: '#1f47b8',
     chaseSpeed: 40, bodyDamage: 24,
-    // ⚠️ 段階A（骨組み）は既存の攻撃だけで動かす。署名攻撃4種は段階Bで差し替える。
-    attacks: ['tsunami', 'summon', 'barrage', 'vulcan'],
+    // 段階ごとの表（設計書6章）。破鐘（stage3）は光輪が無いので鎮魂の鐘（bell）が消え、尖塔の連打（spires）が入る。
+    attacks:       ['rose', 'bell', 'choir', 'feathers'],
+    attacksStage2: ['rose', 'feathers', 'whip', 'bell', 'choir'],
+    attacksStage3: ['rose', 'whip', 'spires', 'feathers', 'choir'],
+    stage3HpRatio: 0.334, stage3IdleMult: 0.65,
+    // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで
+    //   63−10＝53px、ロック後に主人公は 148×0.55＝81px 動ける。堕天以降は 20°/秒で片側へ回る。
+    rose: { telegraphSec: 1.0, lockSec: 0.55, count: 12, beamWidth: 10, beamLength: 460, damage: 16,
+            activeSec: 0.5, spinDegP2: 20, petalR: 8, redTint: '#ff3a4a', blueTint: '#4f7dff' },
+    // ②鎮魂の鐘：光輪の欠けの向き（常時回転 −40°/秒・堕天 −70°/秒）が穴。rx/ry＝光輪の楕円（ドット）。
+    bell: { telegraphSec: 0.6 },
+    halo: { spinDeg: 40, spinDegP2: 70, gapDeg: 64, rx: 19, ry: 5.5, markR: 2.2 },
+    // ④鉄羽の雨：右翼を 25°（0.44rad）持ち上げ→振り下ろしながら鉄の羽根14枚を扇状に一薙ぎ（扇の端から抜ける）
+    feathers: { telegraphSec: 0.9, count: 14, launchInterval: 0.05, spreadDeg: 130, leadSec: 0.55,
+                speed: 300, radius: 6, damage: 18, lifeSec: 1.8, spin: 14, tint: '#c8ccd6',
+                raiseRad: 0.44, downRad: 0.30, tipOx: 30, tipOy: -14 },
+    // ⑥破鐘：1.2秒のシネマ→光輪が外れて転がる（画面端で3回跳ねる・speed 480・damage 24）→砕けて全方位弾（nova）
+    crack: { cineSec: 1.2, speed: 480, damage: 24, bounces: 3, radius: 60, spinSpeed: 9, maxSec: 6,
+             text: 'はしょう' },   // 段階の合図は絵（光輪が外れる）＋この1語だけ。floatText は足さない（R54 の作法）
+    nova: { waves: 3, waveInterval: 0.18, perWave: 14, bulletSpeed: 265, bulletRadius: 8, damage: 18, lifeSec: 2.4, spinDeg: 13 },
+    // ⑦尖塔の連打：左右の塔（本体中心から ±28×scale・上へ 30×scale）から交互にバルカン。弾は藍の光弾。
+    spires: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 300, bulletRadius: 5,
+              damage: 14, lifeSec: 1.9, ox: 28, oy: -30, tint: '#3f6fe0' },
     weak: {
       radius: 40, offY: 0.28, swayX: 0, swaySec: 1, phase2SwaySec: 1,
       mul: 2.4, gate: false, tint: '#ff5a6a', coreTint: '#fff2a8', label: 'コアヒット！',
     },
-    // ②鎮魂の鐘の土台（wavelord の tsunami）。穴 64°＝光輪の欠け。
+    // ②鎮魂の鐘の弾の輪（wavelord の tsunami の機構）。穴 64°＝光輪の欠け（向きは halo の回転角）。
     tsunami: { telegraphSec: 0.6, waves: 3, waveInterval: 0.45, count: 24, gapDeg: 64,
                gapSpinDeg: 40, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.4 },
-    // ③堕天の聖歌隊＝投げ弾の供給
-    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6 },
-    // ④鉄羽の雨の土台（missilga の barrage）
-    barrage: { telegraphSec: 0.9, count: 14, launchInterval: 0.050, spread: 130, leadSec: 0.55,
-               warnSec: 0.9, blastRadius: 56, damage: 18 },
-    // ⑦尖塔の連打の土台（maou の vulcan）
-    vulcan: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 300,
-              bulletRadius: 5, damage: 14, lifeSec: 1.9 },
+    // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
+    summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6, holdSec: 2.0 },
     // ⑤配線の鞭（maou の wirearm と同値）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
                extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54 },

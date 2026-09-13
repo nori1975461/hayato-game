@@ -150,6 +150,18 @@ export function createBoss(run) {
   let spiralAng = 0;                // うずまきバルカン：いま腕が向いている角（砲身の回転を絵に出す）
   let roboMade = 0;                 // ★R56 ミニロボ噴出：いま何体まで出したか（1体ずつ湧かせる）
   let pinAngs = null;               // ペンシルレーザー：固定した射線（ジェットバイパー）
+  // ★2026-09-13 堕天の大聖堂（ジャム版 最終ボス）専用の状態。段階は cathStage（enterPhase2／enterStage3 が進める）。
+  let cathStage = 0;                // 0 聖務（100→66%）/ 1 堕天（66→33%）/ 2 破鐘（33→0%）
+  let haloAng = 0;                  // 光輪の欠けの向き（rad）＝鎮魂の鐘の穴はこの角度（常時回っている）
+  let haloGone = false;             // 破鐘で光輪が外れた＝以後 鎮魂の鐘は撃てない（尖塔の連打へ替わる）
+  let haloGfx = null;               // 光輪の欠けの印（楕円の上を回る黒い切れ目＋白熱の縁）
+  let halo = null;                  // 転がる光輪 { x, y, vx, vy, r, rot, bounces, hitCd, g, glow }
+  let haloBreak = null;             // 砕けた位置（全方位弾の中心）
+  let roseBeat = 0;                 // 薔薇窓の裁き：0 赤の拍 / 1 青の拍（15° ずれ）
+  let roseHit = false;              // 同：この拍で当てたか（回転中は毎フレーム判定するので1拍1回に絞る）
+  let roseAngs = null;              // 同：12本の射線 { ox, oy, angs }（予告の最後 lockSec で固定）
+  let wingRaise = 0;                // 鉄羽の雨：右翼の持ち上げ（rad・updateDisp が wingR に足す）
+  let featherBase = 0;              // 同：扇の基準角（発射開始時に固定＝走れば扇の端から抜ける）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
   const minions = [];               // ミニロボ（ミサイルガ）。run.enemies に載せるが寿命はここで管理
@@ -377,10 +389,13 @@ export function createBoss(run) {
     const t = Math.max(0, Math.min(1, run.elapsed / (W.stepSec * W.steps)));
     return lerp(W.hpMultStart, W.hpMultEnd, t);
   }
-  function idleDur(sec) { return sec * (phase2 ? cfg.phase2IdleMult : 1); }
+  function idleDur(sec) {
+    if (cathStage >= 2 && cfg.stage3IdleMult) return sec * cfg.stage3IdleMult;   // 2026-09-13 破鐘＝手数で詰める
+    return sec * (phase2 ? cfg.phase2IdleMult : 1);
+  }
   function aimAngle() { return Math.atan2(run.player.y - boss.y, run.player.x - boss.x); }
   function isTelegraph(st) { return typeof st === 'string' && st.endsWith('Tele'); }
-  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; rushDustT = 0; rushShakeT = 0; flyGhostT = 0; flyBoomed = false; flyLastD = 1e9; spiralAng = 0; roboMade = 0; destroyAnchor(); clearLock(); }
+  function resetAttackVars() { shotAcc = 0; shotIdx = 0; slamFired = false; chainVulcan = false; knuckleFired = false; recoilT = 0; punchFlyT = 0; alignWind = 0; rushIdx = 0; rollSpin = 0; rushDustT = 0; rushShakeT = 0; flyGhostT = 0; flyBoomed = false; flyLastD = 1e9; spiralAng = 0; roboMade = 0; wingRaise = 0; roseAngs = null; destroyAnchor(); clearLock(); }
 
   // ============ 出現 ============
   function spawnFight(tierCfg) {
@@ -389,6 +404,7 @@ export function createBoss(run) {
     phase2 = false;
     split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
     trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0]; tfTier = 0;
+    cathStage = 0; haloGone = false; haloAng = 0; roseAngs = null; wingRaise = 0; destroyHalo();
     tfWarpPhase = 0; tfWarped = false; tfWarpAlpha = 1;
     clearFx();
     killing = false;
@@ -502,6 +518,9 @@ export function createBoss(run) {
     if (t) return t.attacks;
     if (phase3 && cfg.attacksP3) return cfg.attacksP3;
     if (split && cfg.attacksSplit) return cfg.attacksSplit;
+    // ★2026-09-13 堕天の大聖堂：段階ごとの表（聖務／堕天／破鐘）。破鐘では光輪が無いので鎮魂の鐘は表から消える。
+    if (cathStage >= 2 && cfg.attacksStage3) return cfg.attacksStage3;
+    if (cathStage >= 1 && cfg.attacksStage2) return cfg.attacksStage2;
     return cfg.attacks;
   }
   function idleFor(i) {
@@ -595,6 +614,21 @@ export function createBoss(run) {
                          Sound.sfx('metalSlam', 0.5, 0.7); break;
       case 'minirobo':   state = 'roboTele';   stateT = cfg.minirobo.telegraphSec;
                          Sound.sfx('warning', 0.7, 1.25); break;
+      // ★2026-09-13 堕天の大聖堂（ジャム版 最終ボス）の7種。予告は**絵のパーツが動く＋専用音**（テロップは足さない）。
+      //   主人公へ向く攻撃はロック→走れば外れる（148px/秒×0.55秒＝81px＞判定半幅）。薙ぐのは片側だけ。
+      case 'rose':       state = 'roseTele';    stateT = cfg.rose.telegraphSec; roseBeat = 0; roseAngs = null; roseHit = false;
+                         Sound.sfx('organRise', cfg.rose.telegraphSec); break;
+      case 'bell':       if (haloGone) { startAttackByName('spires'); break; }   // 光輪が無い＝鐘は鳴らせない
+                         state = 'bellTele';    stateT = cfg.bell.telegraphSec;
+                         Sound.sfx('bellToll', 1, 1); break;
+      case 'choir':      state = 'choirTele';   stateT = cfg.summon.telegraphSec || 0.6; telegraphSummon();
+                         Sound.sfx('choirChord', 1, 1); break;
+      case 'feathers':   state = 'featherTele'; stateT = cfg.feathers.telegraphSec; wingRaise = 0;
+                         Sound.sfx('ironCreak', 1, 1); break;
+      case 'whip':       state = 'wireTele';    stateT = cfg.wirearm.teleSec;   // 配線の鞭＝wirearm の機構をそのまま
+                         Sound.sfx('ironCreak', 0.6, 1.5); Sound.sfx('relock'); break;
+      case 'spires':     state = 'spireTele';   stateT = cfg.spires.telegraphSec;
+                         Sound.sfx('relock'); break;
       default:           afterAttack(); break;
     }
   }
@@ -1142,6 +1176,122 @@ export function createBoss(run) {
         if (stateT <= 0) { doSummon(); afterAttack(); }
         break;
 
+      // ---- 2026-09-13 堕天の大聖堂（ジャム版 最終ボス）----
+      // ①薔薇窓の裁き：硝子が1枚ずつ点く → 最後の lockSec で12本を固定 → 赤の拍 → 青の拍（15°ずれ）
+      case 'roseTele':
+        if (!roseAngs && stateT <= cfg.rose.lockSec) { lockRoseAngs(); Sound.sfx('relock'); }
+        drawRoseLines(false);
+        if (stateT <= 0) fireRoseBeat();
+        break;
+      case 'roseFire': {
+        if (cathStage >= 1 && roseAngs) {              // 堕天以降：同じ向きへゆっくり回る（片側薙ぎ・20°/秒）
+          const dA = cfg.rose.spinDegP2 * D2R * dt;
+          for (let i = 0; i < roseAngs.angs.length; i++) roseAngs.angs[i] += dA;
+        }
+        drawRoseLines(true);
+        hitRoseRays();
+        if (stateT <= 0) {
+          if (roseBeat === 0) { roseBeat = 1; fireRoseBeat(); }
+          else { roseAngs = null; if (lockGfx) lockGfx.clear(); afterAttack(); }
+        }
+        break;
+      }
+      // ②鎮魂の鐘：全方位3波。穴＝光輪の欠けの向き（回っているので波ごとに穴が回る）
+      case 'bellTele':
+        if (stateT <= 0) {
+          const tw = cfg.tsunami;
+          state = 'bellFire'; stateT = tw.waves * tw.waveInterval + 0.1;
+          shotAcc = tw.waveInterval; shotIdx = 0;
+          Sound.sfx('waveApproach', tw.waves * tw.waveInterval + 0.4, 0.8);
+        }
+        break;
+      case 'bellFire': {
+        const tw = cfg.tsunami;
+        shotAcc += dt;
+        while (shotAcc >= tw.waveInterval && shotIdx < tw.waves) {
+          shotAcc -= tw.waveInterval;
+          fireTsunamiWave(tw, shotIdx, haloAng);
+          Sound.sfx('bellToll', 0.7, 1 + shotIdx * 0.06);
+          shotIdx++;
+        }
+        if (shotIdx >= tw.waves && stateT <= 0) afterAttack();
+        break;
+      }
+      // ③堕天の聖歌隊：8体を光輪の形に。2秒間その場で歌う（よろけ＝掴み放題）
+      case 'choirTele':
+        if (stateT <= 0) { doChoir(); afterAttack(); }
+        break;
+      // ④鉄羽の雨：右翼を持ち上げ（予告）→ 振り下ろしながら鉄の羽根を扇状に一薙ぎ
+      case 'featherTele':
+        wingRaise = cfg.feathers.raiseRad * clamp01(1 - stateT / cfg.feathers.telegraphSec);
+        if (stateT <= 0) {
+          const fe = cfg.feathers;
+          state = 'featherFire'; stateT = fe.count * fe.launchInterval + 0.1;
+          shotAcc = fe.launchInterval; shotIdx = 0;
+          // 扇の基準角＝主人公の進む先（leadSec）。発射中は固定＝走れば扇の端から抜ける（R43：引き直さない）。
+          const lx = run.player.x + (run.player.vx || 0) * fe.leadSec;
+          const ly = run.player.y + (run.player.vy || 0) * fe.leadSec;
+          const wp = wingTip();
+          featherBase = Math.atan2(ly - wp.y, lx - wp.x);
+          Sound.sfx('ironCreak', 1, 0.7);
+        }
+        break;
+      case 'featherFire': {
+        const fe = cfg.feathers;
+        const k = clamp01(1 - stateT / (fe.count * fe.launchInterval + 0.1));
+        wingRaise = fe.raiseRad - (fe.raiseRad + fe.downRad) * k;      // 振り下ろし
+        shotAcc += dt;
+        while (shotAcc >= fe.launchInterval && shotIdx < fe.count) {
+          shotAcc -= fe.launchInterval;
+          fireFeatherOne(fe, shotIdx);
+          shotIdx++;
+        }
+        if (shotIdx >= fe.count && stateT <= 0) { wingRaise = 0; afterAttack(); }
+        break;
+      }
+      // ⑦尖塔の連打：背後の2本の塔から交互にバルカン（弾は藍の光弾）
+      case 'spireTele':
+        if (stateT <= 0) {
+          const v = cfg.spires;
+          state = 'spireFire'; stateT = v.bursts * v.perBurst * 0.05 + 0.2; shotAcc = 0; shotIdx = 0;
+        }
+        break;
+      case 'spireFire': {
+        const v = cfg.spires, total = v.bursts * v.perBurst;
+        shotAcc += dt;
+        while (shotAcc >= 0.05 && shotIdx < total) {
+          shotAcc -= 0.05;
+          const t = spireTip(Math.floor(shotIdx / v.perBurst) % 2);
+          const base = Math.atan2(run.player.y - t.y, run.player.x - t.x);
+          const a = base + Math.sin(shotIdx * 0.5) * (v.sweepDeg * D2R);
+          spawnBullet2(t.x, t.y, Math.cos(a) * v.bulletSpeed, Math.sin(a) * v.bulletSpeed,
+            { radius: v.bulletRadius, damage: v.damage, life: v.lifeSec, tint: int(v.tint) });
+          if (shotIdx % 2 === 0) { Sound.sfx('shoot', 0.8, 1.2); run.shake(50, 2); }
+          shotIdx++;
+        }
+        if (shotIdx >= total && stateT <= 0) afterAttack();
+        break;
+      }
+      // ⑥破鐘：シネマ（鐘が割れる）→ 光輪が外れて転がる（画面端で3回跳ねる）→ 砕けて全方位弾
+      case 'crackCine':
+        if (stateT <= 0) launchHalo();
+        break;
+      case 'haloRoll':
+        updateHalo(dt);
+        if (state === 'haloRoll' && (!halo || stateT <= 0)) breakHalo();
+        break;
+      case 'haloNova': {
+        const nv = cfg.nova;
+        shotAcc += dt;
+        while (shotAcc >= nv.waveInterval && shotIdx < nv.waves) {
+          shotAcc -= nv.waveInterval;
+          fireNovaWave(shotIdx, haloBreak.x, haloBreak.y);
+          shotIdx++;
+        }
+        if (shotIdx >= nv.waves && stateT <= 0) afterAttack();
+        break;
+      }
+
       // ---- R29 コロガンナー：ローリングボム（転がる爆弾を撒く→止まった場所で予告→爆発）----
       case 'rollTele':
         if (stateT <= 0) { fireRollBombs(); afterAttack(); }
@@ -1352,6 +1502,7 @@ export function createBoss(run) {
 
   function enterPhase2() {
     phase2 = true;
+    if (cfg.stage3HpRatio) cathStage = 1;   // 2026-09-13 堕天の大聖堂：段階「堕天」
     run.shake(300, 5);
     run.spawnParticles(boss.x, boss.y, 0xff3355, 24);
     // ★R30 マオウレクスは phase2 ＝ 分離。節目を1つにまとめる（節目が多いほど1つ1つが薄まる）。
@@ -2392,16 +2543,17 @@ export function createBoss(run) {
 
   // 重力弾幕ノヴァ（最終ボス専用の特別攻撃）：全方位弾を波ごとに spinDeg ずつ回して螺旋状に放つ。
   // 弾はやや遅めで隙間を縫って避けられるが、連続波で画面全体に弾幕の花を咲かせる（派手・巨体からの迫力）。
-  function fireNovaWave(w) {
+  function fireNovaWave(w, ox, oy) {
     const nv = cfg.nova, base = w * nv.spinDeg * D2R;
+    const bx = ox != null ? ox : boss.x, by = oy != null ? oy : boss.y;   // 2026-09-13 破鐘＝砕けた光輪の位置から
     for (let i = 0; i < nv.perWave; i++) {
       const a = base + (Math.PI * 2 * i) / nv.perWave;
-      spawnBullet2(boss.x, boss.y, Math.cos(a) * nv.bulletSpeed, Math.sin(a) * nv.bulletSpeed,
+      spawnBullet2(bx, by, Math.cos(a) * nv.bulletSpeed, Math.sin(a) * nv.bulletSpeed,
         { radius: nv.bulletRadius, damage: nv.damage, life: nv.lifeSec });
     }
-    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, base, int(cfg.bulletTint));
+    if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(bx, by, base, int(cfg.bulletTint));
     Sound.sfx('shoot'); run.shake(60, 3);
-    run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 12);
+    run.spawnParticles(bx, by, int(cfg.bulletTint), 12);
   }
 
   // ============ R29 署名攻撃（通常ボス5体・1体につき1種類） ============
@@ -2475,8 +2627,9 @@ export function createBoss(run) {
 
   // つなみウェーブ（ウェイブロード）：全方位の壁を1枚。ただし gapDeg 分だけ穴を空ける。
   // 穴の位置は波ごとに gapSpinDeg 回るので、次の穴を探して走り抜ける遊びになる。
-  function fireTsunamiWave(tw, w) {
-    const gapCenter = aim + Math.PI + w * tw.gapSpinDeg * D2R;   // 1枚目の穴は主人公の背後側
+  function fireTsunamiWave(tw, w, gapOverride) {
+    // 2026-09-13 鎮魂の鐘（堕天の大聖堂）は穴の向きを光輪の欠け（haloAng）から渡す
+    const gapCenter = gapOverride != null ? gapOverride : aim + Math.PI + w * tw.gapSpinDeg * D2R;   // 1枚目の穴は主人公の背後側
     const half = tw.gapDeg * 0.5 * D2R;
     for (let i = 0; i < tw.count; i++) {
       const a = (Math.PI * 2 * i) / tw.count;
@@ -3160,6 +3313,215 @@ export function createBoss(run) {
   }
 
   // 召喚の予告：湧く位置をリング状に光らせる（予告なし即湧きを防ぐ）
+  // ============ 2026-09-13 堕天の大聖堂（ジャム版 最終ボス）の署名攻撃 ============
+  // 設計書「クルット・モビット_堕天の大聖堂の攻撃設計とHP_2026-09-13.docx」5章。
+  // 作法：①予告は絵のパーツが動く＋専用音（最低0.55秒）②主人公へ向く攻撃はロック→走れば外れる
+  //       ③薙ぐのは片側だけ ④どの攻撃も「通る場所」が見える。テロップは1文字も足さない。
+  function partPos(role, dx, dy) {
+    const s = disp ? disp.spriteScale : cfg.spriteScale;
+    const p = disp && disp.parts.find((q) => q.role === role);
+    return p ? { x: p.img.x, y: p.img.y } : { x: boss.x + dx * s, y: boss.y + dy * s };
+  }
+  function roseCenter() { return partPos('rack', 0, -13); }        // 薔薇窓＝rack
+  function wingTip() {
+    const s = disp ? disp.spriteScale : cfg.spriteScale;
+    return { x: boss.x + cfg.feathers.tipOx * s, y: boss.y + cfg.feathers.tipOy * s };
+  }
+  function spireTip(side) {
+    const s = disp ? disp.spriteScale : cfg.spriteScale;
+    return { x: boss.x + (side === 0 ? -1 : 1) * cfg.spires.ox * s, y: boss.y + cfg.spires.oy * s };
+  }
+  // ①薔薇窓の裁き：12本の放射射線。赤の拍＝主人公の正面を外した角（aim±15°）、青の拍＝15°ずれ
+  //   ＝「赤の間に立つ→青が来るので半歩ずれる」の2拍。射線は予告の最後 lockSec で固定し、薙がない
+  //   （堕天以降だけ同じ向きへ 20°/秒＝距離200pxで横移動70px/秒＜主人公148px/秒＝逃げ切れる）。
+  function lockRoseAngs() {
+    const rk = cfg.rose, c = roseCenter();
+    const angs = [];
+    for (let i = 0; i < rk.count; i++) angs.push(aim + (i + 0.5) * (Math.PI * 2 / rk.count));
+    roseAngs = { ox: c.x, oy: c.y, angs };
+  }
+  function roseLine(x, y, a, len, w, tint, alpha) {
+    lockGfx.lineStyle(w, tint, alpha);
+    lockGfx.beginPath(); lockGfx.moveTo(x, y); lockGfx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+    lockGfx.strokePath();
+  }
+  function drawRoseLines(solid) {
+    if (!lockGfx) lockGfx = run.add.graphics().setDepth(13 + INTRO_LIFT);
+    const rk = cfg.rose, c = roseCenter();
+    lockGfx.clear();
+    // 予告：硝子が時計回りに1枚ずつ点く（点いた枚数＝残り時間）。赤と青が交互＝2拍の色を先に見せる。
+    if (!solid) {
+      const lit = Math.min(rk.count, Math.floor(clamp01(1 - stateT / rk.telegraphSec) * (rk.count + 1)));
+      const pr = rk.petalR * (disp ? disp.spriteScale : cfg.spriteScale);
+      for (let i = 0; i < lit; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI * 2) / rk.count;
+        lockGfx.fillStyle(i % 2 === 0 ? int(rk.redTint) : int(rk.blueTint), 0.9);
+        lockGfx.fillCircle(c.x + Math.cos(a) * pr, c.y + Math.sin(a) * pr, 2.4);
+      }
+    }
+    if (!roseAngs) return;
+    const pulse = 0.35 + 0.4 * (Math.sin(run.elapsed * 30) * 0.5 + 0.5);
+    const off = (Math.PI * 2 / rk.count) * 0.5;
+    for (const a0 of roseAngs.angs) {
+      const cur = a0 + roseBeat * off, nxt = a0 + off;
+      const curTint = roseBeat === 0 ? int(rk.redTint) : int(rk.blueTint);
+      if (solid) {
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, rk.beamWidth, curTint, 0.9);
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, 2, 0xffffff, 1);
+        // 赤の拍のあいだに青の射線を薄く見せる＝「次はここ」が先に読める
+        if (roseBeat === 0) roseLine(roseAngs.ox, roseAngs.oy, nxt, rk.beamLength, 1, int(rk.blueTint), 0.45);
+      } else {
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, 1, curTint, pulse);
+      }
+    }
+  }
+  function fireRoseBeat() {
+    if (!roseAngs) { afterAttack(); return; }   // 予告を割られて射線が消えていたら撃たない
+    const rk = cfg.rose;
+    roseHit = false;
+    state = 'roseFire'; stateT = rk.activeSec;
+    hitRoseRays();
+    const c = roseCenter(), tint = roseBeat === 0 ? int(rk.redTint) : int(rk.blueTint);
+    whiteFlash(0.16, tint, 120);
+    Sound.sfx('darkLaser', 0.5, roseBeat === 0 ? 1.5 : 1.9);
+    run.shake(140, 4);
+    run.spawnParticles(c.x, c.y, tint, 10);
+  }
+  // 線分と主人公の距離で判定（見せている線と同じ式）。何本に触れても1拍1回。
+  function hitRoseRays() {
+    if (roseHit || !roseAngs) return;
+    const rk = cfg.rose, off = (Math.PI * 2 / rk.count) * 0.5 * roseBeat;
+    const half = rk.beamWidth * 0.5 + run.player.radius;
+    for (const a0 of roseAngs.angs) {
+      if (segHit(roseAngs.ox, roseAngs.oy, a0 + off, rk.beamLength, run.player.x, run.player.y, half)) {
+        roseHit = true;
+        run.hitPlayer(rk.damage, roseAngs.ox, roseAngs.oy);
+        break;
+      }
+    }
+  }
+  // ③堕天の聖歌隊：光輪の形に8体。holdSec のあいだその場で歌う（＝よろけ＝掴み放題）。
+  //   最終ボスが「投げる弾」を自分で供給する＝動詞（掴む→溜める→投げる）が最後まで主役。
+  function doChoir() {
+    const zunDef = ENEMIES.find((e) => e.id === cfg.summon.enemyId);
+    const n = cfg.summon.count, hpMult = summonHpMult();
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n;
+      const x = boss.x + Math.cos(a) * cfg.summon.ringRadius, y = boss.y + Math.sin(a) * cfg.summon.ringRadius;
+      const e = run.spawnEnemy(zunDef, x, y, false, hpMult);
+      if (e && cfg.summon.holdSec && run.enterStagger) { run.enterStagger(e); e.stagMax = cfg.summon.holdSec; e.stagT = e.stagMax; }
+    }
+    run.spawnParticles(boss.x, boss.y, int(def.color), 16);
+    Sound.sfx('choirChord', 1, 1.25);
+  }
+  // ④鉄羽の雨：翼の先から鉄の羽根（回る鉄片）を1枚ずつ。扇は featherBase を中心に spreadDeg。
+  function fireFeatherOne(fe, i) {
+    const wp = wingTip();
+    const a = featherBase + (i / Math.max(1, fe.count - 1) - 0.5) * fe.spreadDeg * D2R;
+    spawnBullet2(wp.x, wp.y, Math.cos(a) * fe.speed, Math.sin(a) * fe.speed,
+      { radius: fe.radius, damage: fe.damage, life: fe.lifeSec, kind: 'cutter', spin: fe.spin, tint: int(fe.tint) });
+    if (i % 3 === 0) { Sound.sfx('shoot', 0.6, 0.7); run.shake(60, 2); }
+    run.spawnParticles(wp.x, wp.y, int(fe.tint), 2);
+  }
+  // ⑥破鐘：ゲージ2本目が消えた瞬間（33%）。鐘の音が割れ、光輪が首から外れて転がる。
+  //   以後は光輪なし＝段階の合図が「絵が欠ける」で伝わる（情報を足さずに状態を伝える）。
+  function enterStage3() {
+    cathStage = 2;
+    destroyWire(); resetAttackVars(); if (lockGfx) lockGfx.clear();
+    state = 'crackCine'; stateT = cfg.crack.cineSec;
+    whiteFlash(0.30); run.shake(420, 9);
+    Sound.sfx('haloCrack', 1, 1);
+    if (cfg.crack.text) introText(cfg.crack.text, '#ffd23f', 156, 19, 2);
+    run.spawnParticles(boss.x, boss.y - boss.radius * 0.6, int(cfg.glowOuter), 30);
+  }
+  function launchHalo() {
+    const ck = cfg.crack;
+    const dome = disp && disp.parts.find((q) => q.role === 'dome');
+    const hp0 = partPos('dome', 0, -25);
+    haloGone = true;
+    if (dome) dome.img.setVisible(false);
+    if (haloGfx) haloGfx.clear();
+    const dx = run.player.x - hp0.x, dy = run.player.y - hp0.y, d = Math.hypot(dx, dy) || 1;
+    halo = { x: hp0.x, y: hp0.y, vx: (dx / d) * ck.speed, vy: (dy / d) * ck.speed, r: ck.radius,
+      rot: 0, bounces: 0, hitCd: 0, trailT: 0,
+      g: run.add.graphics().setDepth(12),
+      glow: run.add.image(hp0.x, hp0.y, 'glow').setBlendMode(ADD).setDepth(6).setTint(int(cfg.glowOuter)).setScale(ck.radius / 16) };
+    state = 'haloRoll'; stateT = ck.maxSec;
+    Sound.sfx('rollLunge', 1, 0.8); Sound.sfx('bellToll', 0.8, 0.7);
+    run.shake(200, 6);
+  }
+  function updateHalo(dt) {
+    if (!halo) return;
+    const ck = cfg.crack;
+    halo.x += halo.vx * dt; halo.y += halo.vy * dt;
+    halo.rot += dt * ck.spinSpeed * (halo.vx >= 0 ? 1 : -1);
+    const v = run.cameras.main.worldView;
+    let bounced = false;
+    if (halo.x - halo.r < v.x && halo.vx < 0) { halo.vx = -halo.vx; halo.x = v.x + halo.r; bounced = true; }
+    if (halo.x + halo.r > v.x + v.width && halo.vx > 0) { halo.vx = -halo.vx; halo.x = v.x + v.width - halo.r; bounced = true; }
+    if (halo.y - halo.r < v.y && halo.vy < 0) { halo.vy = -halo.vy; halo.y = v.y + halo.r; bounced = true; }
+    if (halo.y + halo.r > v.y + v.height && halo.vy > 0) { halo.vy = -halo.vy; halo.y = v.y + v.height - halo.r; bounced = true; }
+    if (bounced) {
+      halo.bounces++;
+      Sound.sfx('bellToll', 0.7, 0.85 + halo.bounces * 0.1); run.shake(180, 5);
+      spawnRingFx(halo.x, halo.y, int(cfg.glowOuter), halo.r * 0.4, halo.r * 1.8, 0.28, 0.8, 5);
+      run.spawnParticles(halo.x, halo.y, int(cfg.glowOuter), 8);
+      if (halo.bounces >= ck.bounces) { breakHalo(); return; }
+    }
+    halo.hitCd -= dt;
+    const p = run.player;
+    if (halo.hitCd <= 0 && Math.hypot(p.x - halo.x, p.y - halo.y) < halo.r * 0.9 + p.radius) {
+      halo.hitCd = 0.6; run.hitPlayer(ck.damage, halo.x, halo.y);
+    }
+    // 絵：欠けた金の歯車（光輪と同じ gapDeg の欠け）が回りながら転がる
+    const g = halo.g; g.clear();
+    const gap = cfg.halo.gapDeg * D2R, r = halo.r;
+    g.lineStyle(r * 0.26, int(cfg.glowOuter), 0.95);
+    g.beginPath(); g.arc(halo.x, halo.y, r * 0.8, halo.rot + gap / 2, halo.rot + Math.PI * 2 - gap / 2, false); g.strokePath();
+    g.lineStyle(r * 0.08, 0xfff2a8, 0.9);
+    g.beginPath(); g.arc(halo.x, halo.y, r * 0.8, halo.rot + gap / 2, halo.rot + Math.PI * 2 - gap / 2, false); g.strokePath();
+    g.lineStyle(r * 0.14, int(cfg.glowOuter), 0.95);
+    for (let i = 0; i < 12; i++) {
+      const a = halo.rot + (i + 0.5) * (Math.PI * 2 / 12);
+      if (Math.abs(Phaser.Math.Angle.Wrap(a - halo.rot)) < gap / 2) continue;
+      g.beginPath(); g.moveTo(halo.x + Math.cos(a) * r * 0.9, halo.y + Math.sin(a) * r * 0.9);
+      g.lineTo(halo.x + Math.cos(a) * r * 1.05, halo.y + Math.sin(a) * r * 1.05); g.strokePath();
+    }
+    halo.glow.setPosition(halo.x, halo.y).setAlpha(0.5 + 0.3 * Math.sin(run.elapsed * 12));
+    halo.trailT -= dt;
+    if (halo.trailT <= 0) { halo.trailT = 0.06; run.spawnParticles(halo.x, halo.y, 0xffd23f, 1); }
+  }
+  function breakHalo() {
+    const nv = cfg.nova;
+    const hx = halo ? halo.x : boss.x, hy = halo ? halo.y : boss.y;
+    haloBreak = { x: hx, y: hy };
+    destroyHalo();
+    whiteFlash(0.32); Sound.sfx('haloCrack', 1, 1.4); Sound.sfx('bigBoom'); run.shake(260, 7);
+    run.spawnParticles(hx, hy, int(cfg.glowOuter), 30);
+    spawnRingFx(hx, hy, 0xffffff, 20, 160, 0.35, 0.9, 5);
+    state = 'haloNova'; stateT = nv.waves * nv.waveInterval + 0.1; shotAcc = nv.waveInterval; shotIdx = 0;
+  }
+  function destroyHalo() {
+    if (!halo) return;
+    if (halo.g) halo.g.destroy();
+    if (halo.glow) halo.glow.destroy();
+    halo = null;
+  }
+  // 光輪の欠けの印：光輪（楕円）の上を欠けの向き（haloAng）に回る黒い切れ目＋白熱の縁
+  //   ＝鎮魂の鐘の穴の向きが**常に**見えている（絵のパーツがそのまま攻略情報）。
+  function drawHaloMark(cx, cy) {
+    if (!cfg.halo || haloGone || !disp) { if (haloGfx) haloGfx.clear(); return; }
+    if (!haloGfx) haloGfx = run.add.graphics().setDepth(12);
+    const s = disp.spriteScale, hk = cfg.halo;
+    const x = cx + Math.cos(haloAng) * hk.rx * s, y = cy + Math.sin(haloAng) * hk.ry * s;
+    haloGfx.clear();
+    haloGfx.fillStyle(0x0a0a10, 0.92);
+    haloGfx.fillCircle(x, y, hk.markR * s);
+    const pulse = 0.6 + 0.4 * Math.sin(run.elapsed * 8);
+    haloGfx.lineStyle(2, 0xffffff, pulse);
+    haloGfx.strokeCircle(x, y, hk.markR * s * 1.25);
+  }
+
   function telegraphSummon() {
     Sound.sfx('warning');
     const n = cfg.summon.count;
@@ -4323,7 +4685,10 @@ export function createBoss(run) {
         // 戦闘機の後退翼。カッター溜め(cutterTele で armPose)中は翼を上へバンクさせて予告に見せる。
         case 'wingR': case 'wingL': {
           const bank = armPose !== 0 ? armPose * 0.5 : Math.sin(run.elapsed * 2.2) * 0.06;
-          rot = bank * m + tilt; break;
+          rot = bank * m + tilt;
+          // 2026-09-13 鉄羽の雨：右の大翼だけ持ち上がる（予告）→振り下ろす（発射）。上＝反時計回り＝負。
+          if (p.role === 'wingR' && wingRaise) rot = -wingRaise + tilt;
+          break;
         }
         case 'armR': case 'armL': {
           const base = armPose !== 0 ? armPose : Math.sin(run.elapsed * 3) * 0.08;
@@ -4401,13 +4766,23 @@ export function createBoss(run) {
     // ★R34 単色で塗るだけだと「紫にした」ではなく「暗くなった」に見える。ハイライトが表面を
     //   舐めるようにゆっくり明滅させて金属光沢にする（＝メタリックの定石）。
     else if (phase3 && cfg.merge) tint = metalPurple();
-    else if (phase2) tint = 0xff6a6a;
+    else if (phase2 && !def.palette2) tint = 0xff6a6a;   // 2026-09-13 深紅パレットを持つボスは焼き直しで色が変わる
     // 合体の瞬間だけ真っ白に飛ばす＝そのあと紫が現れる（色が変わったことが必ず目に入る）
     if (state === 'mergeCine' && cineStage >= 2) {
       const since = (cfg.merge.cineSec - stateT) - cfg.merge.cineSec * cfg.merge.contactAt;
       if (since < 0.30) tint = 0xffffff;
     }
     for (const p of disp.parts) { if (tint == null) p.img.clearTint(); else p.img.setTint(tint); }
+    // ★2026-09-13 堕天の大聖堂：尖塔の連打の予告＝背後の塔（thruster）だけ青く点滅／光輪は常に回る（欠けの印）
+    if (state === 'spireTele' || state === 'spireFire') {
+      const on = Math.floor(run.elapsed * 14) % 2 === 0;
+      for (const p of disp.parts) if (p.role === 'thruster') p.img.setTint(on ? 0x8fc0ff : 0x2f4fb8);
+    }
+    if (cfg.halo) {
+      haloAng += (cathStage >= 1 ? -cfg.halo.spinDegP2 : -cfg.halo.spinDeg) * D2R * dt;
+      const dm = disp.parts.find((q) => q.role === 'dome');
+      drawHaloMark(dm ? dm.img.x : cx, dm ? dm.img.y : cy);
+    }
   }
 
   // ============ 撃破時の共通ごほうび（必殺満タン＋コイン＋派手バースト） ============
@@ -4556,6 +4931,8 @@ export function createBoss(run) {
     phase2 = false;
     split = false; phase3 = false; merging = false; mergeFrom = null;
     trueForm = false; awakening = false; shellDmg = 0; tfTier = 0;
+    cathStage = 0; haloGone = false; roseAngs = null; wingRaise = 0; destroyHalo();
+    if (haloGfx) { haloGfx.destroy(); haloGfx = null; }
     killing = false;
     ti++;
   }
@@ -4648,6 +5025,9 @@ export function createBoss(run) {
       //    真の姿は maxHp そのものが別物なので、cfg.hp 基準の比較はどのみち意味を持たない。
       if (!awakening && !trueForm) {
         if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
+        // ★2026-09-13 堕天の大聖堂：ゲージ2本目が消えた（33%）→ 破鐘（一度だけ）
+        if (cfg.stage3HpRatio && cathStage < 2 && boss.hp <= cfg.hp * cfg.stage3HpRatio
+            && state !== 'maouIntro') enterStage3();
         // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
         // ★R37 じゃがんレーザーの保証。HPを削って分離帯（50%→33%＝幅約11000）がコアへの
         //   渾身の一投1発（約13000）で貫通するようになり、**レーザーを撃つ前に再合体して
@@ -4732,6 +5112,7 @@ export function createBoss(run) {
     // R29: 弱点コア。Run.dealDamage が weakGate で通す/弾くを決め、演出をここへ戻す。
     weakGate, weakPoint, deflect, coreHitFx,
     get hasWeak() { return !!(boss && boss.active && cfg && cfg.weak); },
+    get shardCapAfterMul() { return (cfg && cfg.shardCapAfterMul) || 0; },   // 2026-09-13 ジャム版（Run.dealDamage が読む）
     get telegraphing() { return isTelegraph(state); },
     get staggered() { return bossStagT > 0; },
     // 検証用の読み取り専用アクセサ（CDPが攻撃発火/パーツ生存を観測する）
