@@ -1318,8 +1318,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/const MAOU_BGM = \[/.test(prac), 'R34W4: れんしゅうじょうに聞き比べの一覧がある');
   // ★2026-09-13 ジャム版 最終ボス「堕天の大聖堂」の専用曲 cathedral（Dハーモニックマイナー・172BPM・16小節）
   {
-    assert(/^\s*cathedral:\s*\{ bpm: 172, bars: 16, chords: CHORDS_CATH, melody: MELODY_CATH, style: 'cathedral'/m.test(snd),
-      'CATH: SONGS.cathedral が実在する（172BPM・16小節）');
+    assert(/^\s*cathedral:\s*\{ bpm: 190, bars: 16, chords: CHORDS_CATH, melody: MELODY_CATH, style: 'cathedral'/m.test(snd),
+      'CATH: SONGS.cathedral が実在する（190BPM・16小節）');
     assert(/intro: playCathedralIntro, introSec: 5\.6/.test(snd) && /function playCathedralIntro\(\)/.test(snd),
       'CATH: 専用イントロ playCathedralIntro を introSec 5.6 で鳴らす');
     assert(/if \(song\.intro\) \{[\s\S]*?song\.intro\(\);[\s\S]*?\} else if \(song\.introSec\) \{/.test(snd),
@@ -1335,10 +1335,13 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       'CATH: ナポリの E♭（偽りの光）が堕天と裁きの段に1回ずつある');
     assert(/name: 'cathedral'/.test(prac), 'CATH: れんしゅうじょう④のBキーで聞ける');
     // 2026-09-13 修正依頼「疾走感」「濃淡」：祈りの段はキック無し・裁きはツーバス／段ごとの音量係数がある
-    assert(cat.includes('const KICK = [[0, 8, 10], [0, 2, 6, 8, 10], [], [0, 2, 4, 6, 8, 10, 12, 14]][sec4]'),
-      'CATH: ドラムが段ごとに増え、祈りの段は無音・裁きはツーバス（濃淡）');
-    assert(cat.includes('const DYN = [0.85, 1.0, 0.45, 1.25][sec4]'), 'CATH: 段ごとの音量係数（祈り0.45／裁き1.25）');
-    assert(cat.includes('beat === 2 ? bassF * 2'), 'CATH: ベースは16分で刻む（疾走感）');
+    // v3：BGM①（歪みギター）と同じ土台＝WaveShaper のパワーコード・16分ベース・8分キック・歪みリード
+    assert(cat.includes('const KICK_8TH = DRIVE && !BUILD_UP && inBar % 2 === 0;') && cat.includes('const KICK_RUN = JUDGE && lastBar && inBar >= 8;'),
+      'CATH: キックは8分すべて（BGM①の基本形）＋裁きの最終小節はツーバスの16分連打');
+    assert(cat.includes('const DYN = [0.9, 1.0, 0.4, 1.5][sec4]'), 'CATH: 段ごとの音量係数（祈り0.4／裁き1.5＝濃淡）');
+    assert(cat.includes('beat === 2 ? root * 2 : root * 1.4983'), 'CATH: ベースは BGM① と同じ16分の刻み（根・根・オクターブ・5度）');
+    assert((cat.match(/dest: GTR/g) || []).length >= 3, 'CATH: 歪みバス（WaveShaper）へパワーコードとリードを送っている');
+    assert(cat.includes("for (const [mul, det] of [[1, -8], [1, 8], [1.4983, 0]])"), 'CATH: パワーコードの壁は BGM① と同じ部品');
   }
 
   for (const n of ['maou', 'maouOrch', 'maouSynth']) {
