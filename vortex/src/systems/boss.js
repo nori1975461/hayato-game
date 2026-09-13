@@ -164,6 +164,11 @@ export function createBoss(run) {
   let roseAngs = null;              // 同：12本の射線 { ox, oy, angs }（予告の最後 lockSec で固定）
   let wingRaise = 0;                // 鉄羽の雨：右翼の持ち上げ（rad・updateDisp が wingR に足す）
   let featherBase = 0;              // 同：扇の基準角（発射開始時に固定＝走れば扇の端から抜ける）
+  // ★2026-09-13 実プレイFB対応（堕天の大聖堂）：天啓／歩み／登場
+  const pillars = [];               // 天啓：足元の光の輪→天から落ちる光の柱（updatePillars が寿命管理・clearPillars が破棄）
+  let stepT = 0, stepProg = -1, stepDx = 0, stepDy = 0, stepFlap = 0, glideTrailT = 0;   // 歩み（cfg.motion）
+  let introLanded = false;          // 登場：降下が終わって着地したか
+  let rayGfx = null;                // 登場：背後の光条（暗幕の上・ボスの下）
   let anchorSt = null;              // アンカーショット：{ phase, len, ang, img, hit }（ウェイブロード）
   let anchorGfx = null;             // 同上：鎖（点線）。destroyDisp で必ず破棄する
   const minions = [];               // ミニロボ（ミサイルガ）。run.enemies に載せるが寿命はここで管理
@@ -407,14 +412,19 @@ export function createBoss(run) {
     split = false; phase3 = false; merging = false; lower = null; lowerGlow = null; cineStage = 0;
     trueForm = false; awakening = false; shellDmg = 0; ringSpin = [0, 0, 0]; tfTier = 0;
     cathStage = 0; haloGone = false; haloAng = 0; roseAngs = null; wingRaise = 0; destroyHalo();
+    stepT = 0.8; stepProg = -1; stepFlap = 0; glideTrailT = 0; introLanded = false; clearPillars();
     tfWarpPhase = 0; tfWarped = false; tfWarpAlpha = 1;
     clearFx();
     killing = false;
     resetAttackVars();
 
-    const ang = run.rng.range(0, Math.PI * 2);
-    const x = run.player.x + Math.cos(ang) * cfg.spawnDist;
-    const y = run.player.y + Math.sin(ang) * cfg.spawnDist;
+    const ang0 = run.rng.range(0, Math.PI * 2);
+    // ★2026-09-13 登場演出（cfg.intro）を持つボスは画面の外（spawnDist 350）でなく、主人公の上 170px・±35° へ
+    //   降りてくる（画面は 640×360＝上下 180px。350px 先で降りても見えない）。170−半径88＝82px＞主人公7px＝着地で触れない。
+    const ang = cfg.intro ? -Math.PI / 2 + (ang0 / (Math.PI * 2) - 0.5) * 0.9 : ang0;
+    const dist = cfg.intro ? 130 : cfg.spawnDist;   // 170 だと絵の上半分が画面外だった（スクショで確認）
+    const x = run.player.x + Math.cos(ang) * dist;
+    const y = run.player.y + Math.sin(ang) * dist;
     const s = cfg.spriteScale;
 
     const glowP = run.add.image(x, y, 'glow').setBlendMode(ADD).setDepth(6)
@@ -454,9 +464,9 @@ export function createBoss(run) {
     // 実時間で自動進行して数秒で通常戦闘へ戻る（CDP/autotest の出現検出・撃破を阻害しない）。
     if (cfg.final) {
       state = 'maouIntro';
-      stateT = MAOU_INTRO.dur;
+      stateT = (cfg.intro || MAOU_INTRO).dur;   // 2026-09-13 堕天の大聖堂は cfg.intro（降下→着地→無音→セリフ→テロップ）
       introStage = 0;
-      spawnIntroDim();                 // 背景の雑魚を暗幕で沈める
+      if (!introDim) spawnIntroDim((cfg.intro || MAOU_INTRO).dimAlpha);   // 背景の雑魚を暗幕で沈める（予告で敷いてあれば続き）
       setBossDepthLift(INTRO_LIFT);    // maou 本体を暗幕より前へ＝雑魚に埋もれず主役として見せる
     } else {
       state = 'chase';
@@ -464,17 +474,24 @@ export function createBoss(run) {
     }
     attackIdx = 0;
 
-    run.spawnParticles(x, y, int(def.color), 30);
-    run.shake(cfg.final ? 360 : 300, cfg.final ? 6 : 5);
-    if (cfg.final) Sound.sfx('bigBoom');            // 登場の"ドゥーン"（重量感／既存SFX）
-    // ★R52 非finalの5体は「降ってきて着地した」衝撃を足す（マオウレクスは専用の登場イベントを持つので触らない）。
-    else bossArrival(x, y);
+    if (cfg.intro) {
+      // ★2026-09-13 堕天の大聖堂：出現の瞬間は鳴らさない。光条を背にオルガンが上がりながら降りてきて、
+      //   衝撃は着地（cathLandFx）で1回だけ。「間」を作るため。
+      Sound.sfx('organRise', cfg.intro.descendSec);
+      spawnIntroRays();
+    } else {
+      run.spawnParticles(x, y, int(def.color), 30);
+      run.shake(cfg.final ? 360 : 300, cfg.final ? 6 : 5);
+      if (cfg.final) Sound.sfx('bigBoom');            // 登場の"ドゥーン"（重量感／既存SFX）
+      // ★R52 非finalの5体は「降ってきて着地した」衝撃を足す（マオウレクスは専用の登場イベントを持つので触らない）。
+      else bossArrival(x, y);
+    }
     // BGM切替＝登場の合図（warn の静寂→ボス戦BGM）。最終ボスだけは専用の荘厳曲へ切り替える
     // ＝「ここからは今までのボスと違う」を、姿を見る前に耳で分からせる。
     // ★R52 非finalは着地の衝撃音（metalSlam＋bigBoom）と頭がぶつかるので 0.38 秒だけ遅らせる。
     //   同時に鳴らすと「ドン！」も「曲が変わった」も両方ぼやける＝どちらも届かなくなる。
     if (run.withAudio) {
-      if (cfg.final) Sound.startBgm(cfg.bgm || 'maou');   // 2026-09-13 堕天の大聖堂は専用曲 cathedral
+      if (cfg.final && !cfg.intro) Sound.startBgm(cfg.bgm || 'maou');   // 2026-09-13 cfg.intro はテロップの瞬間に始める   // 2026-09-13 堕天の大聖堂は専用曲 cathedral
       else run.time.delayedCall(380, () => { if (boss && boss.active) Sound.startBgm('boss'); });
     }
   }
@@ -629,6 +646,9 @@ export function createBoss(run) {
                          Sound.sfx('ironCreak', 1, 1); break;
       case 'whip':       state = 'wireTele';    stateT = cfg.wirearm.teleSec;   // 配線の鞭＝wirearm の機構をそのまま
                          Sound.sfx('ironCreak', 0.6, 1.5); Sound.sfx('relock'); break;
+      case 'pillar':     { const pl = cfg.pillar; state = 'pillarTele';
+                           stateT = pl.telegraphSec + pl.interval * (pl.count - 1) + 0.45; shotAcc = 0; shotIdx = 0;
+                           Sound.sfx('pillarWarn', 1, 0.75); break; }
       case 'spires':     state = 'spireTele';   stateT = cfg.spires.telegraphSec;
                          Sound.sfx('relock'); break;
       default:           afterAttack(); break;
@@ -738,7 +758,12 @@ export function createBoss(run) {
       // 最終ボス登場イベント：移動/攻撃はせず、経過秒でセリフ→セリフ→テロップを1回ずつ出す。
       // 視覚のフェードイン/降下は updateDisp 側（maouIntroFx）で担当。stateT<=0 で通常戦闘へ。
       case 'maouIntro': {
-        const it = MAOU_INTRO.dur - stateT;
+        const IN = cfg.intro || MAOU_INTRO;   // 2026-09-13 堕天の大聖堂は自分の時刻表を持つ
+        const it = IN.dur - stateT;
+        if (cfg.intro) {
+          drawIntroRays(it);
+          if (!introLanded && it >= IN.descendSec) { introLanded = true; cathLandFx(); }
+        }
         // ★R44W6 実プレイFB「『おまえたちはきけん・・・』はいまいち。唐突すぎるし、言葉に
         //   なんの意味もつながりもない。『ひかりをけす』という意味のコメントを。最終ボス
         //   （厳密には軌道神核の一つ前）らしい威厳をもった言葉を」。
@@ -750,26 +775,29 @@ export function createBoss(run) {
         //   無ければマオウレクスの既定＝従来と1文字も変わらない。
         const IL = cfg.introLines || [{ text: 'よくぞ来た 小さき光よ', color: '#bff5ff' },
                                       { text: 'この世界の光は 我が手で消す', color: '#ff7a7a' }];
-        if (introStage < 1 && it >= MAOU_INTRO.line1At) {
+        if (introStage < 1 && it >= IN.line1At) {
           introStage = 1;
           // R53 この2行は**会話**なので1文字ずつ出す（末尾の true）。テロップと弱点ヒントは
           //   会話ではないので一気に出す＝「読む文」と「知らせる文」を見た目で分ける。
           introText(IL[0].text, IL[0].color, 108, 16, 3, true);
+          if (cfg.intro) Sound.sfx('choirChord', 0.6, 0.8);   // 無音の間のあと、聖歌隊の和音とともに口を開く
         }
-        if (introStage < 2 && it >= MAOU_INTRO.line2At) {
+        if (introStage < 2 && it >= IN.line2At) {
           introStage = 2;
           if (IL[1]) introText(IL[1].text, IL[1].color, 140, 16, 3, true);
         }
-        if (introStage < 3 && it >= MAOU_INTRO.telopAt) {
+        if (introStage < 3 && it >= IN.telopAt) {
           introStage = 3;
           introText(cfg.telop || '【マオウレクスが現れた】', '#ffffff', 186, 22, 5);
           run.shake(220, 4);
           Sound.sfx('bigBoom');   // 「現れた」の一撃感（既存SFX）
+          // 2026-09-13 登場演出：テロップの瞬間に金の白閃と専用曲＝「ここから戦い」が耳で分かる
+          if (cfg.intro) { whiteFlash(0.32, 0xffe9a8, 300); if (run.withAudio) Sound.startBgm(cfg.bgm || 'maou'); }
         }
         // ★弱点コアの遊び方は、最初に必ず言葉で教える。
         //   「当たっているのに減らない」は、理由が分からないと理不尽にしか感じられないため。
         //   ★2026-09-13 weak.gate === false（堕天の大聖堂）はコアが**ボーナス**＝本体にも通るので言葉も変える。
-        if (introStage < 4 && cfg.weak && it >= MAOU_INTRO.hintAt) {
+        if (introStage < 4 && cfg.weak && it >= IN.hintAt) {
           introStage = 4;
           introText(cfg.weak.gate === false ? 'むねの コアに あてると ダメージ 2.4ばい！' : 'よわてん：むねの コアを ねらえ！',
             cfg.weak.coreTint, 216, 17, 3);
@@ -836,7 +864,8 @@ export function createBoss(run) {
         // R30「移動スピードも速い」。分離した上半身は身軽になり、再合体後はさらに詰めてくる。
         const cs = tfc ? tfc.chaseSpeed
           : cfg.chaseSpeed * (split ? cfg.split.upperSpeedMul : phase3 ? cfg.merge.speedMul : 1);
-        moveBoss(nx * cs, ny * cs, dt);
+        if (cfg.motion) updateStepMotion(dt, nx, ny);   // 2026-09-13 堕天の大聖堂：建物が歩く（ふわふわ浮遊をやめる）
+        else moveBoss(nx * cs, ny * cs, dt);
         if (stateT <= 0 && !shadowsBusy()) beginAttack();
         break;
       }
@@ -1251,7 +1280,18 @@ export function createBoss(run) {
         if (shotIdx >= fe.count && stateT <= 0) { wingRaise = 0; afterAttack(); }
         break;
       }
-      // ⑦尖塔の連打：背後の2本の塔から交互にバルカン（弾は藍の光弾）
+      // ★2026-09-13 天啓：主人公の進む先に光の輪（予告 telegraphSec）→天から光の柱。interval ごとに count 本。
+      case 'pillarTele': {
+        const pl = cfg.pillar;
+        shotAcc += dt;
+        while (shotIdx < pl.count && (shotIdx === 0 || shotAcc >= pl.interval)) {
+          if (shotIdx > 0) shotAcc -= pl.interval;
+          spawnPillar(pl); shotIdx++;
+        }
+        if (shotIdx >= pl.count && pillars.length === 0 && stateT <= 0) afterAttack();
+        break;
+      }
+      // ⑦尖塔の連打：背後の2本の塔から交互に聖釘（2026-09-13 弾を藍の光弾→鉄の釘へ）
       case 'spireTele':
         if (stateT <= 0) {
           const v = cfg.spires;
@@ -1267,8 +1307,8 @@ export function createBoss(run) {
           const base = Math.atan2(run.player.y - t.y, run.player.x - t.x);
           const a = base + Math.sin(shotIdx * 0.5) * (v.sweepDeg * D2R);
           spawnBullet2(t.x, t.y, Math.cos(a) * v.bulletSpeed, Math.sin(a) * v.bulletSpeed,
-            { radius: v.bulletRadius, damage: v.damage, life: v.lifeSec, tint: int(v.tint) });
-          if (shotIdx % 2 === 0) { Sound.sfx('shoot', 0.8, 1.2); run.shake(50, 2); }
+            { radius: v.bulletRadius, damage: v.damage, life: v.lifeSec, tint: int(v.tint), kind: v.kind });
+          if (shotIdx % 2 === 0) { Sound.sfx(v.sfx || 'shoot', 0.8, 1.05 + (shotIdx % 3) * 0.1); run.shake(50, 2); }
           shotIdx++;
         }
         if (shotIdx >= total && stateT <= 0) afterAttack();
@@ -1694,7 +1734,7 @@ export function createBoss(run) {
     boss.active = true;              // killEnemy が落とした active を戻す（撃破ではなく変身）
     boss.hp = 1;                     // 0のままだと同じフレームで再び撃破判定に拾われる
     clearBullets();
-    clearStrikes();
+    clearStrikes(); clearPillars();
     destroyWire();
     removeLower();
     resetAttackVars();
@@ -2551,10 +2591,12 @@ export function createBoss(run) {
     for (let i = 0; i < nv.perWave; i++) {
       const a = base + (Math.PI * 2 * i) / nv.perWave;
       spawnBullet2(bx, by, Math.cos(a) * nv.bulletSpeed, Math.sin(a) * nv.bulletSpeed,
-        { radius: nv.bulletRadius, damage: nv.damage, life: nv.lifeSec });
+        { radius: nv.bulletRadius, damage: nv.damage, life: nv.lifeSec,
+          kind: nv.kind, spin: nv.kind ? (i % 2 ? 9 : -9) : 0,   // 2026-09-13 砕けた光輪＝金の硝子片
+          tint: nv.tints ? int(nv.tints[i % nv.tints.length]) : undefined });
     }
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(bx, by, base, int(cfg.bulletTint));
-    Sound.sfx('shoot'); run.shake(60, 3);
+    Sound.sfx(nv.sfx || 'shoot', 1, 1.1 - w * 0.08); run.shake(60, 3);
     run.spawnParticles(bx, by, int(cfg.bulletTint), 12);
   }
 
@@ -2637,7 +2679,10 @@ export function createBoss(run) {
       const a = (Math.PI * 2 * i) / tw.count;
       if (Math.abs(Phaser.Math.Angle.Wrap(a - gapCenter)) < half) continue;   // ここが抜け道
       spawnBullet2(boss.x, boss.y, Math.cos(a) * tw.bulletSpeed, Math.sin(a) * tw.bulletSpeed,
-        { radius: tw.bulletRadius, damage: tw.damage, life: tw.lifeSec, glowMul: 1.9 });
+        { radius: tw.bulletRadius, damage: tw.damage, life: tw.lifeSec, glowMul: 1.9,
+          // 2026-09-13 tier が kind/tints を持てば専用弾（硝子片＝赤/藍が交互・左右逆に回る）
+          kind: tw.kind, spin: tw.kind ? (i % 2 ? 7 : -7) : 0,
+          tint: tw.tints ? int(tw.tints[i % tw.tints.length]) : undefined });
     }
     // 抜け道の方向にだけ光の筋を出す＝穴の位置を目で探せるようにする（理不尽にしない）
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(boss.x, boss.y, gapCenter, 0xffffff);
@@ -2646,6 +2691,7 @@ export function createBoss(run) {
     // ★R55 実プレイFB「大波音も目立たない。もっと派手すぎるくらいに」。
     //   1枚ごとに音程を少し上げる＝3枚が数えられたまま「後の波ほど大きい」が耳で分かる。
     Sound.sfx('waveCrash', 1, 1 + w * 0.07);
+    if (tw.sfx) Sound.sfx(tw.sfx, 1, 0.9 + w * 0.12);   // 2026-09-13 硝子が砕ける音を重ねる
     run.shake(210, 6);
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
     run.spawnParticles(boss.x, boss.y, 0xffffff, 6);
@@ -3098,6 +3144,54 @@ export function createBoss(run) {
     if (s.g) s.g.destroy();
     if (s.halo) s.halo.destroy();
   }
+  // ============ 2026-09-13 天啓（堕天の大聖堂）：足元の光の輪 → 天から落ちる光の柱 ============
+  // 着弾予告（strike）と同じ考え方＝**位置が先に見える**。違いは「爆発」でなく「天から光が落ちる」絵と音。
+  function spawnPillar(pl) {
+    const lx = run.player.x + (run.player.vx || 0) * pl.leadSec;
+    const ly = run.player.y + (run.player.vy || 0) * pl.leadSec;
+    const g = run.add.graphics().setDepth(5);
+    const halo = run.add.image(lx, ly, 'glow').setBlendMode(ADD).setDepth(5).setTint(int(pl.tint))
+      .setScale(pl.radius / 40).setAlpha(0.12);
+    pillars.push({ x: lx, y: ly, t: pl.telegraphSec, max: pl.telegraphSec, pl, g, halo });
+    Sound.sfx('pillarWarn', 0.9, 1 + pillars.length * 0.08);
+  }
+  function updatePillars(dt) {
+    for (let i = pillars.length - 1; i >= 0; i--) {
+      const s = pillars[i], pl = s.pl;
+      s.t -= dt;
+      const p = clamp01(1 - s.t / s.max);
+      if (s.t <= 0) { fallPillar(s); destroyPillar(s); pillars.splice(i, 1); continue; }
+      const blink = (Math.floor(run.elapsed * 14) % 2 === 0) ? 1 : 0.5;
+      s.g.clear();
+      // 天からの光の予感：細い光の帯が上から降りてきて、落ちる直前に輪の幅まで広がる
+      const bw = pl.radius * 2 * (0.12 + 0.88 * p * p);
+      s.g.fillStyle(int(pl.tint), 0.05 + 0.16 * p);
+      s.g.fillRect(s.x - bw / 2, s.y - pl.height, bw, pl.height);
+      s.g.lineStyle(3, int(pl.edgeTint), 0.9 * blink);
+      s.g.strokeCircle(s.x, s.y, pl.radius);                      // 落ちる範囲（動かない）
+      s.g.lineStyle(2, 0xffffff, 0.85 * blink);
+      s.g.strokeCircle(s.x, s.y, pl.radius * (1 - p * 0.85));     // 収束する内側の輪＝残り時間
+      s.halo.setAlpha(0.10 + 0.25 * p);
+    }
+  }
+  function fallPillar(s) {
+    const pl = s.pl, tint = int(pl.tint);
+    const dx = run.player.x - s.x, dy = run.player.y - s.y, rr = pl.radius + run.player.radius;
+    if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(pl.damage, s.x, s.y, 'pillar');
+    spawnPillarFx(s.x, s.y + 6, 0xffffff, pl.radius * 0.9, pl.height, 0.55, 0.95);
+    spawnPillarFx(s.x, s.y + 6, tint, pl.radius * 2.0, pl.height * 1.1, 0.42, 0.7);
+    spawnRingFx(s.x, s.y, 0xffffff, pl.radius * 0.3, pl.radius * 1.6, 0.30, 0.9, 5);
+    spawnRingFx(s.x, s.y, int(pl.edgeTint), pl.radius * 0.2, pl.radius * 2.4, 0.45, 0.7, 5);
+    for (let k = 0; k < 8; k++) spawnStreakFx(s.x, s.y, (Math.PI * 2 * k) / 8 + 0.2, pl.radius * 1.5, tint, 0.28, 0.7, 2);
+    run.spawnParticles(s.x, s.y, 0xffffff, 10);
+    run.spawnParticles(s.x, s.y, tint, 14);
+    whiteFlash(0.14, tint, 110);
+    Sound.sfx('pillarFall', 1, 1);
+    run.shake(230, 6);
+  }
+  function destroyPillar(s) { if (s.g) s.g.destroy(); if (s.halo) s.halo.destroy(); }
+  function clearPillars() { for (const s of pillars) destroyPillar(s); pillars.length = 0; }
+
   function clearStrikes() {
     for (const s of strikes) destroyStrike(s);
     strikes.length = 0;
@@ -3371,11 +3465,17 @@ export function createBoss(run) {
       const cur = a0 + roseBeat * off, nxt = a0 + off;
       const curTint = roseBeat === 0 ? int(rk.redTint) : int(rk.blueTint);
       if (solid) {
-        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, rk.beamWidth, curTint, 0.9);
-        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, 2, 0xffffff, 1);
+        // 2026-09-13 太い光柱＝外の滲み／色の胴／白熱の芯の3層（1色のベタは薄っぺらい＝R36W2 と同じ理屈）。
+        //   幅は 40Hz でわずかに脈打つ＝「照射している」が動きで分かる。
+        const fl = 1 + Math.sin(run.elapsed * 40) * 0.07, W = rk.beamWidth * fl;
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, W * 1.6, curTint, 0.22);
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, W, curTint, 0.85);
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, W * 0.48, 0xffffff, 0.8);
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, Math.max(2, W * 0.14), 0xffffff, 1);
         // 赤の拍のあいだに青の射線を薄く見せる＝「次はここ」が先に読める
-        if (roseBeat === 0) roseLine(roseAngs.ox, roseAngs.oy, nxt, rk.beamLength, 1, int(rk.blueTint), 0.45);
+        if (roseBeat === 0) roseLine(roseAngs.ox, roseAngs.oy, nxt, rk.beamLength, rk.beamWidth * 0.5, int(rk.blueTint), 0.22);
       } else {
+        roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, rk.beamWidth * 0.5, curTint, pulse * 0.45);   // 幅の予告
         roseLine(roseAngs.ox, roseAngs.oy, cur, rk.beamLength, 1, curTint, pulse);
       }
     }
@@ -3387,9 +3487,9 @@ export function createBoss(run) {
     state = 'roseFire'; stateT = rk.activeSec;
     hitRoseRays();
     const c = roseCenter(), tint = roseBeat === 0 ? int(rk.redTint) : int(rk.blueTint);
-    whiteFlash(0.16, tint, 120);
-    Sound.sfx('darkLaser', 0.5, roseBeat === 0 ? 1.5 : 1.9);
-    run.shake(140, 4);
+    whiteFlash(0.22, tint, 140);
+    Sound.sfx('darkLaser', 0.9, roseBeat === 0 ? 1.0 : 1.3);   // 2026-09-13 太くなったぶん低く大きく
+    run.shake(220, 6);
     run.spawnParticles(c.x, c.y, tint, 10);
   }
   // 線分と主人公の距離で判定（見せている線と同じ式）。何本に触れても1拍1回。
@@ -3401,6 +3501,7 @@ export function createBoss(run) {
       if (segHit(roseAngs.ox, roseAngs.oy, a0 + off, rk.beamLength, run.player.x, run.player.y, half)) {
         roseHit = true;
         run.hitPlayer(rk.damage, roseAngs.ox, roseAngs.oy);
+        Sound.sfx('beamHit'); run.shake(260, 8);   // 2026-09-13 光柱に焼かれた手応え（軌道神核のビームと同じ音）
         break;
       }
     }
@@ -3426,8 +3527,8 @@ export function createBoss(run) {
     const wp = wingTip();
     const a = featherBase + (i / Math.max(1, fe.count - 1) - 0.5) * fe.spreadDeg * D2R;
     spawnBullet2(wp.x, wp.y, Math.cos(a) * fe.speed, Math.sin(a) * fe.speed,
-      { radius: fe.radius, damage: fe.damage, life: fe.lifeSec, kind: 'cutter', spin: fe.spin, tint: int(fe.tint) });
-    if (i % 3 === 0) { Sound.sfx('shoot', 0.6, 0.7); run.shake(60, 2); }
+      { radius: fe.radius, damage: fe.damage, life: fe.lifeSec, kind: fe.kind || 'cutter', spin: fe.spin, tint: int(fe.tint) });
+    if (i % 3 === 0) { Sound.sfx('nailShot', 0.7, 0.55); run.shake(60, 2); }   // 2026-09-13 鉄の羽根が擦れる音
     run.spawnParticles(wp.x, wp.y, int(fe.tint), 2);
   }
   // ⑥破鐘：ゲージ2本目が消えた瞬間（33%）。鐘の音が割れ、光輪が首から外れて転がる。
@@ -3555,6 +3656,7 @@ export function createBoss(run) {
     if (s.indexOf('wire') === 0) return 'whip';
     if (s === 'crackCine' || s === 'haloRoll' || s === 'haloNova') return 'crack';
     if (s.indexOf('spire') === 0) return 'spires';
+    if (s.indexOf('pillar') === 0) return 'pillar';
     if (s.indexOf('choir') === 0) return 'choir';
     return 'body';
   }
@@ -3826,6 +3928,84 @@ export function createBoss(run) {
 
   // 出現の瞬間＝降ってきたものが着地した衝撃。ここは1ラン5回しか起きないので振幅を張ってよい
   // （振幅は頻度と逆相関）。ただし戦闘が始まったあとまで残る常時エフェクトは足さない。
+  // ============ 2026-09-13 堕天の大聖堂：歩み／登場の予告／光条／着地 ============
+  // 歩み：ふわふわ浮遊（bob）をやめ、stepSec ごとに一歩（stepDur で stepDist）。踏み出しで軋み、
+  //   着地で地響きと土煙。堕天以降は翼を打って踏み込み（lungeMul）、破鐘以降は歩けず尖塔の推進炎で滑る。
+  function updateStepMotion(dt, nx, ny) {
+    const mo = cfg.motion;
+    if (cathStage >= 2) {
+      moveBoss(nx * mo.glideSpeed, ny * mo.glideSpeed, dt);
+      glideTrailT -= dt;
+      if (glideTrailT <= 0) { glideTrailT = 0.06; run.spawnParticles(boss.x - nx * 24, boss.y + 26, 0xff8a3a, 1); }
+      return;
+    }
+    if (stepProg < 0) {
+      stepT -= dt;
+      if (stepT <= 0) {
+        stepProg = 0; stepDx = nx; stepDy = ny; stepT = mo.stepSec;
+        if (cathStage >= 1) stepFlap = 1;
+        Sound.sfx('ironCreak', 0.45, cathStage >= 1 ? 1.1 : 0.8);
+      }
+      return;
+    }
+    const dist = mo.stepDist * (cathStage >= 1 ? mo.lungeMul : 1);
+    const sp = dist / mo.stepDur;
+    moveBoss(stepDx * sp, stepDy * sp, dt);
+    stepProg += dt / mo.stepDur;
+    if (stepProg >= 1) {
+      stepProg = -1;
+      Sound.sfx('heavyStep', cathStage >= 1 ? 1.15 : 1, cathStage >= 1 ? 0.9 : 1);
+      run.shake(cathStage >= 1 ? 280 : 200, cathStage >= 1 ? 7 : 5);
+      const fy = boss.y + boss.radius * 0.8;
+      spawnRingFx(boss.x, fy, 0xd8c8a0, 12, boss.radius * 1.3, 0.35, 0.5, 5);
+      run.spawnParticles(boss.x, fy, 0x9a8a6a, 8);
+    }
+  }
+  // 予告（3.6秒）：BGMは止まっている。暗幕を敷き、低い鐘3打（cathWarn）に合わせて揺れと金の輪。
+  function cathWarnFx(t) {
+    Sound.sfx('cathWarn');
+    spawnIntroDim(t.intro.dimAlpha);
+    for (let i = 0; i < 3; i++) {
+      run.time.delayedCall(i * 1150, () => {
+        if (!run.player) return;
+        run.shake(300, 4 + i);
+        spawnRingFx(run.player.x, run.player.y, 0xffe9a8, 30, 320 + i * 60, 0.9, 0.35, INTRO_DIM_DEPTH + 2);
+      });
+    }
+  }
+  // 光条：天から本体へ収束する金の三角形 n 本（暗幕の上・ボスの下）。降下中に点き、着地後 1.4 秒で消える。
+  function spawnIntroRays() {
+    if (!rayGfx) rayGfx = run.add.graphics().setDepth(INTRO_DIM_DEPTH + 1).setBlendMode(ADD);
+  }
+  function drawIntroRays(it) {
+    if (!rayGfx || !boss) return;
+    const IN = cfg.intro, n = IN.rays || 9;
+    const a = it < IN.descendSec ? clamp01(it / 0.6) : clamp01(1 - (it - IN.descendSec) / 1.4);
+    rayGfx.clear();
+    if (a <= 0) return;
+    // 頂点は本体の上（画面外）・底辺は地面の線（boss.y+260）に ±450px で広がる＝本体の両脇に斜めの光の帯が見える
+    const ax = boss.x, ay = boss.y - 300, base = boss.y + 260;
+    for (let i = 0; i < n; i++) {
+      const k = (i + 0.5) / n - 0.5;
+      const x0 = ax + k * 900, w = 26 + 30 * Math.abs(Math.sin(i * 2.1 + run.elapsed * 0.7));
+      rayGfx.fillStyle(0xffe9a8, (0.06 + 0.08 * (0.5 + 0.5 * Math.sin(run.elapsed * 1.3 + i))) * a);
+      rayGfx.fillTriangle(ax, ay, x0 - w, base, x0 + w, base);
+    }
+  }
+  // 着地：白閃・大揺れ・0.25秒のスロー・地鳴り・衝撃波3枚・土煙。このあと silenceSec の無音。
+  function cathLandFx() {
+    const x = boss.x, y = boss.y + boss.radius * 0.7;
+    whiteFlash(0.34, 0xffe9a8, 220);
+    run.shake(520, 11);
+    run.slowMotion(0.25, 0.3);
+    Sound.sfx('cathLand');
+    spawnRingFx(x, y, 0xffffff, 10, 220, 0.5, 0.85, 5);
+    run.time.delayedCall(80, () => { if (boss) spawnRingFx(x, y, 0xffe9a8, 8, 320, 0.6, 0.6, 5); });
+    run.time.delayedCall(170, () => { if (boss) spawnRingFx(x, y, 0xd8b060, 6, 420, 0.75, 0.45, 5); });
+    run.spawnParticles(x, y, 0xffffff, 16);
+    run.spawnParticles(x, y, 0x9a8a6a, 30);
+  }
+
   function bossArrival(x, y) {
     const tint = int(def.color);
     whiteFlash(0.30);              // 短い白閃（子ども安全 alpha<0.5 厳守）
@@ -4032,12 +4212,20 @@ export function createBoss(run) {
   // 登場中のパーツ/グロウの見た目係数。smoothstep で「フェードイン＋スケールイン＋上からの降下」を
   // 決定的に算出（fadeSec を過ぎると alpha=1/scale=1/drop=0 の等身大に収束＝以降は通常描画と一致）。
   function maouIntroFx() {
+    if (cfg.intro) {
+      // 2026-09-13 堕天の大聖堂：加速しながら落ちてくる（三乗＝重い）。着地後は 4px 沈んで戻る。
+      const IN = cfg.intro, it = IN.dur - stateT;
+      const f = clamp01(it / IN.descendSec), e = f * f * f;
+      const settle = it > IN.descendSec ? Math.sin(clamp01((it - IN.descendSec) / 0.25) * Math.PI) * 4 : 0;
+      return { alpha: clamp01(0.25 + it / 0.8), scale: 1, drop: lerp(-IN.dropPx, 0, e) + settle };
+    }
     const it = MAOU_INTRO.dur - stateT;
     const f = clamp01(it / MAOU_INTRO.fadeSec);
     const e = f * f * (3 - 2 * f);
     return { alpha: e, scale: lerp(0.55, 1, e), drop: lerp(-26, 0, e) };
   }
   function endIntro() {
+    if (rayGfx) { rayGfx.destroy(); rayGfx = null; }
     clearIntroDim();          // 暗幕をフェードアウト＝通常画面へ完全復帰
     setBossDepthLift(0);      // ボスパーツ/グロウの depth を元へ戻す（雑魚と同層の通常描画に復帰）
     state = 'chase';
@@ -4047,12 +4235,12 @@ export function createBoss(run) {
 
   // 登場イベント中だけ半透明の暗幕を全画面へ敷き、背景の雑魚を沈めて maou 本体/セリフ/テロップを引き立てる。
   // カメラ固定・暗色 tint・alpha < 0.5（子ども安全）。intro 終了で clearIntroDim でフェードアウト破棄する。
-  function spawnIntroDim() {
+  function spawnIntroDim(alpha) {
     const cam = run.cameras.main;
     introDim = run.add.image(cam.width / 2, cam.height / 2, 'white').setScrollFactor(0)
       .setDepth(INTRO_DIM_DEPTH).setTint(0x00030a)
       .setDisplaySize(cam.width, cam.height).setAlpha(0);
-    run.tweens.add({ targets: introDim, alpha: MAOU_INTRO.dimAlpha, duration: 420, ease: 'Sine.out' });
+    run.tweens.add({ targets: introDim, alpha: alpha != null ? alpha : MAOU_INTRO.dimAlpha, duration: 420, ease: 'Sine.out' });
   }
   // intro 終了：暗幕をフェードアウトして自壊（画面を完全に元へ戻す）。
   function clearIntroDim() {
@@ -4063,6 +4251,7 @@ export function createBoss(run) {
   }
   // 撃破/破棄時：暗幕を即時破棄（フェード無し・リーク防止）。
   function destroyIntroDim() {
+    if (rayGfx) { rayGfx.destroy(); rayGfx = null; }
     if (introDim) { run.tweens.killTweensOf(introDim); introDim.destroy(); introDim = null; }
   }
   // 登場中だけボスパーツ/グロウの depth を lift 分だけ持ち上げ/戻す（相対順は保持＝重なりが崩れない）。
@@ -4190,11 +4379,16 @@ export function createBoss(run) {
     const isGlyph = kind === 'glyph';                                // R40: 聖句の文字弾（軌道神核）
     const isJudge = kind === 'judge';                                // R40: 裁きの輪弾（軌道神核）
     const isDrill = kind === 'drill';                                // R52b: ウズバルカンのドリルシェル
+    // 2026-09-13 堕天の大聖堂の専用弾3種（実プレイFB「弾の形状と色がウズバルカンの焼き直し」）
+    const isGlass = kind === 'glass';                                // 硝子片：回りながら飛ぶ菱形（赤/藍/金）
+    const isNail = kind === 'nail';                                  // 聖釘：細長い鉄の釘（先端だけ白熱）
+    const isFeather = kind === 'feather';                            // 鉄羽：銀の羽根（回る）
     const isOrb = kind !== 'cutter' && kind !== 'missile' && !isTom && !isBomb && !isGlyph
-      && !isJudge && !isDrill;
+      && !isJudge && !isDrill && !isGlass && !isNail && !isFeather;
     const tex = kind === 'cutter' ? 'boss_cutter' : kind === 'missile' ? 'boss_missile'
       : isTom ? 'boss_tomahawk' : isBomb ? 'boss_bomb' : isComet ? 'boss_comet'
-      : isGlyph ? 'verse_glyph' : isJudge ? 'judge_orb' : isDrill ? 'boss_drill' : 'boss_bolt';
+      : isGlyph ? 'verse_glyph' : isJudge ? 'judge_orb' : isDrill ? 'boss_drill'
+      : isGlass ? 'cath_glass' : isNail ? 'cath_nail' : isFeather ? 'cath_feather' : 'boss_bolt';
     const r = opts.radius != null ? opts.radius : 4;
     // FB#5: 一回り大きく（2.6→3.0）。個性色 bulletTint は弾本体に残す。tomahawk は細長く巨大に（雑魚より一目で大きく）。
     // Gate2: ボルトは16×10比率（r=4のとき16×10）＝dispW=r*4.0/dispH=r*2.5。
@@ -4202,12 +4396,15 @@ export function createBoss(run) {
     // R40: 文字弾/輪弾は正方形＝向きは進行方向ではなく spin（回転しながら飛ぶ）が担う
     // R52b: ドリルは 32×20 の錐（r=9 のとき 32.4×19.8）。判定は r そのもの（＝直径18）なので、
     //   すれ違いざまに当たる方向の寸法（縦19.8 vs 18）は±20%以内で一致している。
+    // 2026-09-13 硝子片 14×22（r=6 → 15.6×24）／聖釘 28×6（r=4 → 32×6.8）／鉄羽 26×10（r=6 → 26.4×10.2）
     const dispW = isTom ? r * 3.0 : isBomb ? r * 3.4 : isComet ? r * 3.8
-      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 3.6 : isOrb ? r * 4.0 : r * 3.0;
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 3.6
+      : isGlass ? r * 2.6 : isNail ? r * 9.5 : isFeather ? r * 4.4 : isOrb ? r * 4.0 : r * 3.0;
     const dispH = isTom ? r * 7.2 : isBomb ? r * 3.4 : isComet ? r * 2.0
-      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 2.2 : isOrb ? r * 2.5 : r * 3.0;
+      : isGlyph ? r * 3.4 : isJudge ? r * 3.6 : isDrill ? r * 2.2
+      : isGlass ? r * 4.0 : isNail ? r * 2.0 : isFeather ? r * 1.7 : isOrb ? r * 2.5 : r * 3.0;
     const rot0 = isTom ? (Math.atan2(vy, vx) + Math.PI / 2)          // 胴=+Y前方なので +90°
-      : (isOrb || isDrill) ? Math.atan2(vy, vx) : 0;                 // ボルト／彗星／錐は+Xが先端
+      : (isOrb || isDrill || isNail || isFeather) ? Math.atan2(vy, vx) : 0;   // ボルト／彗星／錐／釘／羽根は+Xが先端
     d.spr.setTexture(tex).setVisible(true).setDepth(11).setTint(tint)
       .setDisplaySize(dispW, dispH).setPosition(x, y).setRotation(rot0);
     // FB#2/#5: 敵弾は赤い危険フチ＋進行方向へ短いトレイル（味方の金白フチと即区別）。
@@ -4225,6 +4422,18 @@ export function createBoss(run) {
       // R52b: 錐の後ろへ長く伸びる噴射グロウ。ボルト(4.6×2.6)の倍近い 5.4×3.0 で「重い大弾」を出す。
       d.glow.setVisible(true).setDepth(10).setTint(0xff5a1f).setAlpha(0.9)
         .setRotation(ta).setDisplaySize(r * 5.4, r * 3.0).setPosition(x, y);
+    } else if (isGlass) {
+      // 2026-09-13 硝子片：自分の色の光背（赤・藍・金が画面で混ざる＝薔薇窓が砕けて飛んでくる絵）
+      d.glow.setVisible(true).setDepth(10).setTint(tint).setAlpha(0.75)
+        .setRotation(0).setDisplaySize(r * 4.4, r * 4.4).setPosition(x, y);
+    } else if (isNail) {
+      // 聖釘：白熱の細長い尾。速い弾は「点が走る」に見えるので尾は細く長く
+      d.glow.setVisible(true).setDepth(10).setTint(0xfff0c0).setAlpha(0.85)
+        .setRotation(ta).setDisplaySize(r * 9.0, r * 2.0).setPosition(x, y);
+    } else if (isFeather) {
+      // 鉄羽：銀の薄い尾（熱の色を使わない＝金属）
+      d.glow.setVisible(true).setDepth(10).setTint(0xdfe8f4).setAlpha(0.55)
+        .setRotation(ta).setDisplaySize(r * 5.0, r * 2.0).setPosition(x, y);
     } else if (isGlyph || isJudge) {
       // R40: 神核の弾は光背（丸いハロー）を弾色でまとう＝金と紫の弾幕が「神の火」に見える。
       //   熱の色（赤縁）ではなく光の色＝敵弾識別は大きさと形（回転する文字/輪）が担う。
@@ -4386,7 +4595,7 @@ export function createBoss(run) {
           const k = Math.min(1, b.fallT / 0.5);                 // 紫→深紅は0.5秒かけて落ちる
           b.spr.setTint(mixRgb(VERSE_FALL_A, VERSE_FALL_B, k));
         }
-      } else if (b.kind === 'cutter') {
+      } else if (b.kind === 'cutter' || b.kind === 'glass' || b.kind === 'feather') {
         b.spr.rotation += dt * b.spin;
         if (b.returns) {
           b.age += dt;
@@ -4424,7 +4633,8 @@ export function createBoss(run) {
         // R52b: ドリルだけは「見た目どおり大きい」＝判定も b.r（9）を使う。見た目 32×20 に対して
         //   縦19.8 なので、すれ違う方向の寸法と判定直径18は±20%以内で一致する。
         const rr = run.player.radius
-          + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : b.kind === 'drill' ? b.r : 6);
+          + (b.kind === 'comet' ? 5 : b.kind === 'orb' ? 4 : b.kind === 'drill' ? b.r
+            : b.kind === 'nail' ? 3 : b.kind === 'glass' ? 5 : 6);   // 2026-09-13 釘は細い（3）・硝子片は芯（5）
         const dx = b.x - px, dy = b.y - py;
         if (dx * dx + dy * dy <= rr * rr) {
           run.hitPlayer(b.dmg, b.x, b.y, b.cause); b.active = false;
@@ -4459,7 +4669,7 @@ export function createBoss(run) {
   function clearBullets() {
     for (const b of bullets) { if (b.active) { b.active = false; recycleBullet(b); } }
     bullets.length = 0;
-    clearStrikes();   // 撃破の瞬間に予告中だった着弾も消す（勝利演出の最中に爆発させない）
+    clearStrikes(); clearPillars();   // 撃破の瞬間に予告中だった着弾も消す（勝利演出の最中に爆発させない）
     if (beam) { beam = null; if (beamImg) beamImg.setVisible(false); if (beamCore) beamCore.setVisible(false); }
   }
 
@@ -4624,8 +4834,11 @@ export function createBoss(run) {
       jx = Math.sin(run.elapsed * 62) * amp;
       jy = Math.cos(run.elapsed * 74) * amp;
     }
-    const cx = boss.x + jx, cy = boss.y + jy;
-    const bob = Math.sin(run.elapsed * 2) * 1.5;         // 全体の浮遊
+    // 2026-09-13 歩み（cfg.motion）：一歩のあいだ全体が持ち上がって落ちる。浮遊（bob）はしない＝建物は浮かない。
+    const stepLift = (cfg.motion && stepProg >= 0) ? -Math.sin(stepProg * Math.PI) * 7 : 0;
+    if (stepFlap > 0) stepFlap = Math.max(0, stepFlap - dt / 0.45);
+    const cx = boss.x + jx, cy = boss.y + jy + stepLift;
+    const bob = cfg.motion ? 0 : Math.sin(run.elapsed * 2) * 1.5;         // 全体の浮遊
     const tilt = Math.sin(run.elapsed * 1.5) * 0.04;     // 機体の傾き
 
     // 攻撃姿勢：腕の振り上げ/叩きつけ・上半身旋回・沈み込み
@@ -4740,6 +4953,7 @@ export function createBoss(run) {
           rot = bank * m + tilt;
           // 2026-09-13 鉄羽の雨：右の大翼だけ持ち上がる（予告）→振り下ろす（発射）。上＝反時計回り＝負。
           if (p.role === 'wingR' && wingRaise) rot = -wingRaise + tilt;
+          if (stepFlap > 0) rot -= Math.sin(stepFlap * Math.PI) * 0.32 * m;   // 2026-09-13 堕天の踏み込み＝両翼を打つ
           break;
         }
         case 'armR': case 'armL': {
@@ -4829,6 +5043,11 @@ export function createBoss(run) {
     if (state === 'spireTele' || state === 'spireFire') {
       const on = Math.floor(run.elapsed * 14) % 2 === 0;
       for (const p of disp.parts) if (p.role === 'thruster') p.img.setTint(on ? 0x8fc0ff : 0x2f4fb8);
+    }
+    // 2026-09-13 破鐘以降の移動＝尖塔の推進炎（歩けない体を火で押している）
+    if (cfg.motion && cathStage >= 2 && state === 'chase') {
+      const on = Math.floor(run.elapsed * 20) % 2 === 0;
+      for (const p of disp.parts) if (p.role === 'thruster') p.img.setTint(on ? 0xffc070 : 0xff5a1f);
     }
     if (cfg.halo) {
       haloAng += (cathStage >= 1 ? -cfg.halo.spinDegP2 : -cfg.halo.spinDeg) * D2R * dt;
@@ -5028,7 +5247,7 @@ export function createBoss(run) {
     killing = true;              // 片付けの途中で撃破シネマが走らないようにする
     boss.active = false;
     clearBullets();
-    clearStrikes();
+    clearStrikes(); clearPillars();
     destroyWire();
     clearIntroEls();
     destroyIntroDim();
@@ -5056,10 +5275,13 @@ export function createBoss(run) {
         if (run.withAudio) Sound.stopBgm();
         // ★R52 マオウレクスより前の5体は警報3連＋赤い周縁の脈動へ強化。
         //   最終ボスは専用の登場イベントを持つので従来どおり警報1回のまま。
-        if (t.final) Sound.sfx('warning');
-        else bossWarnCharge();
-        if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
-        else run.shake(400, 3);
+        if (t.intro) cathWarnFx(t);   // 2026-09-13 堕天の大聖堂：警報でなく暗転＋低い鐘3打（3.6秒の間）
+        else {
+          if (t.final) Sound.sfx('warning');
+          else bossWarnCharge();
+          if (run.fx && run.fx.bossWarning) run.fx.bossWarning();
+          else run.shake(400, 3);
+        }
       }
       if (!spawnedArr[ti] && warnedArr[ti] && run.elapsed >= warnAtT + (t.spawnSec - t.warnSec)) {
         spawnedArr[ti] = true;
@@ -5128,6 +5350,7 @@ export function createBoss(run) {
     updateShadows(dt);        // R44W5: 影は殻が開いても lifeSec まで残る＝boss の state に縛らない
     updateMinions(dt);        // R52b: ミニロボの寿命（ボスが消えても残りは自壊まで面倒を見る）
     updateBullets(dt);
+    updatePillars(dt);
     updateStrikes(dt);      // R29: ボスが消えた後も残った着弾は最後まで爆発させる（bullets と同じ扱い）
     if (beam) updateBeam(dt);
     updateFx(dt);           // R40: 環・光柱のワンショットFX（ボス撃破後も残りは最後まで消える）
@@ -5136,7 +5359,7 @@ export function createBoss(run) {
   function destroy() {
     releaseCamera();
     clearBullets();
-    clearStrikes();
+    clearStrikes(); clearPillars();
     clearFx();              // R40: 環・光柱FXも確実に破棄（リーク防止）
     for (const d of pool) { if (d.spr) d.spr.destroy(); if (d.glow) d.glow.destroy(); }
     pool.length = 0;
@@ -5167,7 +5390,8 @@ export function createBoss(run) {
     // R29: 弱点コア。Run.dealDamage が weakGate で通す/弾くを決め、演出をここへ戻す。
     weakGate, weakPoint, deflect, coreHitFx,
     get hasWeak() { return !!(boss && boss.active && cfg && cfg.weak); },
-    get shardCapAfterMul() { return (cfg && cfg.shardCapAfterMul) || 0; },   // 2026-09-13 ジャム版（Run.dealDamage が読む）
+    get shardCapAfterMul() { return (cfg && cfg.shardCapAfterMul) || 0; },
+    get shardEveryHpRatio() { return (cfg && cfg.shardEveryHpRatio) || 0; },   // 2026-09-13 装甲片の自給間隔（billiard.bossDamaged が読む）   // 2026-09-13 ジャム版（Run.dealDamage が読む）
     get pieceCapMul() { return (cfg && cfg.crack && cfg.crack.pieceCapMul) || 0; },   // 光輪の欠片の上限（同上）
     get cathStage() { return cfg && cfg.stage3HpRatio ? cathStage : null; },   // 裁きの「第n段階」
     causeNow,   // 何にやられたか（Run.hitPlayer が cause 省略時に読む）
@@ -5179,6 +5403,9 @@ export function createBoss(run) {
     get strikeCount() { return strikes.length; },
     // R29 検証用：弾の実速度／ロケットパンチの到達長を外から測る（本体は書き換えない）
     debugBullets() { return bullets.map((b) => ({ kind: b.kind, x: b.x, y: b.y, vx: b.vx, vy: b.vy })); },
+    // 2026-09-13 検証用：攻撃を名指しで始める（スクリーンショット用。ゲーム本体は呼ばない）
+    debugAttack(name) { if (!boss || !boss.active) return null; destroyWire(); resetAttackVars(); if (lockGfx) lockGfx.clear(); startAttackByName(name); return state; },
+    get pillarCount() { return pillars.length; },
     debugWire() {
       // R42: ニアミス（最接近距離・発火済みか）も観測できるようにする（読み取り専用）
       return wire ? { maxLen: Math.max(...wire.arms.map((a) => a.len)),

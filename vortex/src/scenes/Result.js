@@ -214,14 +214,15 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 下段：投げの中身（2列）
-    y = Math.max(y + 4, 192);
+    y = Math.max(y + 4, 184);
     const G = (BALANCE.hero.billiard && BALANCE.hero.billiard.grades) || [];
     const b = J.best || { dmg: 0 };
     const gl = (G[b.grade] && G[b.grade].label) || '';
     const tags = [gl, b.piece ? '光輪' : b.shard ? '装甲片' : '', b.core ? '聖核' : ''].filter(Boolean).join('・');
     const bestTxt = b.dmg > 0 ? `${b.dmg}${tags ? '（' + tags + '）' : ''}` : '－';
     const seenN = Object.keys(J.seen || {}).length;
-    const rowsL = [['投げ', String(s.throws || 0)], ['聖核ヒット', String(s.coreHits || 0)], ['装甲片を返した', String(J.shardHits || 0)]];
+    // 2026-09-13 聖核（弱点）は削除＝「聖核ヒット」の行は「光輪の欠片」へ（欠片を掴んだ／当てた＝探す遊びの記録）
+    const rowsL = [['投げ', String(s.throws || 0)], ['光輪の欠片', s.haloHit ? '当てた' : s.haloGrabbed ? '掴んだ' : '－'], ['装甲片を返した', String(J.shardHits || 0)]];
     const rowsR = [['聖歌隊 投げ返し', `${s.choirBest || 0}/8`], ['最高の一投', bestTxt],
       ['裁き', `${seenN}/${VERDICTS.length}（${J.tries || 1}回目）`]];
     const put = (rows, x0, x1) => rows.forEach((r, i) => {
@@ -230,14 +231,30 @@ export class ResultScene extends Phaser.Scene {
     });
     put(rowsL, 70, 260); put(rowsR, 330, 590);
 
+    // ★2026-09-13 実プレイFB「一緒に戦った仲間の説明とイラストを」→ ジャム版は本編のエンディングを挟まない
+    //   （2分ループ）ので、裁きの画面に「共に戦った者」を1行。絵は本編と同じドット絵（エンディングの一枚絵は使わない）。
+    const ids = Array.isArray(d.party) ? d.party : [];
+    if (ids.length) {
+      this.add.text(70, 252, '共に戦った者', { fontFamily: 'monospace', fontSize: '11px', color: '#ffd6f0' }).setOrigin(0, 0.5);
+      ids.slice(0, 5).forEach((id, i) => {
+        const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));
+        const def = base && (base.id === id ? base : base.evo);
+        if (!def) return;
+        const x = 190 + i * 88;
+        this.add.image(x, 252, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(int(base.color)).setScale(1.1);
+        this.add.image(x, 252, 'mon_' + def.id).setScale(1.7);
+        this.add.text(x, 270, def.name, { fontFamily: 'monospace', fontSize: '9px', color: '#cfe6ff' }).setOrigin(0.5);
+      });
+    }
+
     // 一行の呼びかけ（コメント欄はゲームの外にある＝書く一文を手渡した直後に頼む。押しつけないよう一行・小さく）
-    this.add.text(W / 2, 266, 'あなたの裁きを、コメントで教えてください', {
+    this.add.text(W / 2, 290, 'あなたの裁きを、コメントで教えてください', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6a0',
     }).setOrigin(0.5);
 
     this.drawFooter(d);
 
-    const prompt = this.add.text(W / 2, 300, 'SPACE で もう一度 裁きを　／　V で 裁きの一覧　／　R で タイトル', {
+    const prompt = this.add.text(W / 2, 314, 'SPACE で もう一度 裁きを　／　V で 裁きの一覧　／　R で タイトル', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffffff',
     }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 650, yoyo: true, repeat: -1 });

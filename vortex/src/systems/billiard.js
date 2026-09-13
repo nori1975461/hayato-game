@@ -1700,7 +1700,8 @@ export function createBilliard(run) {
   // 予告割りの経路はそのまま残す（割れば追加で剥がれるうえ、よろけ中は×2.4）＝上手い遊びの得は不変。
   function bossDamaged(e, dealt) {
     const S = B().shards;
-    const ratio = S && S.everyHpRatio;
+    // 2026-09-13 ジャム版の tier は自給の間隔を持てる（堕天の大聖堂 0.34＝節目で剥がれる）。本編は従来の 0.2。
+    const ratio = (e && e.isBoss && run.boss && run.boss.shardEveryHpRatio) || (S && S.everyHpRatio);
     if (!ratio || !e || !e.active || !(dealt > 0)) return;
     const maxHp = e.maxHp || 1;
     // 真の姿への転生で maxHp が別物になるので、変わったら数え直す（前の形態の溜まりを持ち越さない）

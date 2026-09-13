@@ -759,6 +759,66 @@ const SFX = {
   //   本物の雷が怖いのは「裂ける音が何度も重なる」から。1発ではなく3段に割って重ねる。
   // ★2026-09-13 堕天の大聖堂（ジャム版 最終ボス）の専用音5種。汎用音の使い回しはしない（R54 の作法）。
   // 鐘1打（鎮魂の鐘の予告・波ごと・光輪の跳ね返り）。D4 の基音＋非整数倍音（鐘は倍音が割れている）＋打撃のノイズ。
+  // ★2026-09-13 大聖堂の専用弾の音（実プレイFB「弾の音にオリジナリティーを」）。
+  // 硝子片：高い硝子の触れ合い（正弦の倍音3本＋短い砕けノイズ）。1波24枚で鳴るので1発は小さく短く。
+  glassShot(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.05, gain: 0.10 * g, hpFreq: 5000, lpFreq: 14000 });
+    tone({ type: 'sine', freq: 2093 * p, freqEnd: 1760 * p, dur: 0.22, gain: 0.07 * g, attack: 0.002, verb: 0.4 });
+    tone({ type: 'sine', freq: 3136 * p, dur: 0.14, gain: 0.04 * g, attack: 0.002, verb: 0.3 });
+    tone({ type: 'triangle', freq: 1046 * p, freqEnd: 900 * p, dur: 0.12, gain: 0.04 * g, attack: 0.002 });
+  },
+  // 聖釘：金属の「キン」（短い矩形の打撃＋鉄のノイズ）。連打で鳴るので 0.06秒で切る。
+  nailShot(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.03, gain: 0.12 * g, hpFreq: 3000, lpFreq: 12000 });
+    tone({ type: 'square', freq: 1800 * p, freqEnd: 900 * p, dur: 0.06, gain: 0.07 * g, attack: 0.001 });
+    tone({ type: 'sine', freq: 4200 * p, freqEnd: 2600 * p, dur: 0.05, gain: 0.04 * g, attack: 0.001 });
+  },
+  // 歩み：建物の一歩（低い地響き＋石の擦れ＋短い軋み）。
+  heavyStep(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    tone({ type: 'sine', freq: 70 * p, freqEnd: 32 * p, dur: 0.42, gain: 0.30 * g, attack: 0.003 });
+    noiseHit({ dur: 0.18, gain: 0.14 * g, hpFreq: 200, lpFreq: 1800, lpEnd: 300 });
+    tone({ start: 0.05, type: 'square', freq: 260 * p, freqEnd: 140 * p, dur: 0.16, gain: 0.04 * g, attack: 0.02 });
+  },
+  // 天啓の予告：小さな鐘（高い正弦）＝足元の輪が出た合図。
+  pillarWarn(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    const f = noteFreq(NOTE.A5) * p;
+    tone({ type: 'sine', freq: f, dur: 0.6, gain: 0.12 * g, attack: 0.003, verb: 0.5 });
+    tone({ type: 'sine', freq: f * 2.0, dur: 0.35, gain: 0.05 * g, attack: 0.003, verb: 0.4 });
+  },
+  // 天啓の落下：光が落ちる（上から下へ抜ける正弦のスイープ＋白い破裂＋低い衝撃）。
+  pillarFall(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.28, 0.10, 0.35);
+    tone({ type: 'sine', freq: 2400 * p, freqEnd: 300 * p, dur: 0.22, gain: 0.16 * g, attack: 0.002 });
+    noiseHit({ start: 0.10, dur: 0.12, gain: 0.26 * g, hpFreq: 1500, lpFreq: 12000 });
+    tone({ start: 0.10, type: 'sine', freq: 140 * p, freqEnd: 40 * p, dur: 0.5, gain: 0.30 * g, attack: 0.003 });
+    tone({ start: 0.12, type: 'sine', freq: noteFreq(NOTE.D5) * p, dur: 0.9, gain: 0.08 * g, attack: 0.01, verb: 0.6 });
+  },
+  // 登場の予告：低い鐘3打（1.15秒間隔・少しずつ下がる）＋地の底の持続音。予告3.6秒ぶん。
+  cathWarn() {
+    const f0 = noteFreq(NOTE.D4) * 0.5;
+    [0, 1.15, 2.3].forEach((t, i) => {
+      const f = f0 * (1 - i * 0.06);
+      noiseHit({ start: t, dur: 0.05, gain: 0.16, hpFreq: 1200, lpFreq: 8000 });
+      tone({ start: t, type: 'sine', freq: f, dur: 2.2, gain: 0.34, attack: 0.003, verb: 0.7 });
+      tone({ start: t, type: 'sine', freq: f * 2.0, dur: 1.4, gain: 0.12, attack: 0.003, verb: 0.6 });
+      tone({ start: t, type: 'sine', freq: f * 2.76, dur: 1.0, gain: 0.08, attack: 0.003, verb: 0.5 });
+      tone({ start: t, type: 'triangle', freq: f * 0.5, dur: 1.8, gain: 0.14, attack: 0.004 });
+    });
+    tone({ type: 'sawtooth', freq: 36, freqEnd: 44, dur: 3.6, gain: 0.10, attack: 0.6 });
+  },
+  // 着地：石の塊が地に着く（低い衝撃＋長い地鳴り＋鉄の反響）。
+  cathLand() {
+    tone({ type: 'sine', freq: 90, freqEnd: 26, dur: 1.2, gain: 0.42, attack: 0.002 });
+    noiseHit({ dur: 0.35, gain: 0.30, hpFreq: 120, lpFreq: 2400, lpEnd: 200 });
+    noiseHit({ start: 0.05, dur: 1.4, gain: 0.10, hpFreq: 60, lpFreq: 500, lpEnd: 80 });
+    tone({ start: 0.06, type: 'square', freq: 220, freqEnd: 90, dur: 0.5, gain: 0.05, attack: 0.02 });
+    tone({ start: 0.08, type: 'sine', freq: noteFreq(NOTE.D4) * 0.5, dur: 2.0, gain: 0.16, attack: 0.01, verb: 0.7 });
+  },
   bellToll(vol, pitch) {
     const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
     duckBgm(0.30, 0.12, 0.40);

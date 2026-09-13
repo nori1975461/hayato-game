@@ -1331,7 +1331,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       const used = new RegExp("'" + c + "'").test(b2 + r2 + bi2);
       assert(used, 'JAM2: 死因 ' + c + ' がゲーム側のどこかで付けられている');
     }
-    assert(/remainPct <= 10\) \? 'near'/.test(vj), 'JAM2: 残り10%以下は「あと一歩の信徒」');
+    assert(/remainPct <= 10\) out\.push\('near'\)/.test(vj), 'JAM2: 残り10%以下は「あと一歩の信徒」');
+    assert(/const id = ids\.find\(\(k\) => !S\[k\]\) \|\| ids\[0\];/.test(vj), 'JAM3: 裁きは未見の文言を優先（2回とも同じ文言にならない）');
+    assert((vj.match(/\{ id: '/g) || []).length >= 31, 'JAM3: 裁きの文言は31種以上');
     assert(/export function judge\(/.test(vj), 'JAM2: judge が公開されている');
     assert(/import \{ judge \} from '\.\.\/data\/verdict\.js';/.test(r2), 'JAM2: Run が裁きを読み込む');
     assert(/hitPlayer\(dmg, srcX, srcY, cause\) \{/.test(r2) && /this\.jamSt\.lastCause = c;/.test(r2), 'JAM2: 被弾のたびに死因を記録する');
@@ -1353,7 +1355,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(C2.crack.pieceCapMul === 0.25 && C2.crack.pieceHoldSec >= 4, 'JAM2: 欠片は最大HPの25%・掴める猶予4秒以上');
     assert(/at\.piece && this\.boss && this\.boss\.pieceCapMul/.test(r2) && /if \(cap && !s\.piece\)/.test(bi2), 'JAM2: 欠片は装甲片の上限を通らず固定25%');
     assert(/piece: !!e\.haloPiece/.test(bi2) && /haloGrabbed = true/.test(bi2), 'JAM2: 欠片を掴んだ・投げた印が billiard から伝わる');
-    assert(Math.abs(C2.shardCapAfterMul - 0.06) < 1e-9, 'JAM2: 装甲片の上限は6%（ユーザー承認・ボット4本の実測から）');
+    assert(Math.abs(C2.shardCapAfterMul - 0.035) < 1e-9, 'JAM3: 装甲片の上限は3.5%（2026-09-13 HP20000でも29〜43秒＝割合の供給が尺を決めていた）');
+    assert(C2.shardEveryHpRatio === 0.34 && C2.specialBulletMul === 0.3 && C2.hp === 16000, 'JAM3: 装甲片の自給は34%ごと・切り札0.3・HP16000');
+    assert(/run\.boss\.shardEveryHpRatio\) \|\| \(S && S\.everyHpRatio\)/.test(read('systems/billiard.js')), 'JAM3: 自給間隔は tier 優先・本編は 0.2 のまま');
+    assert(!BALANCE.boss.tiers.some((t) => t.shardEveryHpRatio), 'JAM3: 本編の tier は shardEveryHpRatio を持たない（本編不変）');
     assert(!/(introText|announce)\([^)]*(欠片|光輪返し)/.test(b2), 'JAM2: 欠片をテロップで教えない（砕けるのが見える＝供給は隠れていない）');
     // D 最高の一投
     assert(/js\.best = \{ dmg, shard: !!at\.shard, piece: !!at\.piece, core: coreHit/.test(r2) && /最高の一投/.test(rs), 'JAM2: 最高の一投を記録して見せる');
@@ -1425,14 +1430,28 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(C.bgm === 'cathedral', 'JAM: 大聖堂は専用曲 cathedral');
     assert(C.introLines && C.introLines[0].text === 'いのりとどかぬものへ' && C.introLines[1].text === 'さばきを',
       'JAM: 登場セリフ「いのりとどかぬものへ　さばきを」（ユーザー決定）');
-    assert(C.weak && C.weak.gate === false && C.weak.mul === 2.4, 'JAM: 聖核はゲートでなく 2.4倍ボーナス（ユーザー決定・R67 の教訓）');
+    assert(!C.weak, 'JAM3: 聖核（弱点）は無い（2026-09-13 ユーザー指示「弱点は不要」。2.4倍が戦闘51秒の主因だった）');
     assert(C.phase2HpRatio > 0.66 && C.phase2HpRatio < 0.67 && C.stage3HpRatio > 0.33 && C.stage3HpRatio < 0.34,
       'JAM: 段階は 66%（堕天）と 33%（破鐘）＝ゲージの区切りと一致');
     assert(/tiers = \(run\.jamMode && B\.jamTiers\) \? B\.jamTiers : B\.tiers/.test(jb), 'JAM: boss.js はジャム版だけ jamTiers を読む');
-    assert(/if \(cfg\.final\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(jb), 'JAM: 最終ボスの曲は tier の bgm（無ければ maou）');
+    assert(/if \(cfg\.final && !cfg\.intro\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(jb), 'JAM: 最終ボスの曲は tier の bgm（無ければ maou）。登場演出付きはテロップで始める');
+    assert(/if \(cfg\.intro\) \{ whiteFlash\(0\.32, 0xffe9a8, 300\); if \(run\.withAudio\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\); \}/.test(jb), 'JAM3: 登場演出ではテロップの瞬間にBGM');
+    assert(C.intro && C.intro.descendSec + C.intro.silenceSec < C.intro.line1At && C.intro.telopAt < C.intro.dur, 'JAM3: 登場は降下→無音→セリフ→テロップの順（時刻表が矛盾しない）');
+    assert(Math.abs((C.spawnSec - C.warnSec) - 3.6) < 1e-6, 'JAM3: 予告は3.6秒＝鐘3打（cathWarn）');
+    assert(/if \(t\.intro\) cathWarnFx\(t\);/.test(jb) && /cathWarn\(\) \{/.test(jr('audio/sound.js')), 'JAM3: 予告は警報でなく暗転＋低い鐘3打');
+    assert(C.motion && C.motion.stepDist / C.motion.stepSec < 148 && C.motion.glideSpeed < 148, 'JAM3: 歩み（' + Math.round(C.motion.stepDist / C.motion.stepSec) + 'px/秒）も滑り（' + C.motion.glideSpeed + '）も主人公148より遅い');
+    assert(/if \(cfg\.motion\) updateStepMotion\(dt, nx, ny\);/.test(jb) && /const bob = cfg\.motion \? 0 :/.test(jb), 'JAM3: 建物は歩く（浮遊 bob をやめる）');
     // --- ③ 攻撃7種（設計書6章のローテーション） ---
-    const ALL7 = ['rose', 'bell', 'choir', 'feathers', 'whip', 'spires'];
-    assert(JSON.stringify(C.attacks) === JSON.stringify(['rose', 'bell', 'choir', 'feathers']), 'JAM: 段階1＝薔薇窓→鐘→聖歌隊→鉄羽');
+    const ALL7 = ['rose', 'bell', 'choir', 'feathers', 'whip', 'spires', 'pillar'];
+    assert(JSON.stringify(C.attacks) === JSON.stringify(['rose', 'bell', 'pillar', 'choir', 'feathers']), 'JAM3: 段階1＝薔薇窓→鐘→天啓→聖歌隊→鉄羽');
+    for (const L of [C.attacks, C.attacksStage2, C.attacksStage3]) assert(L.includes('pillar'), 'JAM3: 天啓は全段階にある');
+    assert(C.pillar && 148 * C.pillar.telegraphSec > C.pillar.radius + 7, 'JAM3: 天啓は走れば外れる（' + Math.round(148 * C.pillar.telegraphSec) + 'px＞' + (C.pillar.radius + 7) + '）');
+    assert(/run\.hitPlayer\(pl\.damage, s\.x, s\.y, 'pillar'\)/.test(jb), 'JAM3: 天啓の死因は pillar');
+    assert(/case 'pillarTele'/.test(jb) && /updatePillars\(dt\);/.test(jb) && /clearStrikes\(\); clearPillars\(\);/.test(jb), 'JAM3: 天啓は自分の寿命管理と破棄を持つ');
+    for (const k of ['glass', 'nail', 'feather']) assert(new RegExp("kind === '" + k + "'").test(jb), 'JAM3: 専用弾 ' + k + ' を spawnBullet2 が知っている');
+    for (const t of ['cath_glass', 'cath_nail', 'cath_feather']) assert(jr('scenes/Boot.js').includes("'" + t + "'"), 'JAM3: テクスチャ ' + t + ' を Boot が焼く');
+    assert(C.tsunami.kind === 'glass' && C.nova.kind === 'glass' && C.spires.kind === 'nail' && C.feathers.kind === 'feather', 'JAM3: 鐘/破鐘＝硝子片・尖塔＝聖釘・鉄羽＝羽根');
+    for (const f of ['glassShot', 'nailShot', 'heavyStep', 'pillarWarn', 'pillarFall', 'cathWarn', 'cathLand']) assert(new RegExp('^  ' + f + '[(]', 'm').test(jr('audio/sound.js')), 'JAM3: 専用SFX ' + f);
     assert(C.attacksStage2.includes('whip') && C.attacksStage2.includes('bell'), 'JAM: 段階2から配線の鞭');
     assert(C.attacksStage3.includes('spires') && !C.attacksStage3.includes('bell'), 'JAM: 段階3は光輪なし＝鐘が消えて尖塔の連打');
     for (const a of ALL7) assert(new RegExp("case '" + a + "':").test(jb), 'JAM: startAttackByName に ' + a + ' がある');
@@ -1443,8 +1462,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/if \(haloGone\) \{ startAttackByName\('spires'\); break; \}/.test(jb), 'JAM: 光輪が無いとき bell は spires へ逃がす（無音の空振りにしない）');
     // 薔薇窓の公平性（設計書5章①）：ロック後に主人公は 148×lockSec 動ける＞射線の半幅＋主人公
     const R = C.rose;
-    assert(R.count === 12 && R.lockSec >= 0.5 && 148 * R.lockSec > R.beamWidth * 0.5 + 12,
-      'JAM: 薔薇窓＝12本・ロック 0.5秒以上・ロック後に射線から出られる（' + Math.round(148 * R.lockSec) + 'px）');
+    assert(R.count === 8 && R.beamWidth >= 28 && R.lockSec >= 0.5 && 148 * R.lockSec > R.beamWidth * 0.5 + 12,
+      'JAM3: 薔薇窓＝8本の太い光柱（幅' + R.beamWidth + '）・ロック 0.5秒以上・ロック後に射線から出られる（' + Math.round(148 * R.lockSec) + 'px）');
+    assert(/Sound\.sfx\('beamHit'\); run\.shake\(260, 8\);/.test(jb), 'JAM3: 光柱の命中は beamHit（軌道神核と同じ手応え）');
     assert(200 * R.spinDegP2 * Math.PI / 180 < 148, 'JAM: 堕天以降の回転（距離200pxでの横移動 ' + Math.round(200 * R.spinDegP2 * Math.PI / 180) + 'px/秒）は主人公148より遅い');
     assert(/angs\.push\(aim \+ \(i \+ 0\.5\) \* \(Math\.PI \* 2 \/ rk\.count\)\)/.test(jb), 'JAM: 赤の拍は主人公の正面を外した角（aim±15°）＝「赤の間に立つ」が成立する');
     assert(/hitRoseRays\(\)/.test(jb) && /if \(roseHit \|\| !roseAngs\) return;/.test(jb), 'JAM: 射線は何本触れても1拍1回');
@@ -4273,9 +4293,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/if \(cfg\.final\) Sound\.sfx\('bigBoom'\);[\s\S]{0,260}?else bossArrival\(x, y\);/.test(boss),
     'R52a: 最終ボスの登場音は従来どおり bigBoom（着地演出は非finalの側にだけ入っている）');
   // 2026-09-13 ジャム版の堕天の大聖堂が専用曲を持つので tier の bgm を優先（無ければ maou＝従来どおり）
-  assert(/if \(cfg\.final\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(boss),
-    'R52a: 最終ボスのBGMは遅延なしで即時（maouIntro が音の間を持っている）');
-  assert(/state = 'maouIntro';\s*\n\s*stateT = MAOU_INTRO\.dur;/.test(boss),
+  assert(/if \(cfg\.final && !cfg\.intro\) Sound\.startBgm\(cfg\.bgm \|\| 'maou'\);/.test(boss),
+    'R52a: 最終ボスのBGMは遅延なしで即時（maouIntro が音の間を持っている）。cfg.intro（ジャム版）だけテロップで始める');
+  assert(/state = 'maouIntro';\s*\n\s*stateT = \(cfg\.intro \|\| MAOU_INTRO\)\.dur;/.test(boss),
     'R52a: maouIntro（暗幕＋セリフ2行＋テロップ）の入口はそのまま');
 }
 

@@ -57,6 +57,11 @@ export class BootScene extends Phaser.Scene {
     //   ボス本体は radius 82 なのに弾は 16×10px しかなく、**巨体から砂粒が出ている**構図だった。
     //   30×16 の彗星型（後ろへ長く尾を引き、先端に白熱の芯）にして、最終ボスの一撃に見合う質量を出す。
     this.makeFoeComet('boss_comet', 30, 16);
+    // ★2026-09-13 堕天の大聖堂の専用弾3種（実プレイFB「弾の形状と色がウズバルカンの焼き直し」）。
+    //   硝子片（ステンドグラスの菱形・回りながら飛ぶ）／聖釘（細長い鉄釘・先端だけ白熱）／鉄羽（銀の羽根）。
+    this.makeCathGlass('cath_glass', 14, 22);
+    this.makeCathNail('cath_nail', 28, 6);
+    this.makeCathFeather('cath_feather', 26, 10);
     // R52b: 通常ボスの署名弾2種。実プレイFB「弾のエフェクトを尖った大きめの弾にするとか、
     //   アンカーを射出してぶつけてきたりとか」への回答。どちらも「丸い点」の語彙を使わない。
     this.makeFoeDrill('boss_drill', 32, 20);   // ウズバルカン ドリルシェル（+Xが進行方向）
@@ -274,6 +279,52 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xffffff, a);
       g.fillPoints(P(pts), true);
     }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+
+  // 硝子片（14×22・縦長の菱形）。外縁は暗い鉛の枠（alpha 低）、面は2段、中央に白熱の筋＝ステンドグラスの1枚。
+  //   回転しながら飛ぶので向きは持たない（正方形に近い比率で焼く）。色は tint（赤/藍/金）が担う。
+  makeCathGlass(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      [[7, 0, 14, 11, 7, 22, 0, 11], 0.30],                       // 鉛の枠（菱形の外形）
+      [[7, 2, 12, 11, 7, 20, 2, 11], 0.62],                       // 硝子の面
+      [[7, 5, 10, 11, 7, 17, 4, 11], 0.82],                       // 面の内側（濃い段）
+      [[6.4, 6, 7.6, 6, 7.6, 16, 6.4, 16], 1.0],                  // 白熱の筋（光の透過）
+      [[8.5, 8, 10.5, 10.5, 9, 12, 7.5, 9.5], 1.0],               // きらめき
+    ];
+    for (const [pts, a] of facets) { g.fillStyle(0xffffff, a); g.fillPoints(P(pts), true); }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+  // 聖釘（28×6・+Xが先端）。胴は鉄の暗さ、先端の1/4だけ白熱＝速い弾は「点が走る」に見える。
+  makeCathNail(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      [[0, 1, 3, 1, 3, 5, 0, 5], 0.55],                           // 釘の頭
+      [[3, 2, 21, 2, 21, 4, 3, 4], 0.45],                         // 胴（鉄）
+      [[3, 2.6, 21, 2.6, 21, 3.4, 3, 3.4], 0.70],                 // 胴の稜線
+      [[21, 1.6, 28, 3, 21, 4.4], 1.0],                           // 先端（白熱）
+      [[17, 2.4, 21, 2.4, 21, 3.6, 17, 3.6], 0.90],               // 先端手前の赤熱の帯（tint で赤く見える）
+    ];
+    for (const [pts, a] of facets) { g.fillStyle(0xffffff, a); g.fillPoints(P(pts), true); }
+    g.generateTexture(key, w, h);
+    g.destroy();
+  }
+  // 鉄羽（26×10・+Xが先端）。片側に反った羽根の輪郭＋羽軸＋切っ先。カッター（円盤）と一目で違う形。
+  makeCathFeather(key, w, h) {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const P = (arr) => this.toPoints(arr);
+    const facets = [
+      [[0, 6, 6, 1.5, 14, 0.5, 22, 2, 26, 5, 22, 7, 14, 9.5, 6, 8.5], 0.50],   // 羽根の面
+      [[2, 6, 8, 3.5, 16, 2.5, 22, 3.5, 25, 5, 22, 6, 16, 7.5, 8, 7.5], 0.72], // 内側の面
+      [[0, 5.4, 25, 4.4, 25, 5.6, 0, 6.6], 0.95],                            // 羽軸
+      [[22, 4, 26, 5, 22, 6], 1.0],                                          // 切っ先
+    ];
+    for (const [pts, a] of facets) { g.fillStyle(0xffffff, a); g.fillPoints(P(pts), true); }
     g.generateTexture(key, w, h);
     g.destroy();
   }

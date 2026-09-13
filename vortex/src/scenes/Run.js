@@ -2903,14 +2903,17 @@ export class RunScene extends Phaser.Scene {
       const remainPct = clear ? 0
         : (reached && en && en.maxHp > 0 ? Math.max(1, Math.round(100 * Math.max(0, en.hp) / en.maxHp)) : null);
       const stage = (reached && this.boss.cathStage != null) ? this.boss.cathStage : null;
+      const bst = (this.billiard && this.billiard.st) || {};
       const stat = {
-        clear, hits: js.hits, throws: (this.billiard && this.billiard.st) ? this.billiard.st.throws : 0,
+        clear, hits: js.hits, throws: bst.throws || 0, shardHits: js.shardHits, specHits: bst.specBossHits || 0,
         coreHits: js.coreHits, shardShare: js.bossDmg > 0 ? js.shardDmg / js.bossDmg : 0, choirBest: js.choirBest,
         haloHit: js.haloHit, haloGrabbed: js.haloGrabbed, deathCause: clear ? null : js.lastCause,
-        remainPct, stage, tries: js.tries, bossSec: this._bossOn ? this.elapsed - this._bossT0 : 0,
+        remainPct, stage, tries: js.tries,
+        // 戦闘秒＝クリア時は最後の bossTimes（撃破で閉じている）、途中なら今までの秒
+        bossSec: this._bossOn ? this.elapsed - this._bossT0 : ((this.bossTimes || []).slice(-1)[0] || 0),
       };
-      const verdict = judge(stat);
       const J = readJam();
+      const verdict = judge(stat, J.seen || {});   // まだ見ていない裁きを優先（同じ行いでも一覧が埋まるまで別の一文）
       const seen = Object.assign({}, J.seen || {});
       seen[verdict.id] = (seen[verdict.id] || 0) + 1;
       const prevBest = J.bestRemain;

@@ -2060,34 +2060,55 @@ export const BALANCE = {
 BALANCE.boss.jamTiers = [
   {
     tier: 'final', bossId: 'cathedral', final: true,
-    warnSec: 198, spawnSec: 200, spawnDist: 350,   // 進行度200＝実測 3.3〜4.4/秒 → 約50〜60秒
+    warnSec: 196.4, spawnSec: 200, spawnDist: 350,   // 予告3.6秒＝鐘3打（cathWarn）のあいだ暗転して待たせる   // 進行度200＝実測 3.3〜4.4/秒 → 約50〜60秒
     bgm: 'cathedral',
     introLines: [{ text: 'いのりとどかぬものへ', color: '#cfe0ff' }, { text: 'さばきを', color: '#ff5a6a' }],
     telop: '【堕天の大聖堂が現れた】',
-    hp: 9000, radius: 88, spriteScale: 6.2, glowScale: 11.0,
+    // ★2026-09-13 実プレイFB「短時間であっという間に倒した・歯ごたえがない」→ 聖核を外した上でボット3本を再実測：
+    //   HP9000 は 24〜50秒で撃破（装甲片 31〜54%・軽い一投が1351＝15%）。攻撃が1周も回らない＝「攻撃を感じられない」の正体。
+    //   装甲片は「20%削るごとに2枚」で供給されるので、装甲片の寄与はHPに関係なく約半分＝戦闘長はHPに比例する。
+    //   ★HP を 20000 にしても 29〜43秒＝**HPに依存しない**（装甲片 67〜70%・切り札 15%・欠片 25%＝割合の供給だけで100%を超える。
+    //   [[feedback_flat_damage_defeats_hp_scaling]] の割合版）。尺は HP でなく**割合の供給量**で決まる。
+    //   → 装甲片の自給を 20%ごと→34%ごと（堕天・破鐘の節目で2枚ずつ）・上限 6%→3.5%・切り札 0.5→0.3 に絞り、HP 16000。
+    hp: 16000, radius: 88, spriteScale: 6.2, glowScale: 11.0,
     gaugeSegments: 3,
-    specialBulletMul: 0.5,     // らいこうだん1発＝30%×0.5＝15%＝ゲージ半本
+    specialBulletMul: 0.3,     // らいこうだん1発＝30%×0.3＝9%（2026-09-13 0.5→0.3。割合の供給を絞る）
+    // ★2026-09-13 装甲片の自給（R65「20%削るごとに2枚」）をジャム版だけ 34% ごとに＝堕天（66%）・破鐘（33%）の節目で剥がれる。
+    //   節目ごとに剥がれるので「段階が変わる＝拾える物が落ちる」が絵で結びつく。予告割り（ブレイク）の経路は不変。
+    shardEveryHpRatio: 0.34,
     // 装甲片1枚＝倍率込みで最大HPの割合。理由は Run.dealDamage。
     // ★2026-09-13 10%→6%（ユーザー承認）。1体構成のボット4本で与ダメの37〜58%が装甲片（4〜6発）＝装甲片は
     //   「20%削るごとに2枚」で自給されるので、10%だと一度20%削れば残りは装甲片だけで足りてしまい、HPが尺を決めない。
     //   HPを上げるより上限を下げるほうが投げの手数が増えて動詞が立つ。
-    shardCapAfterMul: 0.06,
+    shardCapAfterMul: 0.035,   // 2026-09-13 6%→3.5%（4枚＋ブレイク分でも 20〜30%。HP が尺を決めるように）
     glowOuter: '#c9971f', glowInner: '#1f47b8',
     chaseSpeed: 40, bodyDamage: 24,
+    // ★2026-09-13 新攻撃「天啓」：足元に光の輪（予告）→鐘→天から光の柱が落ちる。主人公の進む先を追って count 回。
+    //   実プレイFB「攻撃を受けてびっくりするような攻撃がない（軌道神核のかげおい・赤いレーザーのような）」への答え。
+    //   避け方＝止まらず走る（輪の半径44＋主人公。0.7秒で走れる103px＞44）。
+    pillar: { telegraphSec: 0.7, count: 3, interval: 0.6, radius: 44, damage: 26, leadSec: 0.3, height: 250,
+              tint: '#ffe9a8', edgeTint: '#c9971f' },
+    // ★2026-09-13 登場演出（実プレイFB「もっと荘厳さを。間・音楽・エフェクト」）：
+    //   予告3.6秒＝BGM停止→暗転→低い鐘3打（打つたびに揺れと光の輪）→ 出現＝光条を背に上から降りてくる（descendSec）
+    //   →着地の衝撃→**無音の間**（silenceSec）→オルガン→セリフ2行→テロップ＋白フラッシュでBGM開始。
+    intro: { dur: 7.6, descendSec: 2.6, dropPx: 260, silenceSec: 0.9, line1At: 4.1, line2At: 5.2, telopAt: 6.4, dimAlpha: 0.42, rays: 9 },
+    // ★2026-09-13 歩み（実プレイFB「ふわふわ浮遊しているだけ」）：建物が歩く＝stepSec ごとに地響きと軋みで stepDist 進む。
+    //   堕天以降は翼を打って踏み込み（lungeMul）、破鐘以降は尖塔の推進炎で滑る（glideSpeed）。
+    motion: { stepSec: 1.3, stepDist: 64, stepDur: 0.38, lungeMul: 1.5, glideSpeed: 85 },
     // 段階ごとの表（設計書6章）。破鐘（stage3）は光輪が無いので鎮魂の鐘（bell）が消え、尖塔の連打（spires）が入る。
-    attacks:       ['rose', 'bell', 'choir', 'feathers'],
-    attacksStage2: ['rose', 'feathers', 'whip', 'bell', 'choir'],
-    attacksStage3: ['rose', 'whip', 'spires', 'feathers', 'choir'],
+    attacks:       ['rose', 'bell', 'pillar', 'choir', 'feathers'],
+    attacksStage2: ['rose', 'pillar', 'feathers', 'whip', 'bell', 'choir'],
+    attacksStage3: ['rose', 'whip', 'spires', 'pillar', 'feathers', 'choir'],
     stage3HpRatio: 0.334, stage3IdleMult: 0.65,
     // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで
     //   63−10＝53px、ロック後に主人公は 148×0.55＝81px 動ける。堕天以降は 20°/秒で片側へ回る。
-    rose: { telegraphSec: 1.0, lockSec: 0.55, count: 12, beamWidth: 10, beamLength: 460, damage: 16,
+    rose: { telegraphSec: 1.0, lockSec: 0.55, count: 8, beamWidth: 30, beamLength: 460, damage: 22,   // 2026-09-13 8本の太い光柱（白芯＋色縁・命中は beamHit）
             activeSec: 0.5, spinDegP2: 20, petalR: 9, petalDotR: 0.95, redTint: '#ff3a4a', blueTint: '#4f7dff' },
     // ②鎮魂の鐘：光輪の欠けの向き（常時回転 −40°/秒・堕天 −70°/秒）が穴。rx/ry＝光輪の楕円（ドット）。
     bell: { telegraphSec: 0.6 },
     halo: { spinDeg: 40, spinDegP2: 70, gapDeg: 64, rx: 19, ry: 5.5, markR: 2.2 },
     // ④鉄羽の雨：右翼を 25°（0.44rad）持ち上げ→振り下ろしながら鉄の羽根14枚を扇状に一薙ぎ（扇の端から抜ける）
-    feathers: { telegraphSec: 0.9, count: 14, launchInterval: 0.05, spreadDeg: 130, leadSec: 0.55,
+    feathers: { telegraphSec: 0.9, count: 14, launchInterval: 0.05, spreadDeg: 130, leadSec: 0.55, kind: 'feather',   // 2026-09-13 羽根形（汎用カッターをやめる）
                 speed: 300, radius: 6, damage: 18, lifeSec: 1.8, spin: 14, tint: '#c8ccd6',
                 raiseRad: 0.44, downRad: 0.30, tipOx: 30, tipOy: -14 },
     // ⑥破鐘：1.2秒のシネマ→光輪が外れて転がる（画面端で3回跳ねる・speed 480・damage 24）→砕けて全方位弾（nova）
@@ -2097,17 +2118,17 @@ BALANCE.boss.jamTiers = [
              //   倍率込みで最大HPの pieceCapMul（25%）＝残り33%の大半を1投で消す隠し手（説明しない・砕けるのは画面で見える）。
              //   発見した人が書き、掴めなかった人が聞く＝コメントの両側を狙う。pieceHoldSec は掴める猶予。
              pieceCapMul: 0.25, pieceHoldSec: 6.0, pieceScale: 2.2 },
-    nova: { waves: 3, waveInterval: 0.18, perWave: 14, bulletSpeed: 265, bulletRadius: 8, damage: 18, lifeSec: 2.4, spinDeg: 13 },
+    nova: { waves: 3, waveInterval: 0.18, perWave: 14, bulletSpeed: 265, bulletRadius: 7, damage: 18, lifeSec: 2.4, spinDeg: 13,
+            kind: 'glass', tints: ['#ffd23f', '#fff2a8'], sfx: 'glassShot' },   // 破鐘＝砕けた光輪＝金の硝子片
     // ⑦尖塔の連打：左右の塔（本体中心から ±28×scale・上へ 30×scale）から交互にバルカン。弾は藍の光弾。
-    spires: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 300, bulletRadius: 5,
-              damage: 14, lifeSec: 1.9, ox: 28, oy: -30, tint: '#3f6fe0' },
-    weak: {
-      radius: 40, offY: 0.28, swayX: 0, swaySec: 1, phase2SwaySec: 1,
-      mul: 2.4, gate: false, tint: '#ff5a6a', coreTint: '#fff2a8', label: 'コアヒット！',
-    },
+    spires: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 390, bulletRadius: 4,
+              damage: 14, lifeSec: 1.6, ox: 28, oy: -30, tint: '#d8dfe8', kind: 'nail', sfx: 'nailShot' },   // 2026-09-13 聖釘（細長い鉄釘・速い・金属音）
+    // ★2026-09-13 聖核（弱点）は削除（ユーザー指示「弱点は不要」）。実プレイで聖核ヒット8発（最高3240＝最大HPの36%）が
+    //   HP9000を4発で削り切り、戦闘51秒＝歯ごたえ不足の主因だった。絵の上でも巨体に赤丸は合わない。
     // ②鎮魂の鐘の弾の輪（wavelord の tsunami の機構）。穴 64°＝光輪の欠け（向きは halo の回転角）。
     tsunami: { telegraphSec: 0.6, waves: 3, waveInterval: 0.45, count: 24, gapDeg: 64,
-               gapSpinDeg: 40, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.4 },
+               gapSpinDeg: 40, bulletSpeed: 175, bulletRadius: 6, damage: 14, lifeSec: 2.6,
+               kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot' },   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
     // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
     summon: { count: 8, enemyId: 'chibit', ringRadius: 70, telegraphSec: 0.6, holdSec: 2.0 },
     // ⑤配線の鞭（maou の wirearm と同値）
