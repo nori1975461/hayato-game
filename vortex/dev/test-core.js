@@ -1390,6 +1390,11 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/cause: d\.cause,/.test(jb4), 'JAM7: 弾の死因（cause）が弾そのものに付く（表示物にだけ付いていた欠陥）');
       assert(/bs\.trueForm \|\| bs\.jamFinal/.test(ob7) && /get jamFinal\(\)/.test(jb4) && BALANCE.archetypes.SLEEPY.jamEverySec > 0 && /S\.jamEverySec/.test(ob7),
         'JAM7: ネムッコは大聖堂戦で覚醒する（本編は真の姿のまま）');
+      // ★2026-09-13 JAM8：攻撃ごとの被ダメ合計を Result 左下（親向け10px）に出す＝9案のどれを戻すかを実プレイの数字で決める
+      assert(/dmgByCause: \{\}/.test(r2) && /this\.jamSt\.dmgByCause\[c\] = \(this\.jamSt\.dmgByCause\[c\] \|\| 0\) \+ dmg;/.test(r2)
+        && /dmgByCause: js\.dmgByCause, hitsByCause: js\.hitsByCause/.test(r2), 'JAM8: 被弾は攻撃ごとにダメージ合計も数えて Result へ渡す');
+      assert(/if \(d\.jam && d\.jam\.dmgByCause\) \{/.test(rs) && /`ひだん \$\{parts\.join\('・'\)\}`/.test(rs) && /fontSize: '10px'/.test(rs),
+        'JAM8: Result 左下に「ひだん 薔薇n(m)・…」を10pxで出す（ジャム版だけ・戦闘中には出さない）');
       assert(/run\.jamSt\.choirWaves = \(run\.jamSt\.choirWaves \|\| 0\) \+ 1/.test(jb4), 'JAM4: 聖歌隊が出た回数を数える');
       assert(/function dropShards\(bossEnt, fromStep\)/.test(jbi4) && /dropShards\(e, true\);/.test(jbi4) && /if \(fromStep && run\.jamMode\)/.test(jbi4), 'JAM4: 節目落ち（ジャム版）は金の衝撃波＋スロー＋割れる音');
       const C4 = BALANCE.boss.jamTiers[0];

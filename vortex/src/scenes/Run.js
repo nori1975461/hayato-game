@@ -125,7 +125,7 @@ export class RunScene extends Phaser.Scene {
     //   jamScar＝前回いちばん削れた位置（残りHPの割合 0..1）。HUD がボスのHPバーに刻みを描く。
     if (this.jamMode) {
       const J = readJam();
-      this.jamSt = { hits: 0, hitsByCause: {}, lastCause: null, coreHits: 0, shardHits: 0, shardDmg: 0, bossDmg: 0,
+      this.jamSt = { hits: 0, hitsByCause: {}, dmgByCause: {}, lastCause: null, coreHits: 0, shardHits: 0, shardDmg: 0, bossDmg: 0,
         choirWaveRet: 0, choirWaveN: 8, choirBest: 0, choirWaves: 0, shardDrops: 0, haloGrabbed: false, haloHit: false,
         best: { dmg: 0 }, tries: (J.tries || 0) + 1 };
       this.jamScar = (J.bestRemain != null && J.bestRemain > 0 && J.bestRemain < 100) ? J.bestRemain / 100 : null;
@@ -917,6 +917,8 @@ export class RunScene extends Phaser.Scene {
       const c = cause || (this.boss && this.boss.active && this.boss.causeNow ? this.boss.causeNow() : 'mob');
       this.jamSt.hits++;
       this.jamSt.hitsByCause[c] = (this.jamSt.hitsByCause[c] || 0) + 1;
+      // 2026-09-13 攻撃ごとの被ダメ合計（Result 左下の親向け行）。9案のどれが体力を削っているかを実プレイで読むため。
+      this.jamSt.dmgByCause[c] = (this.jamSt.dmgByCause[c] || 0) + dmg;
       this.jamSt.lastCause = c;
     }
     // R56: 白く飛ぶ時間を 0.12→0.16秒。無敵の点滅（0.55秒）に食われて見えなくなるのを防ぐ。
@@ -2920,7 +2922,8 @@ export class RunScene extends Phaser.Scene {
       const prevBest = J.bestRemain;
       const improved = remainPct != null && (prevBest == null || remainPct < prevBest);
       writeJam({ seen, cleared: (J.cleared || 0) + (clear ? 1 : 0), bestRemain: improved ? remainPct : prevBest });
-      payload.jam = { verdict, stat, prevBest, improved, seen, best: js.best, tries: js.tries, shardHits: js.shardHits };
+      payload.jam = { verdict, stat, prevBest, improved, seen, best: js.best, tries: js.tries, shardHits: js.shardHits,
+        dmgByCause: js.dmgByCause, hitsByCause: js.hitsByCause };
       if (clear) Sound.sfx('clear'); else Sound.sfx('gameover');
       this.scene.start('Result', payload);
       return;

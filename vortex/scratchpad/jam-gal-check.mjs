@@ -118,6 +118,7 @@ async function main() {
     d.clear=false; d.party=['billiko','samet','neonworm']; d.bossTimes=[-144];
     d.jam.stat.deathCause='whip'; d.jam.stat.remainPct=13; d.jam.stat.stage=2; d.jam.stat.haloGrabbed=false; d.jam.stat.choirWaves=3; d.jam.stat.choirBest=1;
     d.jam.stat.throws=47; d.jam.prevBest=0; d.jam.improved=false; d.jam.tries=17; d.jam.seen={};
+    d.jam.dmgByCause={rose:38,whip:24,choir:16,feathers:12,spires:10,mob:15,bell:9}; d.jam.hitsByCause={rose:2,whip:1,choir:1,feathers:1,spires:1,mob:3,bell:1};
     var vs=d.jam.verdict; rs.scene.restart(d); return 1; })()`);
   await sleep(2600); await shot('92-check-result-full');
   await key('KeyV', 'v'); await sleep(400); await shot('93-check-gallery-cur');

@@ -146,6 +146,19 @@ export class ResultScene extends Phaser.Scene {
         fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8',
       }).setOrigin(0, 1).setAlpha(0.85);
     }
+    // 2026-09-13 ジャム版だけ：攻撃ごとの被ダメ合計（親向け・10px）。「どの攻撃が体力を削っているか」を
+    //   遊んだ本人のスクショで読むため（決めの1瞬9案のどれを戻すかは、この数字で決める）。
+    if (d.jam && d.jam.dmgByCause) {
+      const SHORT = { rose: '薔薇', bell: '鐘', feathers: '羽', whip: '鞭', crack: '破鐘', spires: '釘', pillar: '天啓',
+        body: '巨体', choir: '聖歌', mob: '群', held: '暴れ' };
+      const dc = d.jam.dmgByCause, hc = d.jam.hitsByCause || {};
+      const parts = Object.keys(dc).sort((a, b) => dc[b] - dc[a]).map((k) => `${SHORT[k] || k}${dc[k]}(${hc[k] || 0})`);
+      if (parts.length > 0) {
+        this.add.text(6, H - 26, `ひだん ${parts.join('・')}`, {
+          fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8',
+        }).setOrigin(0, 1).setAlpha(0.85);
+      }
+    }
     if (d.perf && d.perf.frames > 0) {
       const p = d.perf;
       const fps = p.frames / Math.max(0.001, p.ms / 1000);
