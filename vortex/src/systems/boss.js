@@ -656,7 +656,11 @@ export function createBoss(run) {
                            stateT = pl.telegraphSec + pl.interval * (pl.count - 1) + 0.45; shotAcc = 0; shotIdx = 0;
                            Sound.sfx('pillarWarn', 1, 0.75); break; }
       case 'spires':     state = 'spireTele';   stateT = cfg.spires.telegraphSec;
-                         Sound.sfx('relock'); break;
+                         Sound.sfx('relock');
+                         // 2026-09-13 派手化：装填のラチェット＋両塔の先の輪（どこから来るかが予告で分かる）
+                         Sound.sfx('spireVolley', 1, 1);
+                         for (const sd of [0, 1]) { const tp = spireTip(sd); spawnRingFx(tp.x, tp.y, int(cfg.spires.tint), 4, 40, 0.45, 0.8, 12); }
+                         break;
       default:           afterAttack(); break;
     }
   }
@@ -1306,7 +1310,8 @@ export function createBoss(run) {
           const last = !!(tw.closeLast && shotIdx === tw.waves - 1);
           if (last) { bigCue(int(tw.tints ? tw.tints[0] : cfg.bulletTint)); Sound.sfx('haloCrack', 0.8, 1.6); }
           fireTsunamiWave(tw, shotIdx, haloAng, last ? 0 : null);
-          Sound.sfx('bellToll', 0.7, 1 + shotIdx * 0.06);
+          Sound.sfx('bellToll', 1.0, 1 + shotIdx * 0.06);   // 2026-09-13 派手化：0.7→1.0（土台の低音は bellToll 側で足した）
+          if (last) Sound.sfx('bigBoom', 0.7);
           shotIdx++;
         }
         if (shotIdx >= tw.waves && stateT <= 0) afterAttack();
@@ -1329,6 +1334,7 @@ export function createBoss(run) {
           const wp = wingTip();
           featherBase = Math.atan2(ly - wp.y, lx - wp.x);
           Sound.sfx('ironCreak', 1, 0.7);
+          Sound.sfx('wingSlash', 1, 1); impactFx(wp.x, wp.y, int(fe.tint), 0.9, { streaks: 6, rot: featherBase, depth: 12 });   // 2026-09-13 派手化：翼が空を裂く
           overlayPillar();
         }
         break;
@@ -1362,6 +1368,7 @@ export function createBoss(run) {
           featherBase = Math.atan2(ly - wp.y, lx - wp.x);
           Sound.sfx('ironCreak', 1, 0.6);
           bigCue(int(fe.tint));
+          Sound.sfx('wingSlash', 1, 0.85); impactFx(wp.x, wp.y, int(fe.tint), 1.1, { streaks: 6, rot: featherBase, depth: 12 });   // 2026-09-13 派手化
         }
         break;
       case 'featherFire2': {
@@ -1405,7 +1412,8 @@ export function createBoss(run) {
           const a = base + Math.sin(shotIdx * 0.5) * (v.sweepDeg * D2R);
           spawnBullet2(t.x, t.y, Math.cos(a) * v.bulletSpeed, Math.sin(a) * v.bulletSpeed,
             { radius: v.bulletRadius, damage: v.damage, life: v.lifeSec, tint: int(v.tint), kind: v.kind, stick: v.stick });
-          if (shotIdx % 2 === 0) { Sound.sfx(v.sfx || 'shoot', 0.8, 1.05 + (shotIdx % 3) * 0.1); run.shake(50, 2); }
+          if (shotIdx % v.perBurst === 0) impactFx(t.x, t.y, int(v.tint), 0.55, { streaks: 5, rot: base, depth: 12 });   // 2026-09-13 派手化：連射の口火
+          if (shotIdx % 2 === 0) { Sound.sfx(v.sfx || 'shoot', 1.0, 1.05 + (shotIdx % 3) * 0.1); run.shake(50, 2); }
           shotIdx++;
         }
         if (shotIdx >= total && stateT <= 0) afterAttack();
@@ -2695,6 +2703,11 @@ export function createBoss(run) {
     if (run.fx && run.fx.muzzleFlash) run.fx.muzzleFlash(bx, by, base, int(cfg.bulletTint));
     Sound.sfx(nv.sfx || 'shoot', 1, 1.1 - w * 0.08); run.shake(60, 3);
     run.spawnParticles(bx, by, int(cfg.bulletTint), 12);
+    // 2026-09-13 派手化（ジャム版だけ）：砕けた光輪から波ごとに3層の当て方＋高い鐘
+    if (run.jamMode) {
+      impactFx(bx, by, nv.tints ? int(nv.tints[0]) : int(cfg.bulletTint), 1.0 + w * 0.2, { streaks: 12, rot: base });
+      Sound.sfx('bellToll', 0.8, 1.6 + w * 0.1);
+    }
   }
 
   // ============ R29 署名攻撃（通常ボス5体・1体につき1種類） ============
@@ -2791,6 +2804,8 @@ export function createBoss(run) {
     Sound.sfx('waveCrash', 1, 1 + w * 0.07);
     if (tw.sfx) Sound.sfx(tw.sfx, 1, 0.9 + w * 0.12);   // 2026-09-13 硝子が砕ける音を重ねる
     run.shake(210, 6);
+    // 2026-09-13 派手化（ジャム版だけ）：波ごとに3層の当て方。後の波ほど高く（3波目＝穴なしがいちばん大きい）
+    if (run.jamMode) impactFx(boss.x, boss.y, tw.tints ? int(tw.tints[w % tw.tints.length]) : int(cfg.bulletTint), 0.8 + w * 0.3, { streaks: 10, rot: w * 0.3 });
     run.spawnParticles(boss.x, boss.y, int(cfg.bulletTint), 10);
     run.spawnParticles(boss.x, boss.y, 0xffffff, 6);
     // 波の前面と同じ速さで広がる水色のリング＝弾の壁がどこまで来ているかが一目で分かる。
@@ -3562,6 +3577,20 @@ export function createBoss(run) {
     run.tweens.add({ targets: edge, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => edge.destroy() });
     run.shake(200, 7);
   }
+  // ★2026-09-13 実プレイFB「各種攻撃のエフェクトと効果音をもっと派手に」。攻撃ごとにバラバラに盛らず、
+  //   **発射の瞬間**を3層（色つきの白閃／白い輪＋色の輪／放射の筋）＋粒＋揺れで揃える。power で山の高さ（0.5〜1.5）。
+  //   白閃は最大 0.15（子ども安全 <0.5）。予告と避け方は変えない＝派手になるのは「撃った」の1瞬だけ。
+  function impactFx(x, y, tint, power = 1, opts = {}) {
+    const p = power, dp = opts.depth || 5;
+    whiteFlash(0.10 * p, tint, 90 + 60 * p);
+    spawnRingFx(x, y, 0xffffff, 6, 90 * p, 0.22, 0.9, dp);
+    spawnRingFx(x, y, tint, 10, 150 * p, 0.34, 0.7, dp);
+    const n = opts.streaks || 8, rot = opts.rot || 0;
+    for (let k = 0; k < n; k++) spawnStreakFx(x, y, (Math.PI * 2 * k) / n + rot, 60 * p, tint, 0.24, 0.8, 2);
+    run.spawnParticles(x, y, tint, Math.round(10 * p));
+    run.spawnParticles(x, y, 0xffffff, Math.round(5 * p));
+    run.shake(160 * p, 4 + 4 * p);
+  }
   // ★2026-09-13 ①決めの1瞬：青の拍のあと8本が同じ向きへ半枠（sweepFrac×45°）薙ぐ。隣の柱との隙間の
   //   **回る向きの後ろ半分**が安全＝「隙間に入る」だけでなく「どちら側に立つか」を読む。命中は薙ぎで1回。
   function startRoseSweep() {
@@ -3571,6 +3600,7 @@ export function createBoss(run) {
     roseSweepRate = (Math.PI * 2 / rk.count) * (rk.sweepFrac || 0.5) / rk.sweepSec;
     bigCue(int(rk.redTint));
     Sound.sfx('darkLaser', 1, 0.8); Sound.sfx('ironCreak', 0.8, 0.6);
+    whiteFlash(0.2, int(rk.redTint), 160); Sound.sfx('roseBeat', 0.8, 0.75);   // 2026-09-13 派手化：薙ぎ始めの低い刺し
   }
   function drawRoseLines(solid) {
     if (!lockGfx) lockGfx = run.add.graphics().setDepth(13 + INTRO_LIFT);
@@ -3622,6 +3652,11 @@ export function createBoss(run) {
     Sound.sfx('darkLaser', 0.9, roseBeat === 0 ? 1.0 : 1.3);   // 2026-09-13 太くなったぶん低く大きく
     run.shake(220, 6);
     run.spawnParticles(c.x, c.y, tint, 10);
+    // 2026-09-13 派手化：拍ごとにオルガンの刺し＋3層の当て方。筋は8本の光柱と同じ向きへ走る（撃った向きが一目で分かる）
+    Sound.sfx('roseBeat', 1, roseBeat === 0 ? 1.0 : 1.5);
+    const off = (Math.PI * 2 / rk.count) * 0.5 * roseBeat;
+    impactFx(c.x, c.y, tint, 1.2, { streaks: rk.count, rot: -Math.PI / 2 + off, depth: 13 });
+    for (const a0 of roseAngs.angs) spawnStreakFx(c.x, c.y, a0 + off, 260, 0xffffff, 0.3, 0.9, 4);
   }
   // 線分と主人公の距離で判定（見せている線と同じ式）。何本に触れても1拍1回。
   function hitRoseRays() {
@@ -3655,7 +3690,10 @@ export function createBoss(run) {
         e.baseScale = 2.5; e.spr.setScale(2.5).setDepth(10);
         e.glow.setTint(0xffe066).setScale(2.4).setAlpha(0.9);
       }
+      if (e) spawnPillarFx(x, y + 4, 0xffe066, 16, 150, 0.6, 0.75);   // 2026-09-13 派手化：天から降りて立つ（1体ずつ光の柱）
     }
+    impactFx(boss.x, boss.y, 0xffe066, 0.9, { streaks: n, depth: 13 });   // 2026-09-13 派手化：召喚の瞬間
+    Sound.sfx('bellToll', 0.6, 1.5);
     if (run.jamSt) { run.jamSt.choirWaveRet = 0; run.jamSt.choirWaveN = n; run.jamSt.choirWaves = (run.jamSt.choirWaves || 0) + 1; }
     choirList = made; choirT = cfg.summon.holdSec || 0; choirBladeT = 0; choirBladePts = null;   // 刃（updateChoirBlade）
     run.spawnParticles(boss.x, boss.y, int(def.color), 16);
@@ -3709,8 +3747,9 @@ export function createBoss(run) {
     const a = featherBase + (i / Math.max(1, fe.count - 1) - 0.5) * fe.spreadDeg * D2R;
     spawnBullet2(wp.x, wp.y, Math.cos(a) * fe.speed, Math.sin(a) * fe.speed,
       { radius: fe.radius, damage: fe.damage, life: fe.lifeSec, kind: fe.kind || 'cutter', spin: fe.spin, tint: int(fe.tint) });
-    if (i % 3 === 0) { Sound.sfx('nailShot', 0.7, 0.55); run.shake(60, 2); }   // 2026-09-13 鉄の羽根が擦れる音
+    if (i % 3 === 0) { Sound.sfx('nailShot', 0.9, 0.55); run.shake(60, 2); }   // 2026-09-13 鉄の羽根が擦れる音
     run.spawnParticles(wp.x, wp.y, int(fe.tint), 2);
+    spawnStreakFx(wp.x, wp.y, a, 80, int(fe.tint), 0.16, 0.7, 2);   // 2026-09-13 派手化：1枚ごとに翼先から筋が走る（扇の形が見える）
   }
   // ⑥破鐘：ゲージ2本目が消えた瞬間（33%）。鐘の音が割れ、光輪が首から外れて転がる。
   //   以後は光輪なし＝段階の合図が「絵が欠ける」で伝わる（情報を足さずに状態を伝える）。

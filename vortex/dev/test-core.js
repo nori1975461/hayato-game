@@ -1417,6 +1417,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/cathAscend\(sec\) \{/.test(snd10) && /cathFinale\(\) \{/.test(snd10) && /Sound\.sfx\('cathAscend', D\.riseSec\)/.test(jb4) && /Sound\.sfx\('cathFinale'\)/.test(jb4),
         'JAM10: 昇天と最後の鐘の専用SFX');
       assert(!(BALANCE.boss.tiers || []).some((t) => t.death), 'JAM10: 本編の tiers に death を入れていない（撃破経路は不変）');
+      // ★2026-09-13 JAM11：攻撃の派手化＝発射の瞬間を3層で揃える impactFx（白閃は最大0.15）＋専用SFX3種＋既存4種の土台
+      assert(/function impactFx\(x, y, tint, power = 1, opts = \{\}\)/.test(jb4) && /whiteFlash\(0\.10 \* p, tint, 90 \+ 60 \* p\);/.test(jb4),
+        'JAM11: impactFx＝白閃0.10×power（≤1.5）・輪2枚・放射の筋・粒・揺れ');
+      assert((jb4.match(/impactFx\(/g) || []).length >= 8, 'JAM11: 攻撃の決めの瞬間に impactFx が置かれている（定義＋薔薇窓・鐘・聖歌隊・両翼・尖塔・破鐘＝8か所以上）');
+      assert(/if \(run\.jamMode\) impactFx\(boss\.x, boss\.y, tw\.tints/.test(jb4) && /if \(run\.jamMode\) \{\s*\n\s*impactFx\(bx, by, nv\.tints/.test(jb4),
+        'JAM11: 本編と共用の fireTsunamiWave／fireNovaWave はジャム版だけ派手にする');
+      for (const nm of ['roseBeat', 'wingSlash', 'spireVolley']) {
+        assert(new RegExp('^  ' + nm + '\\(vol, pitch\\) \\{', 'm').test(snd10) && new RegExp("Sound\\.sfx\\('" + nm + "'").test(jb4), `JAM11: 専用SFX ${nm} が定義され、使われている`);
+      }
+      assert(/duckBgm\(0\.22, 0\.12, 0\.40\);\s*\/\/ 2026-09-13 派手化/.test(snd10) && /duckBgm\(0\.20, 0\.10, 0\.35\);\s*\/\/ 2026-09-13 派手化/.test(snd10),
+        'JAM11: bellToll／pillarFall のダッキングを深くした（R55：足りないのは音量でなくダッキング）');
       assert(/standAll\(\); spawnHoldT = cfg\.intro\.graceSec \|\| 0;/.test(jb4) && /get spawnHold\(\) \{ return spawnHoldT > 0; \}/.test(jb4)
         && /spawnHoldT = 0; standAll\(\);/.test(jb4), 'JAM9: 登場終了で立ち上がり・猶予のあと湧きが戻る・破棄で後始末');
       assert(/const hold = !!\(run\.boss && run\.boss\.spawnHold\);/.test(sp9) && /if \(hold\) spawnTimer = Math\.max\(spawnTimer, 0\.5\);/.test(sp9)

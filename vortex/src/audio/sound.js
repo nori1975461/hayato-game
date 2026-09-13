@@ -763,7 +763,10 @@ const SFX = {
   // 硝子片：高い硝子の触れ合い（正弦の倍音3本＋短い砕けノイズ）。1波24枚で鳴るので1発は小さく短く。
   glassShot(vol, pitch) {
     const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
-    noiseHit({ dur: 0.05, gain: 0.10 * g, hpFreq: 5000, lpFreq: 14000 });
+    // 2026-09-13 派手化：高い割れ音だけだと「チッ」で消える。低い土台（ドッ）と長い高倍音（キーン）を足して「割れた」を太くする
+    tone({ type: 'sine', freq: 160 * p, freqEnd: 50 * p, dur: 0.2, gain: 0.16 * g, attack: 0.002 });
+    tone({ type: 'sine', freq: 4186 * p, dur: 0.22, gain: 0.03 * g, attack: 0.002, verb: 0.5 });
+    noiseHit({ dur: 0.05, gain: 0.16 * g, hpFreq: 5000, lpFreq: 14000 });
     tone({ type: 'sine', freq: 2093 * p, freqEnd: 1760 * p, dur: 0.22, gain: 0.07 * g, attack: 0.002, verb: 0.4 });
     tone({ type: 'sine', freq: 3136 * p, dur: 0.14, gain: 0.04 * g, attack: 0.002, verb: 0.3 });
     tone({ type: 'triangle', freq: 1046 * p, freqEnd: 900 * p, dur: 0.12, gain: 0.04 * g, attack: 0.002 });
@@ -771,7 +774,10 @@ const SFX = {
   // 聖釘：金属の「キン」（短い矩形の打撃＋鉄のノイズ）。連打で鳴るので 0.06秒で切る。
   nailShot(vol, pitch) {
     const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
-    noiseHit({ dur: 0.03, gain: 0.12 * g, hpFreq: 3000, lpFreq: 12000 });
+    // 2026-09-13 派手化：鉄の共鳴（高い正弦の余韻）と短い低音を足す＝「キン」が「ガキン」になる。尺は伸ばさない（連打で鳴る）
+    tone({ type: 'sine', freq: 5200 * p, dur: 0.14, gain: 0.035 * g, attack: 0.001, verb: 0.3 });
+    tone({ type: 'sine', freq: 220 * p, freqEnd: 90 * p, dur: 0.08, gain: 0.10 * g, attack: 0.001 });
+    noiseHit({ dur: 0.03, gain: 0.16 * g, hpFreq: 3000, lpFreq: 12000 });
     tone({ type: 'square', freq: 1800 * p, freqEnd: 900 * p, dur: 0.06, gain: 0.07 * g, attack: 0.001 });
     tone({ type: 'sine', freq: 4200 * p, freqEnd: 2600 * p, dur: 0.05, gain: 0.04 * g, attack: 0.001 });
   },
@@ -792,9 +798,10 @@ const SFX = {
   // 天啓の落下：光が落ちる（上から下へ抜ける正弦のスイープ＋白い破裂＋低い衝撃）。
   pillarFall(vol, pitch) {
     const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
-    duckBgm(0.28, 0.10, 0.35);
+    duckBgm(0.20, 0.10, 0.35);   // 2026-09-13 派手化：0.28→0.20
     tone({ type: 'sine', freq: 2400 * p, freqEnd: 300 * p, dur: 0.22, gain: 0.16 * g, attack: 0.002 });
-    noiseHit({ start: 0.10, dur: 0.12, gain: 0.26 * g, hpFreq: 1500, lpFreq: 12000 });
+    tone({ start: 0.10, type: 'sine', freq: 60 * p, freqEnd: 22 * p, dur: 0.7, gain: 0.22 * g, attack: 0.002 });   // 2026-09-13 派手化：地面に刺さる低音
+    noiseHit({ start: 0.10, dur: 0.12, gain: 0.34 * g, hpFreq: 1500, lpFreq: 12000 });
     tone({ start: 0.10, type: 'sine', freq: 140 * p, freqEnd: 40 * p, dur: 0.5, gain: 0.30 * g, attack: 0.003 });
     tone({ start: 0.12, type: 'sine', freq: noteFreq(NOTE.D5) * p, dur: 0.9, gain: 0.08 * g, attack: 0.01, verb: 0.6 });
   },
@@ -821,9 +828,10 @@ const SFX = {
   },
   bellToll(vol, pitch) {
     const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
-    duckBgm(0.30, 0.12, 0.40);
+    duckBgm(0.22, 0.12, 0.40);   // 2026-09-13 派手化：0.30→0.22（小さいほど深い＝R55 の教訓：足りないのは音量でなくダッキング）
     const f = noteFreq(NOTE.D4) * p;
-    noiseHit({ dur: 0.04, gain: 0.18 * g, hpFreq: 1800, lpFreq: 9000 });
+    tone({ type: 'sine', freq: f * 0.25, dur: 2.0, gain: 0.16 * g, attack: 0.004 });   // 2026-09-13 派手化：地の底の土台
+    noiseHit({ dur: 0.04, gain: 0.24 * g, hpFreq: 1800, lpFreq: 9000 });
     tone({ type: 'sine', freq: f, dur: 2.4, gain: 0.30 * g, attack: 0.003, verb: 0.6 });
     tone({ type: 'sine', freq: f * 2.0, dur: 1.6, gain: 0.14 * g, attack: 0.003, verb: 0.5 });
     tone({ type: 'sine', freq: f * 2.76, dur: 1.2, gain: 0.10 * g, attack: 0.003, verb: 0.5 });
@@ -873,6 +881,39 @@ const SFX = {
     tone({ type: 'sine', freq: f * 2.9, freqEnd: f * 1.9, dur: 0.9, gain: 0.12 * g, attack: 0.003 });
     tone({ type: 'square', freq: f * 0.5, freqEnd: f * 0.22, dur: 1.0, gain: 0.10 * g, attack: 0.004 });
     tone({ start: 0.10, type: 'triangle', freq: 120, freqEnd: 28, dur: 0.9, gain: 0.20 * g, attack: 0.004 });
+  },
+  // 2026-09-13 派手化：薔薇窓の拍＝パイプオルガンの和音の刺し（Dm・pitch 1.5 で青の拍）＋硝子の「キン」＋低い「ドン」。
+  roseBeat(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.30, 0.12, 0.35);
+    const notes = [NOTE.D3, NOTE.A3, NOTE.D4, NOTE.F4, NOTE.A4, NOTE.D5];
+    notes.forEach((nn) => {
+      const f = noteFreq(nn) * p;
+      tone({ type: 'square', freq: f, dur: 0.55, gain: 0.05 * g, attack: 0.004, verb: 0.5 });
+      tone({ type: 'sawtooth', freq: f * 1.003, dur: 0.5, gain: 0.03 * g, attack: 0.004, verb: 0.5 });
+    });
+    noiseHit({ dur: 0.05, gain: 0.22 * g, hpFreq: 3000, lpFreq: 14000 });
+    tone({ type: 'sine', freq: 120, freqEnd: 34, dur: 0.45, gain: 0.34 * g, attack: 0.002 });
+    tone({ start: 0.02, type: 'sine', freq: 2093 * p, freqEnd: 1500 * p, dur: 0.3, gain: 0.06 * g, attack: 0.002, verb: 0.5 });
+  },
+  // 2026-09-13 派手化：鉄羽＝翼が空を裂く（風のノイズが下がる＋鉄の共鳴の余韻＋低い土台）。
+  wingSlash(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    duckBgm(0.32, 0.10, 0.30);
+    noiseHit({ dur: 0.42, gain: 0.30 * g, hpFreq: 300 * p, lpFreq: 9000 * p, lpEnd: 1200 * p });
+    tone({ type: 'sawtooth', freq: 180 * p, freqEnd: 60 * p, dur: 0.4, gain: 0.10 * g, attack: 0.02 });
+    tone({ type: 'square', freq: 1400 * p, freqEnd: 500 * p, dur: 0.18, gain: 0.05 * g, attack: 0.003 });
+    tone({ type: 'sine', freq: 2600 * p, dur: 0.6, gain: 0.05 * g, attack: 0.01, verb: 0.6 });
+    tone({ type: 'sine', freq: 110, freqEnd: 40, dur: 0.35, gain: 0.26 * g, attack: 0.002 });
+  },
+  // 2026-09-13 派手化：尖塔の装填＝速いラチェットのクリック列＋蒸気の抜け。予告 0.5 秒に収める。
+  spireVolley(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    for (let i = 0; i < 6; i++) {
+      tone({ start: i * 0.055, type: 'square', freq: (900 + i * 140) * p, freqEnd: (600 + i * 100) * p, dur: 0.035, gain: 0.07 * g, attack: 0.001 });
+    }
+    noiseHit({ start: 0.32, dur: 0.16, gain: 0.12 * g, hpFreq: 2500, lpFreq: 10000 });
+    tone({ start: 0.32, type: 'sine', freq: 3200 * p, freqEnd: 2200 * p, dur: 0.12, gain: 0.05 * g, attack: 0.002 });
   },
   // 2026-09-13 撃破「祈りの終わり」の昇天：光の中を昇る（D ハーモニックマイナーの音が1つずつ上へ抜けていく＋高い空気＋地の底の持続音が上がる）。sec＝昇る尺。
   cathAscend(sec) {
