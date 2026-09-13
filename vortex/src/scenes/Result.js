@@ -228,7 +228,7 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 下段：投げの中身（2列）
-    y = Math.max(y + 4, 184);
+    y = Math.max(y + 4, clear ? 164 : 184);   // 撃破の裁きは仲間の帯が下に来るので表を少し上へ
     const G = (BALANCE.hero.billiard && BALANCE.hero.billiard.grades) || [];
     const b = J.best || { dmg: 0 };
     const gl = (G[b.grade] && G[b.grade].label) || '';
@@ -251,7 +251,43 @@ export class ResultScene extends Phaser.Scene {
     //   → 位置は表の下から決める（固定 252 をやめる）。
     const ids = Array.isArray(d.party) ? d.party : [];
     const py = Math.min(262, y + 3 * 18 + 10);
-    if (ids.length) {
+    if (ids.length && clear) {
+      // ★2026-09-13 実プレイFB「このゲームの押しはモビット＝撃破後のエンディングでもっと主張して」。ジャム版は
+      //   エンディングを挟まないので、撃破の裁きでは仲間が主役の帯を出す：紺の板に光の柱を1本ずつ、大きめの絵（2.4倍）が
+      //   1体ずつ跳ねて現れ（拾う音・少しずつ高く）、以後ずっと小さく上下。名前はその子の色。見出しは板の縁に乗せる。
+      const list = ids.slice(0, 5).map((id) => {
+        const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));
+        return base ? { base, def: base.id === id ? base : base.evo } : null;
+      }).filter(Boolean);
+      const n = list.length, top = 222, ph = 58, pc = top + 30;
+      const panel = this.add.graphics();
+      panel.fillStyle(0x0b0d2c, 0.85); panel.fillRoundedRect(40, top, W - 80, ph, 8);
+      panel.lineStyle(1, 0xffd6f0, 0.55); panel.strokeRoundedRect(40, top, W - 80, ph, 8);
+      const cap = this.add.text(W / 2, top, '― 大聖堂を覆した モビットたち ―', {
+        fontFamily: 'monospace', fontSize: '11px', color: '#ffd6f0', fontStyle: 'bold',
+      }).setOrigin(0.5);
+      this.add.rectangle(W / 2, top, cap.width + 12, 12, 0x0b0d2c, 1);   // 板の縁の線を見出しの分だけ切る
+      cap.setDepth(1);
+      const sp = n <= 3 ? 120 : 100, x0 = W / 2 - (n - 1) * sp / 2;
+      list.forEach(({ base, def }, i) => {
+        const x = x0 + i * sp, col = int(base.color);
+        const beam = this.add.graphics();
+        beam.fillGradientStyle(col, col, col, col, 0.32, 0.32, 0, 0);
+        beam.fillPoints([{ x: x - 9, y: top + 1 }, { x: x + 9, y: top + 1 }, { x: x + 30, y: top + ph - 1 }, { x: x - 30, y: top + ph - 1 }], true);
+        this.add.image(x, pc, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(col).setScale(1.9).setAlpha(0.85);
+        const spr = this.add.image(x, pc, 'mon_' + def.id).setScale(0);
+        const nm = this.add.text(x, pc + 24, def.name, {
+          fontFamily: 'monospace', fontSize: '11px', color: base.color, fontStyle: 'bold', stroke: '#1a1030', strokeThickness: 3,
+        }).setOrigin(0.5).setAlpha(0);
+        this.time.delayedCall(900 + i * 240, () => {
+          if (this._done) return;
+          Sound.sfx('pickup', 1, 1 + i * 0.08);
+          this.tweens.add({ targets: spr, scale: 2.4, duration: 340, ease: 'Back.easeOut' });
+          this.tweens.add({ targets: nm, alpha: 1, duration: 220 });
+          this.tweens.add({ targets: spr, y: pc - 4, duration: 520 + i * 45, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 340 });
+        });
+      });
+    } else if (ids.length) {
       this.add.text(70, py, '共に戦った者', { fontFamily: 'monospace', fontSize: '11px', color: '#ffd6f0' }).setOrigin(0, 0.5);
       ids.slice(0, 5).forEach((id, i) => {
         const base = MONSTERS.find((m) => m.id === id || (m.evo && m.evo.id === id));

@@ -121,6 +121,12 @@ async function main() {
     var vs=d.jam.verdict; rs.scene.restart(d); return 1; })()`);
   await sleep(2600); await shot('92-check-result-full');
   await key('KeyV', 'v'); await sleep(400); await shot('93-check-gallery-cur');
+  await key('KeyV', 'v'); await sleep(200);
+  // 撃破の裁き＝仲間が主役の帯（順に跳ねて登場）。登場の途中と揃った後を撮る
+  await ev(`(function(){ var g=window.__vortexGame; var rs=g.scene.getScene('Result'); var d=rs.scene.settings.data;
+    d.clear=true; d.elapsed=84; d.party=['starpuppy','terabit','samet']; d.bossTimes=[144]; d.jam.tries=18; rs.scene.restart(d); return 1; })()`);
+  await sleep(1300); await shot('94-check-clear-popin');
+  await sleep(1500); await shot('95-check-clear');
   console.log('EXCEPTIONS=', exceptions); process.exit(0);
 }
 main().catch((e) => { console.log('落ちました:', e && e.message); process.exit(1); });

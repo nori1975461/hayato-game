@@ -1345,6 +1345,14 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/tierOf, byRank, keyHint \} from '\.\.\/data\/verdict\.js'/.test(rs) && /第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs), 'JAM4: Result が「第n位／全数」を称号の上に出す');
       assert(/drawRankIcon\(x, y, kind, sc\)/.test(rs) && /kind === 'crown'/.test(rs) && /const ranked = byRank\(\);/.test(rs), 'JAM4: 階位の印は絵（Graphics）で描き、一覧は順位順');
       assert(/const kh = keyHint\(s\);/.test(rs), 'JAM4: Result が鍵の指さしを1行出す');
+      // ★2026-09-13 JAM5：一覧は階位ごとの帯／仲間の行は表の下から決める／撃破の裁きは仲間が主役の帯
+      assert(/const FILL = \{ crown: 0x[0-9a-f]+, gold: 0x[0-9a-f]+, silver: 0x[0-9a-f]+, iron: 0x[0-9a-f]+ \};/.test(rs)
+        && /TIERS\.forEach\(\(t\) => \{\s*const list = ranked\.filter/.test(rs), 'JAM5: 一覧は階位ごとの帯（王冠／金／銀／鉄の板・順位順）');
+      assert(/金の枠＝今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを金の枠で示し、×n は出さない');
+      assert(/const py = Math\.min\(262, y \+ 3 \* 18 \+ 10\);/.test(rs), 'JAM5: 仲間の行は表の下から決める（固定 y の重なり再発防止）');
+      assert(/大聖堂を覆した モビットたち/.test(rs) && /ease: 'Back\.easeOut'/.test(rs) && /Sound\.sfx\('pickup', 1, 1 \+ i \* 0\.08\)/.test(rs),
+        'JAM5: 撃破の裁きは仲間が主役の帯（1体ずつ跳ねて登場・名前はその子の色）');
+      assert(/一度は覆した大聖堂/.test(rs), 'JAM5: 撃破済み（傷跡0%）を「残り0%に届かず」と言わない');
       assert(/choirWaves: js\.choirWaves \|\| 0, shardDrops: js\.shardDrops \|\| 0/.test(r2), 'JAM4: Run が聖歌隊の回数と装甲片の枚数を裁きへ渡す');
       const jb4 = read('systems/boss.js'), jbi4 = read('systems/billiard.js');
       assert(/if \(e\.choir\) \{[\s\S]*?pieceGfx\.lineStyle\(3, 0xfff2a8, 0\.95\)/.test(jb4) && /else if \(e\.shard\) \{[\s\S]*?0xd8dfe8/.test(jb4), 'JAM4: 歌う聖歌隊は白金の輪・装甲片は銀の輪（雑魚と同じ絵なので印で分ける）');
