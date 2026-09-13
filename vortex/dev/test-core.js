@@ -1519,7 +1519,27 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(BALANCE.jam && BALANCE.jam.progressMul >= 2 && BALANCE.jam.xpMul >= 1,
       'JAM: BALANCE.jam（進行度と成長の圧縮）がある');
     assert(/this\.jamMode = !!\(data && data\.jamRun\);/.test(jrun), 'JAM: Run は scene のデータ jamRun でジャム版に入る');
-    assert(/keydown-J/.test(jt) && /jamRun: true/.test(jt), 'JAM: タイトルの J キーで入れる');
+    // ★2026-09-13 JAM12：Title の J は専用オープニング（JamOpening）を通ってから Run(jamRun) へ
+    const jo = jr('scenes/JamOpening.js');
+    assert(/keydown-J/.test(jt) && /this\.scene\.start\('JamOpening'\)/.test(jt) && /super\('JamOpening'\)/.test(jo)
+      && /this\.scene\.start\('Run', \{ withAudio: true, jamRun: true \}\)/.test(jo), 'JAM: タイトルの J キーで入れる（JamOpening 経由で Run(jamRun)）');
+    assert(/import \{ JamOpeningScene \} from '\.\/scenes\/JamOpening\.js'/.test(jm) && /scene: \[BootScene, OpeningScene, JamOpeningScene, TitleScene/.test(jm),
+      'JAM12: JamOpening が main.js の scene 一覧にある');
+    assert(!/JamOpening|jamRun/.test(jr('scenes/Opening.js')), 'JAM12: 本編の Opening.js はジャム版を知らない（不変）');
+    assert(/this\._jKey = kb\.addKey\(KC\.J\)/.test(jrun) && /J キー を おす/.test(jo) && /'J', 'を おす', 'つかむ'/.test(jo)
+      && /'J', 'おしつづける', 'ためる'/.test(jo) && /'J', 'はなす', 'なげる！'/.test(jo), 'JAM12: 教える鍵は実装と同じ J（Run._jKey）＝つかむ→ためる→なげる の3段');
+    assert(/ひだりクリック/.test(jo) && /k: 'きりふだ', v: 'SPACE'/.test(jo) && /やじるしキー ／ WASD/.test(jo), 'JAM12: 左クリック・SPACE（切り札）・矢印/WASD もカードに書いてある');
+    assert(!/Math\.random\(/.test(jo) && !/^import Phaser/m.test(jo) && /const Phaser = window\.Phaser;/.test(jo) && /Math\.min\(0\.45, alpha\)/.test(jo),
+      'JAM12: Math.random 禁止・window.Phaser・白閃 ≤ 0.45');
+    assert(/const skip = \(\) => this\.showCard\(true\);/.test(jo) && /this\.time\.delayedCall\(8000, go\);/.test(jo), 'JAM12: スキップしても操作カードは必ず通る・放置 8 秒で自動開始');
+    {
+      const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
+      const ids = sv.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);
+      const vjt = jr('data/verdict.js');
+      assert(ids.length === 3 && ids.every((id) => new RegExp("id: '" + id + "'").test(vjt)), 'JAM12: 裁きの見本3つは verdict.js に実在する id');
+    }
+    assert(/for \(const r of CATHEDRAL\.rig\)/.test(jo) && /boss_\$\{CATHEDRAL\.id\}_\$\{r\.tex\}/.test(jo) && /textures\.exists\(key\)/.test(jo),
+      'JAM12: 大聖堂の絵は本番と同じ rig（Boot が焼く boss_cathedral_<tex>）から組む');
     assert(/params\.get\('jam'\) === '1'/.test(jm) && /jamRun: !!V\.jam/.test(jt), 'JAM: ?jam=1 でも入れる（ボット検証用）');
     assert(/BALANCE\.jam\.progressMul/.test(jrun), 'JAM: 進行度が progressMul 倍で進む（雑魚・エリート・切り札・ボス地点が全部圧縮される）');
     assert(/BALANCE\.jam\.xpMul/.test(jl), 'JAM: XP が xpMul 倍');

@@ -2,6 +2,7 @@
 // Phaser は index.html でグローバル読み込み済み。ここでは window.Phaser を参照する。
 import { BootScene } from './scenes/Boot.js';
 import { OpeningScene } from './scenes/Opening.js';
+import { JamOpeningScene } from './scenes/JamOpening.js';   // 2026-09-13 ジャム版専用（Title の J → ここ → Run）
 import { TitleScene } from './scenes/Title.js';
 import { RunScene } from './scenes/Run.js';
 import { EndingScene } from './scenes/Ending.js';
@@ -35,7 +36,7 @@ const config = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: { antialias: false },
-  scene: [BootScene, OpeningScene, TitleScene, RunScene, EndingScene, ResultScene],
+  scene: [BootScene, OpeningScene, JamOpeningScene, TitleScene, RunScene, EndingScene, ResultScene],
 };
 
 window.__vortexGame = new Phaser.Game(config);

@@ -144,7 +144,9 @@ export class TitleScene extends Phaser.Scene {
       window.VORTEX = window.VORTEX || {};
       window.VORTEX.jam = true;          // 死んで戻ってきても、そのままジャム版で続けられる（startRun が読む）
       Sound.init();
-      this.scene.start('Run', { withAudio: true, jamRun: true });
+      // ★2026-09-13 ジャム版専用のオープニング（神の降臨・J で つかむ→ためる→なげる・32 の裁き・操作カード）を
+      //   通ってから Run へ。死んで戻った SPACE（startRun）は Run へ直行＝オープニングは 1 回だけ。
+      this.scene.start('JamOpening');
     });
     // ★R57 すっきりモード：**本編そのもの**を最初から「がめん すっきり」で遊ぶ。
     //   ⚠️ プレイ中の切替（Iキー）は効かせない。感想をもらうのが目的なので、
