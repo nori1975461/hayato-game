@@ -1367,6 +1367,29 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM6: 歌う聖歌隊には光の柱と、8体を結ぶ金の輪');
       assert(/export function clearHint\(st, seen, curRank\)/.test(vj) && /const ch = clearHint\(s, J\.seen, v\.rank\);/.test(rs), 'JAM6: 撃破の画面にも未使用の鍵→上の位を1行');
       assert(/const seenN = VERDICTS\.filter\(\(vv\) => \(J\.seen \|\| \{\}\)\[vv\.id\]\)\.length;/.test(rs), 'JAM6: 見た裁きの数は今の32種にある id だけ数える');
+      // ★2026-09-13 JAM7：攻撃の「決めの1瞬」9案＋ネムッコの覚醒（大聖堂戦）＋弾の死因の修正
+      const C7 = BALANCE.boss.jamTiers[0], ob7 = read('systems/orbit.js');
+      assert(C7.rose.sweepSec > 0 && /function startRoseSweep\(\)/.test(jb4) && /else if \(cfg\.rose\.sweepSec && !roseSwept\) startRoseSweep\(\);/.test(jb4),
+        'JAM7: ①薔薇窓は青の拍のあと半枠薙ぐ');
+      assert(C7.tsunami.closeLast === true && C7.tsunami.lastRadius > C7.tsunami.bulletRadius && /fireTsunamiWave\(tw, shotIdx, haloAng, last \? 0 : null\)/.test(jb4),
+        'JAM7: ②鎮魂の鐘の3波目は穴が閉じる');
+      assert(C7.pillar.lastMul >= 1.5 && C7.pillar.lastTeleSec >= 1.0 && /function spawnPillar\(pl, big\)/.test(jb4) && /if \(big\) bigCue\(/.test(jb4),
+        'JAM7: ③天啓の3本目は巨大（予告は長く＝逃げる猶予）');
+      assert(C7.summon.bladeSec > 0 && /function updateChoirBlade\(dt\)/.test(jb4) && /updateChoirBlade\(dt\);/.test(jb4) && /run\.hitPlayer\(sm\.bladeDamage \|\| 16, a\.x, a\.y, 'choir'\)/.test(jb4),
+        'JAM7: ④投げ返されなかった聖歌隊を結ぶ線が刃になる');
+      assert(C7.feathers.bothWings === true && /case 'featherTele2':/.test(jb4) && /case 'featherFire2':/.test(jb4) && /function wingTip\(side\)/.test(jb4) && /p\.role === 'wingL' && wingRaiseL/.test(jb4),
+        'JAM7: ⑤鉄羽は右翼のあと左翼も');
+      assert(C7.wirearm.scissorDeg > 0 && C7.wirearm.secondDelay > 0 && /arm\.ang = a0 \+ arm\.side \* sc \* D2R;/.test(jb4) && /if \(arm\.delay > 0\) \{ arm\.delay -= dt;/.test(jb4),
+        'JAM7: ⑥配線の鞭は両腕を開いて撃ち追尾で挟む（本編の maou は scissorDeg 無し＝不変）');
+      assert(!(BALANCE.boss.tiers || []).some((t) => t.wirearm && t.wirearm.scissorDeg), 'JAM7: 本編の wirearm に scissorDeg を入れていない');
+      assert(/if \(run\.jamMode\) \{ bigCue\(int\(cfg\.glowOuter\)\); run\.slowMotion\(0\.3, 0\.3\); \}/.test(jb4), 'JAM7: ⑦破鐘は砕けた瞬間だけスロー（ジャム版だけ）');
+      assert(C7.spires.stick && C7.spires.stick.holdSec > 0 && /function nailBurst\(b\)/.test(jb4) && /stick: opts\.stick \|\| null, stuck: false, flyT: 0/.test(jb4),
+        'JAM7: ⑧聖釘は地面に刺さって残り爆ぜる');
+      assert(C7.overlayPillar === true && /function overlayPillar\(\)/.test(jb4) && (jb4.match(/overlayPillar\(\);/g) || []).length >= 2, 'JAM7: ⑨堕天以降は鐘／鉄羽に天啓を重ねる');
+      assert(/function bigCue\(tint\)/.test(jb4) && !/cam\.zoomTo\(/.test(jb4), 'JAM7: 大技の合図は縁の色＋揺れ（カメラのズームは HUD が切れるので使わない）');
+      assert(/cause: d\.cause,/.test(jb4), 'JAM7: 弾の死因（cause）が弾そのものに付く（表示物にだけ付いていた欠陥）');
+      assert(/bs\.trueForm \|\| bs\.jamFinal/.test(ob7) && /get jamFinal\(\)/.test(jb4) && BALANCE.archetypes.SLEEPY.jamEverySec > 0 && /S\.jamEverySec/.test(ob7),
+        'JAM7: ネムッコは大聖堂戦で覚醒する（本編は真の姿のまま）');
       assert(/run\.jamSt\.choirWaves = \(run\.jamSt\.choirWaves \|\| 0\) \+ 1/.test(jb4), 'JAM4: 聖歌隊が出た回数を数える');
       assert(/function dropShards\(bossEnt, fromStep\)/.test(jbi4) && /dropShards\(e, true\);/.test(jbi4) && /if \(fromStep && run\.jamMode\)/.test(jbi4), 'JAM4: 節目落ち（ジャム版）は金の衝撃波＋スロー＋割れる音');
       const C4 = BALANCE.boss.jamTiers[0];
@@ -1508,9 +1531,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/hitRoseRays\(\)/.test(jb) && /if \(roseHit \|\| !roseAngs\) return;/.test(jb), 'JAM: 射線は何本触れても1拍1回');
     // 鎮魂の鐘：穴の向き＝光輪の欠け（haloAng）。角度は halo と tsunami で一致
     assert(C.halo && C.tsunami && C.halo.gapDeg === C.tsunami.gapDeg, 'JAM: 光輪の欠け（' + C.halo.gapDeg + '°）と波の穴が同じ角度');
-    assert(/fireTsunamiWave\(tw, shotIdx, haloAng\)/.test(jb), 'JAM: 波の穴の向きは光輪の回転角そのもの');
-    assert(/function fireTsunamiWave\(tw, w, gapOverride\)/.test(jb) && /gapOverride != null \? gapOverride : aim \+ Math\.PI/.test(jb),
-      'JAM: 本編の tsunami（穴＝主人公の背後）は不変');
+    assert(/fireTsunamiWave\(tw, shotIdx, haloAng, last \? 0 : null\)/.test(jb), 'JAM: 波の穴の向きは光輪の回転角そのもの（3波目だけ穴なし）');
+    assert(/function fireTsunamiWave\(tw, w, gapOverride, gapDegOverride\)/.test(jb) && /gapOverride != null \? gapOverride : aim \+ Math\.PI/.test(jb)
+      && /\(gapDegOverride != null \? gapDegOverride : tw\.gapDeg\) \* 0\.5 \* D2R/.test(jb),
+      'JAM: 本編の tsunami（穴＝主人公の背後・穴の角度は tw.gapDeg）は不変');
     assert(/haloAng \+= \(cathStage >= 1 \? -cfg\.halo\.spinDegP2 : -cfg\.halo\.spinDeg\) \* D2R \* dt;/.test(jb), 'JAM: 光輪は常時回る（堕天で速く）');
     // 聖歌隊：8体・その場で歌う（よろけ＝掴み放題）
     assert(C.summon.count === 8 && C.summon.holdSec >= 1.5 && /run\.enterStagger\(e\); e\.stagMax = cfg\.summon\.holdSec;/.test(jb),

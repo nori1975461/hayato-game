@@ -718,6 +718,7 @@ export const BALANCE = {
     // boonMult ＝ 配る盾／薬の**持続時間**にかかる倍率。素は1.0で、進化形（メザメガミ）が
     //   ovr で上書きする（R49W3「進化しても見た目しか変化しないのはやめて」）。
     SLEEPY: { everySec: 12, firstDelaySec: 3, healAmount: 22, boonMult: 1.0,
+              jamEverySec: 9,   // 2026-09-13 ジャム版（大聖堂戦）は9秒ごと＝140〜200秒で15〜20回。本編は everySec のまま
               kinds: ['shield', 'speed', 'heal'],
               // 寝ている姿の周期（この秒ごとに 体育座り→横になる→体育座り… と移る）
               poseSec: 4.5, yawnSec: 3.2 },
@@ -2087,7 +2088,9 @@ BALANCE.boss.jamTiers = [
     //   実プレイFB「攻撃を受けてびっくりするような攻撃がない（軌道神核のかげおい・赤いレーザーのような）」への答え。
     //   避け方＝止まらず走る（輪の半径44＋主人公。0.7秒で走れる103px＞44）。
     pillar: { telegraphSec: 0.7, count: 3, interval: 0.6, radius: 44, damage: 26, leadSec: 0.3, height: 250,
-              tint: '#ffe9a8', edgeTint: '#c9971f' },
+              tint: '#ffe9a8', edgeTint: '#c9971f',
+              lastMul: 2.0, lastTeleSec: 1.0 },   // ★決めの1瞬：3本目は半径2倍（88）・画面いっぱい。予告1.0秒＝148px 走れる＞88＋主人公
+    overlayPillar: true,   // ★堕天以降：鎮魂の鐘／鉄羽の発射と同時に天啓を1本重ねる（弾幕の上に別の攻撃）
     // ★2026-09-13 登場演出（実プレイFB「もっと荘厳さを。間・音楽・エフェクト」）：
     //   予告3.6秒＝BGM停止→暗転→低い鐘3打（打つたびに揺れと光の輪）→ 出現＝光条を背に上から降りてくる（descendSec）
     //   →着地の衝撃→**無音の間**（silenceSec）→オルガン→セリフ2行→テロップ＋白フラッシュでBGM開始。
@@ -2103,14 +2106,17 @@ BALANCE.boss.jamTiers = [
     // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで
     //   63−10＝53px、ロック後に主人公は 148×0.55＝81px 動ける。堕天以降は 20°/秒で片側へ回る。
     rose: { telegraphSec: 1.0, lockSec: 0.55, count: 8, beamWidth: 30, beamLength: 460, damage: 22,   // 2026-09-13 8本の太い光柱（白芯＋色縁・命中は beamHit）
-            activeSec: 0.5, spinDegP2: 20, petalR: 9, petalDotR: 0.95, redTint: '#ff3a4a', blueTint: '#4f7dff' },
+            activeSec: 0.5, spinDegP2: 20, petalR: 9, petalDotR: 0.95, redTint: '#ff3a4a', blueTint: '#4f7dff',
+            // ★2026-09-13 決めの1瞬：青の拍のあと8本が半枠（22.5°）薙ぐ（sweepSec）。回る向きの後ろ側が安全
+            sweepSec: 0.7, sweepFrac: 0.5 },
     // ②鎮魂の鐘：光輪の欠けの向き（常時回転 −40°/秒・堕天 −70°/秒）が穴。rx/ry＝光輪の楕円（ドット）。
     bell: { telegraphSec: 0.6 },
     halo: { spinDeg: 40, spinDegP2: 70, gapDeg: 64, rx: 19, ry: 5.5, markR: 2.2 },
     // ④鉄羽の雨：右翼を 25°（0.44rad）持ち上げ→振り下ろしながら鉄の羽根14枚を扇状に一薙ぎ（扇の端から抜ける）
     feathers: { telegraphSec: 0.9, count: 14, launchInterval: 0.05, spreadDeg: 130, leadSec: 0.55, kind: 'feather',   // 2026-09-13 羽根形（汎用カッターをやめる）
                 speed: 300, radius: 6, damage: 18, lifeSec: 1.8, spin: 14, tint: '#c8ccd6',
-                raiseRad: 0.44, downRad: 0.30, tipOx: 30, tipOy: -14 },
+                raiseRad: 0.44, downRad: 0.30, tipOx: 30, tipOy: -14,
+                bothWings: true, secondTeleSec: 0.5 },   // ★決めの1瞬：右翼のあと左翼も（逆向きの扇・予告0.5秒）
     // ⑥破鐘：1.2秒のシネマ→光輪が外れて転がる（画面端で3回跳ねる・speed 480・damage 24）→砕けて全方位弾（nova）
     crack: { cineSec: 1.2, speed: 480, damage: 24, bounces: 3, radius: 60, spinSpeed: 9, maxSec: 6,
              text: 'はしょう',   // 段階の合図は絵（光輪が外れる）＋この1語だけ。floatText は足さない（R54 の作法）
@@ -2122,20 +2128,24 @@ BALANCE.boss.jamTiers = [
             kind: 'glass', tints: ['#ffd23f', '#fff2a8'], sfx: 'glassShot' },   // 破鐘＝砕けた光輪＝金の硝子片
     // ⑦尖塔の連打：左右の塔（本体中心から ±28×scale・上へ 30×scale）から交互にバルカン。弾は藍の光弾。
     spires: { telegraphSec: 0.5, bursts: 3, perBurst: 9, sweepDeg: 16, bulletSpeed: 390, bulletRadius: 4,
-              damage: 14, lifeSec: 1.6, ox: 28, oy: -30, tint: '#d8dfe8', kind: 'nail', sfx: 'nailShot' },   // 2026-09-13 聖釘（細長い鉄釘・速い・金属音）
+              damage: 14, lifeSec: 1.6, ox: 28, oy: -30, tint: '#d8dfe8', kind: 'nail', sfx: 'nailShot',   // 2026-09-13 聖釘（細長い鉄釘・速い・金属音）
+              stick: { after: 0.45, holdSec: 1.5, burstR: 26, burstDamage: 10 } },   // ★決めの1瞬：0.45秒で地面に刺さって残り、1.5秒後に爆ぜる（置き弾）
     // ★2026-09-13 聖核（弱点）は削除（ユーザー指示「弱点は不要」）。実プレイで聖核ヒット8発（最高3240＝最大HPの36%）が
     //   HP9000を4発で削り切り、戦闘51秒＝歯ごたえ不足の主因だった。絵の上でも巨体に赤丸は合わない。
     // ②鎮魂の鐘の弾の輪（wavelord の tsunami の機構）。穴 64°＝光輪の欠け（向きは halo の回転角）。
     tsunami: { telegraphSec: 0.6, waves: 3, waveInterval: 0.45, count: 24, gapDeg: 64,
                gapSpinDeg: 40, bulletSpeed: 175, bulletRadius: 6, damage: 14, lifeSec: 2.6,
-               kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot' },   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
+               kind: 'glass', tints: ['#ff3a4a', '#4f7dff'], sfx: 'glassShot',   // 2026-09-13 硝子片（薔薇窓の赤と藍が交互に飛ぶ）
+               closeLast: true, lastRadius: 9 },   // ★決めの1瞬：3波目は穴が閉じる（全周・一回り大きい）＝弾の間を抜ける
     // ③堕天の聖歌隊＝投げ弾の供給。holdSec のあいだその場で歌う（よろけ＝掴み放題）
     // ★2026-09-13 ringRadius 70→150：等倍スクショで判明＝聖歌隊は**大聖堂の体（radius 88・絵はもっと大きい）の内側**に
     //   立っていて、巨体の模様に溶けていた。輪も光も絵の上に重なるだけで「別の物」に見えない。体の外（宇宙の黒）に立たせる。
-    summon: { count: 8, enemyId: 'cathChoir', ringRadius: 190, telegraphSec: 0.6, holdSec: 3.5 },   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
+    summon: { count: 8, enemyId: 'cathChoir', ringRadius: 190, telegraphSec: 0.6, holdSec: 3.5,
+              bladeSec: 1.0, bladeDamage: 16 },   // ★決めの1瞬：歌い終わっても投げ返されなかった聖歌隊を結ぶ線が1秒だけ刃になる   // enemyId chibit→cathChoir（専用の姿・enemies.js CATH_CHOIR）   // 2026-09-13 2.0→3.5（実プレイ5回で聖歌隊に気づけなかった＝気づいてから掴みに行ける長さに）
     // ⑤配線の鞭（maou の wirearm と同値）
     wirearm: { teleSec: 1.0, shotSec: 0.55, backSec: 0.65, maxLen: 360,
-               extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54 },
+               extendSpeed: 1450, fistRadius: 28, damage: 30, turnDeg: 54,
+               scissorDeg: 26, secondDelay: 0.3 },   // ★決めの1瞬：両腕を±26°へ開いて撃ち、追尾で挟む。左腕は0.3秒遅れ
     dash: { telegraphSec: 0.9, speed: 300, durationSec: 0.6, damage: 30 },
     ring: { telegraphSec: 0.5, count: 12, count2: 16, bulletSpeed: 190, bulletRadius: 4, damage: 14, lifeSec: 2.6 },
     idleSec: { afterSpawn: 2.5, betweenAttacks: [2.2, 2.2, 2.2, 2.2] },

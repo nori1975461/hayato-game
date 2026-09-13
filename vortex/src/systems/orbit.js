@@ -387,7 +387,9 @@ export function createOrbit(run) {
   // 現在のボスが軌道神核（真マオウレクス第4形態）か。ネムッコの覚醒条件。
   function isTrueMaou() {
     const bs = run.boss;
-    return !!(bs && bs.active && bs.trueForm);
+    // ★2026-09-13 ジャム版のラスボスは堕天の大聖堂（軌道神核は出ない）＝ネムッコが一生寝たままだった（実プレイFB
+    //   「ネムッコが機能していない」）。ジャム版では大聖堂戦（boss.jamFinal）で覚醒する。本編の判定は不変。
+    return !!(bs && bs.active && (bs.trueForm || bs.jamFinal));
   }
 
   // ボスが変わったら在庫を作り直す共通処理（AMMO と同じ作法＝持ち越しを作らない）。
@@ -456,7 +458,7 @@ export function createOrbit(run) {
     if (o.slT > 0) return;
     const first = o.slFired == null;
     if (first) { o.slFired = 0; o.slT = OV(o, S, 'firstDelaySec'); return; }
-    o.slT = OV(o, S, 'everySec');
+    o.slT = (run.jamMode && S.jamEverySec) || OV(o, S, 'everySec');   // 2026-09-13 ジャム版は間隔を詰める（大聖堂戦140〜200秒で15〜20回）
     o.slFired++;
     const kind = run.rng.pick(S.kinds);
     if (kind === 'shield') {
