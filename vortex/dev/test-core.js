@@ -1705,8 +1705,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && rm(lens.gods) >= 3000,
         'JAM21: 時刻表は語りの文字数から積み上げる（行が読み切れる前に次へ進まない）');
       assert(!/[ぁ-ん]{2,} [ぁ-ん]{2,} [ぁ-ん]{2,}/.test(TXs) && /四柱の神/.test(TXs) && /祈り届かぬ者へ裁きを/.test(TXs)
-        && /k: '掴む→溜める→投げる'/.test(jo) && /\$\{VERDICTS\.length\}種類の「裁き」/.test(jo) && !/32しゅるい/.test(jo),
-        'JAM21: 語りとカードは漢字まじり（分かち書きのひらがなをやめる）・裁きの数は VERDICTS から');
+        && /k: '掴む→溜める→投げる'/.test(jo) && /裁きは\$\{VERDICTS\.length\}種類/.test(jo) && !/32しゅるい/.test(jo)
+        && /judge: '倒しても倒されても「裁き」がきみを待つ'/.test(jo) && !/種類の「裁き」が君を待つ/.test(jo),
+        'JAM21: 語りとカードは漢字まじり・裁きの数は VERDICTS から・カードの「33種類の裁きが君を待つ」は削除し前の画面で「倒しても倒されても「裁き」がきみを待つ」（2026-09-15 指示）');
     }
     assert(/glimpse\(roles, peak\)/.test(jo) && /img\._reveal = true;/.test(jo) && /r\.role === 'dome'\) continue;/.test(jo)
       && /this\.glimpse\(\['wingL', 'wingR'\], 0\.75\)/.test(jo) && /this\.glimpse\(\['armL', 'armR', 'legL'\]\)/.test(jo)

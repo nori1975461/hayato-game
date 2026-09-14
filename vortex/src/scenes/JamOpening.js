@@ -61,7 +61,7 @@ const TX = {
   line: '「祈り届かぬ者へ裁きを」',
   mobits: 'ひとりじゃない　モビットが共に戦う',
   concept: '掴んで投げろ！\n神に挑め！',
-  judge: '倒しても倒れても神が君を裁く',
+  judge: '倒しても倒されても「裁き」がきみを待つ',
 };
 const judgeLastText = () => `裁きは${VERDICTS.length}種類　君は何番目？`;
 // ★2026-09-14 ユーザーFB「表示が速く、消えるのも早い＝急いで読まないといけない」。旧版は打ち終わってから 0.5 秒で
@@ -551,14 +551,12 @@ export class JamOpeningScene extends Phaser.Scene {
     this.tweens.add({ targets: capT, scale: 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.add.text(kx, ky + 34, '投げ返せ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
 
-    this.add.text(cx, 288, `倒しても倒れても${VERDICTS.length}種類の「裁き」が君を待つ`, {
-      fontFamily: 'monospace', fontSize: '12px', color: PALE_S,
-    }).setOrigin(0.5).setDepth(D_TEXT);
-    const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で始める', {
+    // ★2026-09-15 ユーザー指示：カードの裁きの数の一行は削除（ひとつ前の画面で言う）
+    const prompt = this.add.text(cx, 302, '▶ SPACE ／ J ／ クリック で始める', {
       fontFamily: 'monospace', fontSize: '16px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(D_TEXT);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 620, yoyo: true, repeat: -1 });
-    this.add.text(cx, 342, '死んだらそのままもう一度　ボスのHPには前回の傷跡が残る', {
+    this.add.text(cx, 330, '死んだらそのままもう一度　ボスのHPには前回の傷跡が残る', {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 
