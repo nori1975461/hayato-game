@@ -74,7 +74,14 @@ async function main() {
   // --- 本編：通しで見る（時刻表どおりに撮る） ---
   await ev("(function(){var g=window.__vortexGame;g.scene.stop('Run');g.scene.start('JamOpening');return true;})()");
   const t0 = Date.now();
-  const plan = [[3300, '01-gods'], [5300, '02-one'], [6500, '03-descend'], [7200, '04-name'], [9000, '05-line'], [9900, '06-hero'], [10800, '07-eyes'], [12400, '08-mobits'], [13000, '09-grab'], [13900, '10-charge'], [14650, '11-throw'], [15500, '12-hit'], [16400, '13-concept'], [21000, '14-judge'], [22200, '15-card']];
+  // 2026-09-14 時刻表はシーンが文字数から組む（JamOpening.plan）＝ここは読むだけ。一瞬の姿（glimpse）は点いて 45〜215ms の間に撮る。
+  let P = null;
+  for (let i = 0; i < 40 && !P; i++) { P = JSON.parse(await ev("JSON.stringify((window.__vortexGame.scene.getScene('JamOpening')||{}).plan||null)") || 'null'); if (!P) await sleep(25); }
+  console.log('PLAN', JSON.stringify(P));
+  const plan = [[P.one - 300, '01-gods'], [P.descend - 300, '02-one'], [P.land + 110, '03-glimpse-wings'], [P.land + 1100, '04-name'],
+    [P.glimpseArms - 250, '05-line'], [P.glimpseArms + 110, '05b-glimpse-arms'], [P.hero + 400, '06-hero'], [P.eyes + 700, '07-eyes'],
+    [P.grab - 300, '08-mobits'], [P.grab + 300, '09-grab'], [P.charge + 400, '10-charge'], [P.throw + 250, '11-throw'],
+    [P.hit + 110, '12-hit-glimpse'], [P.concept + 1200, '13-concept'], [P.card - 300, '14-judge'], [P.card + 700, '15-card']];
   for (const [ms, name] of plan) { const w = t0 + ms - Date.now(); if (w > 0) await sleep(w); await shot(name); }
   const cardInfo = await ev(OPEN);
   await key(' ', 'Space');

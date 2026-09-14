@@ -45,13 +45,32 @@ const PART_ORIGIN = { armR: [0.5, 0.12], armL: [0.5, 0.12], legL: [0.5, 0.1] };
 const CATH_SCALE = 3.0;   // 本番 6.2 だと画面の高さを超える（尖塔〜配線で約 60 行）。黒帯（上下 40px）の内側に収まる大きさ＝スクショで確認。
 
 // 操作カード。J は Run.js の `this._jKey = kb.addKey(KC.J)`（左クリックの代替）と同じ。SPACE は切り札。
+// ★2026-09-14 ユーザーFB「ひらがなばかりで読みづらい。通常漢字にする言葉は漢字に」→ ジャム版は漢字まじり（評価者は大人・Result と同じ方針）。
 const CARD_LINES = [
-  { k: 'うごく', v: 'やじるしキー ／ WASD' },
-  { k: 'つかむ→ためる→なげる', v: 'J キー を おす → おしつづける → はなす　（ひだりクリックでも）' },
-  { k: 'きりふだ', v: 'SPACE' },
+  { k: '動く', v: '矢印キー ／ WASD' },
+  { k: '掴む→溜める→投げる', v: 'J キーを押す → 押し続ける → 離す　（左クリックでも）' },
+  { k: '切り札', v: 'SPACE' },
   // capture.js onEnemyKilled＝撃破したマキナがコアを落とし、拾うとモビットが仲間になる（ミニロボは除く）
-  { k: 'モビット', v: 'たおした マキナが おとす コアを ひろうと、なかまに なる' },
+  { k: 'モビット', v: '倒したマキナが落とすコアを拾うと、仲間になる' },
 ];
+// 語り（字幕）。時刻表は文字数から組む＝文言を直しても読む時間が崩れない。
+const TX = {
+  gods: '金属生命体マキナには、四柱の神がいる。',
+  one: 'その一柱が、いま、降りてくる。',
+  name: '堕天の大聖堂',
+  line: '「祈り届かぬ者へ、裁きを」',
+  mobits: 'ひとりじゃない。モビットが、共に戦う。',
+  concept: '掴んで投げろ！\n神に挑め！',
+  judge: '倒しても、倒れても、神が君を裁く。',
+};
+const judgeLastText = () => `裁きは${VERDICTS.length}種類。君は、何番目？`;
+// ★2026-09-14 ユーザーFB「表示が速く、消えるのも早い＝急いで読まないといけない」。旧版は打ち終わってから 0.5 秒で
+//   消える行があった（四柱の神：打ち終わり 3.3 秒・消去 3.8 秒）。1文字 70→90ms、行は打ち始めから
+//   「1秒4文字」（映画字幕の目安）以上かつ打ち終わってから 1.6 秒以上残す。
+const CHAR_MS = 90;
+const readMs = (s) => Math.max(s.length * 250, s.length * CHAR_MS + 1600);
+const GODS_TEXT_DELAY = 1100, LAND_MS = 1400, NAME_HOLD = 1500, MOBIT_TEXT_DELAY = 300;
+const KEY_HOLD = 1000, VERB_GAP = 1300, CONCEPT_HOLD = 2000, JUDGE_ROWS_AT = 2300, JUDGE_LAST_AT = 3900;
 // 暗がりから歩み出すモビット（Title の隊列と同じ 4 体・monsters.js の id）。主人公の左後ろ→前へ並ぶ。
 const MOBITS = [
   { key: 'mon_togeron', dx: -104 },
@@ -116,19 +135,35 @@ export class JamOpeningScene extends Phaser.Scene {
   playSequence() {
     // ★2026-09-13 FB「説明が読み取れない。文字が速い・重なっている」→ 1文字 42→70ms・各行を読み切る間を取る・
     //   前の行は必ず消してから次を打つ（beatOne が消し忘れて 2 行が同じ y に重なっていた）。尺 16→21 秒。
-    this.seq(200, () => this.beatGods());        // 四柱の神（本文 29 文字＝約 2.0 秒）
-    this.seq(3800, () => this.beatOne());        // そのひとつが（19 文字）
-    this.seq(5600, () => this.beatDescend());    // 影絵の降臨・名乗り
-    this.seq(7400, () => this.beatLine());       // 「いのりとどかぬものへ、さばきを」（18 文字・9.2 秒まで読める）
-    this.seq(9400, () => this.beatHero());       // 主人公ひとり
-    this.seq(10100, () => this.beatMobitEyes()); // 暗がりに目が点く
-    this.seq(11000, () => this.beatMobitsIn());  // モビットが歩み出る「ひとりじゃない」（22 文字・13.0 秒まで）
-    this.seq(12600, () => this.verbGrab());      // J を おす → つかむ
-    this.seq(13500, () => this.verbCharge());    // おしつづける → ためる
-    this.seq(14400, () => this.verbThrow());     // はなす → なげる！（モビットも突っ込む）
-    this.seq(15800, () => this.beatConcept());   // 「つかんで なげろ！／かみに いどめ！」
-    this.seq(17400, () => this.beatJudge());     // 32 の裁き（3 行＝約 4 秒）
-    this.seq(21600, () => this.showCard(false)); // 操作カード
+    // ★2026-09-14 時刻は文字数から積み上げる（readMs）。this.plan は撮影スクリプトが読む。
+    const P = this.plan = {};
+    const at = (name, ms, fn) => { P[name] = ms; this.seq(ms, fn); };
+    let t = 200;
+    at('gods', t, () => this.beatGods());                      // 四柱の神
+    t += GODS_TEXT_DELAY + readMs(TX.gods);
+    at('one', t, () => this.beatOne());                        // その一柱が
+    t += readMs(TX.one);
+    at('descend', t, () => this.beatDescend());                // 影絵の降臨・名乗り（着地の光で翼が浮かぶ）
+    P.land = t + LAND_MS;
+    t += LAND_MS + 180 + NAME_HOLD + 300 + 100;                // 名乗りが消えてから次の行（同じ高さで重ねない）
+    at('line', t, () => this.beatLine());                      // 大聖堂の声（腕と配線が浮かぶ）
+    P.glimpseArms = t + readMs(TX.line) - 1400;
+    t += readMs(TX.line) + 300;
+    at('hero', t, () => this.beatHero());                      // 主人公ひとり
+    at('eyes', t + 700, () => this.beatMobitEyes());           // 暗がりに目が点く
+    at('mobits', t + 1600, () => this.beatMobitsIn());         // モビットが歩み出る
+    t += 1600 + MOBIT_TEXT_DELAY + readMs(TX.mobits);
+    at('grab', t, () => this.verbGrab());                      // J を押す → 掴む
+    at('charge', t + VERB_GAP, () => this.verbCharge());       // 押し続ける → 溜める
+    at('throw', t + VERB_GAP * 2, () => this.verbThrow());     // 離す → 投げる！（命中で身廊と薔薇窓が浮かぶ）
+    P.hit = t + VERB_GAP * 2 + 420;
+    t += VERB_GAP * 2 + 1900;
+    at('concept', t, () => this.beatConcept());                // 掴んで投げろ！／神に挑め！
+    t += 180 + CONCEPT_HOLD + 300 + 100;
+    at('judge', t, () => this.beatJudge());                    // 裁き
+    P.judgeLast = t + JUDGE_LAST_AT;
+    t += JUDGE_LAST_AT + readMs(judgeLastText());
+    at('card', t, () => this.showCard(false));                 // 操作カード
   }
 
   // =============== 幕1 四柱の神 ===============
@@ -146,7 +181,7 @@ export class JamOpeningScene extends Phaser.Scene {
         this.tweens.add({ targets: g, scale: 2.2, duration: 380, ease: 'Cubic.out' });
       });
     });
-    this.typeText(this.W / 2, 208, 'きんぞくせいめいたい マキナには、よはしらの かみが いる。', PALE_S, 14, 1100);
+    this.typeText(this.W / 2, 208, TX.gods, PALE_S, 14, GODS_TEXT_DELAY);
   }
 
   // =============== 幕2 そのひとつが ===============
@@ -161,7 +196,7 @@ export class JamOpeningScene extends Phaser.Scene {
     this.sfx('bellToll', 1.0, 0.7);
     this.tweens.add({ targets: one.r, x: this.W / 2, y: 60, scale: 2.4, duration: 700, ease: 'Cubic.inOut' });
     this.tweens.add({ targets: one.g, x: this.W / 2, y: 60, scale: 4.5, alpha: 0.7, duration: 700, ease: 'Cubic.inOut' });
-    this.typeText(this.W / 2, 208, 'その ひとはしらが、いま、おりてくる。', PALE_S, 14, 0);
+    this.typeText(this.W / 2, 208, TX.one, PALE_S, 14, 0);
   }
 
   // =============== 幕3 降臨・名乗り ===============
@@ -187,17 +222,18 @@ export class JamOpeningScene extends Phaser.Scene {
     //   着地は 1.4 秒かけて降りる（登場演出の「降りてくる」と同じ向き）。
     this.cath = this.buildShadow(cx, cy - 260, CATH_SCALE);
     this.cathHome = { x: cx, y: cy };
-    const all = this.cath.parts.concat([this.cath.glowP, this.cath.glowM, this.cath.eye, this.cath.eyeCore]);
-    this.tweens.add({ targets: all, y: '+=260', duration: 1400, ease: 'Cubic.out' });
-    this.seq(1400, () => {
+    this.tweens.add({ targets: this.cathAll(), y: '+=260', duration: LAND_MS, ease: 'Cubic.out' });
+    this.seq(LAND_MS, () => {
       this.sfx('cathLand', 1.0);
       this.cameras.main.shake(260, 0.006);
       this.flash(0.30, GOLD);
+      // 一瞬目：翼だけ（鉄羽の雨）。尖塔まで点けると体の6割が浮かび「少しだけ」を超えた（撮影で確認）
+      this.glimpse(['wingL', 'wingR'], 0.75);
       // 着地で単眼が点く（生きている一点）
       this.tweens.add({ targets: this.cath.eye, alpha: 0.9, scale: 0.9, duration: 220, ease: 'Cubic.out' });
       this.tweens.add({ targets: this.cath.eyeCore, alpha: 1, duration: 160 });
       this.tweens.add({ targets: this.cath.eye, scale: 1.1, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: 220 });
-      this.stamp('だてんの だいせいどう', cx, 292, GOLD_S, 30, 900);
+      this.stamp(TX.name, cx, 292, GOLD_S, 30, NAME_HOLD);
     });
   }
 
@@ -229,22 +265,53 @@ export class JamOpeningScene extends Phaser.Scene {
       fog._role = 'fog';
       parts.push(fog);
     }
+    // ★2026-09-14 ユーザーFB「影絵で、プレーヤーに少しだけ情報開示する見せ方を」→ **光の一瞬だけ、部位ごとに本当の姿が浮かぶ**。
+    //   霧より前に本物の色の複製を alpha 0 で重ね、鐘・声・命中の一拍で 0.2 秒だけ点けて闇へ戻す（glimpse）。
+    //   全身は一度も揃わない＝全体像は本番の降臨まで取っておく（FB「出現時のドキドキ感」）。見せる部位は本番の攻撃の予告：
+    //   着地＝翼と尖塔（鉄羽の雨・尖塔の連打）／声＝腕と配線（配線の鞭＝振り香炉）／命中＝身廊と薔薇窓（薔薇窓の裁き・当てる場所）。
+    const reveal = [];
+    for (const r of CATHEDRAL.rig) {
+      const key = `boss_${CATHEDRAL.id}_${r.tex}`;
+      if (!this.textures.exists(key) || r.role === 'dome') continue;
+      const o = r.origin || PART_ORIGIN[r.role] || [0.5, 0.5];
+      const img = this.reg(this.add.image(x + r.ox * s, y + r.oy * s, key).setOrigin(o[0], o[1])
+        .setScale(r.mirror ? -s : s, s).setDepth(D_BOSS + 7.5 + (PART_DEPTH[r.role] || 2) * 0.01).setAlpha(0));
+      img._role = r.role; img._reveal = true;
+      reveal.push(img);
+    }
     const ey = y - 13 * s;
     const eye = this.reg(this.add.image(x, ey, 'glow').setBlendMode(ADD).setTint(0xffffff).setScale(0.3).setAlpha(0).setDepth(D_BOSS + 8));
     const eyeCore = this.reg(this.add.image(x, ey, 'spark').setTint(0xffffff).setScale(1.2).setAlpha(0).setDepth(D_BOSS + 9));
-    return { parts, glowP, glowM, eye, eyeCore };
+    return { parts, reveal, glowP, glowM, eye, eyeCore };
   }
 
   cathAll() {
     const c = this.cath;
-    return c ? c.parts.concat([c.glowP, c.glowM, c.eye, c.eyeCore]) : [];
+    return c ? c.parts.concat(c.reveal, [c.glowP, c.glowM, c.eye, c.eyeCore]) : [];
+  }
+
+  // 光の一瞬：指定の部位だけ本物の色で浮かび、闇へ戻る（45ms で点き・170ms 保ち・520ms で沈む）。
+  glimpse(roles, peak) {
+    const c = this.cath;
+    if (!c) return;
+    for (const o of c.reveal) {
+      if (!o.active || !roles.includes(o._role)) continue;
+      o.setAlpha(0);
+      this.tweens.add({ targets: o, alpha: peak || 0.9, duration: 45, ease: 'Quad.out' });
+      this.tweens.add({ targets: o, alpha: 0, duration: 520, delay: 215, ease: 'Cubic.in' });
+    }
   }
 
   // =============== 幕4 大聖堂の声 ===============
   beatLine() {
     this.sfx('choirChord', 0.7, 0.9);
-    this.typeText(this.W / 2, 300, '「いのり とどかぬ ものへ、さばきを」', CRIMSON_S, 15, 0);
-    this.seq(900, () => this.sfx('haloCrack', 0.5, 1.1));
+    this.typeText(this.W / 2, 300, TX.line, CRIMSON_S, 15, 0);
+    // 声を読み終えた頃に二瞬目：腕と配線（配線の鞭＝振り香炉）。深紅の光で照らす
+    this.seq(readMs(TX.line) - 1400, () => {
+      this.sfx('haloCrack', 0.5, 1.1);
+      this.flash(0.18, CRIMSON);
+      this.glimpse(['armL', 'armR', 'legL']);
+    });
   }
 
   // =============== 幕5 主人公ひとり ===============
@@ -292,7 +359,7 @@ export class JamOpeningScene extends Phaser.Scene {
         this.tweens.add({ targets: [m.eyeL, m.eyeR], alpha: 0, duration: 200 });
       });
     });
-    this.typeText(this.W / 2, 306, 'ひとりじゃない。モビットが、ともに たたかう。', PALE_S, 14, 300);
+    this.typeText(this.W / 2, 306, TX.mobits, PALE_S, 14, MOBIT_TEXT_DELAY);
     // 手前のマキナ1体（本番の雑魚と同じ絵）。右から歩いてくる＝掴む相手。
     this.seq(500, () => {
       this.prey = this.reg(this.add.image(560, this.heroY, 'enemy_gareon').setScale(2.4).setDepth(D_MOB));
@@ -304,10 +371,11 @@ export class JamOpeningScene extends Phaser.Scene {
   // 動詞①「J を おす → つかむ」
   verbGrab() {
     this.sfx('capture', 0.9);
+    this.clearTexts();   // 語りを読み終えてから手順へ（読む行と動く絵を同時に追わせない）
     if (!this.prey) return;
     this.preyEye.setVisible(false);
     this.tweens.add({ targets: this.prey, x: this.heroX + 28, y: this.heroY - 46, scale: 2.2, duration: 300, ease: 'Quart.in' });
-    this.keyStamp('J', 'を おす', 'つかむ', CYAN_S, CYAN);
+    this.keyStamp('J', 'を押す', '掴む', CYAN_S, CYAN);
     this.ripple(this.heroX + 28, this.heroY - 40, CYAN, D_HERO - 2);
   }
 
@@ -324,13 +392,13 @@ export class JamOpeningScene extends Phaser.Scene {
         ease: 'Cubic.in', onComplete: () => r.active && r.destroy() });
     }
     if (this.heroGlow) this.tweens.add({ targets: this.heroGlow, scale: 2.4, alpha: 0.8, duration: 300 });
-    this.keyStamp('J', 'おしつづける', 'ためる', YELLOW_S, YELLOW);
+    this.keyStamp('J', '押し続ける', '溜める', YELLOW_S, YELLOW);
   }
 
   // 動詞③「はなす → なげる！」＝影の薔薇窓（単眼）へ。同じ瞬間にモビットも突っ込む＝共闘の1カット。
   verbThrow() {
     this.sfx('throwHeavy', 1.0);
-    this.keyStamp('J', 'はなす', 'なげる！', EMBER_S, EMBER);
+    this.keyStamp('J', '離す', '投げる！', EMBER_S, EMBER);
     if (!this.prey || !this.cath) return;
     const ball = this.prey;
     const tx = this.cathHome.x, ty = this.cathHome.y - 13 * CATH_SCALE;   // 薔薇窓（rig rack: oy −13）＝単眼の位置
@@ -371,6 +439,7 @@ export class JamOpeningScene extends Phaser.Scene {
       this.sfx('crushBoom', 1.0, 1.1);
       this.cameras.main.shake(220, 0.010);
       this.flash(0.28, CRIMSON);
+      this.glimpse(['body', 'rack', 'core']);   // 三瞬目：身廊と薔薇窓（薔薇窓の裁き・当てる場所）
       this.burst(tx, ty, CRIMSON, 12, D_TEXT - 1);
       this.burst(tx, ty, GOLD, 8, D_TEXT - 1);
       this.ripple(tx, ty, CRIMSON, D_TEXT - 2);
@@ -396,21 +465,21 @@ export class JamOpeningScene extends Phaser.Scene {
     // ★2026-09-13 ユーザー指定の文言（「かみを、なげかえせ。」から差し替え）
     // モビットは薔薇窓の下（y≈170〜200）に集まったままなので、その帯を避けて主人公の高さに置く（前の行は消す）
     this.clearTexts();
-    this.stamp('つかんで なげろ！\nかみに いどめ！', this.W / 2 + 12, 262, GOLD_S, 30, 1300);
+    this.stamp(TX.concept, this.W / 2 + 12, 262, GOLD_S, 30, CONCEPT_HOLD);
   }
 
   // =============== 幕7 32 の裁き ===============
   beatJudge() {
     this.clearTexts();
-    const fadeOut = this.cathAll().concat([this.hero, this.heroGlow]).concat(this.rays || [])
+    const fadeOut = this.cathAll().filter((o) => !o._reveal).concat([this.hero, this.heroGlow]).concat(this.rays || [])
       .concat((this.mobits || []).flatMap((m) => [m.spr, m.glow]));
     for (const o of fadeOut) if (o && o.active) this.tweens.add({ targets: o, alpha: 0.10, duration: 500 });
-    this.typeText(this.W / 2, 92, 'たおしても、たおれても、かみが きみを さばく。', PALE_S, 14, 0);
+    this.typeText(this.W / 2, 92, TX.judge, PALE_S, 14, 0);
     SAMPLE_VERDICTS.forEach((id, i) => {
       const v = VERDICTS.find((x) => x.id === id);
       if (!v) return;
       const t = tierOf(v.rank);
-      this.seq(900 + i * 420, () => {
+      this.seq(JUDGE_ROWS_AT + i * 420, () => {
         this.sfx('bellToll', 0.45, 1.2 + i * 0.15);
         const y = 150 + i * 34;
         const rank = this.reg(this.add.text(this.W / 2 - 150, y, `第${v.rank}位 ${t.name}`, {
@@ -423,7 +492,7 @@ export class JamOpeningScene extends Phaser.Scene {
         this._texts.push(rank, title);
       });
     });
-    this.seq(2300, () => this.typeText(this.W / 2, 276, `さばきは ${VERDICTS.length} しゅるい。きみは、なんばんめ？`, GOLD_S, 16, 0));
+    this.seq(JUDGE_LAST_AT, () => this.typeText(this.W / 2, 276, judgeLastText(), GOLD_S, 16, 0));
   }
 
   // =============== 操作カード（スキップしてもここは必ず通る） ===============
@@ -447,7 +516,7 @@ export class JamOpeningScene extends Phaser.Scene {
     this.add.text(cx, 40, 'クルット・モビット', {
       fontFamily: 'monospace', fontSize: '26px', color: '#ffd76a', fontStyle: 'bold', stroke: '#2a1408', strokeThickness: 5,
     }).setOrigin(0.5).setDepth(D_TEXT);
-    this.add.text(cx, 70, '1かい 2ふん ・ ボスは 1たい ・ だてんの だいせいどう', {
+    this.add.text(cx, 70, '1回2分 ・ ボスは1体 ・ 堕天の大聖堂', {
       fontFamily: 'monospace', fontSize: '13px', color: GOLD_S,
     }).setOrigin(0.5).setDepth(D_TEXT);
 
@@ -455,7 +524,7 @@ export class JamOpeningScene extends Phaser.Scene {
     const panel = this.add.graphics().setDepth(D_TEXT - 1);
     panel.fillStyle(0x0d1226, 0.85); panel.fillRoundedRect(40, 92, this.W - 80, 178, 8);
     panel.lineStyle(1, 0x45588a, 0.9); panel.strokeRoundedRect(40, 92, this.W - 80, 178, 8);
-    this.add.text(60, 106, 'そうさ', { fontFamily: 'monospace', fontSize: '13px', color: '#8ea3d4' }).setOrigin(0, 0.5).setDepth(D_TEXT);
+    this.add.text(60, 106, '操作', { fontFamily: 'monospace', fontSize: '13px', color: '#8ea3d4' }).setOrigin(0, 0.5).setDepth(D_TEXT);
     const ys = [132, 162, 210, 244];
     CARD_LINES.forEach((l, i) => {
       const big = i === 1, mob = i === 3;
@@ -477,16 +546,16 @@ export class JamOpeningScene extends Phaser.Scene {
     cap.lineStyle(2, 0x36e0ff, 1); cap.strokeRoundedRect(kx - 22, ky - 22, 44, 44, 6);
     const capT = this.add.text(kx, ky, 'J', { fontFamily: 'monospace', fontSize: '28px', color: CYAN_S, fontStyle: 'bold' }).setOrigin(0.5).setDepth(D_TEXT + 1);
     this.tweens.add({ targets: capT, scale: 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.add.text(kx, ky + 34, 'なげかえせ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
+    this.add.text(kx, ky + 34, '投げ返せ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
 
-    this.add.text(cx, 288, 'たおしても たおれても、32しゅるいの「さばき」が きみを まつ。', {
+    this.add.text(cx, 288, `倒しても倒れても、${VERDICTS.length}種類の「裁き」が君を待つ。`, {
       fontFamily: 'monospace', fontSize: '12px', color: PALE_S,
     }).setOrigin(0.5).setDepth(D_TEXT);
-    const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で はじめる', {
+    const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で始める', {
       fontFamily: 'monospace', fontSize: '16px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(D_TEXT);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 620, yoyo: true, repeat: -1 });
-    this.add.text(cx, 342, 'しんだら、そのまま もういちど。ボスの HP には まえの きずあとが のこる。', {
+    this.add.text(cx, 342, '死んだら、そのままもう一度。ボスのHPには前回の傷跡が残る。', {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 
@@ -513,7 +582,7 @@ export class JamOpeningScene extends Phaser.Scene {
   }
 
   // =============== 局所ヘルパ ===============
-  // 1文字ずつ（70ms＝会話の 42ms より遅い。初見の他人が読む速さ・3文字ごとに打鍵音）。delay 後に打ち始める。
+  // 1文字ずつ（CHAR_MS＝90ms。漢字まじりで1文字の情報が増えたぶん遅く・3文字ごとに打鍵音）。delay 後に打ち始める。
   typeText(x, y, str, color, size, delay) {
     this._texts = this._texts || [];
     const t = this.reg(this.add.text(x, y, '', {
@@ -521,7 +590,7 @@ export class JamOpeningScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(D_TEXT));
     this._texts.push(t);
     for (let i = 1; i <= str.length; i++) {
-      this.seq(delay + i * 70, () => {
+      this.seq(delay + i * CHAR_MS, () => {
         if (!t.active) return;
         t.setText(str.slice(0, i));
         if (i % 3 === 0) this.sfx('talkTick');
@@ -546,8 +615,9 @@ export class JamOpeningScene extends Phaser.Scene {
   }
   // 動詞スタンプ＝キー（枠つき）＋動作＋動詞。3つとも同じ位置に順に出して「1本の手順」に見せる。
   keyStamp(key, act, verb, colorS, colorI) {
-    // y は主人公の頭上より高い 132（モビットが薔薇窓の下 y≈170〜200 に集まるので、その帯より上に置く＝「なげる！」が隠れない）
-    const x = this.heroX + 150, y = this.heroY - 134;
+    // ★2026-09-14 y 132 だと命中の一瞬（薔薇窓が浮かぶ）に「投げる！」が重なって隠した → 語りの行だった画面下（y 304）へ。
+    //   語りは verbGrab で消してあるので空いている。モビットの着地（y≈160〜190）とも離れる。
+    const x = this.heroX + 150, y = this.H - 56;
     const cap = this.reg(this.add.graphics().setDepth(D_TEXT));
     cap.fillStyle(colorI, 0.18); cap.fillRoundedRect(x - 90, y - 15, 30, 30, 5);
     cap.lineStyle(2, colorI, 1); cap.strokeRoundedRect(x - 90, y - 15, 30, 30, 5);
@@ -558,7 +628,7 @@ export class JamOpeningScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setScale(1.5).setAlpha(0).setDepth(D_TEXT));
     this.tweens.add({ targets: v, scale: 1, alpha: 1, duration: 140, ease: 'Back.easeOut' });
     const all = [cap, k, a, v];
-    this.tweens.add({ targets: all, alpha: 0, duration: 220, delay: 620, onComplete: () => all.forEach((o) => o.active && o.destroy()) });
+    this.tweens.add({ targets: all, alpha: 0, duration: 220, delay: KEY_HOLD, onComplete: () => all.forEach((o) => o.active && o.destroy()) });
   }
   flash(alpha, colorInt) {
     const a = Math.min(0.45, alpha);

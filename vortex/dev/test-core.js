@@ -1556,9 +1556,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/import \{ JamOpeningScene \} from '\.\/scenes\/JamOpening\.js'/.test(jm) && /scene: \[BootScene, OpeningScene, JamOpeningScene, TitleScene/.test(jm),
       'JAM12: JamOpening が main.js の scene 一覧にある');
     assert(!/JamOpening|jamRun/.test(jr('scenes/Opening.js')), 'JAM12: 本編の Opening.js はジャム版を知らない（不変）');
-    assert(/this\._jKey = kb\.addKey\(KC\.J\)/.test(jrun) && /J キー を おす/.test(jo) && /'J', 'を おす', 'つかむ'/.test(jo)
-      && /'J', 'おしつづける', 'ためる'/.test(jo) && /'J', 'はなす', 'なげる！'/.test(jo), 'JAM12: 教える鍵は実装と同じ J（Run._jKey）＝つかむ→ためる→なげる の3段');
-    assert(/ひだりクリック/.test(jo) && /k: 'きりふだ', v: 'SPACE'/.test(jo) && /やじるしキー ／ WASD/.test(jo), 'JAM12: 左クリック・SPACE（切り札）・矢印/WASD もカードに書いてある');
+    assert(/this\._jKey = kb\.addKey\(KC\.J\)/.test(jrun) && /J キーを押す/.test(jo) && /'J', 'を押す', '掴む'/.test(jo)
+      && /'J', '押し続ける', '溜める'/.test(jo) && /'J', '離す', '投げる！'/.test(jo), 'JAM12: 教える鍵は実装と同じ J（Run._jKey）＝つかむ→ためる→なげる の3段');
+    assert(/左クリック/.test(jo) && /k: '切り札', v: 'SPACE'/.test(jo) && /矢印キー ／ WASD/.test(jo), 'JAM12: 左クリック・SPACE（切り札）・矢印/WASD もカードに書いてある');
     assert(!/Math\.random\(/.test(jo) && !/^import Phaser/m.test(jo) && /const Phaser = window\.Phaser;/.test(jo) && /Math\.min\(0\.45, alpha\)/.test(jo),
       'JAM12: Math.random 禁止・window.Phaser・白閃 ≤ 0.45');
     // ★2026-09-13 FB3「操作の説明は読み切れない→押すまで表示」＝自動開始のタイマーを持たない
@@ -1689,9 +1689,30 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     // ★2026-09-13 FB「影絵をもっとわかりにくく／文字が速い・重なる／文言」＝黒い霧・70ms/文字・beatOne は前の行を消す・指定の文言
     assert(/makeFogTexture\(\)/.test(jo) && /'jam_fog'/.test(jo) && /_role = 'fog'/.test(jo),
       'JAM12: 影絵は黒い霧（jam_fog）で体を沈める＝光輪と単眼だけが読める');
-    assert(/delay \+ i \* 70,/.test(jo), 'JAM12: オープニングの文字は 70ms/文字（会話の 42ms より遅い＝初見が読める速さ）');
+    // ★2026-09-14 JAM21（FB「ひらがなばかり／速くて消えるのも早い／影絵で少しだけ情報開示」）
+    assert(/delay \+ i \* CHAR_MS,/.test(jo) && /const CHAR_MS = 90;/.test(jo)
+      && /const readMs = \(s\) => Math\.max\(s\.length \* 250, s\.length \* CHAR_MS \+ 1600\);/.test(jo),
+      'JAM21: 文字は 90ms/文字・各行は「1秒4文字」以上かつ打ち終わりから 1.6 秒以上残す');
+    {
+      const TXs = (jo.match(/const TX = \{[\s\S]*?\n\};/) || [''])[0];
+      const lens = {};
+      for (const m of TXs.matchAll(/(\w+): '([^']+)'/g)) lens[m[1]] = m[2].length;
+      const rm = (n) => Math.max(n * 250, n * 90 + 1600);
+      assert(['gods', 'one', 'line', 'mobits', 'judge'].every((k) => lens[k] > 0)
+        && /t \+= GODS_TEXT_DELAY \+ readMs\(TX\.gods\);/.test(jo) && /t \+= readMs\(TX\.one\);/.test(jo)
+        && /t \+= 1600 \+ MOBIT_TEXT_DELAY \+ readMs\(TX\.mobits\);/.test(jo) && /t \+= JUDGE_LAST_AT \+ readMs\(judgeLastText\(\)\);/.test(jo)
+        && rm(lens.gods) >= 4000,
+        'JAM21: 時刻表は語りの文字数から積み上げる（行が読み切れる前に次へ進まない）');
+      assert(!/[ぁ-ん]{2,} [ぁ-ん]{2,} [ぁ-ん]{2,}/.test(TXs) && /四柱の神/.test(TXs) && /祈り届かぬ者へ、裁きを/.test(TXs)
+        && /k: '掴む→溜める→投げる'/.test(jo) && /\$\{VERDICTS\.length\}種類の「裁き」/.test(jo) && !/32しゅるい/.test(jo),
+        'JAM21: 語りとカードは漢字まじり（分かち書きのひらがなをやめる）・裁きの数は VERDICTS から');
+    }
+    assert(/glimpse\(roles, peak\)/.test(jo) && /img\._reveal = true;/.test(jo) && /r\.role === 'dome'\) continue;/.test(jo)
+      && /this\.glimpse\(\['wingL', 'wingR'\], 0\.75\)/.test(jo) && /this\.glimpse\(\['armL', 'armR', 'legL'\]\)/.test(jo)
+      && /this\.glimpse\(\['body', 'rack', 'core'\]\)/.test(jo) && /filter\(\(o\) => !o\._reveal\)/.test(jo),
+      'JAM21: 影絵は光の一瞬だけ部位ごとに本当の姿（翼と尖塔→腕と配線→身廊と薔薇窓）・全身は揃わない・裁きの幕で透けない');
     assert(/beatOne\(\) \{[\s\S]*?this\.clearTexts\(\);[\s\S]*?typeText\(/.test(jo), 'JAM12: beatOne は前の行を消してから打つ（同じ y の重なり防止）');
-    assert(/つかんで なげろ！\\nかみに いどめ！/.test(jo), 'JAM12: コンセプトの一言はユーザー指定「つかんで なげろ！／かみに いどめ！」');
+    assert(/concept: '掴んで投げろ！\\n神に挑め！'/.test(jo), 'JAM12: コンセプトの一言はユーザー指定「つかんで なげろ！／かみに いどめ！」の漢字まじり（2026-09-14 FB）');
     {
       const mk = (jo.match(/key: 'mon_([a-z]+)'/g) || []).map((x) => x.replace(/key: 'mon_([a-z]+)'/, '$1'));
       const mons = jr('data/monsters.js');
