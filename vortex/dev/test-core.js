@@ -1711,6 +1711,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       && /this\.glimpse\(\['wingL', 'wingR'\], 0\.75\)/.test(jo) && /this\.glimpse\(\['armL', 'armR', 'legL'\]\)/.test(jo)
       && /this\.glimpse\(\['body', 'rack', 'core'\]\)/.test(jo) && /filter\(\(o\) => !o\._reveal\)/.test(jo),
       'JAM21: 影絵は光の一瞬だけ部位ごとに本当の姿（翼と尖塔→腕と配線→身廊と薔薇窓）・全身は揃わない・裁きの幕で透けない');
+    // ★2026-09-14 JAM23（ユーザー決定「破鐘の1手目も振り香炉」／FB「覆した時間とボス戦の時間が違う」「n回目の挑戦での位置」）
+    {
+      const bb23 = read('systems/boss.js'), rs23 = read('scenes/Result.js');
+      const C23 = BALANCE.boss.jamTiers[0];
+      assert(C23.attacksStage3[0] === 'whip' && C23.attacksStage3.filter((a) => a === 'whip').length === 1
+        && /cathStage = 2;\s*attackIdx = 0; cathHeadPending = true;/.test(bb23),
+        'JAM23: 破鐘も1手目が振り香炉（光輪の演出が明けた最初の攻撃・表の中は1周に1回のまま）');
+      assert(!/大聖堂を覆した ― \$\{mmss/.test(rs23) && /line\(`\$\{triesTxt\}大聖堂を覆した`/.test(rs23)
+        && /`\$\{J\.tries\}回目の挑戦で、`/.test(rs23) && !/line\(`\$\{J\.tries\}回目の挑戦で`/.test(rs23),
+        'JAM23: 撃破の見出しは「n回目の挑戦で、大聖堂を覆した」の1文（時間は表のボス戦だけ）');
+    }
     // ★2026-09-14 JAM22（FB「天啓の光の柱をもっと太く、色をもっと濃く」）
     {
       const bb22 = read('systems/boss.js');

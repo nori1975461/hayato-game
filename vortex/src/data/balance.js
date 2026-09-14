@@ -2127,7 +2127,8 @@ BALANCE.boss.jamTiers = [
     // ★2026-09-14 61回目FB「振り香炉はなかった。たまたまか？」→ 表は順送りで鞭は4番目＝ボット4本で最後まで出た回0/4。
     //   ユーザー決定 A＋B：堕天の1手目を鞭に固定（boss.js enterPhase2 で順番を先頭へ戻す）＋鞭の途中なら破鐘への移行を待つ。
     attacksStage2: ['whip', 'rose', 'pillar', 'feathers', 'bell', 'choir'],
-    attacksStage3: ['rose', 'whip', 'spires', 'pillar', 'feathers', 'choir'],
+    // ★2026-09-14 67回目FB「振り香炉は2回だけ。もう少し増やすのは？」→ ユーザー決定：破鐘の1手目も鞭（表に2つ目は入れない＝重みを保つ）。
+    attacksStage3: ['whip', 'rose', 'spires', 'pillar', 'feathers', 'choir'],
     stage3HpRatio: 0.334, stage3IdleMult: 0.65,
     // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで
     //   63−10＝53px、ロック後に主人公は 148×0.55＝81px 動ける。堕天以降は 20°/秒で片側へ回る。

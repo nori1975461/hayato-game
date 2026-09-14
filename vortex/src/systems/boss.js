@@ -4036,6 +4036,7 @@ export function createBoss(run) {
   //   以後は光輪なし＝段階の合図が「絵が欠ける」で伝わる（情報を足さずに状態を伝える）。
   function enterStage3() {
     cathStage = 2;
+    attackIdx = 0; cathHeadPending = true;   // 光輪の演出（haloNova→afterAttack）が明けた1手目＝表の先頭（振り香炉）
     destroyWire(); resetAttackVars(); if (lockGfx) lockGfx.clear();
     state = 'crackCine'; stateT = cfg.crack.cineSec;
     whiteFlash(0.30); run.shake(420, 9);
