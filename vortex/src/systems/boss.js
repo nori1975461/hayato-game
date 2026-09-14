@@ -3335,8 +3335,17 @@ export function createBoss(run) {
     const pl = s.pl, tint = s.tint != null ? s.tint : int(pl.tint), edge = s.edge != null ? s.edge : int(pl.edgeTint);
     const dx = run.player.x - s.x, dy = run.player.y - s.y, rr = s.r + run.player.radius;
     if (dx * dx + dy * dy <= rr * rr) run.hitPlayer(pl.damage, s.x, s.y, 'pillar');
-    spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.9, s.h, 0.55, 0.95);
-    spawnPillarFx(s.x, s.y + 6, tint, s.r * 2.0, s.h * 1.1, 0.42, 0.7);
+    if (pl.tints) {
+      // ★2026-09-14 FB「もっと太く、色をもっと濃く」：加算の淡い柱は地面の明るさで白く飛び、幅も半分へ細っていた。
+      //   ①濃い色の芯＝当たり判定の直径 2r ちょうど・加算しない・細らない（見た目の縁＝当たりの縁を崩さない）
+      //   ②外の光暈＝2r の外へ 3.2r まで（光として読める・芯より淡い）③白い核を 0.9r→1.1r。
+      spawnPillarFx(s.x, s.y + 6, tint, s.r * 3.2, s.h * 1.12, 0.5, 0.55, false, 9.4);
+      spawnPillarFx(s.x, s.y + 6, tint, s.r * 2.0, s.h * 1.08, 0.62, 0.8, true);
+      spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 1.1, s.h, 0.5, 0.95, false, 9.7);
+    } else {
+      spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.9, s.h, 0.55, 0.95);
+      spawnPillarFx(s.x, s.y + 6, tint, s.r * 2.0, s.h * 1.1, 0.42, 0.7);
+    }
     spawnRingFx(s.x, s.y, 0xffffff, s.r * 0.3, s.r * 1.6, 0.30, 0.9, 5);
     spawnRingFx(s.x, s.y, edge, s.r * 0.2, s.r * 2.4, 0.45, 0.7, 5);
     for (let k = 0; k < 8; k++) spawnStreakFx(s.x, s.y, (Math.PI * 2 * k) / 8 + 0.2, s.r * 1.5, tint, 0.28, 0.7, 2);
@@ -3781,7 +3790,8 @@ export function createBoss(run) {
   }
   // ★2026-09-14 天啓の着弾の「残り」：白い光の芯が一瞬残り、地面が赤熱し、焼けた輪が遅れて消え、光の粒が昇る。
   function pillarAftermath(s, tint, edge) {
-    spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.35, s.h * 1.25, 0.8, 1.0);
+    spawnPillarFx(s.x, s.y + 6, tint, s.r * 0.9, s.h * 1.2, 0.9, 0.85, true);   // 残る芯も濃い色で太く（白い芯だけだと細い線に見えた）
+    spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.35, s.h * 1.25, 0.8, 1.0, false, 9.7);
     spawnGhostFx('glow', s.x, s.y, 0, (s.r * 2.4) / 64, (s.r * 1.2) / 64, edge, 1.1, 0.55);
     spawnRingFx(s.x, s.y, edge, s.r * 0.95, s.r * 1.15, 1.0, 0.6, 4);
     run.spawnRise(s.x, s.y, 0xffffff, s.big ? 16 : 9, 5);
@@ -4774,10 +4784,13 @@ export function createBoss(run) {
       .setTint(tint).setRotation(rot).setScale(sw, sh).setAlpha(a0);
     fxList.push({ img, t: 0, sec, a0, kind: 'ghost' });
   }
-  function spawnPillarFx(x, y, tint, w, h, sec, a0 = 0.75) {
-    const img = run.add.image(x, y, 'white').setBlendMode(ADD).setDepth(12)
+  // solid＝加算しない（明るい地面の上でも色が白く飛ばない）・細らない（幅は当たり判定の直径のまま消える）。
+  //   ⚠️ 主人公（depth 10）より奥の 9.5＝不透明な芯が自分の位置を隠さない（撮影で3本目が主人公をほぼ覆っていた）
+  //   天啓の柱は加算の光暈と白い核も主人公より奥へ（depth を渡す）＝加算の白が主人公を塗りつぶさない（2回目の撮影で確認）
+  function spawnPillarFx(x, y, tint, w, h, sec, a0 = 0.75, solid = false, depth = null) {
+    const img = run.add.image(x, y, 'white').setBlendMode(solid ? Phaser.BlendModes.NORMAL : ADD).setDepth(depth != null ? depth : solid ? 9.5 : 12)
       .setTint(tint).setOrigin(0.5, 1).setDisplaySize(w, 8).setAlpha(a0);
-    fxList.push({ img, t: 0, sec, w, h, a0, kind: 'pillar' });
+    fxList.push({ img, t: 0, sec, w, h, a0, kind: 'pillar', solid });
   }
   function updateFx(dt) {
     for (let i = fxList.length - 1; i >= 0; i--) {
@@ -4793,7 +4806,7 @@ export function createBoss(run) {
       } else if (f.kind === 'ghost') {
         f.img.setAlpha(f.a0 * (1 - p) * (1 - p));   // 二乗で消す＝直近の1枚だけがはっきり見える
       } else {
-        f.img.setDisplaySize(f.w * (1 - p * 0.5), 8 + (f.h - 8) * e).setAlpha(f.a0 * (1 - p));
+        f.img.setDisplaySize(f.w * (f.solid ? 1 : 1 - p * 0.5), 8 + (f.h - 8) * e).setAlpha(f.a0 * (f.solid ? 1 - p * p : 1 - p));
       }
       if (p >= 1) { f.img.destroy(); fxList.splice(i, 1); }
     }

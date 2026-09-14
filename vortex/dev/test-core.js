@@ -1711,6 +1711,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       && /this\.glimpse\(\['wingL', 'wingR'\], 0\.75\)/.test(jo) && /this\.glimpse\(\['armL', 'armR', 'legL'\]\)/.test(jo)
       && /this\.glimpse\(\['body', 'rack', 'core'\]\)/.test(jo) && /filter\(\(o\) => !o\._reveal\)/.test(jo),
       'JAM21: 影絵は光の一瞬だけ部位ごとに本当の姿（翼と尖塔→腕と配線→身廊と薔薇窓）・全身は揃わない・裁きの幕で透けない');
+    // ★2026-09-14 JAM22（FB「天啓の光の柱をもっと太く、色をもっと濃く」）
+    {
+      const bb22 = read('systems/boss.js');
+      const pl22 = BALANCE.boss.jamTiers[0].pillar;
+      const sat = (h) => { const n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return (Math.max(r, g, b) - Math.min(r, g, b)) / 255; };
+      assert(pl22.tints.every((c) => sat(c) >= 0.85) && pl22.radius === 44, 'JAM22: 柱の色は飽和した濃い色（彩度0.85以上）・当たりの半径は44のまま');
+      assert(/function spawnPillarFx\(x, y, tint, w, h, sec, a0 = 0\.75, solid = false, depth = null\)/.test(bb22)
+        && /s\.r \* 3\.2, s\.h \* 1\.12, 0\.5, 0\.55, false, 9\.4\);/.test(bb22) && /s\.r \* 1\.1, s\.h, 0\.5, 0\.95, false, 9\.7\);/.test(bb22)
+        && /spawnPillarFx\(s\.x, s\.y \+ 6, tint, s\.r \* 2\.0, s\.h \* 1\.08, 0\.62, 0\.8, true\);/.test(bb22)
+        && /setDepth\(depth != null \? depth : solid \? 9\.5 : 12\)/.test(bb22)
+        && /f\.w \* \(f\.solid \? 1 : 1 - p \* 0\.5\)/.test(bb22),
+        'JAM22: 濃い色の芯は加算しない・当たりの直径 2r ちょうど・細らない（見た目の縁＝当たりの縁）');
+    }
     assert(/beatOne\(\) \{[\s\S]*?this\.clearTexts\(\);[\s\S]*?typeText\(/.test(jo), 'JAM12: beatOne は前の行を消してから打つ（同じ y の重なり防止）');
     assert(/concept: '掴んで投げろ！\\n神に挑め！'/.test(jo), 'JAM12: コンセプトの一言はユーザー指定「つかんで なげろ！／かみに いどめ！」の漢字まじり（2026-09-14 FB）');
     {
