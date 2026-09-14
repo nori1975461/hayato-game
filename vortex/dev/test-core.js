@@ -1723,18 +1723,20 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && /`\$\{J\.tries\}回目の挑戦で`/.test(rs23) && !/line\(`\$\{J\.tries\}回目の挑戦で`/.test(rs23),
         'JAM23: 撃破の見出しは「n回目の挑戦で大聖堂を覆した」の1文（時間は表のボス戦だけ）');
     }
-    // ★2026-09-14 JAM24（ユーザー指示「言葉・文章の中に「、」を入れない。すべてに」）：画面に出る文字列（引用符の中）に「、」が無い
+    // ★2026-09-14 JAM24（ユーザー指示「言葉・文章の中に「、」を入れない。すべてに」＋2026-09-15「「、」と同様に「。」もなくして」）：
+    //   src の全 .js の文字列リテラルに「、」「。」が無い（文中の「。」は全角空白へ）
     {
-      const files24 = ['data/verdict.js', 'scenes/Result.js', 'scenes/JamOpening.js', 'scenes/Opening.js', 'scenes/Title.js', 'data/balance.js', 'data/enemies.js', 'data/monsters.js'];
+      const walk24 = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk24(path.join(d, e.name)) : e.name.endsWith('.js') ? [path.join(d, e.name)] : []);
       const hits24 = [];
-      for (const f of files24) {
-        read(f).split('\n').forEach((ln, i) => {
-          if (/^\s*\/\//.test(ln)) return;
-          const code = ln.replace(/\/\/.*$/, '');
-          if (/['`"][^'`"\n]*、[^'`"\n]*['`"]/.test(code)) hits24.push(f + ':' + (i + 1));
+      for (const p of walk24(SRC)) {
+        fs.readFileSync(p, 'utf8').split('\n').forEach((ln, i) => {
+          if (/^\s*(\/\/|\*|\/\*)/.test(ln)) return;
+          const code = ln.replace(/\s\/\/.*$/, '');
+          const lits = code.match(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\\n]|\\.)*`/g) || [];
+          if (lits.some((s) => /[、。]/.test(s))) hits24.push(path.relative(SRC, p) + ':' + (i + 1));
         });
       }
-      assert(hits24.length === 0, 'JAM24: 画面に出る文字列に「、」が無い' + (hits24.length ? '（' + hits24.slice(0, 5).join(' ') + '）' : ''));
+      assert(hits24.length === 0, 'JAM24: 画面に出る文字列に「、」「。」が無い' + (hits24.length ? '（' + hits24.slice(0, 5).join(' ') + '）' : ''));
     }
     // ★2026-09-14 JAM22（FB「天啓の光の柱をもっと太く、色をもっと濃く」）
     {

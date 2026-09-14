@@ -55,15 +55,15 @@ const CARD_LINES = [
 ];
 // 語り（字幕）。時刻表は文字数から組む＝文言を直しても読む時間が崩れない。
 const TX = {
-  gods: '金属生命体マキナには四柱の神がいる。',
-  one: 'その一柱がいま降りてくる。',
+  gods: '金属生命体マキナには四柱の神がいる',
+  one: 'その一柱がいま降りてくる',
   name: '堕天の大聖堂',
   line: '「祈り届かぬ者へ裁きを」',
-  mobits: 'ひとりじゃない。モビットが共に戦う。',
+  mobits: 'ひとりじゃない　モビットが共に戦う',
   concept: '掴んで投げろ！\n神に挑め！',
-  judge: '倒しても倒れても神が君を裁く。',
+  judge: '倒しても倒れても神が君を裁く',
 };
-const judgeLastText = () => `裁きは${VERDICTS.length}種類。君は何番目？`;
+const judgeLastText = () => `裁きは${VERDICTS.length}種類　君は何番目？`;
 // ★2026-09-14 ユーザーFB「表示が速く、消えるのも早い＝急いで読まないといけない」。旧版は打ち終わってから 0.5 秒で
 //   消える行があった（四柱の神：打ち終わり 3.3 秒・消去 3.8 秒）。1文字 70→90ms、行は打ち始めから
 //   「1秒4文字」（映画字幕の目安）以上かつ打ち終わってから 1.6 秒以上残す。
@@ -550,14 +550,14 @@ export class JamOpeningScene extends Phaser.Scene {
     this.tweens.add({ targets: capT, scale: 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.add.text(kx, ky + 34, '投げ返せ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
 
-    this.add.text(cx, 288, `倒しても倒れても${VERDICTS.length}種類の「裁き」が君を待つ。`, {
+    this.add.text(cx, 288, `倒しても倒れても${VERDICTS.length}種類の「裁き」が君を待つ`, {
       fontFamily: 'monospace', fontSize: '12px', color: PALE_S,
     }).setOrigin(0.5).setDepth(D_TEXT);
     const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で始める', {
       fontFamily: 'monospace', fontSize: '16px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(D_TEXT);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 620, yoyo: true, repeat: -1 });
-    this.add.text(cx, 342, '死んだらそのままもう一度。ボスのHPには前回の傷跡が残る。', {
+    this.add.text(cx, 342, '死んだらそのままもう一度　ボスのHPには前回の傷跡が残る', {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 
