@@ -9,6 +9,11 @@
 //   ・眼は「縦の裂け目」ひとつ。絞り羽根を8枚入れたら縞玉になった
 //   ・小さな点（目盛り・聖句）を環に散らすと紙吹雪になる＝面と溝で語る（点は板の中央の鋲だけ）
 //
+// 第5案（FB「概ね近い。もうひとひねり、全体を見て最適解を」）＝**色を黒で締める**。
+//   四体を並べると神核だけが薄紫の菓子のように明るく、荘厳にも退廃にも見えなかった。大聖堂・玉座・マオウは黒鉄が地で金が縁。
+//   → 球を黒鉄（紫の光沢は左上だけ）に、環の帯を「深い色が地・明るい色は細い一筋」に。金の縁・祠・灯・眼はそのまま＝
+//   暗くなった分だけ、眼（白・金・深紅）と三環の色の筋と祠の灯が「生きている点」として立つ。形は第4案から変えていない
+//
 // 昇華の方針（作法を「天球儀（アーミラリー）」の語彙で言い直す）：
 //   ①シルエットの格 … 第1案の棘の冠を半分以下に短くしたもの（FB「第1案の角を短くして」）。
 //      第2案の天蓋（FB「大きいアイテムは不要」）と第3案の円光（FB「全然違う」）は廃止。棘の根元に深紅の灯を点す
@@ -46,17 +51,18 @@ function ringSprite(W, H, rx, ry, rot, gaps, seam, t, deep, dark, mid, lit, node
   const nearGap = (ang, pad) => gaps.some(([s0, e0]) => ang >= s0 - pad && ang <= e0 + pad);
   for (let d = -t; d <= t + 1e-9; d += 0.25) {
     const u = (d + t) / (2 * t);
+    // 第5案：帯は「深い色が地・明るい色は細い一筋」＝黒鉄の帯に色の光沢が走る。奥半分はほぼ黒
     const ch = back
-      ? (u < 0.1 ? 'k' : u < 0.35 ? deep : u < 0.65 ? dark : u < 0.9 ? deep : 'k')
-      : (u < 0.08 ? 'k' : u < 0.25 ? deep : u < 0.42 ? dark : u < 0.62 ? lit : u < 0.8 ? mid : u < 0.92 ? deep : 'k');
+      ? (u < 0.12 ? 'k' : u < 0.45 ? deep : u < 0.6 ? dark : u < 0.88 ? deep : 'k')
+      : (u < 0.08 ? 'k' : u < 0.3 ? deep : u < 0.48 ? dark : u < 0.58 ? lit : u < 0.68 ? mid : u < 0.92 ? deep : 'k');
     ARC(G, cx, cy, rx + d, ry + d * rs, a0, a1, ch, gaps, rot);
   }
   if (back) return R(G);
   for (let d = t + 0.3; d <= t + 0.8; d += 0.25) ARC(G, cx, cy, rx + d, ry + d * rs, a0, a1, 'Y', gaps, rot);   // 金の縁
-  for (let ang = Math.ceil(a0 / seam) * seam; ang < a1; ang += seam) {                                        // 板の溝と溝の隣の光
+  for (let ang = Math.ceil(a0 / seam) * seam; ang < a1; ang += seam) {                                        // 板の溝と溝の隣の光（その環の色）
     if (nearGap(ang, 6)) continue;
     for (let d = -t * 0.85; d <= t * 0.85; d += 0.25) AT(G, cx, cy, rx + d, ry + d * rs, ang, 'k', rot);
-    for (let d = -t * 0.45; d <= t * 0.45; d += 0.25) AT(G, cx, cy, rx + d, ry + d * rs, ang + 2.4, 'n', rot);
+    for (let d = -t * 0.45; d <= t * 0.45; d += 0.25) AT(G, cx, cy, rx + d, ry + d * rs, ang + 2.4, lit, rot);
   }
   for (let ang = Math.ceil(a0 / seam) * seam + seam / 2; ang < a1; ang += seam) {                              // 板の中央の鋲
     if (nearGap(ang, 8)) continue;
@@ -125,14 +131,15 @@ const CORONA = (() => {
 // =====================================================================
 const ORB = (() => {
   const W = 37, H = 37, G = g(W, H), c = 18, r = 17.6;
-  SPHERE(G, c, c, r, ['q', 'Q', 'P', 'N', 'n'], [-0.5, -0.62, 0.6], 0.12);
+  // 第5案：球は黒鉄（紫の光沢は左上だけ）。継ぎ目は黒い溝＋鋼の稜線で読ませる＝他の三体と同じ「黒で締める」
+  SPHERE(G, c, c, r, ['j', 'm', 'q', 'Q', 'P'], [-0.5, -0.62, 0.6], 0.0);
   const inside = (x, y) => { const d = Math.hypot(x - c, y - c); return d <= r && d > 10.2; };
   const seam = (x, y) => { if (inside(x, y)) P(G, x, y, 'k'); };
-  const edge = (x, y) => { if (inside(x, y) && GET(G, x, y) !== 'k') P(G, x, y, 'n'); };
+  const edge = (x, y) => { if (inside(x, y) && GET(G, x, y) !== 'k') P(G, x, y, 's'); };
   for (let y = 0; y < H; y++) { seam(c, y); edge(c + 1, y); }                         // 縦の大円（溝の右が光）
   for (let x = 0; x < W; x++) { seam(x, c); edge(x, c - 1); }                         // 横の大円（溝の上が光）
   for (let d = 12.6; d <= 13.4; d += 0.3) ARC(G, c, c, d, d, 0, 360, 'k');            // 板の輪の継ぎ目
-  ARC(G, c, c, 12.1, 12.1, 190, 300, 'n');
+  ARC(G, c, c, 12.1, 12.1, 190, 300, 's');
   for (const a of [45, 135, 225, 315]) { AT(G, c, c, 15.3, 15.3, a, 'Y'); AT(G, c, c, 11.3, 11.3, a, 'y'); }   // 鋲
   DISC(G, c, c, 10.2, 'k');                                                            // 窓：黒い縁→金の枠（左上が明）→4本のボルト→暗い座
   for (let d = 8.9; d <= 9.7; d += 0.25) ARC(G, c, c, d, d, 0, 360, 'Y');
@@ -148,13 +155,7 @@ const ORB = (() => {
       if (inside(x, y) && GET(G, x, y) !== 'k') P(G, x, y, k < len - 2 ? 'a' : 'r');
     }
   }
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {                           // 焼け割れた板（右下）
-    const dx = x - c, dy = y - c, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
-    if (d < 11 || d > 17.2 || ang < 25 || ang > 65) continue;
-    if (GET(G, x, y) === 'k') continue;
-    P(G, x, y, dither(x, y) ? 'j' : 'm');
-  }
-  LN(G, c + 8, c + 7, c + 12, c + 11, 'k'); LN(G, c + 12, c + 11, c + 11, c + 15, 'k'); LN(G, c + 10, c + 10, c + 14, c + 9, 'k');
+  LN(G, c + 8, c + 7, c + 12, c + 11, 'k'); LN(G, c + 12, c + 11, c + 11, c + 15, 'k'); LN(G, c + 10, c + 10, c + 14, c + 9, 'k');   // 右下の板の亀裂（黒い球なので焦げは省き、亀裂の底の赤熱だけ）
   P(G, c + 10, c + 9, 'R'); P(G, c + 12, c + 11, 'O'); P(G, c + 11, c + 13, 'R'); P(G, c + 13, c + 9, 'r'); P(G, c + 11, c + 12, 'R');
   OUTLINE(G);
   return R(G);
@@ -165,7 +166,7 @@ const ORB = (() => {
 // =====================================================================
 const EYE = (() => {
   const W = 17, H = 17, G = g(W, H), c = 8;
-  DISC(G, c, c, 8.3, 'k'); DISC(G, c, c, 7.6, 'c');
+  DISC(G, c, c, 8.3, 'k'); DISC(G, c, c, 7.6, 'C');                                    // 白目は青みの白（純白は艶の1点だけ）
   for (const [a, len] of [[15, 3], [70, 2], [160, 3], [215, 2], [300, 3]]) {
     const t = a * Math.PI / 180;
     for (let k = 0; k < len; k++) P(G, c + Math.cos(t) * (7.2 - k), c + Math.sin(t) * (7.2 - k) + (k % 2 ? 0.6 : -0.4), 'a');
@@ -173,7 +174,7 @@ const EYE = (() => {
   DISC(G, c, c, 5.4, 'Y'); DISC(G, c, c, 4.6, 'y'); ARC(G, c, c, 4.9, 4.9, 190, 290, 'W');
   for (const a of [45, 135, 225, 315]) { const t = a * Math.PI / 180; LN(G, c + Math.cos(t) * 3.4, c + Math.sin(t) * 3.4, c + Math.cos(t) * 4.6, c + Math.sin(t) * 4.6, 'Y'); }
   RECT(G, c - 1, c - 4, c + 1, c + 4, 'k'); RECT(G, c, c - 3, c, c + 3, 'r'); P(G, c, c - 1, 'R'); P(G, c, c, 'O'); P(G, c, c + 1, 'R');
-  P(G, c - 3, c - 3, 'C'); P(G, c - 4, c - 2, 'c');
+  P(G, c - 3, c - 3, 'c'); P(G, c - 4, c - 2, 'c');
   for (let x = 4; x <= 12; x++) P(G, x, 1, 'm'); for (let x = 5; x <= 11; x++) P(G, x, 2, 'f');   // 上瞼（鋼）
   P(G, 3, 2, 'm'); P(G, 13, 2, 'm');
   return R(G);
@@ -182,7 +183,7 @@ const EYE = (() => {
 export const GODCORE = {
   id: 'godcore',
   name: '軌道神核',
-  concept: '黒鉄と金の天球儀に囚われた神の眼。球は装甲板で、金の窓枠の奥に血走った単眼。'
+  concept: '黒鉄と金の天球儀に囚われた神の眼。球は黒鉄の装甲板（左上だけ紫の光沢）で、金の窓枠の奥に血走った単眼。'
     + '傾きの違う3つの環（紫・青・緑）は30°ごとの板に割れ、板の中央に鋲、祠がひとつ。球の上に短い棘の冠（頂の3本だけ金の先端・1本折れ）、棘の根元に深紅の灯。'
     + '環の裂け目は白い断面から銅線を垂らし、球の右下の板は焼け割れて赤熱し、窓枠から血管が装甲へ這う。',
   sprites: {
