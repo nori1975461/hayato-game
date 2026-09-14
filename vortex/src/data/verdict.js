@@ -118,6 +118,17 @@ export function judge(st, seen) {
   return VERDICTS.find((v) => v.id === id) || VERDICTS[VERDICTS.length - 1];
 }
 
+// ★2026-09-14 今回の行いが届いた最高位。judge は「まだ見ていない」ものを優先するので、表示の位より上に届いていることがある
+//   （実プレイ55回目＝第5位の条件も満たしたのに第8位と出た＝下がって見えた）。Result が小さく1行添える。
+export function bestReached(st) {
+  let best = null;
+  for (const id of matches(st)) {
+    const v = VERDICTS.find((x) => x.id === id);
+    if (v && (!best || v.rank < best.rank)) best = v;
+  }
+  return best;
+}
+
 // 階位（順位の帯）。icon は Result が描く印の種類（crown/gold/silver/iron）。
 export const TIERS = [
   // ★2026-09-14 王冠の上に「頂」を新設（1位 the One のためだけの帯）。燦然と輝く＝Result が専用の印と脈打つ光で描く。
@@ -144,6 +155,8 @@ export function clearHint(st, seen, curRank) {
     { id: 'clear_choir', cond: !(s.choirBest >= 8), text: '聖歌隊8体を投げ返して覆せば' },
     { id: 'clear_armor', cond: !(s.shardShare >= 0.5), text: '与ダメの半分を装甲片で覆せば' },
     { id: 'clear_fast', cond: !(s.bossSec != null && s.bossSec < 75), text: '75秒以内に覆せば' },
+    // ★2026-09-14 ユーザー指示：第3位（借り物なし）は案内の候補に無く、第4位の次が第2位へ飛んでいた＝画面のどこにも条件が出なかった
+    { id: 'clear_hand', cond: !!(s.shardHits || s.haloHit || s.specHits), text: '装甲片・欠片・特殊弾を使わずに覆せば' },
     { id: 'clear_pure', cond: !(s.hits <= 3), text: '被弾3回までで覆せば' },
     { id: 'clear_one', cond: !(s.hits === 0), text: '一度も打たれずに覆せば' },
   ];

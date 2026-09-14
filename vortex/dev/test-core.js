@@ -1649,6 +1649,19 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM17: 天啓の予告（裂け目・落ちる光・締まる照準）と着弾の残り（光の芯・赤熱・昇る粒）');
       assert(!(BALANCE.boss.tiers || []).some((t) => t.pillar || (t.wirearm && t.wirearm.style)), 'JAM17: 天啓と振り香炉は大聖堂だけ（本編の tiers は不変）');
     }
+    // ★2026-09-14 JAM18（ユーザー指示「どちらも入れて」）：①第3位「己が手で覆せし者」を撃破の案内の候補に
+    //   ②未見優先で位が下がって見える回に「今回は第n位にも届いた」
+    {
+      const vj18 = read('data/verdict.js'), rs18 = read('scenes/Result.js');
+      const hint18 = (vj18.match(/export function clearHint[\s\S]*?\n\}/) || [''])[0];
+      assert(/id: 'clear_hand', cond: !!\(s\.shardHits \|\| s\.haloHit \|\| s\.specHits\)/.test(hint18)
+        && hint18.indexOf("'clear_fast'") < hint18.indexOf("'clear_hand'") && hint18.indexOf("'clear_hand'") < hint18.indexOf("'clear_pure'"),
+        'JAM18: 撃破の案内に第3位（借り物なし）が入り、第4位の次・第2位の前に並ぶ（条件は matches の clear_hand の裏返し）');
+      assert(/if \(!s\.shardHits && !s\.haloHit && !s\.specHits\) out\.push\('clear_hand'\);/.test(vj18), 'JAM18: 案内の条件と判定（matches）の条件が同じ3つ');
+      assert(/export function bestReached\(st\)/.test(vj18) && /import \{ bestReached \} from '\.\.\/data\/verdict\.js';/.test(rs18)
+        && /if \(reach && reach\.rank < \(v\.rank \|\| VERDICTS\.length\)\)/.test(rs18) && /今回は第\$\{reach\.rank\}位にも届いた/.test(rs18),
+        'JAM18: 表示の位より上に届いた回だけ「今回は第n位にも届いた」を添える');
+    }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
       const ids = sv.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);

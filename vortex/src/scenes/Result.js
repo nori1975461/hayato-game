@@ -6,6 +6,7 @@
 import { MONSTERS } from '../data/monsters.js';
 import { BALANCE } from '../data/balance.js';
 import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint, clearHint } from '../data/verdict.js';
+import { bestReached } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
 import { BUILD } from '../data/version.js';
 
@@ -207,6 +208,11 @@ export class ResultScene extends Phaser.Scene {
     this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
     const above = (v.rank || VERDICTS.length) - 1;
     if (above > 0) this.add.text(W - 24, 32, `上に あと${above}つ`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(1, 0.5);
+    // ★2026-09-14 ユーザー指示：未見優先で位が下がって見える回は、届いた最高位を小さく添える（その位の階位の色）
+    const reach = bestReached(s);
+    if (reach && reach.rank < (v.rank || VERDICTS.length)) {
+      this.add.text(W - 24, 46, `今回は第${reach.rank}位にも届いた`, { fontFamily: 'monospace', fontSize: '10px', color: tierOf(reach.rank).color }).setOrigin(1, 0.5);
+    }
     // 2026-09-14 挑戦の回数は表から外したので、死んだ回だけ左上に小さく（撃破の回は中段に「n回目の挑戦で」がある）
     if (!clear && (J.tries || 1) > 1) this.add.text(24, 32, `${J.tries}回目の挑戦`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(0, 0.5);
     // ★2026-09-14 頂（the One）を取った回だけ、称号の後ろで光が脈打つ。ここでしか見られない絵にする。
