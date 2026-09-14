@@ -207,6 +207,8 @@ export class ResultScene extends Phaser.Scene {
     this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
     const above = (v.rank || VERDICTS.length) - 1;
     if (above > 0) this.add.text(W - 24, 32, `上に あと${above}つ`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(1, 0.5);
+    // 2026-09-14 挑戦の回数は表から外したので、死んだ回だけ左上に小さく（撃破の回は中段に「n回目の挑戦で」がある）
+    if (!clear && (J.tries || 1) > 1) this.add.text(24, 32, `${J.tries}回目の挑戦`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(0, 0.5);
     // ★2026-09-14 頂（the One）を取った回だけ、称号の後ろで光が脈打つ。ここでしか見られない絵にする。
     if (tier.id === 'one' && this.textures.exists('glow')) {
       const gl = this.add.image(W / 2, 62, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xffffff).setScale(11).setAlpha(0.18);
@@ -270,15 +272,20 @@ export class ResultScene extends Phaser.Scene {
     const bestTxt = b.dmg > 0 ? `${b.dmg}${tags ? '（' + tags + '）' : ''}` : '－';
     // 2026-09-13 実機で「7／32」なのに帯の合計が6＝旧版の削除済み id（聖核）が保存に残っていた。今の32種にある id だけ数える
     const seenN = VERDICTS.filter((vv) => (J.seen || {})[vv.id]).length;
+    // ★2026-09-14 実プレイ54回目（被弾を意識して25）→ ユーザー指示「案A：本表に被弾を・表はスッキリ」。
+    //   行は増やさず2列3行のまま、列に意味を持たせる：左＝腕（投げ・被弾・最高の一投）／右＝鍵（光輪の欠片・聖歌隊・装甲片＝▶の案内と同じ3つ）。
+    //   「裁き n/33（n回目）」は一覧の案内（V）へ移した。見出しは淡く・数字だけ白く＝目は数字に行く。
     // 2026-09-13 聖核（弱点）は削除＝「聖核ヒット」の行は「光輪の欠片」へ（欠片を掴んだ／当てた＝探す遊びの記録）
-    const rowsL = [['投げ', String(s.throws || 0)], ['光輪の欠片', s.haloHit ? '当てた' : s.haloGrabbed ? '掴んだ' : '－'], ['装甲片を返した', String(J.shardHits || 0)]];
-    const rowsR = [['聖歌隊 投げ返し', `${s.choirBest || 0}/8`], ['最高の一投', bestTxt],
-      ['裁き', `${seenN}/${VERDICTS.length}（${J.tries || 1}回目）`]];
+    const rowsL = [['投げ', String(s.throws || 0)], ['被弾', String(s.hits || 0)], ['最高の一投', bestTxt]];
+    const rowsR = [['光輪の欠片', s.haloHit ? '当てた' : s.haloGrabbed ? '掴んだ' : '－'], ['聖歌隊 投げ返し', `${s.choirBest || 0}/8`],
+      ['装甲片を返した', String(J.shardHits || 0)]];
     const put = (rows, x0, x1) => rows.forEach((r, i) => {
-      this.add.text(x0, y + i * 18, r[0], { fontFamily: 'monospace', fontSize: '12px', color: '#cfe6ff' }).setOrigin(0, 0.5);
+      this.add.text(x0, y + i * 18, r[0], { fontFamily: 'monospace', fontSize: '12px', color: '#8fa6c8' }).setOrigin(0, 0.5);
       this.add.text(x1, y + i * 18, r[1], { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(1, 0.5);
     });
-    put(rowsL, 70, 260); put(rowsR, 330, 590);
+    put(rowsL, 70, 290); put(rowsR, 350, 570);
+    const sep = this.add.graphics();   // 腕｜鍵 の仕切り（淡い1本）
+    sep.lineStyle(1, 0x8fa6c8, 0.25); sep.lineBetween(W / 2, y - 7, W / 2, y + 2 * 18 + 7);
 
     // ★2026-09-13 実プレイFB「一緒に戦った仲間の説明とイラストを」→ ジャム版は本編のエンディングを挟まない
     //   （2分ループ）ので、裁きの画面に「共に戦った者」を1行。絵は本編と同じドット絵（エンディングの一枚絵は使わない）。
@@ -342,7 +349,7 @@ export class ResultScene extends Phaser.Scene {
 
     this.drawFooter(d);
 
-    const prompt = this.add.text(W / 2, 316, 'SPACE で もう一度 裁きを　／　V で 裁きの一覧　／　R で タイトル', {
+    const prompt = this.add.text(W / 2, 316, `SPACE で もう一度 裁きを　／　V で 裁きの一覧（${seenN}/${VERDICTS.length}）　／　R で タイトル`, {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffffff',
     }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 650, yoyo: true, repeat: -1 });
