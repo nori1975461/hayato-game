@@ -1508,7 +1508,10 @@ export const BALANCE = {
         //   30%×0.34×コア2.4＝切り札のまま。節目は 分離50%（11000）・再合体33%（7300）で不変。
         //   ⚠️ 以後、ボスHPは**必ず本番と同じ条件の実測DPS**から引くこと（練習場の数字で
         //      決めない）。[[feedback_instrument_must_match_impl]] と同じ失敗の3度目。
-        hp: 22000, radius: 82, spriteScale: 9.6, glowScale: 11.4,
+        // ★2026-09-15 ビジュアル昇華（ユーザー確定＝禍々しい鉄の巨人・第3案）。胴 18×18→30×36 などへ描き直し
+        //   1ドットあたりの面を細かくしたので spriteScale 9.6→6.4（画面上 308×276→357×339px）。
+        //   radius 82（体当たり・カキンの判定）は据え置き＝遊びの数字は変えない。設計は scratchpad/maou1-candidates.mjs
+        hp: 22000, radius: 82, spriteScale: 6.4, glowScale: 11.4,
         gaugeSegments: 3,
         // ★特殊弾（らいこうだん/ほのおだん/スーパーボール/ブラックホール）のボス特効に掛ける倍率。
         //   通常ボスの尺（HP1800〜8000）に合わせた 30% は、3段構えの最終ボスでは1段を丸ごと消す。
@@ -1535,7 +1538,9 @@ export const BALANCE = {
         //   投げだけ。つまりこのボスの与ダメは看板の動詞（投げ）1本に懸かっており、そこが運だと
         //   「削れない」になる。描画も同じ radius を使うので、判定と絵は一致したまま大きくなる。
         weak: {
-          radius: 38, offY: -0.30, swayX: 30, swaySec: 3.4, phase2SwaySec: 2.1,
+          // ★2026-09-15 offY -0.30→0.51：描き直した胸の炉心（U字の金のケージ＝本体中心の +42px）に合わせた。
+          //   -0.30 のままだと赤い円（半径27px）が新しい顔（裂け目の眼と炉の口）を塗りつぶす。半径と泳ぎ幅は不変
+          radius: 38, offY: 0.51, swayX: 30, swaySec: 3.4, phase2SwaySec: 2.1,
           mul: 2.4, tint: '#ff2b2b', coreTint: '#fff2a8', label: 'コアヒット！',
         },
         // ★R36W2 改名＋着色。実プレイFB「きょうぶレーザーという名前はダサすぎる。光線の色は紫。
@@ -1746,7 +1751,9 @@ export const BALANCE = {
           //   HPは小さいが、眼が殻で隠れる・座へ転移して遠い・激化で避ける手が増えるぶん
           //   **実時間では第1形態より長い**（実測でも第1形態の2倍前後）。
           //   ⚠️ 尺の根拠に練習場のDPSを二度と使わないこと。test-core の式も実測値へ直した。
-          hp: 40000, radius: 92, spriteScale: 7.4, glowScale: 10.6,
+          // ★2026-09-15 ビジュアル昇華（ユーザー確定＝第5案・黒で締める）。環を 51→71px のキャンバスへ描き直したので
+          //   spriteScale 7.4→6.5（環の塗られた幅 49×7.4＝363px → 60×6.5＝390px）。設計は scratchpad/godcore-candidates.mjs
+          hp: 40000, radius: 92, spriteScale: 6.5, glowScale: 10.6,
           glowOuter: '#c98cff', glowInner: '#ffedb0',
           chaseSpeed: 110, bodyDamage: 38, gaugeSegments: 4,
           bulletTint: '#ffedb0',
@@ -1781,6 +1788,7 @@ export const BALANCE = {
           //   第3形態と同じ塗りつぶしを載せると**眼が一度も画面に出ない**（実測で起きていた）。
           // ★radius 52 の根拠：眼スプライトは15px×spriteScale 7.4＝111px（見た目の半径55px）。
           //   黒縁1pxを除いた眼球本体が半径52px＝**玉の縁が眼に触れたら通る**で絵と一致する。
+          // ★2026-09-15 昇華後の眼は 17px×spriteScale 6.5＝110.5px（見た目の半径55px）＝radius 52 はそのまま一致する。
           weak: {
             radius: 52, offY: 0, swayX: 0, swaySec: 1, phase2SwaySec: 1, ringOnly: true,
             mul: 2.4, tint: '#ffd23f', coreTint: '#fff2a8', label: 'しんがん ヒット！',

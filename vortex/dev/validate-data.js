@@ -151,7 +151,7 @@ for (const b of BOSSES) {
     // body/core は必須。全パーツを矩形チェック（パーツは小さめ可＝3〜20px）。
     check('body' in b.sprites, `${label}: sprites.body が無い`);
     check('core' in b.sprites, `${label}: sprites.core が無い`);
-    for (const [k, s] of Object.entries(b.sprites)) validateSprite(s, `${label}.sprites.${k}`, 3, 20);
+    for (const [k, s] of Object.entries(b.sprites)) validateSprite(s, `${label}.sprites.${k}`, 3, 64);   // 2026-09-15 マオウレクスの昇華で外套 48×36・胴 30×36（上限 20→64）
   }
   // rig（7パーツリグ）: 4要素以上・tex が sprites に実在・ox/oy が数値
   check(Array.isArray(b.rig) && b.rig.length >= 4, `${label}: rig が4要素以上の配列でない`);

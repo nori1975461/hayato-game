@@ -2260,9 +2260,10 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   assert(/if \(!weakCfg\(\)\.ringOnly\) \{/.test(boss),
     'true: 弱点そのものが「絵」のとき(ringOnly)は塗りつぶさない＝描いた眼が隠れない');
   assert(tf.weak.ringOnly === true, 'true: 真の姿の弱点は ringOnly（眼を塗りつぶさない）');
-  // 判定円は絵と一致させる＝[[feedback_one_hit_one_circle]]。眼は15px×spriteScale。
+  // 判定円は絵と一致させる＝[[feedback_one_hit_one_circle]]。眼は（眼スプライトの幅）px×spriteScale。
+  // ★2026-09-15 昇華で眼が 15→17px になったので、数字を埋めず絵から読む
   {
-    const seen = 15 * tf.spriteScale / 2;
+    const seen = MAOU.trueSprites.eye.rows[0].length * tf.spriteScale / 2;
     const ratio = tf.weak.radius / seen;
     assert(ratio >= 0.85 && ratio <= 1.05,
       `true: 弱点の判定円が眼の見た目と一致（判定${tf.weak.radius} / 見た目${Math.round(seen)}px = ${ratio.toFixed(2)}倍）`);
@@ -2294,10 +2295,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
   // --- ★縮尺：設計プレビューの前提（480×360）が実際（640×360）と違っていた ---
   //   9.4 で撮ると球も環も光背も画面外へ出て、眼とその周りしか映らなかった。
   {
-    const ringW = 51 * tf.spriteScale, ringH = 35 * tf.spriteScale;
+    // ★2026-09-15 昇華で環のキャンバスが余白込みで 51→71px になったので、実際に塗られた範囲で測る
+    const drawn = (sp) => {
+      let l = 1e9, r = -1, t = 1e9, b = -1;
+      sp.rows.forEach((row, y) => [...row].forEach((c, x) => {
+        if (c !== '.') { l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y); }
+      }));
+      return { w: r - l + 1, h: b - t + 1 };
+    };
+    const ra = drawn(MAOU.trueSprites.ringAf);
+    const ringW = ra.w * tf.spriteScale, ringH = ra.h * tf.spriteScale;
     assert(ringW <= 420 && ringH <= 300,
       `true: 真の姿が画面(640×360)で破綻しない大きさ（環 ${Math.round(ringW)}×${Math.round(ringH)}px）`);
-    assert(ringW >= 18 * 9.6, `true: 第3形態(173px)より明らかに大きい（${Math.round(ringW)}px）＝最後に出るものが小さくならない`);
+    const p3W = drawn(MAOU.sprites.body).w * maou.spriteScale;
+    assert(ringW >= p3W * 1.5,
+      `true: 第3形態の胴(${Math.round(p3W)}px)より明らかに大きい（環 ${Math.round(ringW)}px）＝最後に出るものが小さくならない`);
   }
 
   // --- 攻撃3種：表と実装が食い違っていないこと ---
