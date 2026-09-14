@@ -652,10 +652,14 @@ export function createBoss(run) {
       case 'feathers':   state = 'featherTele'; stateT = cfg.feathers.telegraphSec; wingRaise = 0; wingRaiseL = 0; featherSecond = false;
                          Sound.sfx('ironCreak', 1, 1); break;
       case 'whip':       state = 'wireTele';    stateT = cfg.wirearm.teleSec;   // 配線の鞭＝wirearm の機構をそのまま
-                         Sound.sfx('ironCreak', 0.6, 1.5); Sound.sfx('relock'); break;
+                         // ★2026-09-14 振り香炉：予告の間、肩で香炉を振り回す（絵と音を同じ回転で揃える）。本編マオウレクスの wirearm は通らない
+                         if (censerStyle()) { startCenserWind(); Sound.sfx('censerSwing', cfg.wirearm.teleSec); }
+                         else { Sound.sfx('ironCreak', 0.6, 1.5); Sound.sfx('relock'); }
+                         break;
       case 'pillar':     { const pl = cfg.pillar; state = 'pillarTele';
                            stateT = pl.telegraphSec + pl.interval * (pl.count - 1) + 0.45; shotAcc = 0; shotIdx = 0;
-                           Sound.sfx('pillarWarn', 1, 0.75); break; }
+                           if (!pl.tints) Sound.sfx('pillarWarn', 1, 0.75);   // 2026-09-14 色分け tier（大聖堂）は1本ごとの pillarMark が鳴らす
+                           break; }
       case 'spires':     state = 'spireTele';   stateT = cfg.spires.telegraphSec;
                          Sound.sfx('relock');
                          // 2026-09-13 派手化：装填のラチェット＋両塔の先の輪（どこから来るかが予告で分かる）
@@ -1248,6 +1252,7 @@ export function createBoss(run) {
 
       // ワイヤーアーム：予告（両腕を後方へ引き絞る）→射出（拳が伸びる・マイルド追尾）→収縮（手繰り戻す）。
       case 'wireTele':
+        if (wire && wire.wind) updateCenserWind(dt);   // 2026-09-14 振り香炉を振り回す（大聖堂だけ）
         if (stateT <= 0) startWireShot();
         break;
       case 'wireShot':
@@ -3282,10 +3287,18 @@ export function createBoss(run) {
     const g = run.add.graphics().setDepth(5);
     const halo = run.add.image(lx, ly, 'glow').setBlendMode(ADD).setDepth(5).setTint(tint)
       .setScale(r / 40).setAlpha(0.12);
-    pillars.push({ x: lx, y: ly, t: tele, max: tele, pl, g, halo, r, h, big: !!big, tint, edge });
-    // 2026-09-13 音を激しく：予告は本数で上がる高い鐘＋鉄の軋み。巨大は低く長く
-    Sound.sfx('pillarWarn', big ? 1.2 : 1.0, big ? 0.7 : 1 + ci * 0.16);
-    if (pl.tints) Sound.sfx('ironCreak', big ? 0.7 : 0.4, big ? 0.8 : 1.1 + ci * 0.1);
+    let nextFall = Infinity;   // 先に出ている柱のうち、いちばん早く落ちるものの残り秒
+    for (const q of pillars) if (q.t > 0 && q.t < nextFall) nextFall = q.t;
+    pillars.push({ x: lx, y: ly, t: tele, max: tele, pl, g, halo, r, h, big: !!big, tint, edge, idx: ci });
+    if (pl.tints) {
+      // ★2026-09-14 実プレイFB「天啓の光の束が現れる音を変えて・プレーヤーに恐れを」。高い小さな鐘（pillarWarn）＋鉄の軋みは
+      //   「合図」でしかなかった → 「天に見つかった」音へ：天が裂ける→不協和の聖歌が膨らむ→はぜる音が詰まる→頂点は落ちる瞬間。
+      //   delay：前の柱の着弾の直前（0.3秒以内）に「裂ける音」の頭を置くと、その着弾の驚きを弱める（プレパルス抑制）→ 着弾のあとへ
+      const delay = nextFall <= 0.3 ? nextFall + 0.03 : 0;
+      Sound.sfx('pillarMark', { sec: tele, i: ci, big: !!big, delay });
+    } else {
+      Sound.sfx('pillarWarn', big ? 1.2 : 1.0, big ? 0.7 : 1 + ci * 0.16);
+    }
     if (big) bigCue(edge);
   }
   // 2026-09-13 ⑨堕天以降は弾幕の上に別の攻撃を1つ乗せる＝鎮魂の鐘／鉄羽の発射と同時に天啓を1本（重ねは橙＝2本目の色）
@@ -3309,6 +3322,7 @@ export function createBoss(run) {
       s.g.lineStyle(2, 0xffffff, 0.85 * blink);
       s.g.strokeCircle(s.x, s.y, s.r * (1 - p * 0.85));     // 収束する内側の輪＝残り時間
       s.halo.setAlpha(0.10 + 0.25 * p);
+      if (pl.tints) drawPillarOmen(s, p, blink);   // 2026-09-14 天の裂け目・落ちてくる光・締まる照準（大聖堂だけ）
     }
   }
   function fallPillar(s) {
@@ -3323,9 +3337,15 @@ export function createBoss(run) {
     run.spawnParticles(s.x, s.y, 0xffffff, 10);
     run.spawnParticles(s.x, s.y, tint, 14);
     whiteFlash(s.big ? 0.34 : 0.14, s.big ? 0xffffff : tint, s.big ? 220 : 110);
-    // 2026-09-13 音を激しく（色分け tier だけ）：落下は大きく、巨大は雷鳴を重ねる。本編の tier は従来どおり
-    Sound.sfx('pillarFall', pl.tints ? (s.big ? 1.4 : 1.15) : 1, s.big ? 0.7 : 1);
-    if (pl.tints && s.big) Sound.sfx('thunder', 0.9);
+    if (pl.tints) {
+      // ★2026-09-14 恐れ（大聖堂だけ）：光が地を穿つ輪郭→灼ける高域と「光の悲鳴」→重さ→三全音で鳴り残る鐘（pillarSmite）。
+      //   3本目は空が3回裂ける。⚠️ 雷鳴（thunder）は使わない＝明るい長三和音の層（本作のポップさ・sound.js thunder ④）を
+      //   含むので、神の裁きが「明るく」聞こえてしまう。着弾の残り（光の芯・赤熱・昇る粒）で「そこに落ちた」を目に残す。
+      Sound.sfx('pillarSmite', { big: s.big, i: s.idx });
+      pillarAftermath(s, tint, edge);
+    } else {
+      Sound.sfx('pillarFall', 1, s.big ? 0.7 : 1);
+    }
     run.shake(s.big ? 480 : 230, s.big ? 13 : 6);
     if (s.big) run.slowMotion(0.14, 0.45);
   }
@@ -3405,6 +3425,25 @@ export function createBoss(run) {
       arm.len = 0; arm.hit = false; arm.ang = a0 + arm.side * sc * D2R;
       arm.delay = (sc && arm.side < 0) ? (cfg.wirearm.secondDelay || 0) : 0;
       arm.sx = sh.x; arm.sy = sh.y; arm.fx = sh.x; arm.fy = sh.y;
+      arm.heat = 1;
+    }
+    if (censerStyle()) {
+      // ★2026-09-14 振り香炉の射出（大聖堂だけ）：鎖が張る金属の一撃＋香炉の火が噴く＋下へ落ちる唸り（censerHurl）。
+      //   マオウレクスの砲撃音・ロケット点火（wireCannon／rocketPunchFire）は機械の語彙で、金の香炉と合っていなかった。
+      //   白閃は深紅（炎が画面を舐める）。揺れ・ヒットストップの長さは従来と同じ。
+      wire.wind = false;
+      Sound.sfx('censerHurl');
+      punchFlyT = 0.12;
+      run.shake(430, 14); whiteFlash(0.30, 0xff5a3a, 220);
+      if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.05);
+      for (const arm of wire.arms) {
+        run.spawnParticles(arm.sx, arm.sy, 0xff5a3a, 14);
+        run.spawnParticles(arm.sx, arm.sy, 0xffb020, 10);
+        spawnRingFx(arm.sx, arm.sy, 0xff5a3a, 8, 84, 0.32, 0.9, 12);
+        if (run.billiard && run.billiard.shockRing) run.billiard.shockRing(arm.sx, arm.sy, 62, 0xffd070);
+      }
+      drawWire();
+      return;
     }
     // R29: 射出音を激しく（実プレイFB）。金属スイープ(wireShot)だけだと「ギーン」で終わるので、
     //   ロケットの点火(missileLaunch)を重ねて「ドシュッ！ギュイィン」の2段にし、揺れも倍にする。
@@ -3428,7 +3467,7 @@ export function createBoss(run) {
     drawWire();
   }
   function updateWire(dt) {
-    const wk = cfg.wirearm;
+    const wk = cfg.wirearm, censer = censerStyle();
     // R31: 飛来音。拳が主人公へ近づくほど音程を上げて連打する（マッハ2で迫ってくる恐怖）。
     // 旧実装は射出時に wireFly を1回鳴らすだけで、飛んでいる 0.55 秒間ずっと無音だった。
     if (punchFlyT > 0) punchFlyT -= dt;
@@ -3441,7 +3480,9 @@ export function createBoss(run) {
       }
       if (nd >= 0) {
         const near = clamp01(1 - nd / 360);
-        Sound.sfx('rocketPunchFly', 0.6 + near * 0.5, 0.9 + near * 0.5);
+        // 2026-09-14 振り香炉は「火が唸り鎖が鳴る」飛来音（censerFly）。近いほど高く大きく＝迫る（仕組みは同じ）
+        if (censer) Sound.sfx('censerFly', 0.6 + near * 0.5, 0.9 + near * 0.5);
+        else Sound.sfx('rocketPunchFly', 0.6 + near * 0.5, 0.9 + near * 0.5);
         punchFlyT = 0.16 - near * 0.06;
       }
     }
@@ -3458,6 +3499,16 @@ export function createBoss(run) {
       }
       arm.fx = arm.sx + Math.cos(arm.ang) * arm.len;
       arm.fy = arm.sy + Math.sin(arm.ang) * arm.len;
+      // 2026-09-14 振り香炉：飛んでいる間、後ろへ炎の筋と火の粉を曳く（速さと「燃えている物が来る」が見える）
+      if (censer && !arm.hit && arm.len > 20 && arm.len < wk.maxLen) {
+        arm.trailT = (arm.trailT || 0) - dt;
+        if (arm.trailT <= 0) {
+          arm.trailT = 0.035;
+          spawnStreakFx(arm.fx, arm.fy, arm.ang + Math.PI, 40, 0xff5a3a, 0.24, 0.85, 3);
+          spawnStreakFx(arm.fx, arm.fy, arm.ang + Math.PI + 0.3 * Math.sin(run.elapsed * 31), 26, 0xffb020, 0.18, 0.8, 2);
+          run.spawnParticles(arm.fx, arm.fy, 0xffb020, 1);
+        }
+      }
       // 命中（拳先端の円が主人公に触れたら1回だけ命中）
       if (!arm.hit) {
         const dx = arm.fx - run.player.x, dy = arm.fy - run.player.y;
@@ -3471,8 +3522,10 @@ export function createBoss(run) {
           //   音だけ大きくしても「ガツン」にはならない。**画面が止まる時間**が体で感じる衝撃を作るので、
           //   ヒットストップ 0.11→0.17秒（+55%）、シェイク 460/14→560/22 まで引き上げる。
           //   音側は sound.js で二段構え＋本物の歪み＋BGMダックへ作り直してある。
-          Sound.sfx('rocketPunchHit');
-          run.shake(560, 22); whiteFlash(0.48);
+          // 2026-09-14 振り香炉は「割れた鐘の一撃＋火の炸裂」（censerSmiteFx が音と火の輪・赤熱を出す）。揺れ・ヒットストップは共通
+          if (censer) censerSmiteFx(arm.fx, arm.fy, 1);
+          else Sound.sfx('rocketPunchHit');
+          run.shake(560, 22); whiteFlash(censer ? 0.34 : 0.48, censer ? 0xff5a3a : 0xffffff);
           if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.17);
           if (run.billiard && run.billiard.shockRing) {
             run.billiard.shockRing(arm.fx, arm.fy, 120, 0xffffff);
@@ -3491,7 +3544,13 @@ export function createBoss(run) {
         else if (arm.minD < 74 && d > arm.minD + 2) {
           arm.whooshed = true;
           const near = clamp01(1 - (arm.minD - 35) / 39);
-          Sound.sfx('wireWhoosh', 0.5 + near * 0.5, 0.95 + near * 0.25);
+          if (censer) {
+            // 2026-09-14 振り香炉がかすめた＝火が耳元を抜ける（censerWhoosh）＋火の粉が散る。避けた回数が音と絵で数えられる
+            Sound.sfx('censerWhoosh', 0.5 + near * 0.5, 0.95 + near * 0.25);
+            run.spawnParticles(arm.fx, arm.fy, 0xffb020, 6);
+          } else {
+            Sound.sfx('wireWhoosh', 0.5 + near * 0.5, 0.95 + near * 0.25);
+          }
         }
       }
     }
@@ -3505,14 +3564,23 @@ export function createBoss(run) {
     for (const arm of wire.arms) arm.backFrom = arm.len;
     // R42: 巻き戻しウィンチ（backSec 0.3秒がこれまで無音だった）。命中/空振りに関係なく
     //   機械の音として毎回鳴らす＝「攻撃が終わった」の合図。下の rocketHit とは帯域が違うので重ねてよい。
-    Sound.sfx('wireWinch');
+    const censer = censerStyle();
+    // 2026-09-14 振り香炉は鎖を手繰る音→低い鐘1打で「収まった」（censerReel）。機械のウィンチ（wireWinch）は本編だけ
+    if (censer) Sound.sfx('censerReel');
+    else Sound.sfx('wireWinch');
     // 命中/最大到達の一撃感：大きな衝撃音＋強めシェイク＋whiteFlash(<0.5)＋一瞬のヒットストップ
     // R29: metalSlam → rocketHit（拉げる低音＋破断の高域）に差し替えて攻撃音を激しくする
     // R31: 命中していたら updateWire で rocketPunchHit を鳴らし切っているので、ここで重ねると
     //   低音が団子になって**かえって軽く聞こえる**。当たらず空振りで伸び切ったときだけ鳴らす。
     const anyHit = wire.arms.some((a) => a.hit);
     if (!anyHit) {
-      Sound.sfx('rocketHit'); run.shake(300, 8); whiteFlash(0.44);
+      if (censer) {
+        // 空振りで伸び切った香炉が地を叩く＝同じ「割れた鐘＋火」を小さく（音は1回だけ）
+        wire.arms.forEach((arm, i) => censerSmiteFx(arm.fx, arm.fy, 0.7, i > 0));
+        run.shake(300, 8); whiteFlash(0.22, 0xff5a3a, 200);
+      } else {
+        Sound.sfx('rocketHit'); run.shake(300, 8); whiteFlash(0.44);
+      }
       if (run.freezeT != null && !run.cinematic) run.freezeT = Math.max(run.freezeT, 0.07);
     }
     for (const arm of wire.arms) run.spawnParticles(arm.fx, arm.fy, int(cfg.bulletTint), 12);
@@ -3604,8 +3672,10 @@ export function createBoss(run) {
       g.fillStyle(GOLD_D, 1); g.fillPoints(hex(20, -7), true);                  // 器（濃い金の下地）
       g.fillStyle(GOLD_L, 1); g.fillPoints(hex(15.5, -7), true);                // 器（金）
       g.lineStyle(1.6, 0x2a1500, 0.9); g.strokePoints(hex(20, -7), true);       // 六角の稜線
-      g.fillStyle(FIRE, 0.95); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 7 + pulse * 2);        // 中の火
-      g.fillStyle(0xffffff, 0.9); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 2.6 + pulse * 1.2); // 白熱の芯
+      // 2026-09-14 heat＝振り回す予告のあいだ 0→1 で火が育つ（飛んでいる間は 1＝従来の大きさ）
+      const heat = arm.heat == null ? 1 : arm.heat;
+      g.fillStyle(FIRE, 0.95); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 4 + 3 * heat + pulse * 2 * heat);          // 中の火
+      g.fillStyle(0xffffff, 0.9); g.fillCircle(P(-7, 0).x, P(-7, 0).y, 1.4 + 1.2 * heat + pulse * 1.2 * heat); // 白熱の芯
       for (const oy of [-10, 10]) {                                             // 器の切り欠き（火が透ける）
         g.fillStyle(FIRE_L, 0.95);
         g.fillPoints([P(-14, oy - 2), P(-14, oy + 2), P(-2, oy + 3.4), P(-2, oy - 3.4)], true);
@@ -3623,6 +3693,94 @@ export function createBoss(run) {
       g.lineStyle(1.4, 0xffffff, 0.6);                                          // 器の照り
       g.lineBetween(P(-15, -11).x, P(-15, -11).y, P(-3, -13).x, P(-3, -13).y);
     }
+  }
+  // ★2026-09-14 振り香炉（大聖堂）かどうか。本編マオウレクス（style 無し）は全部 false＝従来の鉄拳の絵と音
+  function censerStyle() { return !!(cfg.wirearm && cfg.wirearm.style === 'censer'); }
+  // ★2026-09-14 実プレイFB「振り香炉の効果音がビジュアルと合わない・恐れを抱かせる効果音とエフェクトを」。
+  //   予告 teleSec（1.0秒）は、これまで香炉が画面に無く腕を引くだけだった → 肩で香炉を**振り回す**：
+  //   回転は加速し（5→36 rad/秒）、半径が開き、火が育ち火の粉がこぼれる。半周ごとに「ブン」（censerWhirl）＝
+  //   間隔が詰まり高く大きくなる（迫る音）が、絵と同じ回転で鳴る。射出の直前 0.1 秒は回転音を足さない（射出の音と重ねて潰さない）。
+  //   予告の膨らみ（censerSwing）は射出の瞬間まで途切れない（直前の無音は驚きを弱める＝sound.js の⑤）。
+  //   機構（予告の長さ・射出の向き・追尾・ダメージ）は不変。
+  function startCenserWind() {
+    ensureWire();
+    wire.wind = true;
+    for (const arm of wire.arms) {
+      const sh = shoulderOf(arm);
+      arm.sx = sh.x; arm.sy = sh.y; arm.fx = sh.x; arm.fy = sh.y; arm.len = 0; arm.hit = false;
+      arm.windAng = arm.side > 0 ? -Math.PI / 2 : Math.PI / 2; arm.heat = 0; arm.emberT = 0;
+    }
+    drawWire();
+  }
+  function updateCenserWind(dt) {
+    const T = cfg.wirearm.teleSec, p = clamp01(1 - stateT / T);
+    const w = 5 + 31 * p * p, R = 16 + 44 * (1 - (1 - p) * (1 - p));
+    for (const arm of wire.arms) {
+      const sh = shoulderOf(arm); arm.sx = sh.x; arm.sy = sh.y;
+      const half0 = Math.floor(arm.windAng / Math.PI);
+      arm.windAng += arm.side * w * dt;
+      arm.fx = sh.x + Math.cos(arm.windAng) * R;
+      arm.fy = sh.y + Math.sin(arm.windAng) * R * 0.62;
+      arm.heat = p;
+      // 右の香炉だけが鳴らす（2本で鳴らすと倍に聞こえて回転が数えられない）。射出の直前 0.1 秒は鳴らさない
+      if (arm.side > 0 && stateT > 0.1 && Math.floor(arm.windAng / Math.PI) !== half0) Sound.sfx('censerWhirl', 0.45 + 0.65 * p, 0.8 + 0.5 * p);
+      arm.emberT -= dt;
+      if (arm.emberT <= 0) { arm.emberT = 0.09 - 0.05 * p; run.spawnParticles(arm.fx, arm.fy, p > 0.6 ? 0xffb020 : 0xff5a3a, 1); }
+    }
+    drawWire();
+  }
+  // ★2026-09-14 香炉が当たった／空振りで地を叩いた瞬間＝割れた鐘の一撃＋火の炸裂（censerSmite）。
+  //   火の輪が2枚広がり、火の粉が飛び、昇り、地面の赤熱が遅れて消える＝「燃やされた」が目に残る。silent＝音を鳴らさない（2本目）
+  function censerSmiteFx(x, y, power, silent) {
+    if (!silent) Sound.sfx('censerSmite', power >= 1 ? 1 : 0.6, power >= 1 ? 1 : 1.15);
+    impactFx(x, y, 0xff3a4a, power, { streaks: 12, depth: 12 });
+    spawnRingFx(x, y, 0xffb020, 10, 120 * power, 0.45, 0.85, 12);
+    spawnGhostFx('glow', x, y, 0, 1.6 * power, 0.8 * power, 0xff3a1a, 1.0, 0.5);
+    run.spawnParticles(x, y, 0xffb020, Math.round(16 * power));
+    run.spawnRise(x, y, 0xff5a3a, Math.round(10 * power), 13);
+  }
+  // ★2026-09-14 天啓の予告を「天に見つかった」に（大聖堂だけ）。位置と避け方（輪の外へ走る）は不変。
+  //   ①天の裂け目：光の束の上端に開く（主人公の上 250px は画面外になりうるので、画面の上端より下に描く）
+  //   ②落ちてくる光の粒：加速して足元へ（迫る）③足元の照準：8つの弧が回り、4本の爪が輪の外から内へ締まる（残り時間）
+  //   ④落ちる直前 0.12 秒は光の束が満ちる。
+  function drawPillarOmen(s, p, blink) {
+    const g = s.g, cam = run.cameras.main;
+    const top = Math.max(s.y - s.h, cam.worldView.y + 58);   // 58＝HUD（タイマー・ボスのHPバー）の下。10 では文字の下に隠れて見えなかった
+    const rw = s.r * (0.5 + 1.1 * p), rh = 2 + 5 * p;
+    g.fillStyle(s.tint, 0.30 + 0.45 * p); g.fillEllipse(s.x, top, rw * 2, rh * 2);
+    g.fillStyle(0xffffff, 0.55 + 0.45 * p); g.fillEllipse(s.x, top, rw, Math.max(1.5, rh * 0.7));
+    const span = s.y - top;
+    for (let k = 0; k < 7; k++) {
+      const u = (run.elapsed * (0.9 + 2.2 * p) + k / 7) % 1, yy = top + span * u * u;
+      const xx = s.x + Math.sin(k * 2.3 + run.elapsed * 4) * s.r * 0.3 * (1 - u);
+      g.fillStyle(k % 2 ? s.tint : 0xffffff, 0.35 + 0.6 * u);
+      g.fillRect(xx - 1.5, yy - 3 - 6 * u, 3, 6 + 12 * u);
+    }
+    const dir = (s.idx || 0) % 2 ? -1 : 1, rot = run.elapsed * (1.5 + 5 * p) * dir;
+    g.lineStyle(2, s.edge, 0.95);
+    for (let k = 0; k < 8; k++) {
+      const a0 = rot + (k * Math.PI) / 4;
+      g.beginPath(); g.arc(s.x, s.y, s.r * 1.2, a0, a0 + Math.PI / 7); g.strokePath();
+    }
+    const inR = s.r * (1.7 - 1.0 * p), outR = inR + 9 + 5 * p;
+    g.lineStyle(3, 0xffffff, 0.95 * blink);
+    for (let k = 0; k < 4; k++) {
+      const a = -rot * 0.6 + Math.PI / 4 + (k * Math.PI) / 2;
+      g.lineBetween(s.x + Math.cos(a) * inR, s.y + Math.sin(a) * inR, s.x + Math.cos(a) * outR, s.y + Math.sin(a) * outR);
+    }
+    if (s.t < 0.12) {
+      g.fillStyle(0xffffff, 0.18 + 0.5 * (1 - s.t / 0.12));
+      g.fillRect(s.x - s.r * 0.35, top, s.r * 0.7, s.y - top);
+    }
+  }
+  // ★2026-09-14 天啓の着弾の「残り」：白い光の芯が一瞬残り、地面が赤熱し、焼けた輪が遅れて消え、光の粒が昇る。
+  function pillarAftermath(s, tint, edge) {
+    spawnPillarFx(s.x, s.y + 6, 0xffffff, s.r * 0.35, s.h * 1.25, 0.8, 1.0);
+    spawnGhostFx('glow', s.x, s.y, 0, (s.r * 2.4) / 64, (s.r * 1.2) / 64, edge, 1.1, 0.55);
+    spawnRingFx(s.x, s.y, edge, s.r * 0.95, s.r * 1.15, 1.0, 0.6, 4);
+    run.spawnRise(s.x, s.y, 0xffffff, s.big ? 16 : 9, 5);
+    run.spawnRise(s.x, s.y, tint, s.big ? 12 : 7, 5);
+    if (s.big) spawnRingFx(s.x, s.y, 0xffffff, s.r * 0.5, s.r * 3.2, 0.6, 0.85, 5);   // 画面の縁の合図（bigCue）は出現時に出しているので重ねない
   }
   function destroyWire() {
     if (!wire) return;

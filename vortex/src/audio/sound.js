@@ -155,6 +155,34 @@ function noiseHit(opts) {
   src.stop(t0 + dur + 0.02);
 }
 
+// --- 2026-09-14 急な周波数の跳躍（f1 を jumpAt 秒まで保ち、f2 へ一瞬で跳んで fEnd へ沈む）---
+// tone() の freqEnd は滑らかな掃引しか作れない。Blumstein 2012（Biol Lett）：音楽にノイズと**急な周波数の跳躍**を足すと、
+// 映像つきでも「ノイズ」と「下向きの跳躍」による不快さが残った → 恐れの一撃に下向きの跳躍を入れるための音。
+function jumpTone(opts) {
+  if (!ctx) return;
+  const { type = 'sawtooth', f1 = 440, f2 = 220, fEnd = null, jumpAt = 0.05, start = 0, dur = 0.3,
+    attack = 0.004, gain = 0.1, dest = sfxGain, verb = 0 } = opts;
+  const t0 = ctx.currentTime + start;
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(Math.max(1, f1), t0);
+  osc.frequency.setValueAtTime(Math.max(1, f2), t0 + jumpAt);
+  if (fEnd != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, fEnd), t0 + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
+  g.gain.setValueAtTime(gain, t0 + Math.max(attack, jumpAt));   // 跳ぶ瞬間まで音量を保つ（減衰で跳躍が聞こえなくならないように）
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(dest || sfxGain);
+  if (verb > 0 && verbBus) {
+    const vs = ctx.createGain();
+    vs.gain.value = verb;
+    g.connect(vs).connect(verbBus);
+  }
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
 // --- SFX定義テーブル ---
 // 各キーは対応関数。ポップで明るい音色（矩形/三角波＋短エンベロープ基調）。
 const SFX = {
@@ -941,6 +969,197 @@ const SFX = {
     noiseHit({ start: 0.30, dur: 0.05, gain: 0.34 * g, hpFreq: 1200, lpFreq: 12000 });
     tone({ start: 0.30, type: 'sine', freq: 180 * p, freqEnd: 40 * p, dur: 0.40, gain: 0.30 * g, attack: 0.002 });
     tone({ start: 0.31, type: 'sine', freq: 6400 * p, dur: 0.25, gain: 0.05 * g, attack: 0.001, verb: 0.5 });
+  },
+  // ============ 2026-09-14 振り香炉（配線の鞭・大聖堂だけ）の専用音7種＋天啓の2種 ============
+  // 実プレイFB「振り香炉の効果音がビジュアルと合わない（金の香炉なのにマオウレクスのロケットパンチの音）」
+  //   「天啓の光の束が現れる音も変えて」「どちらもプレーヤーに恐れを抱かせる効果音とエフェクトを」。
+  // 素材は絵と同じもの＝振り香炉は**金の鎖・香炉の火・割れた鐘**、天啓は**裂ける天・聖歌・灼ける光**。
+  // 恐れの文法（2026-09-14 文献で確かめた範囲だけ使う・出典はコミットと memory の jam_cathedral）：
+  //   ①迫る音：強くなる音は実際より大きく変わって聞こえ、扁桃体が反応する。効果はノイズより倍音を含む音で大きい
+  //     （Neuhoff 2001／Bach 2008）→ 予告の膨らみは歪ませた鋸歯・三角で作る。
+  //   ②ラフネス：悲鳴は 30〜150Hz の速い振幅変調を占め、扁桃体が選んで反応する（Arnal 2015）→ 差 30〜55Hz の2音を並べる。
+  //   ③非線形と下向きの跳躍：ノイズと急な周波数の下降は、映像つきでも不快さが残る（Blumstein 2012）→ 歪み＋jumpTone。
+  //   ④不協和：ずっと不協和な音楽で扁桃体が働く（Koelsch 2006）→ 短2度・三全音。
+  //   ⑤⚠️ 一撃の直前で音を切らない：100〜120ms 前の無音や音量の低下は驚愕を**弱める**（プレパルス抑制：Lane 1991／Peterson 2018）。
+  //     → 予告の膨らみは一撃の瞬間に頂点を置き、一撃に重ねて消す。一撃の頭は立ち上がりの鋭いノイズ（Blumenthal 1988）。
+  //   ⑥低音（〜150Hz）はノートPCのスピーカーで出ない → 歪み・矩形の倍音で聞こえる帯域にも置く（基音が消えても音程は倍音から聞こえる）。
+  // 振り香炉の予告（sec＝予告の尺）：地の底の不協和（D2・E♭2 を歪みに通す）が膨らみ、火の帯が上がり、鎖の鳴りが詰まっていく。
+  //   膨らみの頂点は射出の瞬間（⑤）。回転の「ブン」は絵の回転に合わせて boss.js が censerWhirl で鳴らす。
+  censerSwing(sec) {
+    const S = sec == null ? 1.0 : sec, E = S + 0.06;   // 頂点＝S（射出の瞬間）→ E で消える＝射出の音に重ねて消す（⑤）
+    const D = sfxDistBus;
+    duckBgm(0.45, S - 0.012, 0.25);   // 振りかぶる間、周りが息をひそめる（射出の censerHurl がさらに深く沈める）
+    tone({ type: 'sawtooth', freq: 73.4, freqEnd: 82.4, dur: E, attack: S * 0.97, gain: 0.16, dest: D });   // ④ D2
+    tone({ type: 'sawtooth', freq: 77.8, freqEnd: 87.3, dur: E, attack: S * 0.97, gain: 0.12, dest: D });   // ④ E♭2（短2度）
+    tone({ type: 'sine', freq: 46, freqEnd: 58, dur: E, attack: S * 0.95, gain: 0.20 });   // ⑥ 低音は控えめ（ノートPCで出ない分がリミッタだけを押す）
+    tone({ type: 'sine', freq: 587, freqEnd: 659, dur: E, attack: S * 0.97, gain: 0.05, verb: 0.3 });        // ② D5 と E♭5（差 35Hz のうなり）
+    tone({ type: 'sine', freq: 622, freqEnd: 698, dur: E, attack: S * 0.97, gain: 0.045, verb: 0.3 });
+    [0, 0.22, 0.42, 0.58, 0.72, 0.84].forEach((u, i) => {   // 香炉の火が膨らむ（ノイズは減衰しかしないので、強くしながら重ねる）
+      noiseHit({ start: S * u, dur: Math.min(0.26, E - S * u), gain: 0.05 + i * 0.03, hpFreq: 160, lpFreq: 700 + i * 380, lpEnd: 1400 + i * 520 });
+    });
+    // 鎖の鳴り（間隔が詰まる＝①）。射出の瞬間まで途切れさせない（⑤）
+    const ts = [0.04, 0.15, 0.25, 0.34, 0.42, 0.49, 0.55, 0.61, 0.66, 0.71, 0.75, 0.79, 0.83, 0.86, 0.89, 0.915, 0.94, 0.96, 0.98];
+    ts.forEach((u, i) => {
+      const t = S * u, k = i / ts.length;
+      tone({ start: t, type: 'square', freq: 3100 + (i * 397) % 1900, dur: 0.012, gain: 0.04 + 0.08 * k, attack: 0.0005 });
+      tone({ start: t, type: 'sine', freq: 5300 + (i * 211) % 900, dur: 0.035, gain: 0.02 + 0.03 * k, attack: 0.0005 });
+      noiseHit({ start: t, dur: 0.008, gain: 0.05 + 0.08 * k, hpFreq: 3000, lpFreq: 14000 });
+    });
+  },
+  // 振り回す1回（半周ごと）：空気を押しのける「ブン」（ノイズを2枚ずらして膨らませる）＋歪んだ胴＋鎖の一鳴り。
+  //   vol・pitch は予告が進むほど上がる＝回転が速く、近く、大きくなる（①）。
+  censerWhirl(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.07, gain: 0.07 * g, hpFreq: 220 * p, lpFreq: 1200 * p });
+    noiseHit({ start: 0.05, dur: 0.16, gain: 0.20 * g, hpFreq: 260 * p, lpFreq: 2200 * p, lpEnd: 600 * p });
+    tone({ start: 0.02, type: 'sine', freq: 190 * p, freqEnd: 105 * p, dur: 0.2, gain: 0.12 * g, attack: 0.06 });
+    tone({ start: 0.04, type: 'sawtooth', freq: 96 * p, freqEnd: 72 * p, dur: 0.16, gain: 0.05 * g, attack: 0.05, dest: sfxDistBus });
+    tone({ start: 0.06, type: 'square', freq: 4400 * p, dur: 0.01, gain: 0.05 * g, attack: 0.0005 });
+  },
+  // 射出：膨らみの頂点で鎖が一気に張る「ガキン」（鉄の非整数倍音＋31Hz ずれた相方＝割れた鐘の濁り）→香炉の火が噴く「ボウッ」
+  //   →三全音下へ跳んで沈む唸り（③・邪悪は下へ落ちる＝R36W2・差 49Hz の2本で荒らす＝②）→伸びていく鎖の走り（間隔が開く＝遠ざかる）。
+  censerHurl(vol) {
+    const g = vol == null ? 1 : vol, D = sfxDistBus;
+    duckBgm(0.18, 0.18, 0.45);
+    noiseHit({ dur: 0.006, gain: 0.7 * g, hpFreq: 800, lpFreq: 16000 });
+    [[740, 0.26, 0.20], [2042, 0.18, 0.12], [3996, 0.12, 0.07], [6608, 0.08, 0.04]].forEach(([f, d, a]) => {
+      tone({ type: 'sine', freq: f, freqEnd: f * 0.985, dur: d, gain: a * g, attack: 0.0006, verb: 0.3 });
+    });
+    tone({ type: 'sine', freq: 771, dur: 0.22, gain: 0.10 * g, attack: 0.0008 });
+    noiseHit({ start: 0.01, dur: 0.5, gain: 0.36 * g, hpFreq: 120, lpFreq: 5200, lpEnd: 600 });
+    noiseHit({ start: 0.01, dur: 0.42, gain: 0.26 * g, hpFreq: 60, lpFreq: 900, lpEnd: 200 });
+    tone({ start: 0.01, type: 'sine', freq: 150, freqEnd: 40, dur: 0.46, gain: 0.55 * g, attack: 0.002 });
+    tone({ start: 0.01, type: 'square', freq: 98, dur: 0.14, gain: 0.24 * g, attack: 0.001, dest: D });
+    jumpTone({ start: 0.02, type: 'sawtooth', f1: 262, f2: 185, fEnd: 88, jumpAt: 0.06, dur: 0.44, gain: 0.15 * g, attack: 0.006, dest: D });
+    jumpTone({ start: 0.02, type: 'sawtooth', f1: 311, f2: 220, fEnd: 105, jumpAt: 0.06, dur: 0.44, gain: 0.11 * g, attack: 0.006, dest: D });
+    for (let i = 0; i < 12; i++) {
+      const t = 0.03 + 0.26 * Math.pow(i / 12, 1.3);
+      tone({ start: t, type: 'square', freq: 3600 + (i * 613) % 2400, dur: 0.01, gain: (0.12 - i * 0.006) * g, attack: 0.0005 });
+      noiseHit({ start: t, dur: 0.007, gain: (0.10 - i * 0.005) * g, hpFreq: 3200, lpFreq: 15000 });
+    }
+  },
+  // 飛来（0.10〜0.16秒ごと）：火の揺らぎ＋低い唸り＋差 47Hz の歪んだ2本（うなり＝②）＋鎖の一鳴り。近いほど pitch・vol が上がる。
+  censerFly(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.12, gain: 0.10 * g, hpFreq: 300 * p, lpFreq: 2600 * p, lpEnd: 900 * p });
+    tone({ type: 'sine', freq: 120 * p, freqEnd: 82 * p, dur: 0.12, gain: 0.12 * g, attack: 0.02 });
+    tone({ type: 'sawtooth', freq: 150 * p, dur: 0.09, gain: 0.035 * g, attack: 0.01, dest: sfxDistBus });
+    tone({ type: 'sawtooth', freq: 197 * p, dur: 0.09, gain: 0.03 * g, attack: 0.01, dest: sfxDistBus });
+    tone({ start: 0.02, type: 'square', freq: 4300 * p, dur: 0.01, gain: 0.05 * g, attack: 0.0005 });
+    tone({ start: 0.02, type: 'sine', freq: 6100 * p, dur: 0.03, gain: 0.02 * g, attack: 0.0005 });
+  },
+  // 命中（vol 1）／空振りで地を叩く（vol 0.6）：打たれた教会の鐘が割れている。
+  //   打撃の輪郭 → 三全音（196・277Hz）を歪みで潰した胴 → 重さ → 鐘の部分音（hum 0.5・prime 1・tierce 1.2・quint 1.5・nominal 2）に
+  //   相方（+34Hz／+46Hz）を並べたラフネス（②）→ 火の炸裂とはぜる火の粉。BGM は深く沈める。
+  censerSmite(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch, D = sfxDistBus;
+    duckBgm(g >= 0.9 ? 0.14 : 0.30, 0.16, 0.55);
+    noiseHit({ dur: 0.008, gain: 0.8 * g, hpFreq: 500, lpFreq: 17000 });
+    noiseHit({ dur: 0.025, gain: 0.5 * g, hpFreq: 1500, lpFreq: 9000 });
+    // 胴の頭 25ms だけ1オクターブ上から落とす（③ 下向きの跳躍＝砕けて沈む）。2本の間は三全音のまま（④）
+    jumpTone({ type: 'square', f1: 392 * p, f2: 196 * p, jumpAt: 0.025, dur: 0.12, gain: 0.50 * g, attack: 0.0004, dest: D });
+    jumpTone({ type: 'square', f1: 554 * p, f2: 277 * p, jumpAt: 0.025, dur: 0.10, gain: 0.35 * g, attack: 0.0004, dest: D });
+    tone({ start: 0.012, type: 'sine', freq: 110 * p, freqEnd: 42 * p, dur: 0.5, gain: 0.5 * g, attack: 0.001 });
+    tone({ start: 0.012, type: 'triangle', freq: 70 * p, freqEnd: 38 * p, dur: 0.6, gain: 0.34 * g, attack: 0.001 });
+    const f = 220 * p;
+    [[0.5, 1.6, 0.16], [1, 1.2, 0.22], [1.2, 1.0, 0.13], [1.5, 0.8, 0.09], [2, 1.3, 0.18], [3, 0.5, 0.06], [4, 0.35, 0.04]].forEach(([r, d, a]) => {
+      tone({ start: 0.015, type: 'sine', freq: f * r, freqEnd: f * r * 0.98, dur: d, gain: a * 1.4 * g, attack: 0.001, verb: 0.45 });
+    });
+    tone({ start: 0.015, type: 'sine', freq: f + 34 * p, dur: 1.0, gain: 0.10 * g, attack: 0.001 });
+    tone({ start: 0.015, type: 'sine', freq: f * 2 + 46 * p, dur: 0.9, gain: 0.08 * g, attack: 0.001 });
+    noiseHit({ start: 0.01, dur: 0.55, gain: 0.32 * g, hpFreq: 150, lpFreq: 7000, lpEnd: 500 });
+    noiseHit({ start: 0.02, dur: 0.30, gain: 0.18 * g, hpFreq: 2500, lpFreq: 12000 });
+    [0.12, 0.19, 0.27, 0.34, 0.43, 0.52].forEach((t, i) => noiseHit({ start: t, dur: 0.006, gain: (0.10 - i * 0.012) * g, hpFreq: 5000, lpFreq: 16000 }));
+  },
+  // かすめた（ニアミス）：火が耳元を抜ける（帯域が落ちるドップラー）＋差 50Hz の細い2本（悲鳴の手触り）＋火の粉。
+  censerWhoosh(vol, pitch) {
+    const g = vol == null ? 1 : vol, p = pitch == null ? 1 : pitch;
+    noiseHit({ dur: 0.22, gain: 0.32 * g, hpFreq: 400 * p, lpFreq: 7000 * p, lpEnd: 900 * p });
+    noiseHit({ start: 0.03, dur: 0.18, gain: 0.16 * g, hpFreq: 150 * p, lpFreq: 1500 * p });
+    tone({ type: 'sine', freq: 300 * p, freqEnd: 120 * p, dur: 0.2, gain: 0.12 * g, attack: 0.015 });
+    tone({ type: 'sine', freq: 1320 * p, freqEnd: 990 * p, dur: 0.15, gain: 0.03 * g, attack: 0.01 });
+    tone({ type: 'sine', freq: 1370 * p, freqEnd: 1027 * p, dur: 0.15, gain: 0.03 * g, attack: 0.01 });
+    [0.06, 0.11, 0.17].forEach((t) => noiseHit({ start: t, dur: 0.006, gain: 0.07 * g, hpFreq: 5000, lpFreq: 15000 }));
+  },
+  // 巻き戻し（backSec 0.65）：鎖が手繰り寄せられる（間隔が詰まる）＋擦れ → 収まった合図の低い鐘1打（D3）＋火が息をつく。
+  //   本編のウィンチ（ラチェット＋モーター＋ガチャン）と同じ役目＝「攻撃が終わった」を音で知らせる。
+  censerReel(vol) {
+    const g = vol == null ? 1 : vol;
+    duckBgm(0.55, 0.12, 0.30);
+    for (let i = 0; i < 12; i++) {
+      const t = 0.5 * (1 - Math.pow(1 - i / 12, 1.7));
+      tone({ start: t, type: 'square', freq: 3800 + i * 170, dur: 0.011, gain: 0.12 * g, attack: 0.0005 });
+      tone({ start: t + 0.003, type: 'sine', freq: 6000 + (i * 331) % 1200, dur: 0.03, gain: 0.03 * g, attack: 0.0005 });
+      noiseHit({ start: t, dur: 0.008, gain: 0.10 * g, hpFreq: 3200, lpFreq: 15000 });
+    }
+    noiseHit({ dur: 0.5, gain: 0.07 * g, hpFreq: 2500, lpFreq: 9000, lpEnd: 4000 });
+    noiseHit({ start: 0.56, dur: 0.008, gain: 0.25 * g, hpFreq: 1200, lpFreq: 12000 });
+    tone({ start: 0.56, type: 'sine', freq: 146.8, dur: 1.0, gain: 0.16 * g, attack: 0.002, verb: 0.5 });
+    tone({ start: 0.56, type: 'sine', freq: 176.2, dur: 0.7, gain: 0.07 * g, attack: 0.002, verb: 0.4 });
+    tone({ start: 0.56, type: 'sine', freq: 73.4, dur: 0.9, gain: 0.10 * g, attack: 0.003 });
+    noiseHit({ start: 0.55, dur: 0.35, gain: 0.10 * g, hpFreq: 200, lpFreq: 1500, lpEnd: 400 });
+  },
+  // 天啓の予告（1本ごと・arg＝{ sec: 予告の尺, i: 何本目, big: 最後の1本, delay: 裂ける音を遅らせる秒 }）＝「天に見つかった」。
+  //   天が裂ける高域 → 短2度＋三全音の聖歌（A5・B♭5・E6）が膨らむ → はぜる音の密度と音量が上がる（①）→ 地の底が持ち上がる
+  //   → 頂点は落ちる瞬間（⑤）。本数で音程が上がり、最後の1本は低く・不協和の低い聖歌と遠い弔鐘を足す。
+  //   delay：天啓は 0.6 秒おきに 0.7 秒の予告＝次の柱は前の柱の着弾の 0.1 秒前に出る。そこに「裂ける音」の頭を置くと
+  //   前の柱の着弾の驚きを弱める（⑤）→ boss.js が前の着弾のあとへずらした秒を渡す。膨らみの頂点（S）は動かさない。
+  pillarMark(arg) {
+    const o = arg || {}, S = o.sec || 0.7, i = o.i || 0, big = !!o.big, E = S + 0.06;
+    const d = Math.max(0, Math.min(0.3, o.delay || 0));
+    const p = big ? 0.7 : 1 + i * 0.12, D = sfxDistBus;
+    duckBgm(big ? 0.35 : 0.6, S, 0.12);
+    noiseHit({ start: d, dur: 0.18, gain: big ? 0.22 : 0.16, hpFreq: 3000, lpFreq: 14000, lpEnd: 3500 });
+    tone({ start: d, type: 'sine', freq: 3520 * p, freqEnd: 1760 * p, dur: 0.18, gain: 0.05, attack: 0.002, verb: 0.4 });
+    [[880, 0.05], [932, 0.045], [1318, 0.03]].forEach(([f, a]) => {
+      tone({ type: 'triangle', freq: f * p, freqEnd: f * p * 1.06, dur: E, attack: S * 0.96, gain: a * (big ? 1.3 : 1), verb: 0.3 });
+    });
+    for (let k = 0; k < 10; k++) {
+      const u = 1 - Math.pow(1 - k / 10, 2);
+      noiseHit({ start: d + (S * 0.98 - d) * u, dur: 0.005, gain: 0.02 + 0.08 * (k / 10), hpFreq: 6000, lpFreq: 16000 });
+    }
+    tone({ type: 'sine', freq: 45 * (big ? 0.8 : 1), freqEnd: 62, dur: E, attack: S * 0.94, gain: big ? 0.24 : 0.16 });
+    tone({ type: 'sawtooth', freq: 90 * (big ? 0.8 : 1), freqEnd: 124, dur: E, attack: S * 0.94, gain: big ? 0.13 : 0.08, dest: D });   // ⑥ 地の底は歪みの倍音で聞かせる
+    if (big) {
+      [[146.8, 0.07], [155.6, 0.06]].forEach(([f, a]) => tone({ type: 'triangle', freq: f, dur: E, attack: S * 0.92, gain: a, verb: 0.4 }));
+      tone({ start: d, type: 'sine', freq: 73.4, dur: 1.4, gain: 0.2, attack: 0.003, verb: 0.6 });
+      tone({ start: d, type: 'sine', freq: 176.2, dur: 0.9, gain: 0.06, attack: 0.003, verb: 0.5 });
+    } else if (i === 0) {
+      tone({ type: 'sine', freq: 110, dur: 1.1, gain: 0.12, attack: 0.003, verb: 0.6 });   // 天の鐘（1本目だけ）
+    }
+  },
+  // 天啓の落下（arg＝{ big, i }）＝裁き。光が地を穿つ輪郭（立ち上がりの鋭いノイズ＝⑤）＋電撃の芯 → 灼ける高域が尾を引き、
+  //   差 53Hz の2本が三全音下へ跳ぶ「光の悲鳴」（②③）→ 地を打つ重さ（倍音つき＝⑥）と三全音の胴（④）→ 地鳴りと三全音で鳴り残る鐘（D3・G#3）。
+  //   最後の1本は空が3回裂ける（雷鳴 thunder の最初の層と同じ段割り）＋歪んだ轟音＋長い地鳴り。
+  //   ⚠️ thunder の最後の層（明るい長三和音＝本作のポップさ）は入れない。
+  pillarSmite(arg) {
+    const o = arg || {}, big = !!o.big, i = o.i || 0;
+    const k = big ? 1.25 : 1, p = big ? 0.75 : 1 + i * 0.08, D = sfxDistBus;
+    duckBgm(big ? 0.10 : 0.16, big ? 0.22 : 0.10, big ? 0.65 : 0.40);
+    noiseHit({ dur: 0.006, gain: 0.85 * k, hpFreq: 400, lpFreq: 18000 });
+    tone({ type: 'square', freq: 3600 * p, freqEnd: 1400 * p, dur: 0.03, gain: 0.18 * k, attack: 0.0004, dest: D });
+    noiseHit({ start: 0.004, dur: 0.45, gain: 0.26 * k, hpFreq: 4500, lpFreq: 16000, lpEnd: 7000 });
+    jumpTone({ start: 0.004, type: 'triangle', f1: 2637 * p, f2: 1865 * p, fEnd: 1568 * p, jumpAt: 0.07, dur: 0.42, gain: 0.06 * k, attack: 0.002, verb: 0.4 });
+    jumpTone({ start: 0.004, type: 'triangle', f1: 2690 * p, f2: 1918 * p, fEnd: 1612 * p, jumpAt: 0.07, dur: 0.42, gain: 0.06 * k, attack: 0.002, verb: 0.4 });
+    tone({ start: 0.01, type: 'sine', freq: 140 * p, freqEnd: 34, dur: 0.6, gain: 0.55 * k, attack: 0.001 });
+    tone({ start: 0.01, type: 'square', freq: 82 * p, dur: 0.16, gain: 0.34 * k, attack: 0.001, dest: D });
+    tone({ start: 0.01, type: 'sawtooth', freq: 110 * p, freqEnd: 70 * p, dur: 0.3, gain: 0.20 * k, attack: 0.003, dest: D });
+    tone({ start: 0.01, type: 'sawtooth', freq: 155.6 * p, freqEnd: 99 * p, dur: 0.3, gain: 0.16 * k, attack: 0.003, dest: D });
+    noiseHit({ start: 0.04, dur: 0.55, gain: 0.14 * k, hpFreq: 80, lpFreq: 1400, lpEnd: 250 });
+    tone({ start: 0.02, type: 'sine', freq: 146.8 * p, dur: 1.0, gain: 0.10 * k, attack: 0.003, verb: 0.6 });
+    tone({ start: 0.02, type: 'sine', freq: 207.7 * p, dur: 0.9, gain: 0.08 * k, attack: 0.003, verb: 0.6 });
+    if (big) {
+      [0, 0.04, 0.095].forEach((t, j) => {
+        const d = 1 - j * 0.22;
+        noiseHit({ start: t, dur: 0.05 * d, gain: 0.34 * d, hpFreq: 6000, lpFreq: 16000 });
+        noiseHit({ start: t + 0.008, dur: 0.12 * d, gain: 0.24 * d, hpFreq: 2200, lpFreq: 14000 });
+        tone({ start: t, type: 'square', freq: 2600 - j * 420, freqEnd: 620, dur: 0.08 * d, gain: 0.15 * d, attack: 0.001 });
+      });
+      tone({ start: 0.02, type: 'sawtooth', freq: 55, dur: 0.85, gain: 0.26, attack: 0.02, release: 0.95, dest: D });
+      tone({ start: 0.02, type: 'sawtooth', freq: 82.5, dur: 0.8, gain: 0.18, attack: 0.02, detune: 9, dest: D });
+      noiseHit({ start: 0.5, dur: 0.6, gain: 0.10, hpFreq: 60, lpFreq: 900, lpEnd: 150 });
+      tone({ start: 0.02, type: 'sine', freq: 73.4, dur: 2.0, gain: 0.18, attack: 0.003, verb: 0.5 });
+    }
   },
   // 2026-09-13 撃破「祈りの終わり」の昇天：光の中を昇る（D ハーモニックマイナーの音が1つずつ上へ抜けていく＋高い空気＋地の底の持続音が上がる）。sec＝昇る尺。
   cathAscend(sec) {

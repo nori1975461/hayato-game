@@ -1586,8 +1586,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(sm.bladeSec <= 0.6 && sm.bladeShrink >= 0.8 && sm.bladeDamage >= 20 && /choirBladeBase = \{ cx, cy, pts:/.test(jb) && /s = 1 - sm\.bladeShrink \* k \* k/.test(jb)
         && /Sound\.sfx\('bladeSnap', 1, 1\.0\)/.test(jb), 'JAM14: 聖歌隊の刃は 0.55 秒で中心へ閉じる（加速して締まる）・音は bladeSnap');
       assert(pl.tints && pl.tints.length === pl.count && pl.edgeTints && pl.edgeTints.length === pl.count && /const tint = int\(\(pl\.tints && pl\.tints\[/.test(jb)
-        && /if \(pl\.tints && s\.big\) Sound\.sfx\('thunder', 0\.9\)/.test(jb) && /spawnPillar\(cfg\.pillar, false, 1\)/.test(jb),
-        'JAM14: 天啓は本数で色が変わる（白金→橙→深紅）・巨大は雷鳴・重ねは橙');
+        && /Sound\.sfx\('pillarSmite', \{ big: s\.big, i: s\.idx \}\)/.test(jb) && /spawnPillar\(cfg\.pillar, false, 1\)/.test(jb),
+        'JAM14: 天啓は本数で色が変わる（白金→橙→深紅）・重ねは橙（2026-09-14 巨大の雷鳴は pillarSmite の「空が3回裂ける」へ）');
       assert(!(BALANCE.boss.tiers || []).some((t) => (t.tsunami && (t.tsunami.accel || t.tsunami.waveTints)) || (t.pillar && t.pillar.tints)), 'JAM14: 本編の tiers には accel／waveTints／tints を入れていない');
     }
     // ★2026-09-14 JAM15：実プレイ41・42・44回目（死因2位＝巨体／欠片を掴んでも投げない）→ 接触 24→16・欠片の投げ先の光の線
@@ -1606,6 +1606,48 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       const vd16 = read('data/verdict.js');
       assert(/s\.bossSec > 0 && s\.bossSec < 75/.test(vd16) && /bossSec < 75\), text: '75秒以内に覆せば'/.test(vd16),
         'JAM15: 第3位の条件は 75 秒（matches と clearHint の両方・数字がずれていると一覧と案内が食い違う）');
+    }
+    // ★2026-09-14 JAM17：実プレイ54回目（被弾を意識して25）＋ユーザー指示＝①結果の表に被弾（案A・表はスッキリ）
+    //   ②振り香炉の音と演出（マオウレクスのロケットの音をやめる）③天啓の現れる音と演出＝どちらも「恐れ」
+    {
+      const rs17 = read('scenes/Result.js'), bj17b = read('systems/boss.js'), sd17 = read('audio/sound.js');
+      assert(/\['被弾', String\(s\.hits \|\| 0\)\]/.test(rs17) && !/\['裁き', `\$\{seenN\}/.test(rs17)
+        && /V で 裁きの一覧（\$\{seenN\}\/\$\{VERDICTS\.length\}）/.test(rs17),
+        'JAM17: 結果の表に被弾の行・行は増やさない（裁き n/33 は V の案内へ移す）');
+      {
+        const rowsLen = (name) => { const m = rs17.match(new RegExp('const ' + name + ' = \\[([\\s\\S]*?)\\];')); return m ? (m[1].match(/\['/g) || []).length : -1; };
+        assert(rowsLen('rowsL') === 3 && rowsLen('rowsR') === 3, `JAM17: 表は2列3行のまま（左 ${rowsLen('rowsL')}・右 ${rowsLen('rowsR')}）`);
+      }
+      for (const n of ['censerSwing', 'censerWhirl', 'censerHurl', 'censerFly', 'censerSmite', 'censerWhoosh', 'censerReel', 'pillarMark', 'pillarSmite']) {
+        assert(new RegExp('^  ' + n + '\\(', 'm').test(sd17) && new RegExp("Sound\\.sfx\\('" + n + "'").test(bj17b), `JAM17: 専用SFX ${n} が定義され、boss.js から鳴らされている`);
+      }
+      assert(/function censerStyle\(\) \{ return !!\(cfg\.wirearm && cfg\.wirearm\.style === 'censer'\); \}/.test(bj17b)
+        && /if \(censer\) Sound\.sfx\('censerReel'\);\s*\n\s*else Sound\.sfx\('wireWinch'\);/.test(bj17b)
+        && /if \(censer\) censerSmiteFx\(arm\.fx, arm\.fy, 1\);\s*\n\s*else Sound\.sfx\('rocketPunchHit'\);/.test(bj17b),
+        'JAM17: 振り香炉の音は censerStyle() の分岐だけ＝本編マオウレクスは砲撃・ロケット・ウィンチのまま');
+      // 恐れの文法（音・2026-09-14 文献で確かめた範囲）：①予告の膨らみは一撃の瞬間に頂点（直前で切ると驚きが弱まる＝プレパルス抑制）
+      //   ②一撃は BGM を深く沈める ③明るい長三和音を入れない ④下向きの急な跳躍（jumpTone）
+      const fn17 = (n) => (sd17.match(new RegExp('^  ' + n + '\\([^)]*\\) \\{[\\s\\S]*?^  \\},', 'm')) || [''])[0];
+      assert(/E = S \+ 0\.06/.test(fn17('censerSwing')) && /attack: S \* 0\.97/.test(fn17('censerSwing'))
+        && /E = S \+ 0\.06/.test(fn17('pillarMark')) && /attack: S \* 0\.96/.test(fn17('pillarMark')) && !/E = S - /.test(fn17('censerSwing') + fn17('pillarMark')),
+        'JAM17: 予告の膨らみは一撃の瞬間に頂点を置き、一撃に重ねて消す（100〜120ms前の無音・音量低下は驚愕を弱める：Lane 1991／Peterson 2018）');
+      assert(/Sound\.sfx\('pillarMark', \{ sec: tele, i: ci, big: !!big, delay \}\)/.test(bj17b) && /start: d,/.test(fn17('pillarMark')),
+        'JAM17: 前の柱の着弾の直前に、次の柱の「裂ける音」の頭を置かない（着弾のあとへずらす）');
+      assert(/^function jumpTone\(/m.test(sd17) && /jumpTone\(/.test(fn17('censerHurl')) && /jumpTone\(/.test(fn17('censerSmite')) && /jumpTone\(/.test(fn17('pillarSmite')),
+        'JAM17: 射出・命中・落下に下向きの急な跳躍（Blumstein 2012）');
+      assert(/duckBgm\(g >= 0\.9 \? 0\.14/.test(fn17('censerSmite')) && /duckBgm\(big \? 0\.10 : 0\.16/.test(fn17('pillarSmite')),
+        'JAM17: 一撃は BGM を深く沈める（0.10〜0.16）');
+      assert(!/NOTE\.(C5|E6|G6)/.test(fn17('pillarSmite') + fn17('censerSmite') + fn17('pillarMark') + fn17('censerHurl') + fn17('censerSwing')),
+        'JAM17: 恐れの音に明るい長三和音（thunder の④の層）を入れない');
+      const fall17 = (bj17b.match(/function fallPillar\(s\) \{[\s\S]*?\n  \}/) || [''])[0];
+      assert(fall17.length > 0 && !/Sound\.sfx\('thunder'/.test(fall17), 'JAM17: 天啓の落下で雷鳴（明るい和音を含む）を鳴らさない');
+      // 恐れの文法（絵）：振り回す予告（半周ごとに censerWhirl）・天の裂け目は画面内・締まる照準・着弾の残り
+      assert(/function updateCenserWind\(dt\)/.test(bj17b) && /Math\.floor\(arm\.windAng \/ Math\.PI\) !== half0\) Sound\.sfx\('censerWhirl'/.test(bj17b),
+        'JAM17: 振り香炉の予告は肩で振り回し、半周ごとに censerWhirl（絵と同じ回転で鳴る）');
+      assert(/Math\.max\(s\.y - s\.h, cam\.worldView\.y \+ 58\)/.test(bj17b), 'JAM17: 天の裂け目は HUD の下に描く（主人公の上250pxは画面外になりうる・上端+10 は HUD に隠れた）');
+      assert(/function drawPillarOmen\(s, p, blink\)/.test(bj17b) && /function pillarAftermath\(s, tint, edge\)/.test(bj17b),
+        'JAM17: 天啓の予告（裂け目・落ちる光・締まる照準）と着弾の残り（光の芯・赤熱・昇る粒）');
+      assert(!(BALANCE.boss.tiers || []).some((t) => t.pillar || (t.wirearm && t.wirearm.style)), 'JAM17: 天啓と振り香炉は大聖堂だけ（本編の tiers は不変）');
     }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
