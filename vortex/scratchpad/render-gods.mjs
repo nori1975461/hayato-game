@@ -107,6 +107,18 @@ sheet(MAOU1, 'MAOUREX FORM 1 / NEW', 'gods-maou1.png');
   for (const [x, y, d, l] of cells) playFrame(cv, x, y, d, l);
   writePng(cv, path.join(HERE, 'gods-four.png'));
 }
+// ---- 前回案（.prev-*.mjs があれば）と今回案：2×2 ----
+if (fs.existsSync(path.join(HERE, '.prev-godcore.mjs')) && fs.existsSync(path.join(HERE, '.prev-maou1.mjs'))) {
+  const { GODCORE: PG } = await import('./.prev-godcore.mjs');
+  const { MAOU1: PM } = await import('./.prev-maou1.mjs');
+  const cv = makeCanvas(1310, 790);
+  const cells = [
+    [12, 30, PG, 'KIDOU SHINKAKU / PREV'], [668, 30, GODCORE, 'KIDOU SHINKAKU / NEW'],
+    [12, 420, PM, 'MAOUREX FORM 1 / PREV'], [668, 420, MAOU1, 'MAOUREX FORM 1 / NEW'],
+  ];
+  for (const [x, y, d, l] of cells) playFrame(cv, x, y, d, l);
+  writePng(cv, path.join(HERE, 'gods-prev-new.png'));
+}
 // ---- 全パーツ（拡大）：設計の点検用 ----
 for (const d of [THRONE, GODCORE, MAOU1]) {
   const names = Object.keys(d.sprites);

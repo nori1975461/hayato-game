@@ -10,7 +10,8 @@
 //   ・小さな点（目盛り・聖句）を環に散らすと紙吹雪になる＝面と溝で語る（点は板の中央の鋲だけ）
 //
 // 昇華の方針（作法を「天球儀（アーミラリー）」の語彙で言い直す）：
-//   ①シルエットの格 … 球の上に13本の茨の冠（黒鉄の棘＋金の縁・頂の3本が最長・1本折れている）
+//   ①シルエットの格 … 球の上に天蓋（宝傘）。瓔珞が垂れ、球は鎖で吊られている＝祀られた聖遺物
+//      （2回目 FB「金色の長い角がイメージを損ねる」で棘の冠を廃止。荘厳さは「上に伸びる」でなく「上から覆う」で出す）
 //   ②大きな面＋黒い溝＋面の中の明度差 … 球は装甲板（大円の継ぎ目・板の輪・鋲）、環は30°ごとの板（黒い溝＋溝の隣の光）
 //   ③素材ごとに4段 … 黒鉄・金・環3色（紫／青／緑＝現行の識別を保つ）・深紅
 //   ④黒で締める … 環の内外縁・球の輪郭
@@ -21,7 +22,7 @@
 //   ・tex 名 ringAb/Af・ringBb/Bf・ringCb/Cf・corona・orb・eye（RING_OF が tex 名で環番号と前後を引く）
 //   ・環の焼き込み角 A=+24° / B=-24° / C=0°（TRUE_RING_BAKED と一致しないと整列レーザーの向きがずれる）
 //   ・前半分 f＝0..180°（画面手前＝下半分）／後半分 b＝180..360°
-//   ・眼は 17×17（現行 15×15）・spriteScale 5.9（現行 7.4）＝見た目 100px（現行 111px）。balance の trueForm.radius は要再計算
+//   ・眼は 17×17（現行 15×15）・spriteScale 5.6（現行 7.4）＝見た目 95px（現行 111px）。balance の trueForm.radius は要再計算
 import { g, P, GET, LN, ARC, AT, DISC, RECT, OUTLINE, R, dither, SPHERE, validate } from './god-raster.mjs';
 
 export const PAL = {
@@ -88,32 +89,56 @@ const RING_BB = ringSprite(...RB, 180, 360, true), RING_BF = ringSprite(...RB, 0
 const RING_CB = ringSprite(...RC, 180, 360, true), RING_CF = ringSprite(...RC, 0, 180, false);
 
 // =====================================================================
-// 光背（thruster）64×52。球の後ろの襟＋13本の棘（頂の3本が最長＝茨の冠・上側の1本が折れている）
-//   左右の棘は環の陰に入るので、実際に見えるのは頂の冠。それでよい（環が回ると覗く）
+// 光背（thruster）78×50。球の中心は (38.5, 40)＝origin [0.5, 0.8]（現行と同じ）。
+//   仏教で「荘厳（しょうごん）」とは天蓋・瓔珞・幡で飾ること。その三つをそのまま黒鉄と金で作った。
+//   幡（2本）は環の外側に垂れるので環に隠れず、上下に長い輪郭を作る（右の1本は千切れている）
+//   2回目の FB「金色の長い角がイメージを損ねる・四神柱としての荘厳さを」→ 棘の冠を捨て、天蓋（宝傘）に替えた：
+//   黒鉄の傘蓋（8本の金の肋・頂に宝珠・金の軒）から瓔珞（金の鎖に深紅の玉）が垂れ、球は3本の鎖で天蓋から吊られている
+//   ＝神核は「祀られた聖遺物」。退廃：中央の鎖は切れ、瓔珞は左の1本が欠けて留め具だけ、右端の1本は斜めに折れている
 // =====================================================================
 const CORONA = (() => {
-  const W = 64, H = 52, G = g(W, H), cx = 31.5, cy = 36;
-  for (let rr = 19.5; rr <= 22; rr += 0.25) ARC(G, cx, cy, rr, rr, 150, 390, rr > 21.5 ? 'Y' : rr < 20 ? 'j' : rr < 21 ? 'm' : 'f');
+  const W = 78, H = 50, G = g(W, H), cx = 38.5, cy = 40;
+  for (let rr = 19.5; rr <= 22; rr += 0.25) ARC(G, cx, cy, rr, rr, 150, 390, rr > 21.5 ? 'Y' : rr < 20 ? 'j' : rr < 21 ? 'm' : 'f');   // 襟
   for (let a = 160; a <= 380; a += 20) AT(G, cx, cy, 20.7, 20.7, a, 'y');
-  const N = 13;
-  for (let i = 0; i < N; i++) {
-    const adeg = 160 + i * (220 / (N - 1));
-    const crown = i >= 5 && i <= 7, long = i % 2 === 0;
-    const len = crown ? 13 : long ? 9 : 5.5, hw = crown ? 2.4 : long ? 1.9 : 1.3;
-    const t = adeg * Math.PI / 180, ux = Math.cos(t), uy = Math.sin(t), nx = -uy, ny = ux, r0 = 21.5;
-    const broken = i === 4;
-    for (let u = 0; u <= (broken ? 0.48 : 1); u += 0.012) {
-      const rr = r0 + len * u, w2 = hw * (1 - u * 0.85);
-      for (let k2 = -w2; k2 <= w2; k2 += 0.25) {
-        const ch = (!broken && u > 0.82) ? 'W' : k2 < -w2 * 0.35 ? 'Y' : k2 > w2 * 0.45 ? 'j' : 'f';
-        P(G, cx + ux * rr + nx * k2, cy + uy * rr + ny * k2, ch);
-      }
+  const EAVE = 15, HW = 30, DH = 11;                                                   // 天蓋：軒 y15・頂 y4・半幅 30（環 ±31 より少し狭い＝傘）
+  for (const [bx, bottom, torn] of [[cx - 33, 48, false], [cx + 33, 31, true]]) {       // 幡（軒の端から垂れる・右は千切れている）
+    P(G, bx - 1, EAVE, 'Y'); P(G, bx, EAVE, 'Y'); P(G, bx + 1, EAVE, 'Y');
+    for (let y = EAVE + 1; y <= bottom; y++) {
+      const band = (y - EAVE) % 8 === 0;
+      P(G, bx - 1, y, band ? 'Y' : 'q'); P(G, bx, y, band ? 'W' : (y % 5 === 0 ? 'P' : 'Q')); P(G, bx + 1, y, band ? 'Y' : 'q');
     }
-    if (broken) {
-      const rr = r0 + len * 0.48;
-      P(G, cx + ux * rr + nx * 1.0, cy + uy * rr + ny * 1.0, 'n'); P(G, cx + ux * (rr + 1.4), cy + uy * (rr + 1.4), 'O');
-      P(G, cx + ux * (rr + 3.2) + 1, cy + uy * (rr + 3.2), 'c'); P(G, cx + ux * (rr + 2.4) - 1, cy + uy * (rr + 2.4) + 1, 'o');
+    if (torn) { P(G, bx - 1, bottom + 1, 'q'); P(G, bx + 1, bottom + 2, 'q'); P(G, bx, bottom + 1, 'Q'); }
+    else { P(G, bx - 1, bottom + 1, 'Y'); P(G, bx, bottom + 1, 'W'); P(G, bx + 1, bottom + 1, 'Y'); P(G, bx, bottom + 2, 'y'); }
+  }
+  for (let x = Math.ceil(cx - HW); x <= Math.floor(cx + HW); x++) {
+    const u = (x - cx) / HW, top = EAVE - DH * Math.sqrt(Math.max(0, 1 - u * u));
+    for (let y = Math.ceil(top); y <= EAVE - 1; y++) {
+      const v = (y - top) / Math.max(1, EAVE - 1 - top);
+      let ch = u < -0.3 ? 'f' : u < 0.3 ? 'm' : 'j';
+      if (v < 0.3 && u < 0.3) ch = u < -0.3 ? 's' : 'f';                               // 上面の光
+      P(G, x, y, ch);
     }
+  }
+  for (const rx of [-28, -20, -12, -4, 4, 12, 20, 28]) {                                // 8本の肋（左が明・右に黒い溝）
+    const u = rx / HW, top = EAVE - DH * Math.sqrt(1 - u * u);
+    for (let y = Math.ceil(top) + (Math.abs(rx) < 5 ? 0 : 1); y <= EAVE - 1; y++) { P(G, cx + rx, y, rx < 0 ? 'W' : 'Y'); P(G, cx + rx + 1, y, 'k'); }
+  }
+  for (let x = Math.ceil(cx - HW); x <= Math.floor(cx + HW); x++) { P(G, x, EAVE, x < cx - 10 ? 'W' : 'Y'); P(G, x, EAVE + 1, 'y'); }   // 金の軒
+  for (let x = Math.ceil(cx - HW) + 1; x <= Math.floor(cx + HW) - 1; x++) P(G, x, EAVE + 2, 'k');                                   // 軒の影
+  P(G, cx, 0, 'k'); P(G, cx, 1, 'Y'); P(G, cx - 1, 1, 'k'); P(G, cx + 1, 1, 'k');                                                   // 宝珠
+  for (const y of [2, 3]) { P(G, cx - 2, y, 'k'); P(G, cx - 1, y, 'W'); P(G, cx, y, 'Y'); P(G, cx + 1, y, 'y'); P(G, cx + 2, y, 'k'); }
+  for (let x = cx - 2; x <= cx + 2; x++) P(G, x, 4, 'Y');
+  for (const [rx, len, state] of [[-27, 5, 'ok'], [-21, 7, 'ok'], [-15, 5, 'missing'], [-9, 7, 'ok'], [9, 7, 'ok'], [15, 5, 'ok'], [21, 7, 'ok'], [27, 5, 'broken']]) {   // 瓔珞
+    const x = cx + rx;
+    if (state === 'missing') { P(G, x, EAVE + 3, 'o'); continue; }                    // 欠けた瓔珞＝銅の留め具だけ
+    if (state === 'broken') { P(G, x, EAVE + 3, 'y'); P(G, x + 1, EAVE + 4, 'y'); P(G, x + 2, EAVE + 5, 'Y'); P(G, x + 3, EAVE + 6, 'W'); P(G, x + 3, EAVE + 7, 'R'); continue; }
+    for (let k = 0; k < len; k++) P(G, x, EAVE + 3 + k, k % 2 ? 'y' : 'Y');
+    P(G, x, EAVE + 3 + len, 'W'); P(G, x, EAVE + 4 + len, 'R'); P(G, x, EAVE + 5 + len, 'r');
+  }
+  for (const [rx, broken] of [[-7, false], [0, true], [7, false]]) {                    // 吊り鎖（中央は切れている）
+    const x = cx + rx;
+    for (let y = EAVE + 3; y <= (broken ? EAVE + 5 : 23); y++) { P(G, x, y, (y - EAVE) % 2 ? 's' : 'f'); if (rx === 0) P(G, x + 1, y, (y - EAVE) % 2 ? 'f' : 's'); }
+    if (broken) { P(G, x, EAVE + 6, 'n'); P(G, x + 1, EAVE + 6, 'n'); P(G, x + 1, 22, 'n'); P(G, x + 1, 23, 'f'); }
   }
   OUTLINE(G);
   return R(G);
@@ -194,7 +219,7 @@ export const GODCORE = {
     eye: { rows: EYE, palette: PAL },
   },
   rig: [
-    { role: 'thruster', tex: 'corona', ox: 0, oy: 0, origin: [0.5, 36 / 52] },
+    { role: 'thruster', tex: 'corona', ox: 0, oy: 0, origin: [0.5, 0.8] },
     { role: 'wingR', tex: 'ringAb', ox: 0, oy: 0, origin: [0.5, 0.5] },
     { role: 'wingL', tex: 'ringBb', ox: 0, oy: 0, origin: [0.5, 0.5] },
     { role: 'legR', tex: 'ringCb', ox: 0, oy: 0, origin: [0.5, 0.5] },
@@ -204,6 +229,6 @@ export const GODCORE = {
     { role: 'cannon', tex: 'ringCf', ox: 0, oy: 0, origin: [0.5, 0.5] },
     { role: 'core', tex: 'eye', ox: 0, oy: 0 },
   ],
-  tier: { spriteScale: 5.9, glowScale: 10.6, glowOuter: '#c98cff', glowInner: '#ffedb0' },
+  tier: { spriteScale: 5.6, glowScale: 10.6, glowOuter: '#c98cff', glowInner: '#ffedb0' },
 };
 validate(GODCORE);
