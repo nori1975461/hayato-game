@@ -1710,8 +1710,8 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     }
     assert(/glimpse\(roles, peak\)/.test(jo) && /img\._reveal = true;/.test(jo) && /r\.role === 'dome'\) continue;/.test(jo)
       && /this\.glimpse\(\['wingL', 'wingR'\], 0\.75\)/.test(jo) && /this\.glimpse\(\['armL', 'armR', 'legL'\]\)/.test(jo)
-      && /this\.glimpse\(\['body', 'rack', 'core'\]\)/.test(jo) && /filter\(\(o\) => !o\._reveal\)/.test(jo),
-      'JAM21: 影絵は光の一瞬だけ部位ごとに本当の姿（翼と尖塔→腕と配線→身廊と薔薇窓）・全身は揃わない・裁きの幕で透けない');
+      && /this\.glimpse\(\['rack'\], 0\.5\)/.test(jo) && !/glimpse\(\[[^\]]*'(body|core)'/.test(jo) && /filter\(\(o\) => !o\._reveal\)/.test(jo),
+      'JAM21: 影絵は光の一瞬だけ部位ごとに本当の姿（翼→腕と配線→薔薇窓だけ半分の明るさ＝FB「顔と胸が見えすぎ」）・全身は揃わない・裁きの幕で透けない');
     // ★2026-09-14 JAM23（ユーザー決定「破鐘の1手目も振り香炉」／FB「覆した時間とボス戦の時間が違う」「n回目の挑戦での位置」）
     {
       const bb23 = read('systems/boss.js'), rs23 = read('scenes/Result.js');

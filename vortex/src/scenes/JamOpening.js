@@ -441,7 +441,8 @@ export class JamOpeningScene extends Phaser.Scene {
       this.sfx('crushBoom', 1.0, 1.1);
       this.cameras.main.shake(220, 0.010);
       this.flash(0.28, CRIMSON);
-      this.glimpse(['body', 'rack', 'core']);   // 三瞬目：身廊と薔薇窓（薔薇窓の裁き・当てる場所）
+      // 三瞬目：薔薇窓だけを半分の明るさで（当てる場所）。★2026-09-15 FB「顔と胸が見えすぎ」→ 身廊と核を外し 0.9→0.5
+      this.glimpse(['rack'], 0.5);
       this.burst(tx, ty, CRIMSON, 12, D_TEXT - 1);
       this.burst(tx, ty, GOLD, 8, D_TEXT - 1);
       this.ripple(tx, ty, CRIMSON, D_TEXT - 2);
