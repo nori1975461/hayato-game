@@ -2123,7 +2123,9 @@ BALANCE.boss.jamTiers = [
     motion: { stepSec: 1.3, stepDist: 64, stepDur: 0.38, lungeMul: 1.5, glideSpeed: 85 },
     // 段階ごとの表（設計書6章）。破鐘（stage3）は光輪が無いので鎮魂の鐘（bell）が消え、尖塔の連打（spires）が入る。
     attacks:       ['rose', 'bell', 'pillar', 'choir', 'feathers'],
-    attacksStage2: ['rose', 'pillar', 'feathers', 'whip', 'bell', 'choir'],
+    // ★2026-09-14 61回目FB「振り香炉はなかった。たまたまか？」→ 表は順送りで鞭は4番目＝ボット4本で最後まで出た回0/4。
+    //   ユーザー決定 A＋B：堕天の1手目を鞭に固定（boss.js enterPhase2 で順番を先頭へ戻す）＋鞭の途中なら破鐘への移行を待つ。
+    attacksStage2: ['whip', 'rose', 'pillar', 'feathers', 'bell', 'choir'],
     attacksStage3: ['rose', 'whip', 'spires', 'pillar', 'feathers', 'choir'],
     stage3HpRatio: 0.334, stage3IdleMult: 0.65,
     // ①薔薇窓の裁き：12本の放射射線×2拍（赤＝aim±15°の間・青＝15°ずれ）。隣の射線との隙間は距離120pxで

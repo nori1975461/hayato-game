@@ -152,6 +152,7 @@ export function createBoss(run) {
   let pinAngs = null;               // ペンシルレーザー：固定した射線（ジェットバイパー）
   // ★2026-09-13 堕天の大聖堂（ジャム版 最終ボス）専用の状態。段階は cathStage（enterPhase2／enterStage3 が進める）。
   let cathStage = 0;                // 0 聖務（100→66%）/ 1 堕天（66→33%）/ 2 破鐘（33→0%）
+  let cathHeadPending = false;      // 堕天に入った時に攻撃の最中だった＝その攻撃の終わりで表の先頭（振り香炉）へ戻す
   let haloAng = 0;                  // 光輪の欠けの向き（rad）＝鎮魂の鐘の穴はこの角度（常時回っている）
   let haloGone = false;             // 破鐘で光輪が外れた＝以後 鎮魂の鐘は撃てない（尖塔の連打へ替わる）
   let haloGfx = null;               // 光輪の欠けの印（楕円の上を回る黒い切れ目＋白熱の縁）
@@ -711,7 +712,8 @@ export function createBoss(run) {
     rollSpin = 0;    // R52b: 転がりの回転は攻撃が終わったら素の姿勢へ戻す（回ったまま歩かない）
     state = 'chase';
     stateT = idleDur(idleFor(attackIdx)) * (phase3 && cfg.merge ? cfg.merge.idleMul : 1);
-    attackIdx = (attackIdx + 1) % attackList().length;
+    attackIdx = cathHeadPending ? 0 : (attackIdx + 1) % attackList().length;
+    cathHeadPending = false;
   }
 
   // ★R43 照準ロック。予告 state の update から毎フレーム呼ぶ。
@@ -1655,7 +1657,11 @@ export function createBoss(run) {
 
   function enterPhase2() {
     phase2 = true;
-    if (cfg.stage3HpRatio) cathStage = 1;   // 2026-09-13 堕天の大聖堂：段階「堕天」
+    if (cfg.stage3HpRatio) {
+      cathStage = 1;   // 2026-09-13 堕天の大聖堂：段階「堕天」
+      // ★2026-09-14 A：堕天の1手目＝表の先頭（振り香炉）。攻撃の最中なら、その攻撃が終わった所で先頭へ戻す
+      attackIdx = 0; cathHeadPending = state !== 'chase';
+    }
     run.shake(300, 5);
     run.spawnParticles(boss.x, boss.y, 0xff3355, 24);
     // ★R30 マオウレクスは phase2 ＝ 分離。節目を1つにまとめる（節目が多いほど1つ1つが薄まる）。
@@ -6073,7 +6079,7 @@ export function createBoss(run) {
         if (cfg.phase2 && !phase2 && boss.hp <= cfg.hp * cfg.phase2HpRatio) enterPhase2();
         // ★2026-09-13 堕天の大聖堂：ゲージ2本目が消えた（33%）→ 破鐘（一度だけ）
         if (cfg.stage3HpRatio && cathStage < 2 && boss.hp <= cfg.hp * cfg.stage3HpRatio
-            && state !== 'maouIntro') enterStage3();
+            && state !== 'maouIntro' && !/^wire/.test(state)) enterStage3();
         // ★R30 三分の一で再合体。分離中にしか起きない（＝節目は必ず1回ずつ通る）。
         // ★R37 じゃがんレーザーの保証。HPを削って分離帯（50%→33%＝幅約11000）がコアへの
         //   渾身の一投1発（約13000）で貫通するようになり、**レーザーを撃つ前に再合体して
