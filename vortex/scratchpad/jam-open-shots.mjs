@@ -74,7 +74,7 @@ async function main() {
   // --- 本編：通しで見る（時刻表どおりに撮る） ---
   await ev("(function(){var g=window.__vortexGame;g.scene.stop('Run');g.scene.start('JamOpening');return true;})()");
   const t0 = Date.now();
-  const plan = [[1600, '01-gods'], [2900, '02-one'], [4100, '03-descend'], [4800, '04-name'], [6000, '05-line'], [6800, '06-hero'], [7700, '07-eyes'], [8800, '08-mobits'], [9600, '09-grab'], [10500, '10-charge'], [11250, '11-throw'], [11750, '12-hit'], [13000, '13-concept'], [15500, '14-judge'], [17300, '15-card']];
+  const plan = [[3300, '01-gods'], [5300, '02-one'], [6500, '03-descend'], [7200, '04-name'], [9000, '05-line'], [9900, '06-hero'], [10800, '07-eyes'], [12400, '08-mobits'], [13000, '09-grab'], [13900, '10-charge'], [14650, '11-throw'], [15500, '12-hit'], [16400, '13-concept'], [21000, '14-judge'], [22200, '15-card']];
   for (const [ms, name] of plan) { const w = t0 + ms - Date.now(); if (w > 0) await sleep(w); await shot(name); }
   const cardInfo = await ev(OPEN);
   await key(' ', 'Space');
