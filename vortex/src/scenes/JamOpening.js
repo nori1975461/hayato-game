@@ -51,26 +51,28 @@ const CARD_LINES = [
   { k: '掴む→溜める→投げる', v: 'J キーを押す → 押し続ける → 離す　（左クリックでも）' },
   { k: '切り札', v: 'SPACE' },
   // capture.js onEnemyKilled＝撃破したマキナがコアを落とし、拾うとモビットが仲間になる（ミニロボは除く）
-  { k: 'モビット', v: '倒したマキナが落とすコアを拾うと、仲間になる' },
+  { k: 'モビット', v: '倒したマキナが落とすコアを拾うと仲間になる' },
 ];
 // 語り（字幕）。時刻表は文字数から組む＝文言を直しても読む時間が崩れない。
 const TX = {
-  gods: '金属生命体マキナには、四柱の神がいる。',
-  one: 'その一柱が、いま、降りてくる。',
+  gods: '金属生命体マキナには四柱の神がいる。',
+  one: 'その一柱がいま降りてくる。',
   name: '堕天の大聖堂',
-  line: '「祈り届かぬ者へ、裁きを」',
-  mobits: 'ひとりじゃない。モビットが、共に戦う。',
+  line: '「祈り届かぬ者へ裁きを」',
+  mobits: 'ひとりじゃない。モビットが共に戦う。',
   concept: '掴んで投げろ！\n神に挑め！',
-  judge: '倒しても、倒れても、神が君を裁く。',
+  judge: '倒しても倒れても神が君を裁く。',
 };
-const judgeLastText = () => `裁きは${VERDICTS.length}種類。君は、何番目？`;
+const judgeLastText = () => `裁きは${VERDICTS.length}種類。君は何番目？`;
 // ★2026-09-14 ユーザーFB「表示が速く、消えるのも早い＝急いで読まないといけない」。旧版は打ち終わってから 0.5 秒で
 //   消える行があった（四柱の神：打ち終わり 3.3 秒・消去 3.8 秒）。1文字 70→90ms、行は打ち始めから
 //   「1秒4文字」（映画字幕の目安）以上かつ打ち終わってから 1.6 秒以上残す。
-const CHAR_MS = 90;
-const readMs = (s) => Math.max(s.length * 250, s.length * CHAR_MS + 1600);
-const GODS_TEXT_DELAY = 1100, LAND_MS = 1400, NAME_HOLD = 1500, MOBIT_TEXT_DELAY = 300;
-const KEY_HOLD = 1000, VERB_GAP = 1300, CONCEPT_HOLD = 2000, JUDGE_ROWS_AT = 2300, JUDGE_LAST_AT = 3900;
+// ★2026-09-14 2回目FB「今度は遅すぎる。もう少し早く」→ 旧21.6秒（速すぎ）と38秒（遅すぎ）の間＝約28秒へ。
+//   1文字 90→60ms・行は「1秒約5.5文字」かつ打ち終わりから1.1秒以上。
+const CHAR_MS = 60;
+const readMs = (s) => Math.max(s.length * 180, s.length * CHAR_MS + 1100);
+const GODS_TEXT_DELAY = 1000, LAND_MS = 1400, NAME_HOLD = 1100, MOBIT_TEXT_DELAY = 250;
+const KEY_HOLD = 800, VERB_GAP = 1050, CONCEPT_HOLD = 1500, JUDGE_ROWS_AT = 1700, JUDGE_LAST_AT = 2900;
 // 暗がりから歩み出すモビット（Title の隊列と同じ 4 体・monsters.js の id）。主人公の左後ろ→前へ並ぶ。
 const MOBITS = [
   { key: 'mon_togeron', dx: -104 },
@@ -548,14 +550,14 @@ export class JamOpeningScene extends Phaser.Scene {
     this.tweens.add({ targets: capT, scale: 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.add.text(kx, ky + 34, '投げ返せ', { fontFamily: 'monospace', fontSize: '11px', color: CYAN_S }).setOrigin(0.5).setDepth(D_TEXT);
 
-    this.add.text(cx, 288, `倒しても倒れても、${VERDICTS.length}種類の「裁き」が君を待つ。`, {
+    this.add.text(cx, 288, `倒しても倒れても${VERDICTS.length}種類の「裁き」が君を待つ。`, {
       fontFamily: 'monospace', fontSize: '12px', color: PALE_S,
     }).setOrigin(0.5).setDepth(D_TEXT);
     const prompt = this.add.text(cx, 316, '▶ SPACE ／ J ／ クリック で始める', {
       fontFamily: 'monospace', fontSize: '16px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(D_TEXT);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 620, yoyo: true, repeat: -1 });
-    this.add.text(cx, 342, '死んだら、そのままもう一度。ボスのHPには前回の傷跡が残る。', {
+    this.add.text(cx, 342, '死んだらそのままもう一度。ボスのHPには前回の傷跡が残る。', {
       fontFamily: 'monospace', fontSize: '11px', color: '#8a90a8',
     }).setOrigin(0.5).setDepth(D_TEXT);
 

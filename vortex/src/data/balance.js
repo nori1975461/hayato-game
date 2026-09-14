@@ -2118,7 +2118,7 @@ BALANCE.boss.jamTiers = [
     //   天から還る（haloAt）→ 光条の中を体が昇る（riseAt〜riseSec・risePx）→ 最後の鐘で光に弾け、平伏したマキナも聖歌隊も
     //   一緒に光へ還る（burstAt）→ 最後の一行（lineAt）→ dur で Result。登場と同じ語彙（暗幕・光条・鐘・聖歌・無音の間）。
     death: { dur: 7.6, glassSec: 1.6, wingAt: 1.5, haloAt: 2.5, riseAt: 3.5, riseSec: 1.8, risePx: 150, burstAt: 5.4, lineAt: 5.9,
-      dimAlpha: 0.48, line: { text: '……いのりは、おわった', color: '#cfe0ff' } },
+      dimAlpha: 0.48, line: { text: '……いのりは おわった', color: '#cfe0ff' } },
     // ★2026-09-13 歩み（実プレイFB「ふわふわ浮遊しているだけ」）：建物が歩く＝stepSec ごとに地響きと軋みで stepDist 進む。
     //   堕天以降は翼を打って踏み込み（lungeMul）、破鐘以降は尖塔の推進炎で滑る（glideSpeed）。
     motion: { stepSec: 1.3, stepDist: 64, stepDur: 0.38, lungeMul: 1.5, glideSpeed: 85 },

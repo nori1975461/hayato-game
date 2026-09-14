@@ -446,7 +446,7 @@ export class OpeningScene extends Phaser.Scene {
   // 宣言は1行だけ。説明せず、事実だけを置く。
   beatDeclare() {
     this.sfx('special', 0.7);
-    const t = this.reg(this.add.text(this.W / 2, 118, 'モビットは、たたかう', {
+    const t = this.reg(this.add.text(this.W / 2, 118, 'モビットは たたかう', {
       fontFamily: 'monospace', fontSize: '26px', color: EMBER_S, fontStyle: 'bold',
       stroke: '#2a1200', strokeThickness: 6,
     }).setOrigin(0.5).setAlpha(0).setScale(1.25).setDepth(D_TEXT));

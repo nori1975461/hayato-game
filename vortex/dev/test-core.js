@@ -1478,7 +1478,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/if \(this\.jamSt\) \{[\s\S]*?this\.scene\.start\('Result', payload\);\s*return;\s*\}\s*if \(clear\) \{ this\.scene\.start\('Ending', payload\)/.test(r2),
       'JAM2: ジャム版のクリアはエンディングを挟まず Result（2分ループ）');
     assert(/createJam\(d\)/.test(rs) && /typeText\(/.test(rs) && /'？？？'/.test(rs), 'JAM2: Result に裁きの画面（1文字ずつ・一覧の空欄）がある');
-    assert(/あなたの裁きを、コメントで教えてください/.test(rs), 'JAM2: E 一行の呼びかけ');
+    assert(/あなたの裁きをコメントで教えてください/.test(rs), 'JAM2: E 一行の呼びかけ');
     assert(/this\.scene\.start\('Run', \{ withAudio: !!d\.withAudio, jamRun: true \}\)/.test(rs), 'JAM2: SPACE で Run へ直接（タイトルを挟まない）');
     // B 傷跡
     assert(/readJam, writeJam/.test(r2) && /'vortex\.jam'/.test(rc), 'JAM2: 傷跡・挑戦回数・見た裁きは別鍵 vortex.jam に持つ');
@@ -1690,20 +1690,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(/makeFogTexture\(\)/.test(jo) && /'jam_fog'/.test(jo) && /_role = 'fog'/.test(jo),
       'JAM12: 影絵は黒い霧（jam_fog）で体を沈める＝光輪と単眼だけが読める');
     // ★2026-09-14 JAM21（FB「ひらがなばかり／速くて消えるのも早い／影絵で少しだけ情報開示」）
-    assert(/delay \+ i \* CHAR_MS,/.test(jo) && /const CHAR_MS = 90;/.test(jo)
-      && /const readMs = \(s\) => Math\.max\(s\.length \* 250, s\.length \* CHAR_MS \+ 1600\);/.test(jo),
-      'JAM21: 文字は 90ms/文字・各行は「1秒4文字」以上かつ打ち終わりから 1.6 秒以上残す');
+    // 2回目FB「今度は遅すぎる」→ 60ms/文字・「1秒約5.5文字」かつ打ち終わりから1.1秒（旧 70ms は速すぎ・90ms は遅すぎ）
+    assert(/delay \+ i \* CHAR_MS,/.test(jo) && /const CHAR_MS = 60;/.test(jo)
+      && /const readMs = \(s\) => Math\.max\(s\.length \* 180, s\.length \* CHAR_MS \+ 1100\);/.test(jo),
+      'JAM21: 文字は 60ms/文字・各行は「1秒約5.5文字」以上かつ打ち終わりから 1.1 秒以上残す');
     {
       const TXs = (jo.match(/const TX = \{[\s\S]*?\n\};/) || [''])[0];
       const lens = {};
       for (const m of TXs.matchAll(/(\w+): '([^']+)'/g)) lens[m[1]] = m[2].length;
-      const rm = (n) => Math.max(n * 250, n * 90 + 1600);
+      const rm = (n) => Math.max(n * 180, n * 60 + 1100);
       assert(['gods', 'one', 'line', 'mobits', 'judge'].every((k) => lens[k] > 0)
         && /t \+= GODS_TEXT_DELAY \+ readMs\(TX\.gods\);/.test(jo) && /t \+= readMs\(TX\.one\);/.test(jo)
         && /t \+= 1600 \+ MOBIT_TEXT_DELAY \+ readMs\(TX\.mobits\);/.test(jo) && /t \+= JUDGE_LAST_AT \+ readMs\(judgeLastText\(\)\);/.test(jo)
-        && rm(lens.gods) >= 4000,
+        && rm(lens.gods) >= 3000,
         'JAM21: 時刻表は語りの文字数から積み上げる（行が読み切れる前に次へ進まない）');
-      assert(!/[ぁ-ん]{2,} [ぁ-ん]{2,} [ぁ-ん]{2,}/.test(TXs) && /四柱の神/.test(TXs) && /祈り届かぬ者へ、裁きを/.test(TXs)
+      assert(!/[ぁ-ん]{2,} [ぁ-ん]{2,} [ぁ-ん]{2,}/.test(TXs) && /四柱の神/.test(TXs) && /祈り届かぬ者へ裁きを/.test(TXs)
         && /k: '掴む→溜める→投げる'/.test(jo) && /\$\{VERDICTS\.length\}種類の「裁き」/.test(jo) && !/32しゅるい/.test(jo),
         'JAM21: 語りとカードは漢字まじり（分かち書きのひらがなをやめる）・裁きの数は VERDICTS から');
     }
@@ -1719,8 +1720,21 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && /cathStage = 2;\s*attackIdx = 0; cathHeadPending = true;/.test(bb23),
         'JAM23: 破鐘も1手目が振り香炉（光輪の演出が明けた最初の攻撃・表の中は1周に1回のまま）');
       assert(!/大聖堂を覆した ― \$\{mmss/.test(rs23) && /line\(`\$\{triesTxt\}大聖堂を覆した`/.test(rs23)
-        && /`\$\{J\.tries\}回目の挑戦で、`/.test(rs23) && !/line\(`\$\{J\.tries\}回目の挑戦で`/.test(rs23),
-        'JAM23: 撃破の見出しは「n回目の挑戦で、大聖堂を覆した」の1文（時間は表のボス戦だけ）');
+        && /`\$\{J\.tries\}回目の挑戦で`/.test(rs23) && !/line\(`\$\{J\.tries\}回目の挑戦で`/.test(rs23),
+        'JAM23: 撃破の見出しは「n回目の挑戦で大聖堂を覆した」の1文（時間は表のボス戦だけ）');
+    }
+    // ★2026-09-14 JAM24（ユーザー指示「言葉・文章の中に「、」を入れない。すべてに」）：画面に出る文字列（引用符の中）に「、」が無い
+    {
+      const files24 = ['data/verdict.js', 'scenes/Result.js', 'scenes/JamOpening.js', 'scenes/Opening.js', 'scenes/Title.js', 'data/balance.js', 'data/enemies.js', 'data/monsters.js'];
+      const hits24 = [];
+      for (const f of files24) {
+        read(f).split('\n').forEach((ln, i) => {
+          if (/^\s*\/\//.test(ln)) return;
+          const code = ln.replace(/\/\/.*$/, '');
+          if (/['`"][^'`"\n]*、[^'`"\n]*['`"]/.test(code)) hits24.push(f + ':' + (i + 1));
+        });
+      }
+      assert(hits24.length === 0, 'JAM24: 画面に出る文字列に「、」が無い' + (hits24.length ? '（' + hits24.slice(0, 5).join(' ') + '）' : ''));
     }
     // ★2026-09-14 JAM22（FB「天啓の光の柱をもっと太く、色をもっと濃く」）
     {
@@ -2810,7 +2824,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R44: 抗戦中のモビットは色を殺した逆光のシルエット（かわいさを画面から外す）');
   assert(/clearTint\(\)/.test(op),
     'R44: 進化で色が戻る＝力が戻った合図（殺した色を取り戻す対比）');
-  assert(/'モビットは、たたかう'/.test(op),
+  assert(/'モビットは たたかう'/.test(op),
     'R44: 宣言は1行だけ（説明せず事実を置く）');
   assert(/^\s*beatSilence\(\) \{/m.test(op) && /silenceWash/.test(op),
     'R44: 激発の前に完全静止＋無音の溜めがある（次の一歩を最大にする）');

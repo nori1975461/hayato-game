@@ -249,7 +249,7 @@ export class ResultScene extends Phaser.Scene {
     if (clear) {
       // ★2026-09-14 ユーザーFB「覆した時間とボス戦の時間が違う＝他者には意味不明」「n回目の挑戦での位置も微妙」
       //   → 時間は表の「ボス戦」だけにする。回数は別の行にせず、文の頭に置いて1文にする（行が減り、位置のずれも消える）。
-      const triesTxt = (J.tries || 1) > 1 ? `${J.tries}回目の挑戦で、` : '初めての挑戦で、';
+      const triesTxt = (J.tries || 1) > 1 ? `${J.tries}回目の挑戦で` : '初めての挑戦で';
       line(`${triesTxt}大聖堂を覆した`, '#ffd23f', 14);
       // ★2026-09-13 実プレイ18回目＝欠片なしで第8位。撃破の画面にも「上の位へ行く道」を1行（未使用の鍵→その位）。
       const ch = clearHint(s, J.seen, v.rank);
@@ -349,7 +349,7 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 一行の呼びかけ（コメント欄はゲームの外にある＝書く一文を手渡した直後に頼む。押しつけないよう一行・小さく）
-    this.add.text(W / 2, 294, 'あなたの裁きを、コメントで教えてください', {
+    this.add.text(W / 2, 294, 'あなたの裁きをコメントで教えてください', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6a0',
     }).setOrigin(0.5);
 
