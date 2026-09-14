@@ -10,19 +10,19 @@
 //   ・小さな点（目盛り・聖句）を環に散らすと紙吹雪になる＝面と溝で語る（点は板の中央の鋲だけ）
 //
 // 昇華の方針（作法を「天球儀（アーミラリー）」の語彙で言い直す）：
-//   ①シルエットの格 … 球の上に天蓋（宝傘）。瓔珞が垂れ、球は鎖で吊られている＝祀られた聖遺物
-//      （2回目 FB「金色の長い角がイメージを損ねる」で棘の冠を廃止。荘厳さは「上に伸びる」でなく「上から覆う」で出す）
+//   ①シルエットの格 … 環と球だけの「基本シンプル」に、球の真上へ細い金の円光を一滴
+//      （第1案の棘の冠は FB「金色の長い角が損ねる」、第2案の天蓋は FB「大きいアイテムは要らない・第1案ベースで一滴の荘厳さ」で廃止）
 //   ②大きな面＋黒い溝＋面の中の明度差 … 球は装甲板（大円の継ぎ目・板の輪・鋲）、環は30°ごとの板（黒い溝＋溝の隣の光）
 //   ③素材ごとに4段 … 黒鉄・金・環3色（紫／青／緑＝現行の識別を保つ）・深紅
 //   ④黒で締める … 環の内外縁・球の輪郭
 //   ⑤生きている一点 … 眼（金の虹彩・縦裂の瞳の奥に炎・血走った白目）
-//   ⑥退廃 … 環の裂け目に白い断面と銅線と火花・球の右下の板が焼け割れて赤熱・窓枠から血管が板へ這う・棘が1本折れる
+//   ⑥退廃 … 環の裂け目に白い断面と銅線と火花・球の右下の板が焼け割れて赤熱・窓枠から血管が板へ這う・円光の奥が一か所欠ける
 //
 // ⚠️ 実行時（boss.js updateTrueDisp）との契約は現行と同じ＝採用時はそのまま差し替えられる：
 //   ・tex 名 ringAb/Af・ringBb/Bf・ringCb/Cf・corona・orb・eye（RING_OF が tex 名で環番号と前後を引く）
 //   ・環の焼き込み角 A=+24° / B=-24° / C=0°（TRUE_RING_BAKED と一致しないと整列レーザーの向きがずれる）
 //   ・前半分 f＝0..180°（画面手前＝下半分）／後半分 b＝180..360°
-//   ・眼は 17×17（現行 15×15）・spriteScale 5.6（現行 7.4）＝見た目 95px（現行 111px）。balance の trueForm.radius は要再計算
+//   ・眼は 17×17（現行 15×15）・spriteScale 6.5（現行 7.4）＝見た目 111px（現行 111px）＝balance の trueForm.radius はそのままでよい
 import { g, P, GET, LN, ARC, AT, DISC, RECT, OUTLINE, R, dither, SPHERE, validate } from './god-raster.mjs';
 
 export const PAL = {
@@ -89,57 +89,20 @@ const RING_BB = ringSprite(...RB, 180, 360, true), RING_BF = ringSprite(...RB, 0
 const RING_CB = ringSprite(...RC, 180, 360, true), RING_CF = ringSprite(...RC, 0, 180, false);
 
 // =====================================================================
-// 光背（thruster）78×50。球の中心は (38.5, 40)＝origin [0.5, 0.8]（現行と同じ）。
-//   仏教で「荘厳（しょうごん）」とは天蓋・瓔珞・幡で飾ること。その三つをそのまま黒鉄と金で作った。
-//   幡（2本）は環の外側に垂れるので環に隠れず、上下に長い輪郭を作る（右の1本は千切れている）
-//   2回目の FB「金色の長い角がイメージを損ねる・四神柱としての荘厳さを」→ 棘の冠を捨て、天蓋（宝傘）に替えた：
-//   黒鉄の傘蓋（8本の金の肋・頂に宝珠・金の軒）から瓔珞（金の鎖に深紅の玉）が垂れ、球は3本の鎖で天蓋から吊られている
-//   ＝神核は「祀られた聖遺物」。退廃：中央の鎖は切れ、瓔珞は左の1本が欠けて留め具だけ、右端の1本は斜めに折れている
+// 光背（thruster）64×40。球の中心は (31.5, 32)＝origin [0.5, 0.8]（現行と同じ契約）。
+//   第1案の棘の冠（FB「金色の長い角が損ねる」）も第2案の天蓋（FB「大きいアイテムは要らない」）も捨て、
+//   「ほんの一滴」＝球の真上に浮かぶ細い金の円光ひとつ。奥行きで潰れた楕円・手前が明るく奥が暗い・
+//   奥の1か所だけ欠けて銅が覗く（退廃も一滴）
 // =====================================================================
 const CORONA = (() => {
-  const W = 78, H = 50, G = g(W, H), cx = 38.5, cy = 40;
-  for (let rr = 19.5; rr <= 22; rr += 0.25) ARC(G, cx, cy, rr, rr, 150, 390, rr > 21.5 ? 'Y' : rr < 20 ? 'j' : rr < 21 ? 'm' : 'f');   // 襟
-  for (let a = 160; a <= 380; a += 20) AT(G, cx, cy, 20.7, 20.7, a, 'y');
-  const EAVE = 15, HW = 30, DH = 11;                                                   // 天蓋：軒 y15・頂 y4・半幅 30（環 ±31 より少し狭い＝傘）
-  for (const [bx, bottom, torn] of [[cx - 33, 48, false], [cx + 33, 31, true]]) {       // 幡（軒の端から垂れる・右は千切れている）
-    P(G, bx - 1, EAVE, 'Y'); P(G, bx, EAVE, 'Y'); P(G, bx + 1, EAVE, 'Y');
-    for (let y = EAVE + 1; y <= bottom; y++) {
-      const band = (y - EAVE) % 8 === 0;
-      P(G, bx - 1, y, band ? 'Y' : 'q'); P(G, bx, y, band ? 'W' : (y % 5 === 0 ? 'P' : 'Q')); P(G, bx + 1, y, band ? 'Y' : 'q');
-    }
-    if (torn) { P(G, bx - 1, bottom + 1, 'q'); P(G, bx + 1, bottom + 2, 'q'); P(G, bx, bottom + 1, 'Q'); }
-    else { P(G, bx - 1, bottom + 1, 'Y'); P(G, bx, bottom + 1, 'W'); P(G, bx + 1, bottom + 1, 'Y'); P(G, bx, bottom + 2, 'y'); }
+  const W = 64, H = 40, G = g(W, H), cx = 31.5, cy = 32;
+  const hy = cy - 22, rx = 13, ry = 3.2;
+  for (const d of [0, 0.5, 1.0]) {
+    ARC(G, cx, hy, rx + d, ry + d * 0.25, 180, 360, 'y', [[296, 308]]);            // 奥（暗い金）
+    ARC(G, cx, hy, rx + d, ry + d * 0.25, 0, 180, 'Y');                             // 手前（金）
   }
-  for (let x = Math.ceil(cx - HW); x <= Math.floor(cx + HW); x++) {
-    const u = (x - cx) / HW, top = EAVE - DH * Math.sqrt(Math.max(0, 1 - u * u));
-    for (let y = Math.ceil(top); y <= EAVE - 1; y++) {
-      const v = (y - top) / Math.max(1, EAVE - 1 - top);
-      let ch = u < -0.3 ? 'f' : u < 0.3 ? 'm' : 'j';
-      if (v < 0.3 && u < 0.3) ch = u < -0.3 ? 's' : 'f';                               // 上面の光
-      P(G, x, y, ch);
-    }
-  }
-  for (const rx of [-28, -20, -12, -4, 4, 12, 20, 28]) {                                // 8本の肋（左が明・右に黒い溝）
-    const u = rx / HW, top = EAVE - DH * Math.sqrt(1 - u * u);
-    for (let y = Math.ceil(top) + (Math.abs(rx) < 5 ? 0 : 1); y <= EAVE - 1; y++) { P(G, cx + rx, y, rx < 0 ? 'W' : 'Y'); P(G, cx + rx + 1, y, 'k'); }
-  }
-  for (let x = Math.ceil(cx - HW); x <= Math.floor(cx + HW); x++) { P(G, x, EAVE, x < cx - 10 ? 'W' : 'Y'); P(G, x, EAVE + 1, 'y'); }   // 金の軒
-  for (let x = Math.ceil(cx - HW) + 1; x <= Math.floor(cx + HW) - 1; x++) P(G, x, EAVE + 2, 'k');                                   // 軒の影
-  P(G, cx, 0, 'k'); P(G, cx, 1, 'Y'); P(G, cx - 1, 1, 'k'); P(G, cx + 1, 1, 'k');                                                   // 宝珠
-  for (const y of [2, 3]) { P(G, cx - 2, y, 'k'); P(G, cx - 1, y, 'W'); P(G, cx, y, 'Y'); P(G, cx + 1, y, 'y'); P(G, cx + 2, y, 'k'); }
-  for (let x = cx - 2; x <= cx + 2; x++) P(G, x, 4, 'Y');
-  for (const [rx, len, state] of [[-27, 5, 'ok'], [-21, 7, 'ok'], [-15, 5, 'missing'], [-9, 7, 'ok'], [9, 7, 'ok'], [15, 5, 'ok'], [21, 7, 'ok'], [27, 5, 'broken']]) {   // 瓔珞
-    const x = cx + rx;
-    if (state === 'missing') { P(G, x, EAVE + 3, 'o'); continue; }                    // 欠けた瓔珞＝銅の留め具だけ
-    if (state === 'broken') { P(G, x, EAVE + 3, 'y'); P(G, x + 1, EAVE + 4, 'y'); P(G, x + 2, EAVE + 5, 'Y'); P(G, x + 3, EAVE + 6, 'W'); P(G, x + 3, EAVE + 7, 'R'); continue; }
-    for (let k = 0; k < len; k++) P(G, x, EAVE + 3 + k, k % 2 ? 'y' : 'Y');
-    P(G, x, EAVE + 3 + len, 'W'); P(G, x, EAVE + 4 + len, 'R'); P(G, x, EAVE + 5 + len, 'r');
-  }
-  for (const [rx, broken] of [[-7, false], [0, true], [7, false]]) {                    // 吊り鎖（中央は切れている）
-    const x = cx + rx;
-    for (let y = EAVE + 3; y <= (broken ? EAVE + 5 : 23); y++) { P(G, x, y, (y - EAVE) % 2 ? 's' : 'f'); if (rx === 0) P(G, x + 1, y, (y - EAVE) % 2 ? 'f' : 's'); }
-    if (broken) { P(G, x, EAVE + 6, 'n'); P(G, x + 1, EAVE + 6, 'n'); P(G, x + 1, 22, 'n'); P(G, x + 1, 23, 'f'); }
-  }
+  ARC(G, cx, hy, rx + 0.5, ry + 0.12, 100, 165, 'W');                               // 手前左の艶
+  AT(G, cx, hy, rx + 0.5, ry + 0.12, 295, 'o'); AT(G, cx, hy, rx + 0.5, ry + 0.12, 309, 'W');   // 欠けの両端
   OUTLINE(G);
   return R(G);
 })();
@@ -208,7 +171,7 @@ export const GODCORE = {
   id: 'godcore',
   name: '軌道神核',
   concept: '黒鉄と金の天球儀に囚われた神の眼。球は装甲板で、金の窓枠の奥に血走った単眼。'
-    + '傾きの違う3つの環（紫・青・緑）は30°ごとの板に割れ、板の中央に鋲、祠がひとつ。球の上に13本の茨の冠（頂の3本が最長・1本折れている）。'
+    + '傾きの違う3つの環（紫・青・緑）は30°ごとの板に割れ、板の中央に鋲、祠がひとつ。球の真上に細い金の円光がひとつ浮かぶ（奥が一か所欠けている）。'
     + '環の裂け目は白い断面から銅線を垂らし、球の右下の板は焼け割れて赤熱し、窓枠から血管が装甲へ這う。',
   sprites: {
     ringAb: { rows: RING_AB, palette: PAL }, ringAf: { rows: RING_AF, palette: PAL },
@@ -229,6 +192,6 @@ export const GODCORE = {
     { role: 'cannon', tex: 'ringCf', ox: 0, oy: 0, origin: [0.5, 0.5] },
     { role: 'core', tex: 'eye', ox: 0, oy: 0 },
   ],
-  tier: { spriteScale: 5.6, glowScale: 10.6, glowOuter: '#c98cff', glowInner: '#ffedb0' },
+  tier: { spriteScale: 6.5, glowScale: 10.6, glowOuter: '#c98cff', glowInner: '#ffedb0' },
 };
 validate(GODCORE);
