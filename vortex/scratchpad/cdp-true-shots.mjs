@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../');
-const OUT = path.join(HERE, 'shots-true');
+const OUT = process.env.SHOT_OUT ? path.resolve(process.env.SHOT_OUT) : path.join(HERE, 'shots-true');
 const PORT = 8933, DBG = 9483;
 const URL = `http://127.0.0.1:${PORT}/vortex/index.html?autotest=1&seed=5`;
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -64,6 +64,37 @@ async function shot(name) {
   fs.writeFileSync(path.join(OUT, name + '.png'), Buffer.from(r.data, 'base64'));
   const st = await evalJs('window.__run.boss.state');
   console.log('  ' + name.padEnd(22) + ' state=' + st);
+}
+// 2026-09-15 素の姿：シーンを止め、ボス以外の手前の物・文字・ボスの光背（'glow' で拡大率が大きいもの）を隠して撮る。
+//   テロップや光背に隠れた1枚では「絵が本編でどう見えるか」を判定できないため。撮ったら必ず元に戻す
+async function cleanShot(name) {
+  await evalJs(`(function(){
+    var g = window.__vortexGame, hid = [];
+    g.scene.getScenes(true).forEach(function(sc){
+      var isRun = sc === window.__run;
+      if (isRun) sc.scene.pause();
+      sc.children.list.forEach(function(o){
+        if (!o.visible) return;
+        var k = o.texture && o.texture.key || '';
+        var hide = !isRun
+          || o.type === 'Text' || o.type === 'Graphics'
+          || (k === 'glow' && o.scaleX > 6)
+          || (o.depth >= 7 && k.indexOf('boss_') !== 0 && k !== 'glow');
+        if (hide) { o.setVisible(false); hid.push(o); }
+      });
+    });
+    window.__hid = hid;
+    return hid.length;
+  })()`);
+  await sleep(250);
+  await shot(name);
+  await evalJs(`(function(){
+    (window.__hid || []).forEach(function(o){ if (o.scene) o.setVisible(true); });
+    window.__hid = [];
+    window.__run.scene.resume();
+    return true;
+  })()`);
+  await sleep(200);
 }
 // 目的の state になるまで待つ（来なければ諦めて撮らない＝「撮れたことにしない」）
 async function waitState(want, limitMs = 20000) {
@@ -134,6 +165,14 @@ async function main() {
   })()`);
   await waitState(['chase'], 20000);
 
+  // 2026-09-15 昇華：第1形態（深紅）そのものも撮る＝顔と弱点の円が重ならないかを実描画で見る
+  console.log('--- 第1形態（深紅） ---');
+  await evalJs('window.__center = true'); await sleep(900);
+  await shot('00a-form1-center');
+  await cleanShot('00c-form1-clean');
+  await evalJs('window.__center = false'); await sleep(700);
+  await shot('00b-form1-play');
+
   console.log('--- 分離 → じゃがんレーザー（R36W2・紫） ---');
   await evalJs(`(function(){
     var r = window.__run, b = r.boss.entity;
@@ -178,7 +217,7 @@ async function main() {
     //    無傷の旧体を「粉砕」として撮っていた。粉砕 tween は alpha を 1→0 にするので、そこを見る。
     const d = await evalJs(`(function(){var r=window.__run;var m=1;
       r.children.list.forEach(function(o){var k=o.texture&&o.texture.key;
-      if(!/^boss_maou_P?(body|core|arm|leg|cannon|pauldron|cellpod)$/.test(k||''))return;   // R36W2 合体後は P 接頭辞
+      if(!/^boss_maou_P?(body|core|arm|leg|cannon|pauldron|cellpod|mantle)$/.test(k||''))return;   // R36W2 合体後は P 接頭辞
       m=Math.min(m,o.alpha);});return +m.toFixed(2);})()`);
     if (d < 0.6) { console.log('  粉砕を検出（旧パーツのα ' + d + '）'); break; }
     await sleep(50);
@@ -201,6 +240,7 @@ async function main() {
   }
   await sleep(900);
   await shot('05c-center');                        // 診断：ボスを画面中央に置いた1枚
+  await cleanShot('05d-true-clean');               // 同じ位置で光背と文字を隠した素の姿
   await evalJs('window.__center = false'); await sleep(500);
 
   console.log('--- 攻撃3種 ---');
