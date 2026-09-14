@@ -9,6 +9,7 @@ import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
+import { judge as vJudge, newlyFound as vNewlyFound } from '../src/data/verdict.js';
 import { createTimeStopGovernor, installTimeStopGovernor, crowdLevel } from '../src/systems/timestop.js';
 import { rarityRank, findSwapIndex, preferUnowned } from '../src/systems/rarity.js';
 
@@ -1332,7 +1333,14 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(used, 'JAM2: 死因 ' + c + ' がゲーム側のどこかで付けられている');
     }
     assert(/remainPct <= 10\) out\.push\('near'\)/.test(vj), 'JAM2: 残り10%以下は「あと一歩の信徒」');
-    assert(/const id = ids\.find\(\(k\) => !S\[k\]\) \|\| ids\[0\];/.test(vj), 'JAM3: 裁きは未見の文言を優先（2回とも同じ文言にならない）');
+    {
+      // ★2026-09-15 ユーザー決定（案B）：大きく出す裁きはいつも最高位。未見は newlyFound で添える（83回目＝第4位に届いたのに第5位と出た）
+      const jd = vJudge, nfd = vNewlyFound;
+      const st3 = { clear: true, hits: 30, throws: 43, haloHit: true, shardShare: 0.3, choirBest: 3, bossSec: 73, tries: 83, shardHits: 8 };
+      const f3 = nfd(st3, { clear_fast: 1 }, jd(st3).id);
+      assert(jd(st3).rank === 4 && f3 && f3.rank === 5 && nfd(st3, { clear_fast: 1, clear_halo: 1, clear_storm: 1, clear_blood: 1, clear_again: 1, clear: 1 }, 'clear_fast') === null,
+        'JAM3: 裁きはいつも届いた最高位（第4位と第5位なら第4位）・未見の最上位は別に返す・全部見ていれば null');
+    }
     assert((vj.match(/\{ id: '/g) || []).length >= 31, 'JAM3: 裁きの文言は31種以上');
     // ★2026-09-13 JAM4：順位（第n位）・階位の印・鍵の指さし・聖歌隊/装甲片の目印・節目落ちの演出
     {
@@ -1469,12 +1477,12 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(C4.summon.holdSec >= 3, 'JAM4: 聖歌隊は3秒以上歌う（気づいてから掴みに行ける）');
     }
     assert(/export function judge\(/.test(vj), 'JAM2: judge が公開されている');
-    assert(/import \{ judge \} from '\.\.\/data\/verdict\.js';/.test(r2), 'JAM2: Run が裁きを読み込む');
+    assert(/import \{ judge, newlyFound \} from '\.\.\/data\/verdict\.js';/.test(r2), 'JAM2: Run が裁きを読み込む');
     assert(/hitPlayer\(dmg, srcX, srcY, cause\) \{/.test(r2) && /this\.jamSt\.lastCause = c;/.test(r2), 'JAM2: 被弾のたびに死因を記録する');
     assert(/function causeNow\(\)/.test(b2) && /d\.cause = opts\.cause \|\| causeNow\(\);/.test(b2) && /run\.hitPlayer\(b\.dmg, b\.x, b\.y, b\.cause\)/.test(b2),
       'JAM2: ボスの弾は撃った瞬間の攻撃名を持ち、当たったときに渡す');
     assert(/run\.hitPlayer\(dmg, boss\.x, boss\.y, 'body'\)/.test(b2), 'JAM2: 体当たりは body');
-    assert(/payload\.jam = \{ verdict, stat,/.test(r2), 'JAM2: Result へ裁きを渡す');
+    assert(/payload\.jam = \{ verdict, found, stat,/.test(r2), 'JAM2: Result へ裁きを渡す');
     assert(/if \(this\.jamSt\) \{[\s\S]*?this\.scene\.start\('Result', payload\);\s*return;\s*\}\s*if \(clear\) \{ this\.scene\.start\('Ending', payload\)/.test(r2),
       'JAM2: ジャム版のクリアはエンディングを挟まず Result（2分ループ）');
     assert(/createJam\(d\)/.test(rs) && /typeText\(/.test(rs) && /'？？？'/.test(rs), 'JAM2: Result に裁きの画面（1文字ずつ・一覧の空欄）がある');
@@ -1660,9 +1668,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         && hint18.indexOf("'clear_fast'") < hint18.indexOf("'clear_hand'") && hint18.indexOf("'clear_hand'") < hint18.indexOf("'clear_pure'"),
         'JAM18: 撃破の案内に第3位（借り物なし）が入り、第4位の次・第2位の前に並ぶ（条件は matches の clear_hand の裏返し）');
       assert(/if \(!s\.shardHits && !s\.haloHit && !s\.specHits\) out\.push\('clear_hand'\);/.test(vj18), 'JAM18: 案内の条件と判定（matches）の条件が同じ3つ');
-      assert(/export function bestReached\(st\)/.test(vj18) && /import \{ bestReached \} from '\.\.\/data\/verdict\.js';/.test(rs18)
-        && /if \(reach && reach\.rank < \(v\.rank \|\| VERDICTS\.length\)\)/.test(rs18) && /今回は第\$\{reach\.rank\}位にも届いた/.test(rs18),
-        'JAM18: 表示の位より上に届いた回だけ「今回は第n位にも届いた」を添える');
+      assert(/export function newlyFound\(st, seen, shownId\)/.test(vj18) && /const nf = J\.found;/.test(rs18) && /'新たに一覧へ'/.test(rs18)
+        && !/にも届いた/.test(rs18) && /if \(found\) seen\[found\.id\]/.test(read('scenes/Run.js')),
+        'JAM18（2026-09-15 案Bで改訂）：まだ見ていなかった裁きは右上に「新たに一覧へ」と添え、一覧にも載せる（「今回は第n位にも届いた」は不要になったので廃止）');
     }
     // ★2026-09-14 JAM19（61回目FB「振り香炉はなかった」・ユーザー決定 A＋B）：表の順送りで鞭は4番目＝ボット4本で最後まで出た回0/4
     {

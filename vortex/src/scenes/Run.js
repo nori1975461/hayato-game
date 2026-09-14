@@ -11,7 +11,7 @@ import { createFx } from '../systems/fx.js';
 import { createBoss } from '../systems/boss.js';
 import { createItems } from '../systems/items.js';
 import { saveRun, readJam, writeJam } from '../systems/record.js';
-import { judge } from '../data/verdict.js';
+import { judge, newlyFound } from '../data/verdict.js';
 import { createSpecial } from '../systems/special.js';
 import { createHitFx } from '../systems/hitfx.js';
 import { createBilliard } from '../systems/billiard.js';
@@ -2939,13 +2939,15 @@ export class RunScene extends Phaser.Scene {
         bossSec: this._bossOn ? this.elapsed - this._bossT0 : ((this.bossTimes || []).slice(-1)[0] || 0),
       };
       const J = readJam();
-      const verdict = judge(stat, J.seen || {});   // まだ見ていない裁きを優先（同じ行いでも一覧が埋まるまで別の一文）
+      const verdict = judge(stat);   // ★2026-09-15 案B：いつも届いた最高位
+      const found = newlyFound(stat, J.seen, verdict.id);   // まだ見ていない裁きは小さく添えて一覧にも載せる
       const seen = Object.assign({}, J.seen || {});
       seen[verdict.id] = (seen[verdict.id] || 0) + 1;
+      if (found) seen[found.id] = (seen[found.id] || 0) + 1;
       const prevBest = J.bestRemain;
       const improved = remainPct != null && (prevBest == null || remainPct < prevBest);
       writeJam({ seen, cleared: (J.cleared || 0) + (clear ? 1 : 0), bestRemain: improved ? remainPct : prevBest });
-      payload.jam = { verdict, stat, prevBest, improved, seen, best: js.best, tries: js.tries, shardHits: js.shardHits,
+      payload.jam = { verdict, found, stat, prevBest, improved, seen, best: js.best, tries: js.tries, shardHits: js.shardHits,
         dmgByCause: js.dmgByCause, hitsByCause: js.hitsByCause };
       if (clear) Sound.sfx('clear'); else Sound.sfx('gameover');
       this.scene.start('Result', payload);

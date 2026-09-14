@@ -110,12 +110,23 @@ export function matches(st) {
   return out;
 }
 
-// 裁きを決める。当てはまるものの中で**まだ見ていない**最上位、全部見ていれば最上位。
-export function judge(st, seen) {
-  const ids = matches(st);
+// 裁きを決める。★2026-09-15 ユーザー決定（案B）：当てはまるものの中で**いつも位が一番上**。
+//   旧＝未見優先（matches の並び順で最初の未見）。並び順が位の順とずれていて（5位が4位より前・3位が8位より後ろ）、
+//   実プレイ83回目で第4位に届いたのに第5位と出た。見ていない裁きは newlyFound で小さく添えて一覧に載せる。
+export function judge(st) {
+  return bestReached(st) || VERDICTS[VERDICTS.length - 1];
+}
+
+// まだ見ていない裁きのうち位が一番上のもの（表示した裁きは除く）。無ければ null。
+export function newlyFound(st, seen, shownId) {
   const S = seen || {};
-  const id = ids.find((k) => !S[k]) || ids[0];
-  return VERDICTS.find((v) => v.id === id) || VERDICTS[VERDICTS.length - 1];
+  let best = null;
+  for (const id of matches(st)) {
+    if (id === shownId || S[id]) continue;
+    const v = VERDICTS.find((x) => x.id === id);
+    if (v && (!best || v.rank < best.rank)) best = v;
+  }
+  return best;
 }
 
 // ★2026-09-14 今回の行いが届いた最高位。judge は「まだ見ていない」ものを優先するので、表示の位より上に届いていることがある

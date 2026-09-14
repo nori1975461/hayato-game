@@ -131,14 +131,15 @@ async function main() {
   // ★2026-09-14 JAM18：①未見優先で第8位と出た回（第5位の欠片も満たす＝実プレイ55回目）→「今回は第5位にも届いた」
   await ev(`(function(){ var g=window.__vortexGame; var rs=g.scene.getScene('Result'); var d=rs.scene.settings.data;
     d.clear=true; d.elapsed=159; d.party=['pirikko','neonworm','starpuppy']; d.bossTimes=[104]; d.jam.tries=55;
-    d.jam.verdict={ id:'clear_armor', rank:8, title:'鎧を返せし者', line:'我が装甲が我を砕くか' };
+    d.jam.verdict={ id:'clear_halo', rank:5, title:'光輪を返せし者', line:'我が輪で我を穿つとは' };
+    d.jam.found={ id:'clear_armor', rank:8, title:'鎧を返せし者' };
     Object.assign(d.jam.stat, { clear:true, hits:53, throws:56, shardHits:10, specHits:0, haloHit:true, haloGrabbed:true, shardShare:0.6, choirBest:1, bossSec:104, tries:55 });
     d.jam.seen={ clear_halo:1 }; rs.scene.restart(d); return 1; })()`);
   await sleep(2800); await shot('96-check-reach-line');
   // ②第4位の回（実プレイ58回目）→ 案内が第2位へ飛ばず第3位「己が手で覆せし者」を指す
   await ev(`(function(){ var g=window.__vortexGame; var rs=g.scene.getScene('Result'); var d=rs.scene.settings.data;
     d.elapsed=126; d.bossTimes=[68]; d.jam.tries=58;
-    d.jam.verdict={ id:'clear_fast', rank:4, title:'刹那に裁きし者', line:'祈る暇もなかったか' };
+    d.jam.verdict={ id:'clear_fast', rank:4, title:'刹那に裁きし者', line:'祈る暇もなかったか' }; d.jam.found=null;
     Object.assign(d.jam.stat, { hits:41, throws:43, shardHits:7, haloHit:true, shardShare:0.3, choirBest:3, bossSec:68, tries:58 });
     d.jam.seen={ clear_halo:1, clear_armor:1, clear_fast:1 }; rs.scene.restart(d); return 1; })()`);
   await sleep(2800); await shot('97-check-hand-hint');
