@@ -271,18 +271,16 @@ export class ResultScene extends Phaser.Scene {
 
     // 下段：投げの中身（2列）
     y = Math.max(y + 4, clear ? 164 : 184);   // 撃破の裁きは仲間の帯が下に来るので表を少し上へ
-    const G = (BALANCE.hero.billiard && BALANCE.hero.billiard.grades) || [];
-    const b = J.best || { dmg: 0 };
-    const gl = (G[b.grade] && G[b.grade].label) || '';
-    const tags = [gl, b.piece ? '光輪' : b.shard ? '装甲片' : '', b.core ? '聖核' : ''].filter(Boolean).join('・');
-    const bestTxt = b.dmg > 0 ? `${b.dmg}${tags ? '（' + tags + '）' : ''}` : '－';
+    // ★2026-09-14 ユーザー決定（案1）：「最高の一投」をやめて「ボス戦」の時間へ。欠片は固定25%で必ず4000・「かるい／おもい」は
+    //   ゲーム中に出ない言葉・どの裁きも読んでいなかった。ボス戦の時間は第4位（75秒）の判定と同じ bossSec＝「あと何秒」と読める。
+    const bossTxt = s.bossSec > 0 ? mmss(s.bossSec) : '－';
     // 2026-09-13 実機で「7／32」なのに帯の合計が6＝旧版の削除済み id（聖核）が保存に残っていた。今の32種にある id だけ数える
     const seenN = VERDICTS.filter((vv) => (J.seen || {})[vv.id]).length;
     // ★2026-09-14 実プレイ54回目（被弾を意識して25）→ ユーザー指示「案A：本表に被弾を・表はスッキリ」。
     //   行は増やさず2列3行のまま、列に意味を持たせる：左＝腕（投げ・被弾・最高の一投）／右＝鍵（光輪の欠片・聖歌隊・装甲片＝▶の案内と同じ3つ）。
     //   「裁き n/33（n回目）」は一覧の案内（V）へ移した。見出しは淡く・数字だけ白く＝目は数字に行く。
     // 2026-09-13 聖核（弱点）は削除＝「聖核ヒット」の行は「光輪の欠片」へ（欠片を掴んだ／当てた＝探す遊びの記録）
-    const rowsL = [['投げ', String(s.throws || 0)], ['被弾', String(s.hits || 0)], ['最高の一投', bestTxt]];
+    const rowsL = [['投げ', String(s.throws || 0)], ['被弾', String(s.hits || 0)], ['ボス戦', bossTxt]];
     const rowsR = [['光輪の欠片', s.haloHit ? '当てた' : s.haloGrabbed ? '掴んだ' : '－'], ['聖歌隊 投げ返し', `${s.choirBest || 0}/8`],
       ['装甲片を返した', String(J.shardHits || 0)]];
     const put = (rows, x0, x1) => rows.forEach((r, i) => {

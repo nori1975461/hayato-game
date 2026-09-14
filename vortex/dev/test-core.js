@@ -1495,7 +1495,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     assert(!BALANCE.boss.tiers.some((t) => t.shardEveryHpRatio), 'JAM3: 本編の tier は shardEveryHpRatio を持たない（本編不変）');
     assert(!/(introText|announce)\([^)]*(欠片|光輪返し)/.test(b2), 'JAM2: 欠片をテロップで教えない（砕けるのが見える＝供給は隠れていない）');
     // D 最高の一投
-    assert(/js\.best = \{ dmg, shard: !!at\.shard, piece: !!at\.piece, core: coreHit/.test(r2) && /最高の一投/.test(rs), 'JAM2: 最高の一投を記録して見せる');
+    // ★2026-09-14 JAM20（ユーザー決定・案1）：表の「最高の一投」は「ボス戦」の時間へ替えた（記録 js.best は調査用に残す）
+    assert(!/\['最高の一投'/.test(rs) &&/\['ボス戦', bossTxt\]/.test(rs) && /const bossTxt = s\.bossSec > 0 \? mmss\(s\.bossSec\) : '－';/.test(rs)
+      && /bossSec: this\._bossOn/.test(r2), 'JAM20: 表の左列は 投げ・被弾・ボス戦（第4位の判定と同じ bossSec）');
     // 持続（死後も SPACE でジャム版）
     assert(/window\.VORTEX\.jam = true;/.test(t2) && /window\.VORTEX\.jam = false;/.test(t2) && /jamSticky/.test(t2), 'JAM2: ジャム版は死んで戻っても持続し N で戻せる');
     assert(/2ふん/.test(t2), 'JAM2: J キー行の文言が1体・2分になっている');
@@ -1661,6 +1663,17 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       assert(/export function bestReached\(st\)/.test(vj18) && /import \{ bestReached \} from '\.\.\/data\/verdict\.js';/.test(rs18)
         && /if \(reach && reach\.rank < \(v\.rank \|\| VERDICTS\.length\)\)/.test(rs18) && /今回は第\$\{reach\.rank\}位にも届いた/.test(rs18),
         'JAM18: 表示の位より上に届いた回だけ「今回は第n位にも届いた」を添える');
+    }
+    // ★2026-09-14 JAM19（61回目FB「振り香炉はなかった」・ユーザー決定 A＋B）：表の順送りで鞭は4番目＝ボット4本で最後まで出た回0/4
+    {
+      const bb19 = read('systems/boss.js');
+      const C19 = BALANCE.boss.jamTiers[0];
+      assert(C19.attacksStage2[0] === 'whip' && C19.attacksStage2.filter((a) => a === 'whip').length === 1,
+        'JAM19 A: 堕天の表の先頭が振り香炉（1周に1回のまま）');
+      assert(/cathStage = 1;[\s\S]{0,200}attackIdx = 0; cathHeadPending = state !== 'chase';/.test(bb19)
+        && /attackIdx = cathHeadPending \? 0 : \(attackIdx \+ 1\) % attackList\(\)\.length;\s*cathHeadPending = false;/.test(bb19),
+        'JAM19 A: 堕天に入ったら順番を先頭へ（攻撃の最中ならその終わりで）');
+      assert(/state !== 'maouIntro' && !\/\^wire\/\.test\(state\)\) enterStage3\(\);/.test(bb19), 'JAM19 B: 振り香炉の最中は破鐘へ移らない');
     }
     {
       const sv = (jo.match(/SAMPLE_VERDICTS = \[([^\]]+)\]/) || [])[1] || '';
