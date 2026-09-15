@@ -1,67 +1,69 @@
-// 「蒼神骸華」（そうしんがいか）＝マキナ四神柱の頂点・すべてのマキナの創造主。第1案（2026-09-15）。
+// 「蒼神骸華」（そうしんがいか）＝マキナ四神柱の頂点・すべてのマキナの創造主。第2案（2026-09-15 20:35 FB を受けて全面書き直し・第3稿）。
 //
-// 名前の読み解き（設計の芯）：
-//   蒼 … 蒼穹の青であり、蒼白（死人の色）であり、蒼古（気が遠くなるほど古い）。＝色は「蒼白い骨」と「蒼い硝子」
-//   神 … 四神柱の頂点。ただし神そのものはもういない
-//   骸 … 亡骸。形骸＝中身が失われても形と機能だけが残るもの
-//   華 … 蓮華。仏教の「蓮華化生」＝生き物は蓮の花の中から生まれる。華厳＝千葉の蓮の一葉ごとに一つの世界が宿る
-//   → 「創造主はとうに死んでいる。その骸が蓮台になり、骸の両手が開いて蓮華となり、花の芯の子宮だけが今も
-//      新しいマキナを産み続けている」。神の座（蓮華の中心）に神はいない。あるのは琥珀の子宮と、その中で丸まる深紅の胎児。
+// 第1案への FB：「骸と華という概念はいい。しかしビジュアルは虫の要素が強い。創造主・四神柱の頂点＝最大限の荘厳さと畏怖を」
+//   虫に見えた理由（自分の診断）：開いた両手の指＝脚／琥珀の球＝卵／節のある脊椎＝腹／垂れる銅線＝触角。
+//   「骸」を骨の部品（指・脊椎・肋骨）で語ると、骨は細く分かれた形なので必ず節足動物へ寄る。
+//   → 第2案は「骸」を **仏像の文法** で語る：正面・左右対称・静止・坐像・蓮華座・光背・印（手の型）。
 //
-// 他の三体との差別化（並べたときに一目で「別の柱・しかも頂点」と分かるために）：
-//   ・シルエット … 大聖堂＝十字と翼／玉座＝座る多腕の王／軌道神核＝球と環／マオウ＝鉄の巨人。骸華＝**聖杯（盃）**。
-//     蓮台（骨盤と肋骨）の上に脊椎の茎、その頂で開いた両手（指＝外側の花弁）が蒼い花弁を抱き、芯に琥珀の子宮
-//   ・素材 … 三体は黒鉄と金。骸華だけ**蒼白い骨鉄**（影は藍・稜線は白）と**蒼い硝子の花弁**。
-//     金は内側の三弁の縁（金蓮華）・蕊・萼と蓮台の縁・手首の環だけ
-//   ・生きている一点 … 三体は深紅の眼や心臓。骸華は**琥珀の子宮の中の深紅の胎児（勾玉）**＝これから生まれるマキナ
+// 第2案の第1稿・第2稿で自分の等倍目視が落とした点（ユーザーには未提示）：
+//   頭巾の空洞に一点の灯＝「一つ目」／蒼硝子の太い花弁9枚の光背＝「孔雀の羽」／胸の空洞に肋骨＝「歯のある口」／
+//   縦の襞の衣に楕円の肩＝「箱型ロボット・神殿の柱」。荘厳でも畏怖でもなく「派手な怪物」。
+//   → 第3稿：**顔を描く代わりに頭そのものを無くす**。円光の中に冕冠だけが浮かび、その下は円光が透けて見える空白＝「形骸」
+//     （形と装いだけが残り中身は無い＝名前の「骸」そのもの）。灯は頭に置かない（胸の蓮華の種子だけが光る）。
+//     光背は花弁でなく **舟形光背の細い帯**（尖った頂）＋頭の **円光**（二重円光）＝仏像の型そのもの。
+//     荘厳＝冕冠・二重円光・瓔珞・蓮華座・印。畏怖＝頭が無いこと・黒鉄の衣から蒼白い骨の手だけが出ていること
 //
-// 昇華の作法（大聖堂の6点）を骸華の語彙で：
-//   ①シルエットの格 … 聖杯。黒塗りで「開いた両手の中の花」と言い当てられる
-//   ②大きな面＋黒い溝＋面の中の明度差 … 骨盤の鉢は横の階調＋継ぎ目、脊椎は節ごとの溝、指は関節の溝と節の膨らみ
-//   ③素材ごとに4段 … 骨鉄・蒼硝子・枯れた花弁・金・深紅・銅
-//   ④黒で締める … 全パーツ OUTLINE。花弁は影側の縁を黒にして1枚ずつ数えられるように。地は深い色、明るい色は一筋（軌道神核 第5案の学び）
-//   ⑤生きている一点 … 子宮の胎児（と脊椎の節の間から漏れる神経のシアン）
-//   ⑥退廃 … 損傷は左に揃える：左の外花弁は枯れて裂け、左手は薬指が折れ小指が無い、左の肋骨は1本折れ、
-//            脊椎は下から2節目で左へずれ（脱臼）、腸骨の左翼は欠け、蓮台から切れた臍の緒（銅線）が垂れ、萼から枯れた花弁が1枚ぶら下がる
+// 名前の読み解き（第1案から据え置き）：
+//   蒼＝蒼白い骨鉄と蒼い硝子／神＝もういない／骸＝形骸（形と装いだけが残る）／華＝蓮華化生（マキナは蓮から生まれる）
+//   → 「創造主はとうに死んでいる。冠だけが円光の中に浮かび、胸の蓮華の種子だけが今も次のマキナを孕んで光る。
+//      右手で〈畏れるな〉と示し、左手で〈与える〉が、その指はもう欠けている」
 //
-// 第1稿で踏んだ失敗（自分の等倍目視で直した）：
-//   ・肋骨を輪に近い弧（225°）で描いたら骨盤が「ふくろうの顔」になった → 弧は 155° に切り、脊椎から外へ垂れる「)」の形に
-//   ・金の球に深紅の塊＝「目玉焼き」 → 琥珀（橙の地）に胎児の暗い影＝「琥珀の中の虫」
-//   ・花弁が細い針＝結晶の塊 → 幅を広く丸く、外へ開く盃に。明るい色は縁の一筋だけ
-//   ・横幅 340px は三体（400〜546）より小さく頂点に見えない → 両手を広げ scale 5.4 で 394px へ
-//   ・琥珀の中の渦巻（1px の線）は等倍では赤い塊＝また顔に見える → 一粒の種子（縦の杏仁形）に。単純な左右対称の形は顔にならない
-//   ・指を10本の細い棒で描くと針鼠 → 太く・短く・低く開き、花弁の頂より下で「盃」を作る
+// 構図（正面・世界座標は本体中心からのドット・scale 4.6）：
+//   舟形光背（thruster）… 尖った頂の細い帯（蒼硝子・内縁は金）。左の一区間が折れて無い
+//   円光（podL）        … 頭の後ろの金縁の円盤（蒼硝子・内側に一重の環）。左下が欠ける
+//   蓮華座（legL）      … 上向きの蓮弁・金の敷茄子・下向きの反花。左端の蓮弁は欠ける
+//   本体（body）        … 骨の襟（首の穴は黒＝頭が無い）→ 瓔珞（金の首飾り）→ 骨の肩当て → 黒鉄の衣（襞は中央へ）→ 金の帯 → 結跏趺坐の膝
+//   冕冠（dome）        … 金の宝冠（中央の高い飾りと左右の山）と、その両端から垂れる蒼硝子の玉の簾。左の簾は短く切れる
+//   胸の蓮華（rack）    … 金の輪の中に蒼硝子の八弁＝この柱の「構造の顔」（大聖堂の薔薇窓に相当）。輪の左が欠ける
+//   種子（core）        … 蓮華の芯の金の宝珠に深紅の種子（次に生まれるマキナ）＝唯一の生きている一点
+//   右腕（armR）        … 施無畏印：掌を正面に向けて挙げる（畏れるな）
+//   左腕（armL）        … 与願印：掌を正面に向けて膝に垂らす（与える）。指が2本欠ける＝もう与えられない
 //
-// 縛り（[[feedback_boss_sprite_originality]] / [[feedback_pixel_art_judge_at_play_zoom]]）：全パーツ新規・完了前に等倍で目視。
-// ⚠️ ゲーム未反映。役割（thruster/wing/leg/body/rack/core）は boss.js の深度表に合わせてあるので、行動の設計が済めば差し込める
+// 差別化：シルエット＝尖った光背を負う坐像（大聖堂＝十字と翼／玉座＝高い背もたれの王／軌道神核＝球と環／マオウ＝立つ巨人）。
+//   玉座と同じ「坐る正面像」だが、玉座は玉座が主役で王は融合して見えない。骸華は像そのものが主役で、冠・円光・印・蓮華座を持つ
+//
+// 昇華の作法（大聖堂の6点）：①黒塗りで「尖った光背を負う坐像」②衣の襞・肩当ての層・円光の環＝面と溝 ③骨鉄・蒼硝子・金・深紅
+//   ④全パーツ OUTLINE ⑤胸の蓮華の種子だけが生きて光る ⑥左に揃えた損傷：折れた光背・欠けた円光・切れた簾・欠けた指・裂けた膝・欠けた蓮弁
+//
+// 縛り：全パーツ新規・完了前に等倍で目視（[[feedback_pixel_art_judge_at_play_zoom]]）。⚠️ ゲーム未反映（役割は boss.js の深度表に合わせ済み）
 import { g, P, GET, LN, ARC, AT, DISC, ELL, RECT, OUTLINE, R, dither, SPHERE, validate } from './god-raster.mjs';
 
 export const PAL = {
-  k: '#04060e',                                                           // 黒（輪郭・溝）
+  k: '#04060e',                                                           // 黒（輪郭・溝・空洞）
   j: '#1a2034', m: '#3b4661', f: '#7a89a6', s: '#bcc8db', n: '#f4f7ff',   // 骨鉄 4段＋稜線（蒼白い骨・影は藍）
-  q: '#0a1f3c', Q: '#10457a', P: '#1d8ac9', N: '#62d8ff', C: '#d8f8ff',   // 蒼い硝子の花弁 4段＋縁の光
+  q: '#0a1f3c', Q: '#10457a', P: '#1d8ac9', N: '#62d8ff', C: '#d8f8ff',   // 蒼い硝子 4段＋縁の光
   w: '#2a2338', u: '#5a4f6e',                                             // 枯れた花弁
-  c: '#38e1ff',                                                           // マキナの神経光（脊椎の節の間）
-  y: '#7a5a12', Y: '#c9971f', G: '#ffd23f', W: '#ffedb0',                 // 金（花弁の縁・蕊・蓮台の縁・手首の環）
-  r: '#8a1622', R: '#e03040', A: '#ff7a6a', O: '#ff9a3a', a: '#b8621e', h: '#ffc46a',   // 深紅の胎児・琥珀 3段
-  o: '#7a4a1a', T: '#d08a3c', d: '#2a1730',                               // 銅（切れた臍の緒）・骨髄（折れ口）
+  c: '#38e1ff',                                                           // マキナの神経光（亀裂）
+  y: '#7a5a12', Y: '#c9971f', G: '#ffd23f', W: '#ffedb0',                 // 金（冠・円光の縁・瓔珞・帯・敷茄子・手首の環）
+  r: '#8a1622', R: '#e03040', A: '#ff7a6a',                               // 深紅の種子
+  d: '#2a1730',                                                           // 骨髄（折れ口）
 };
 
 const LIGHT = [-0.5, -0.62];   // 光は左上（他の三体と同じ）
 const litSign = (nx, ny) => (LIGHT[0] * nx + LIGHT[1] * ny > 0 ? 1 : -1);
+const shade4 = (v) => (v > 0.45 ? 's' : v > -0.05 ? 'f' : v > -0.5 ? 'm' : 'j');
 
 // =====================================================================
-// 花弁：根元 (bx,by) → 先端 (tx,ty)。幅 hw、先端は flare だけ法線方向へ反る（外へ開く）。
-//   蒼硝子＝地は Q、影側 q、光側の一筋 P、光側の縁 N、影側の縁 k（隣の花弁と分かれる）、先端 C、中肋は骨。
-//   gilt＝内側の三弁：縁と先端を金に（金蓮華）。withered＝枯れ（w/u）。tornAt＝そこから先が裂けている
+// 花弁：根元 (bx,by) → 先端 (tx,ty)。蒼硝子＝地 Q・影側 q・光側の一筋 P・光側の縁 N・影側の縁 k・先端 C・中肋は骨。
+//   gilt＝縁と先端を金（金蓮華）。withered＝枯れ（w/u）。tornAt＝そこから先が無い
 // =====================================================================
 function petal(G, bx, by, tx, ty, hw, flare, opt = {}) {
   const dx = tx - bx, dy = ty - by, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
   const ls = litSign(nx, ny), uEnd = opt.tornAt ?? 1;
   const at = (u) => [bx + ux * L * u + nx * flare * u * u, by + uy * L * u + ny * flare * u * u];
+  const width = (u) => hw * Math.pow(Math.sin(Math.PI * (0.10 + 0.90 * u)), 0.55);
   for (let u = 0; u <= uEnd; u += 0.005) {
-    const [cx, cy] = at(u);
-    const w = hw * Math.pow(Math.sin(Math.PI * (0.10 + 0.90 * u)), 0.55);
+    const [cx, cy] = at(u), w = width(u);
     for (let k = -w; k <= w; k += 0.25) {
       const v = (k / w) * ls;   // +1 = 光側の縁、-1 = 影側の縁
       let ch;
@@ -77,205 +79,270 @@ function petal(G, bx, by, tx, ty, hw, flare, opt = {}) {
       P(G, cx + nx * k, cy + ny * k, ch);
     }
   }
-  if (opt.tornAt) for (let i = 0; i < 5; i++) {   // 裂け目の先の千切れ
-    const [cx, cy] = at(uEnd + 0.03 + i * 0.045);
-    const k = i % 2 ? 1.8 : -1.2;
+  if (opt.tornAt && opt.withered) for (let i = 0; i < 5; i++) {   // 枯れ花弁の千切れ
+    const [cx, cy] = at(uEnd + 0.03 + i * 0.045), k = i % 2 ? 1.8 : -1.2;
     P(G, cx + nx * k, cy + ny * k, i < 2 ? 'u' : 'w');
   }
+  if (opt.tornAt && !opt.withered) {                               // 蒼硝子の折れ口：黒い断面に骨髄
+    const [cx, cy] = at(uEnd), w = width(uEnd);
+    for (let k = -w; k <= w; k += 0.25) P(G, cx + nx * k, cy + ny * k, Math.abs(k) < w * 0.45 ? 'd' : 'k');
+    P(G, cx + ux * 1.2, cy + uy * 1.2, 'k'); P(G, cx + ux * 1.2 + nx * 2, cy + uy * 1.2 + ny * 2, 'C');
+  }
 }
 
-// =====================================================================
-// 指：付け根 (bx,by) から角度 ang（度・0=右・-90=上）へ len。3節（関節の溝と膨らみ）、先は爪。cut＝折れ口
-// =====================================================================
-function finger(G, bx, by, ang, len, hw, flare, opt = {}) {
-  const t = ang * Math.PI / 180, ux = Math.cos(t), uy = Math.sin(t), nx = -uy, ny = ux;
-  const ls = litSign(nx, ny), uEnd = opt.cut ?? 1, joints = [0.42, 0.72];
-  const at = (u) => [bx + ux * len * u + nx * flare * u * u, by + uy * len * u + ny * flare * u * u];
-  for (let u = 0; u <= uEnd; u += 0.004) {
-    const [cx, cy] = at(u);
-    let w = hw * (1 - 0.35 * u);
-    const nearJ = joints.some((j) => Math.abs(u - j) < 0.05);
-    if (nearJ) w *= 1.22;
-    if (u > 0.86 && !opt.cut) w *= Math.max(0.12, (1 - u) / 0.14);
+// 太い骨（腕の節）：(x0,y0)→(x1,y1)、半幅 w0→w1。左上が光
+function bone(G, x0, y0, x1, y1, w0, w1) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux, ls = litSign(nx, ny);
+  for (let u = 0; u <= 1; u += 0.004) {
+    const w = w0 + (w1 - w0) * u, cx = x0 + ux * L * u, cy = y0 + uy * L * u;
     for (let k = -w; k <= w; k += 0.25) {
       const v = (k / w) * ls;
-      let ch = v > 0.6 ? 's' : v > -0.25 ? 'f' : v > -0.75 ? 'm' : 'j';
-      if (joints.some((j) => Math.abs(u - j) < 0.014)) ch = 'k';
-      else if (nearJ && v > 0.86) ch = 'n';
-      if (u > 0.9 && !opt.cut) ch = v > 0 ? 'n' : 's';
-      P(G, cx + nx * k, cy + ny * k, ch);
+      P(G, cx + nx * k, cy + ny * k, v > 0.6 ? 's' : v > -0.25 ? 'f' : v > -0.75 ? 'm' : 'j');
     }
   }
-  if (opt.cut) {   // 折れ口：黒い断面の中に骨髄、銅線が1本はみ出す
-    const [cx, cy] = at(uEnd), w = hw * (1 - 0.35 * uEnd);
-    for (let k = -w; k <= w; k += 0.25) P(G, cx + nx * k, cy + ny * k, Math.abs(k) < w * 0.5 ? 'd' : 'k');
-    P(G, cx + ux * 1.4, cy + uy * 1.4, 'o'); P(G, cx + ux * 2.4 + nx * 0.7, cy + uy * 2.4 + ny * 0.7, 'T'); P(G, cx + ux * 3.4 + nx * 0.3, cy + uy * 3.4 + ny * 0.3, 'n');
+}
+// 揃えた指の掌（正面）：中心 (px,py)、指は dir（-1=上 / +1=下）へ。骨の掌＋4本の指（溝で分ける）＋親指。missing＝欠けた指の数（右端から）
+function palm(G, px, py, dir, thumbSide, missing = 0) {
+  for (let y = -4.2; y <= 4.2; y += 0.25) for (let x = -3.8; x <= 3.8; x += 0.25) {                     // 掌
+    const dd = (x / 3.8) ** 2 + (y / 4.2) ** 2; if (dd > 1) continue;
+    const v = -(x / 3.8 * LIGHT[0] + y / 4.2 * LIGHT[1]);
+    P(G, px + x, py + y, v > 0.5 ? 's' : v > -0.1 ? 'f' : v > -0.5 ? 'm' : 'j');
   }
+  for (let i = 0; i < 4; i++) {                                                                          // 指：幅 1.75・長さは中2本が長い
+    const fx = px - 3.5 + i * 1.75 + 0.875, len = (i === 1 || i === 2) ? 8 : i === 0 ? 7 : 6.2;
+    const cut = i >= 4 - missing;
+    const L2 = cut ? 2.4 : len;
+    for (let t = 0; t <= L2; t += 0.25) for (let k = -0.8; k <= 0.8; k += 0.25) {
+      const v = -k;
+      let ch = v > 0.4 ? 's' : v > -0.3 ? 'f' : 'm';
+      if (!cut && Math.abs(t - len * 0.5) < 0.2) ch = 'k';                                              // 関節の溝
+      if (!cut && t > len - 0.6) ch = 'n';                                                               // 爪先
+      P(G, fx + k, py + dir * (3.6 + t), ch);
+    }
+    if (cut) { for (let k = -0.8; k <= 0.8; k += 0.25) P(G, fx + k, py + dir * (3.6 + L2 + 0.3), Math.abs(k) < 0.4 ? 'd' : 'k'); }
+    if (i > 0) for (let t = 0; t <= Math.min(L2, 2.4); t += 0.25) P(G, fx - 0.95, py + dir * (3.6 + t), 'k');   // 指の間の溝
+  }
+  bone(G, px + thumbSide * 3.2, py - dir * 0.5, px + thumbSide * 5.8, py - dir * 4.2, 1.1, 0.9);         // 親指
+  P(G, px + thumbSide * 5.9, py - dir * 4.6, 'n');
+  for (let d = 0; d <= 0.5; d += 0.25) ARC(G, px, py, 3.9 + d, 4.3 + d, dir > 0 ? 200 : 20, dir > 0 ? 340 : 160, d < 0.25 ? 'Y' : 'y');   // 手首の金の環（指と反対側）
 }
 
 // =====================================================================
-// ① 開いた手（wingR / wingL）40×46。掌の中心 (9,36)。指5本が扇に開いて外側の花弁になる。
-//    手首に金の環。左手（damaged）は薬指が折れ、小指は根元しか無い、掌に亀裂
+// ① 舟形光背（thruster）74×76。尖った頂（世界 -41）から蓮華座の裏（+34）まで。帯の厚さ 4.2・外側は蒼硝子・内縁は金。
+//    光側（左）は P の一筋、影側（右）は q。左の一区間（世界 -20〜-13）は折れて無い
 // =====================================================================
-const HAND_W = 40, HAND_H = 46, PALM = [9, 34];
-function hand(damaged) {
-  const G = g(HAND_W, HAND_H), [px, py] = PALM;
-  const F = [   // [角度, 長さ, 半幅, 反り]  人差し指→親指
-    [-72, 22, 2.3, 3.0], [-52, 23, 2.4, 3.4], [-32, 20, 2.2, 3.4], [-12, 16, 1.9, 3.0], [24, 13, 2.3, 1.8],
-  ];
-  F.forEach(([a, len, hw, fl], i) => {
-    const t = a * Math.PI / 180, bx = px + Math.cos(t) * 5.0, by = py + Math.sin(t) * 5.6;
-    const cut = damaged ? (i === 2 ? 0.45 : i === 3 ? 0.2 : undefined) : undefined;
-    finger(G, bx, by, a, len, hw, fl, { cut });
-  });
-  for (let y = py - 6; y <= py + 6; y++) for (let x = px - 6; x <= px + 6; x++) {   // 掌（楕円・左上が光）
-    const ddx = (x - px) / 5.6, ddy = (y - py) / 6.2, dd = ddx * ddx + ddy * ddy;
-    if (dd > 1) continue;
-    const v = -(ddx * LIGHT[0] + ddy * LIGHT[1]);
-    let ch = v > 0.45 ? 's' : v > -0.1 ? 'f' : v > -0.5 ? 'm' : 'j';
-    if (dd > 0.82 && v < 0) ch = 'j';
-    P(G, x, y, ch);
-  }
-  for (const a of [-70, -45, -20]) { const t = a * Math.PI / 180; LN(G, px + Math.cos(t) * 2, py + Math.sin(t) * 2.4, px + Math.cos(t) * 4.6, py + Math.sin(t) * 5.2, 'k'); }   // 中手骨の溝
-  for (let d = 0; d <= 0.6; d += 0.3) ARC(G, px, py, 5.6 - d, 6.2 - d, 35, 145, d < 0.3 ? 'Y' : 'y');   // 手首の金の環
-  AT(G, px, py, 5.4, 6.0, 140, 'W');
-  if (damaged) { LN(G, px - 3, py + 1, px, py - 2, 'k'); LN(G, px, py - 2, px + 1, py - 5, 'k'); P(G, px - 1, py - 1, 'c'); }   // 掌の亀裂から神経光
-  OUTLINE(G);
-  return R(G);
-}
-const HAND_R = hand(false), HAND_L = hand(true);
-
-// =====================================================================
-// ② 奥の花弁（thruster）64×40。根元 (31.5,38)。外2枚（低い・蒼）→内3枚（高い・縁が金＝金蓮華）。左外は枯れて裂けている
-// =====================================================================
-const BACK_W = 64, BACK_H = 40, BACK_BASE = 38;
-const BACK = (() => {
-  const G = g(BACK_W, BACK_H), cx = 31.5, by = BACK_BASE;
-  petal(G, cx + 6, by - 2, cx + 26, 15, 7, 4);
-  petal(G, cx - 6, by - 2, cx - 26, 15, 7, -4, { withered: true, tornAt: 0.76 });
-  petal(G, cx + 3, by - 1, cx + 13, 9, 8, 2.5, { gilt: true });
-  petal(G, cx - 3, by - 1, cx - 13, 9, 8, -2.5, { gilt: true });
-  petal(G, cx, by, cx, 6, 8.5, 0, { gilt: true });
-  OUTLINE(G);
-  return R(G);
-})();
-
-// =====================================================================
-// ③ 手前の花弁と蕊（rack）40×36。根元 (19.5,22)。脇の2枚が外へ反り、中央の低い1枚が子宮の底を受ける盃の唇。
-//    金の蕊が芯（子宮）を囲む。萼から枯れた花弁が1枚ぶら下がる（退廃）
-// =====================================================================
-const FRONT_W = 40, FRONT_H = 36, FRONT_BASE = 22;
-const FRONT = (() => {
-  const G = g(FRONT_W, FRONT_H), cx = 19.5, by = FRONT_BASE;
-  petal(G, cx + 2.5, by + 1, cx + 7, by + 13, 2.8, 1, { withered: true, tornAt: 0.9 });   // ぶら下がる枯れ花弁（奥）
-  for (const a of [-165, -125, -90, -55, -15]) {                                  // 蕊：根元から子宮の周り（中心 (cx, by-11)・半径 8.5）へ
-    const t = a * Math.PI / 180, tx = cx + Math.cos(t) * 8.5, ty = by - 11 + Math.sin(t) * 8.5;
-    LN(G, cx, by - 2, tx, ty, 'y'); P(G, tx, ty, 'G'); P(G, tx - 0.6, ty - 0.6, 'W');
-  }
-  petal(G, cx - 3, by, cx - 15, by - 15, 6.5, -3);
-  petal(G, cx + 3, by, cx + 15, by - 15, 6.5, 3);
-  petal(G, cx, by + 1, cx, by - 9, 7.5, 0);                                                 // 盃の唇
-  OUTLINE(G);
-  return R(G);
-})();
-
-// =====================================================================
-// ④ 萼と脊椎（body）24×32。萼＝骨の杯（縁に金）、その下に脊椎5節（節の間の溝からシアン）、下から2節目で左へ脱臼、仙骨で広がる
-// =====================================================================
-const SPINE = (() => {
-  const W = 24, H = 32, G = g(W, H), cx = 11.5;
-  for (let y = 1; y <= 9; y++) for (let x = 2; x <= 21; x++) {          // 萼（楕円の杯・横の階調）
-    const ddx = (x - cx) / 9.5, ddy = (y - 5) / 4.5;
-    if (ddx * ddx + ddy * ddy > 1) continue;
-    const u = (x - 2) / 19;
-    P(G, x, y, u < 0.2 ? 's' : u < 0.5 ? 'f' : u < 0.8 ? 'm' : 'j');
-  }
-  ELL(G, cx, 4, 7.5, 2.4, 'j'); ELL(G, cx, 4.3, 6.5, 1.6, 'k');         // 杯の口（暗い内側）
-  ARC(G, cx, 5, 9.5, 4.5, 185, 355, 'Y'); ARC(G, cx, 5, 9.0, 4.0, 200, 262, 'W'); ARC(G, cx, 5, 9.5, 4.5, 300, 355, 'y');   // 金の縁
-  for (let i = 0; i < 5; i++) {                                          // 脊椎
-    const y0 = 10 + i * 3.4, sh = i >= 3 ? -2 : 0;
-    for (let y = y0; y < y0 + 3; y++) for (let x = 8 + sh; x <= 15 + sh; x++) P(G, x, y, x < 10 + sh ? 's' : x < 13 + sh ? 'f' : 'm');
-    P(G, 8 + sh, y0, 'k'); P(G, 15 + sh, y0, 'k'); P(G, 8 + sh, y0 + 2, 'k'); P(G, 15 + sh, y0 + 2, 'k');   // 角を落とす
-    for (let x = 8 + sh; x <= 15 + sh; x++) P(G, x, y0 + 3, 'k');
-    P(G, 11 + sh, y0 + 3, 'c'); P(G, 12 + sh, y0 + 3, 'c');                                                // 節の間の神経光
-    if (i % 2 === 0) { P(G, 6 + sh, y0 + 1, 'm'); P(G, 7 + sh, y0 + 1, 'f'); P(G, 16 + sh, y0 + 1, 'm'); P(G, 17 + sh, y0 + 1, 'j'); }   // 横突起
-  }
-  RECT(G, 9, 20, 11, 20, 'c'); P(G, 8, 20, 'C'); P(G, 14, 19, 'n');       // 脱臼の隙間：神経光が露出
-  for (let y = 27; y <= 31; y++) { const hw = 4 + (y - 27) * 0.5; for (let x = cx - 2 - hw; x <= cx - 2 + hw; x++) P(G, x, y, x < cx - 4 ? 'f' : x < cx ? 'm' : 'j'); }   // 仙骨
-  P(G, cx - 2, 29, 'c');
-  OUTLINE(G);
-  return R(G);
-})();
-
-// =====================================================================
-// ⑤ 蓮台（legL）64×30＝骨盤の鉢と肋骨。上端が脊椎の下部に重なる。
-//    鉢は横の4段＋継ぎ目・縁に金の帯・四つの鋲（四神）。肋骨3対が脊椎から外へ「)」に垂れて縁に掛かる（左の中は折れる）。
-//    腸骨の翼は鉢の両脇に低く張り出す（左は欠け）。鉢の底から切れた臍の緒（銅線）が垂れ、1本は空の金の輪で終わる
-// =====================================================================
-const PED_W = 64, PED_H = 27;
-const PEDESTAL = (() => {
-  const G = g(PED_W, PED_H), cx = 31.5;
-  for (let y = 8; y <= 23; y++) {
-    const hw = 25 - 13 * Math.pow((y - 8) / 15, 1.5);
-    for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) {
-      const u = (x - (cx - hw)) / (2 * hw);
-      let ch = u < 0.14 ? 's' : u < 0.4 ? 'f' : u < 0.7 ? 'm' : 'j';   // 影側を広く＝黒で締める（下の鉢に重さ）
-      if (u >= 0.12 && u < 0.16 && dither(x, y)) ch = 'f';
-      if (u >= 0.38 && u < 0.42 && dither(x, y)) ch = 'm';
-      if (u >= 0.68 && u < 0.72 && dither(x, y)) ch = 'j';
-      if (y <= 9) ch = u < 0.3 ? 'G' : u < 0.62 ? 'Y' : 'y';               // 金の帯
-      if (y === 16) ch = 'k';                                               // 板の継ぎ目
-      if (y === 17 && u < 0.5) ch = 's';
+const MAN_W = 74, MAN_H = 76;
+const MANDORLA = (() => {
+  const G = g(MAN_W, MAN_H), cx = 36.5, TH = 4.2, BR0 = 21, BR1 = 28;   // BR0..BR1＝折れて無い区間（左だけ）
+  const hwAt = (y) => { const t = y / (MAN_H - 1); return 36 * Math.pow(Math.max(0, Math.sin(Math.PI * Math.pow(t, 0.8))), 0.6); };
+  for (let y = 0; y < MAN_H; y++) {
+    const hw = hwAt(y);
+    for (let x = 0; x < MAN_W; x++) {
+      const d = hw - Math.abs(x - cx);
+      if (d < 0 || d > TH) continue;
+      const left = x < cx;
+      if (left && y >= BR0 && y <= BR1) continue;
+      let ch;
+      if (left) ch = d < 1.2 ? 'P' : d < 3.0 ? 'Q' : 'G';
+      else ch = d < 1.4 ? 'q' : d < 3.0 ? (dither(x, y) && d < 2.0 ? 'q' : 'Q') : 'Y';
+      if (y < 7 && d >= 3.0) ch = 'W';
+      if (y > 48 && left && d < 1.2) ch = 'Q';                                   // 下は光が弱い
       P(G, x, y, ch);
     }
   }
-  for (const x of [cx - 15, cx - 5, cx + 5, cx + 15]) { P(G, x, 12, 'Y'); P(G, x - 1, 11, 'W'); P(G, x + 1, 12, 'y'); }   // 四つの鋲
-  const wing = (dir, cut) => {                                                                            // 腸骨の翼（低く外へ）
-    const x0 = cx + dir * 21, y0 = 11, x1 = cx + dir * 30, y1 = 5;
-    for (let u = 0; u <= (cut ? 0.55 : 1); u += 0.01) {
-      const x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, w = 2.4 - u * 0.8;
-      for (let k = -w; k <= w; k += 0.25) P(G, x + k * 0.5, y + k, k < -w * 0.5 ? 's' : k < w * 0.3 ? 'f' : 'm');
+  P(G, cx, 0, 'C'); P(G, cx, 1, 'W');
+  for (const y of [BR0 - 1, BR1 + 1]) { const hw = hwAt(y); for (let d = 0; d <= TH; d += 0.25) P(G, cx - hw + d, y, d > 1.2 && d < 3.0 ? 'd' : 'k'); }   // 折れ口
+  P(G, cx - hwAt(BR0 - 1) - 1, BR0 - 2, 'C'); P(G, cx - hwAt(BR1 + 1) + 2, BR1 + 2.5, 'C');
+  OUTLINE(G);
+  return R(G);
+})();
+
+// =====================================================================
+// ② 円光（podL）35×35。中心 (17,17)＝世界 (0,-22)・外径 17・内径 9 の **開いた輪**（輪光）。外縁は金 → 黒 → 蒼硝子の帯（上が明るく下が暗い）→ 内縁は金。
+//    中心は空＝背景が透ける。冕冠は輪の上半分に重なって浮かび、冠の下は背景しか無い＝頭が無い。左下（150°〜190°）が欠ける
+// =====================================================================
+const HALO_W = 35, HALO_H = 35;
+const HALO = (() => {
+  const G = g(HALO_W, HALO_H), c = 17;
+  for (let y = 0; y < HALO_H; y++) for (let x = 0; x < HALO_W; x++) {
+    const dx = x - c, dy = y - c, r = Math.hypot(dx, dy);
+    if (r > 17.2 || r < 9.0) continue;
+    const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+    if (ang >= 150 && ang <= 190 && r > 11.2) continue;
+    const lit = dx * LIGHT[0] + dy * LIGHT[1];
+    let ch;
+    if (r > 15.6) ch = lit > 6 ? 'G' : lit < -6 ? 'y' : 'Y';
+    else if (r > 14.7) ch = 'k';
+    else if (r < 9.9) ch = lit > 3 ? 'G' : 'Y';
+    else {
+      const v = dy / 14.7;
+      ch = v < -0.6 ? (dither(x, y) ? 'N' : 'P') : v < -0.2 ? (dither(x, y) ? 'P' : 'Q') : v < 0.25 ? 'Q' : v < 0.65 ? (dither(x, y) ? 'q' : 'Q') : 'q';
     }
-    if (cut) { const x = x0 + (x1 - x0) * 0.55, y = y0 + (y1 - y0) * 0.55; P(G, x, y, 'd'); P(G, x, y + 1, 'd'); P(G, x + dir, y - 1, 'k'); P(G, x + dir * 1.5, y, 'o'); }
-    else { P(G, x1, y1 - 1, 'n'); }
+    P(G, x, y, ch);
+  }
+  for (const a of [150, 190]) for (let r = 11.2; r <= 17.2; r += 0.25) AT(G, c, c, r, r, a, r > 12 && r < 16 ? 'd' : 'k');   // 欠けの断面
+  P(G, c - 12.5, c + 8.5, 'C');
+  OUTLINE(G);
+  return R(G);
+})();
+
+// =====================================================================
+// ③ 蓮華座（legL）78×12。上向きの蓮弁（6枚・先端に光）・金の敷茄子・下向きの反花（7枚）・底。左端の蓮弁は欠ける
+// =====================================================================
+const PED_W = 78, PED_H = 12;
+const PEDESTAL = (() => {
+  const G = g(PED_W, PED_H), cx = 38.5;
+  const row = (y0, h, n, pitch, up, chip) => {
+    for (let i = 0; i < n; i++) {
+      const px = cx + (i - (n - 1) / 2) * pitch;
+      for (let dy = 0; dy < h; dy += 0.25) {
+        const u = up ? 1 - dy / h : dy / h;
+        const w = (pitch / 2 + 0.4) * Math.pow(Math.sin(Math.PI * (0.22 + 0.78 * u)), 0.5);
+        for (let k = -w; k <= w; k += 0.25) {
+          if (chip === i && up && dy < 2.5 && k < -w * 0.2) continue;                       // 欠け
+          let ch = k < -w * 0.5 ? 's' : k < w * 0.3 ? 'f' : k < w * 0.75 ? 'm' : 'j';
+          if (Math.abs(k) < 0.4 && (up ? dy > 1.5 : dy < h - 1.5)) ch = up ? 'f' : 'm';   // 中肋
+          P(G, px + k, y0 + dy, ch);
+        }
+      }
+      if (chip !== i) P(G, px, up ? y0 : y0 + h - 1, 'n');
+    }
+    for (let i = 1; i < n; i++) {                                                               // 蓮弁の間の溝
+      const sx = cx + (i - n / 2) * pitch;
+      for (let dy = up ? 2 : 0; dy < (up ? h : h - 1); dy++) P(G, sx, y0 + dy, 'k');
+    }
   };
-  wing(1, false); wing(-1, true);
-  const boneArc = (ccx, ccy, rx, ry, a0, a1, gaps = []) => {                                             // 厚みのある骨の弧
-    for (let d = -1.3; d <= 1.3; d += 0.25) ARC(G, ccx, ccy, rx + d, ry + d, a0, a1, d < -0.7 ? 's' : d < 0.55 ? 'f' : 'm', gaps);
-  };
-  for (let i = 0; i < 3; i++) boneArc(cx + 8, 4 + i * 3.4, 11 - i * 1.3, 6.5 + i * 0.5, 245, 400);       // 肋骨（右）：脊椎から上へ出て外へ垂れる
-  for (let i = 0; i < 3; i++) {                                                                          // 肋骨（左・中は折れる）
-    const gaps = i === 1 ? [[165, 200]] : [];
-    boneArc(cx - 8, 4 + i * 3.4, 11 - i * 1.3, 6.5 + i * 0.5, 140, 295, gaps);
-    if (i === 1) {
-      const c2 = [cx - 8, 4 + 3.4], rx = 11 - 1.3, ry = 7.0;
-      for (const a of [163, 202]) { AT(G, c2[0], c2[1], rx, ry, a, 'd'); AT(G, c2[0], c2[1], rx + 0.9, ry + 0.9, a, 'k'); AT(G, c2[0], c2[1], rx - 0.9, ry - 0.9, a, 'k'); }
-      AT(G, c2[0], c2[1], rx - 0.4, ry - 0.4, 175, 'o'); AT(G, c2[0], c2[1], rx - 1.4, ry - 1.4, 182, 'T');
+  row(0, 6, 6, 12.6, true, 0);
+  for (let x = 2; x <= 75; x++) { const u = (x - 2) / 73; P(G, x, 6, u < 0.3 ? 'G' : u < 0.62 ? 'Y' : 'y'); P(G, x, 7, u < 0.3 ? 'Y' : 'y'); }
+  row(8, 3, 7, 10.8, false, -1);
+  for (let x = 1; x <= 76; x++) P(G, x, 11, 'j');
+  OUTLINE(G);
+  return R(G);
+})();
+
+// =====================================================================
+// ④ 本体（body）46×40。上端＝襟（世界 -16）・下端＝膝（+23）。
+//    骨の襟（首の穴は黒＝頭が無い）→ 瓔珞 → 骨の肩当て（二層）→ 黒鉄の衣（襞は中央へ寄る）→ 金の帯 → 結跏趺坐の膝。左肩に亀裂・左膝は裂けて中が空
+// =====================================================================
+const TORSO_W = 46, TORSO_H = 40;
+const TORSO = (() => {
+  const G = g(TORSO_W, TORSO_H), cx = 22.5;
+  const hwAt = (y) => (y <= 8 ? 8.5 + 10.5 * Math.sqrt(Math.max(0, (y - 1) / 7)) : y <= 22 ? 19 - 2 * (y - 8) / 14 : y <= 34 ? 17 + 6 * (y - 22) / 12 : 23);
+  for (let y = 1; y < TORSO_H; y++) {
+    const hw = hwAt(y);
+    for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) {
+      const u = (x - cx) / hw;
+      let ch = u < -0.55 ? 'm' : 'j';
+      if (y === 25) ch = u < -0.3 ? 'G' : u < 0.4 ? 'Y' : 'y';                                   // 金の帯
+      if (y === 26) ch = u < -0.3 ? 'Y' : 'y';
+      P(G, x, y, ch);
     }
   }
-  for (const [x, len, end] of [[cx - 6, 2, 'ring'], [cx + 3, 1, 'spark'], [cx + 12, 2, 'fray']]) {      // 臍の緒
-    for (let y = 23; y < 23 + len; y++) { P(G, x, y, 'o'); P(G, x + 1, y, 'T'); }
-    const ye = 23 + len;
-    if (end === 'ring') { for (const [dx, dy] of [[-1, 0], [0, -1], [1, -1], [2, 0], [2, 1], [1, 2], [0, 2], [-1, 1]]) P(G, x + dx, ye + dy, 'Y'); P(G, x, ye, 'k'); P(G, x + 1, ye, 'k'); P(G, x + 1, ye + 1, 'k'); P(G, x, ye + 1, 'k'); }
-    if (end === 'spark') { P(G, x, ye, 'n'); P(G, x + 1, ye, 'T'); }
-    if (end === 'fray') { P(G, x - 1, ye, 'o'); P(G, x + 2, ye, 'T'); P(G, x, ye + 1, 'o'); }
+  LN(G, cx - 17, 10, cx - 4, 24, 'k'); LN(G, cx - 18, 10, cx - 5, 24, 'f');                       // 中央へ寄る襞（左は光の稜線）
+  LN(G, cx + 17, 10, cx + 4, 24, 'k'); LN(G, cx + 16, 10, cx + 3, 24, 'm');
+  LN(G, cx - 19, 15, cx - 12, 30, 'k'); LN(G, cx + 19, 15, cx + 12, 30, 'k');
+  for (const [kx, lit] of [[cx - 12, true], [cx + 12, false]]) {                                 // 膝
+    for (let y = 29; y < TORSO_H; y++) for (let x = Math.ceil(kx - 10.5); x <= Math.floor(kx + 10.5); x++) {
+      const ddx = (x - kx) / 10.5, ddy = (y - 35) / 5.2;
+      if (ddx * ddx + ddy * ddy > 1) continue;
+      P(G, x, y, shade4(-(ddx * LIGHT[0] + ddy * LIGHT[1]) * 0.7 - (lit ? 0.2 : 0.55)));
+    }
+  }
+  for (let y = 31; y < TORSO_H; y++) P(G, cx, y, 'k');                                             // 膝の間の溝
+  for (let y = 35; y < TORSO_H; y++) for (let x = cx - 21; x <= cx - 15 + (y - 35) * 0.4; x++) P(G, x, y, y === 35 || x <= cx - 20 ? 'k' : 'd');   // 左膝の裂け
+  P(G, cx - 17, 37, 'c');
+  for (const [dir, lit] of [[-1, true], [1, false]]) {                                            // 肩当て（骨・二層）
+    for (let layer = 0; layer < 2; layer++) {
+      const y0 = 4 + layer * 3, x0 = cx + dir * (10 + layer * 2), x1 = cx + dir * (17 + layer * 2);
+      for (let y = y0; y < y0 + 3; y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+        let ch = y === y0 ? 'k' : y === y0 + 1 ? (lit ? 's' : 'f') : (lit ? 'f' : 'm');
+        if (dir * (x - cx) > 16 + layer * 2) ch = y === y0 ? 'k' : 'm';
+        P(G, x, y, ch);
+      }
+      P(G, x1 - dir, y0 + 1, 'n');
+    }
+  }
+  LN(G, cx - 16, 4, cx - 15, 9, 'k'); P(G, cx - 15, 6, 'c');                                     // 左肩の亀裂
+  for (let d = 0; d <= 1; d += 0.25) ARC(G, cx, 2, 12 + d, 6.5 + d, 25, 155, d < 0.5 ? 'G' : 'Y');   // 瓔珞
+  for (const a of [60, 90, 120]) { AT(G, cx, 2, 13.5, 8, a, 'G'); AT(G, cx, 2, 14.5, 9, a, 'W'); }
+  for (let y = -3; y <= 3; y += 0.25) for (let x = -9; x <= 9; x += 0.25) {                       // 骨の襟
+    const dd = (x / 9) ** 2 + (y / 3) ** 2; if (dd > 1) continue;
+    P(G, cx + x, 2 + y, shade4(-(x / 9 * LIGHT[0] + y / 3 * LIGHT[1]) * 0.9 - 0.1));
+  }
+  ELL(G, cx, 1.2, 5.5, 1.7, 'k');                                                                // 首の穴＝頭が無い
+  for (let x = cx - 4; x <= cx + 4; x++) P(G, x, 0, 'k');
+  OUTLINE(G);
+  return R(G);
+})();
+
+// =====================================================================
+// ⑤ 冕冠（dome）20×17。金の宝冠（中央の高い飾り・左右の山・外の小山）と、両端から垂れる蒼硝子の玉の簾（各2本・短い）。
+//    帯の上端＝世界 -27・飾りの頂 -36・簾の先 -20（襟 -16 との間は円光が透ける）。左の簾は1本が短く切れる
+// =====================================================================
+const CROWN_W = 20, CROWN_H = 17;
+const CROWN = (() => {
+  const G = g(CROWN_W, CROWN_H), cx = 9.5;
+  for (let x = 0; x < CROWN_W; x++) { P(G, x, 9, x < cx ? 'W' : 'G'); P(G, x, 10, x < cx ? 'G' : 'Y'); P(G, x, 11, x < cx ? 'Y' : 'y'); }   // 帯
+  for (const x of [3, 16]) { P(G, x, 10, 'k'); }                                                      // 帯の鋲
+  P(G, 9, 10, 'q'); P(G, 10, 10, 'Q');                                                               // 帯の中央の蒼硝子（小さく・目にならない）
+  for (let y = 0; y <= 8; y++) { const hw = y < 3 ? 0.5 : 1.5; for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) P(G, x, y, x < cx ? (y < 3 ? 'W' : 'G') : 'Y'); }   // 中央の飾り
+  P(G, 9, 0, 'W'); P(G, 10, 0, 'W');
+  for (const [c0, lit] of [[4.5, true], [15.5, false]]) {                                            // 左右の山
+    for (let y = 4; y <= 8; y++) { const hw = 0.5 + (y - 4) * 0.5; for (let x = Math.ceil(c0 - hw); x <= Math.floor(c0 + hw); x++) P(G, x, y, x < c0 ? (lit ? 'W' : 'G') : (lit ? 'G' : 'Y')); }
+  }
+  for (const x of [0, 19]) { P(G, x, 7, x < cx ? 'G' : 'Y'); P(G, x, 8, x < cx ? 'Y' : 'y'); }       // 外の小山
+  for (const [x, end] of [[1, 14], [3, 16], [16, 16], [18, 16]]) {                                   // 玉の簾（短い・先端は暗い玉＝左右で明るい点を作らない）
+    for (let y = 12; y <= end; y++) P(G, x, y, y === end ? 'q' : y % 2 ? 'N' : 'Q');
+    if (end < 16) P(G, x, end + 1, 'k');
   }
   OUTLINE(G);
   return R(G);
 })();
 
 // =====================================================================
-// ⑥ 子宮（core）15×15。琥珀の球（橙の地・光は左上の一筋）の中に深紅の胎児（勾玉）の影。右下に蒼の反射
+// ⑥ 胸の蓮華（rack）17×17。金の輪の中に蒼硝子の八弁（縁は金）＝この柱の「構造の顔」。輪の左が欠けて骨の肋が覗く
 // =====================================================================
-const WOMB = (() => {
-  const W = 15, H = 15, G = g(W, H), c = 7;
-  SPHERE(G, c, c, 7.2, ['y', 'a', 'O', 'h', 'W'], [-0.5, -0.62, 0.6], -0.05);
-  for (let y = -3.8; y <= 3.8; y += 0.25) {                                                          // 種子＝次に生まれるマキナ（縦の杏仁形・深紅・上が尖る）。琥珀の中の一粒
-    const w = 2.5 * Math.sqrt(Math.max(0, 1 - (y / 3.9) ** 2)) * (0.5 + 0.5 * (y + 3.9) / 7.8);
-    for (let x = -w; x <= w; x += 0.25) P(G, c + x, c + y + 0.4, x < -w * 0.5 ? 'R' : 'r');
+const LOTUS = (() => {
+  const W = 17, H = 17, G = g(W, H), c = 8;
+  DISC(G, c, c, 8.3, 'k'); DISC(G, c, c, 7.5, 'Y'); ARC(G, c, c, 7.5, 7.5, 190, 280, 'G'); ARC(G, c, c, 6.9, 6.9, 200, 260, 'W'); DISC(G, c, c, 6.6, 'q');
+  for (let a = -90; a < 270; a += 45) {
+    const t = a * Math.PI / 180;
+    petal(G, c + Math.cos(t) * 1.8, c + Math.sin(t) * 1.8, c + Math.cos(t) * 6.4, c + Math.sin(t) * 6.4, 2.0, 0, { gilt: true });
   }
-  P(G, c - 1, c - 1, 'A');                                                                            // 種子の艶＝生きている一点
-  P(G, 11, 11, 'C'); P(G, 12, 10, 'C');                                                                // 蒼の反射
+  for (let r = 6.4; r <= 8.3; r += 0.25) for (let a = 160; a <= 200; a += 2) AT(G, c, c, r, r, a, 'k');   // 輪の欠け
+  LN(G, 0, 8, 2, 7, 'f'); P(G, 0, 9, 'f'); P(G, 1, 8, 's');                                          // 覗く肋
+  return R(G);
+})();
+
+// =====================================================================
+// ⑦ 種子（core）9×9。蓮華の芯の金の宝珠。中に深紅の種子＝次に生まれるマキナ（唯一の生きている一点）
+// =====================================================================
+const SEED = (() => {
+  const W = 9, H = 9, G = g(W, H), c = 4;
+  SPHERE(G, c, c, 4.3, ['y', 'Y', 'G', 'W', 'n'], [-0.5, -0.62, 0.6], 0.1);
+  for (let y = -2; y <= 2; y += 0.25) { const w = 1.2 * Math.sqrt(Math.max(0, 1 - (y / 2.1) ** 2)) * (0.55 + 0.45 * (y + 2.1) / 4.2); for (let x = -w; x <= w; x += 0.25) P(G, c + x, c + y + 0.3, x < -w * 0.5 ? 'R' : 'r'); }
+  P(G, c - 1, c - 1, 'A');
+  OUTLINE(G);
+  return R(G);
+})();
+
+// =====================================================================
+// ⑧ 腕（蒼白い骨）26×44。右＝施無畏印（掌を正面に挙げる）／左＝与願印（掌を正面に膝へ垂らす・指が2本欠ける）
+// =====================================================================
+const ARM_W = 26, ARM_H = 44;
+const ARM_R = (() => {   // 肩 (4,16) → 肘 (12,30) → 手首 (11,18) → 掌 (11,12)・指は上へ
+  const G = g(ARM_W, ARM_H);
+  bone(G, 4, 16, 12, 30, 3.4, 2.9); DISC(G, 12, 30, 3.2, 'k'); DISC(G, 12, 30, 2.5, 'f'); P(G, 11, 29, 's');
+  bone(G, 12, 30, 11, 18, 2.9, 2.5);
+  palm(G, 11, 12, -1, -1, 0);
+  OUTLINE(G);
+  return R(G);
+})();
+const ARM_L = (() => {   // 肩 (22,4) → 肘 (17,19) → 手首 (23,27) → 掌 (24,31)・指は下へ
+  const G = g(ARM_W, ARM_H);
+  bone(G, 22, 4, 17, 19, 3.4, 2.9); DISC(G, 17, 19, 3.2, 'k'); DISC(G, 17, 19, 2.5, 'f'); P(G, 16, 18, 's');
+  bone(G, 17, 19, 23, 27, 2.9, 2.5);
+  palm(G, 24, 31, 1, 1, 2);
   OUTLINE(G);
   return R(G);
 })();
@@ -283,29 +350,33 @@ const WOMB = (() => {
 export const GAIKA = {
   id: 'gaika',
   name: '蒼神骸華',
-  concept: '死んだ創造主の骸が蓮台となり、その両手が開いて蓮華となった聖杯。骨盤の鉢（縁に金・四つの鋲）に肋骨が垂れ、'
-    + '脊椎の茎（節の間から神経のシアン・下から2節目で脱臼）が金の縁の萼を掲げる。萼から開いた両手の指が外側の花弁、'
-    + 'その内に蒼い硝子の花弁（内側の三弁は縁が金＝金蓮華・中肋は骨）、芯に琥珀の子宮＝深紅の胎児（勾玉）が丸まり、蕊の金がそれを囲む。'
-    + '左は退廃：枯れて裂けた花弁・折れた薬指と無い小指・折れた肋骨・欠けた腸骨。蓮台の底から切れた臍の緒が垂れ、1本は空の金の輪で終わる。',
+  concept: '蓮華座に結跏趺坐する創造主の亡骸。頭は無く、円光の中に金の冕冠だけが浮かび、冠の両端から蒼硝子の玉の簾が垂れる。'
+    + '骨の襟の首の穴は黒。金の瓔珞・骨の肩当て・黒鉄の衣・金の帯。胸に金の輪の蓮華（八弁・芯に金の宝珠と深紅の種子＝次に生まれるマキナ＝唯一の生きている光）。'
+    + '蒼白い骨の右手は施無畏印（畏れるな）、左手は与願印（与える）だが指が2本欠けている。背に尖った舟形光背（蒼硝子・内縁は金）。'
+    + '左に揃えた損傷：光背の一区間が折れ、円光の左下が欠け、左の簾が切れ、左肩に亀裂、蓮華の輪の左が欠けて肋が覗き、左膝は裂けて中が空、蓮華座の左端の蓮弁は欠ける。',
   sprites: {
-    back: { rows: BACK, palette: PAL },
-    handR: { rows: HAND_R, palette: PAL },
-    handL: { rows: HAND_L, palette: PAL },
+    mandorla: { rows: MANDORLA, palette: PAL },
+    halo: { rows: HALO, palette: PAL },
     pedestal: { rows: PEDESTAL, palette: PAL },
-    spine: { rows: SPINE, palette: PAL },
-    front: { rows: FRONT, palette: PAL },
-    womb: { rows: WOMB, palette: PAL },
+    torso: { rows: TORSO, palette: PAL },
+    crown: { rows: CROWN, palette: PAL },
+    lotus: { rows: LOTUS, palette: PAL },
+    armR: { rows: ARM_R, palette: PAL },
+    armL: { rows: ARM_L, palette: PAL },
+    seed: { rows: SEED, palette: PAL },
   },
-  // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/leg 7 < body 8 < rack 9 < core 12
+  // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < pod/leg 7 < body 8 < dome/rack 9 < arm 11 < core 12
   rig: [
-    { role: 'thruster', tex: 'back', ox: 0, oy: -2, origin: [0.5, BACK_BASE / BACK_H] },              // 花弁の根元＝萼の上。頂 -38
-    { role: 'wingR', tex: 'handR', ox: 13, oy: -4, origin: [PALM[0] / HAND_W, PALM[1] / HAND_H] },     // 掌の中心。指先 +36,-29
-    { role: 'wingL', tex: 'handL', ox: -13, oy: -4, origin: [PALM[0] / HAND_W, PALM[1] / HAND_H], mirror: true },
-    { role: 'legL', tex: 'pedestal', ox: 0, oy: 2, origin: [0.5, 0] },                                 // 上端 +2・鉢 +10..+26・臍の緒 +31
-    { role: 'body', tex: 'spine', ox: 0, oy: -1, origin: [0.5, 5 / 32] },                              // 萼の中心 -1・仙骨 +25
-    { role: 'rack', tex: 'front', ox: 0, oy: 0, origin: [0.5, FRONT_BASE / FRONT_H] },
-    { role: 'core', tex: 'womb', ox: 0, oy: -9 },
+    { role: 'thruster', tex: 'mandorla', ox: 0, oy: -41, origin: [0.5, 0] },                   // 頂 -41・底 +34（蓮華座の裏）
+    { role: 'podL', tex: 'halo', ox: 0, oy: -22, origin: [0.5, 0.5] },                          // 円光 -39.5..-4.5
+    { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },                        // +22..+34
+    { role: 'body', tex: 'torso', ox: 0, oy: -16, origin: [0.5, 0] },                          // 襟 -16・膝 +23
+    { role: 'dome', tex: 'crown', ox: 0, oy: -36, origin: [0.5, 0] },                          // 飾りの頂 -36・簾の先 -20
+    { role: 'rack', tex: 'lotus', ox: 0, oy: 1 },
+    { role: 'armR', tex: 'armR', ox: 17, oy: -9, origin: [4 / ARM_W, 16 / ARM_H] },            // 肩の位置
+    { role: 'armL', tex: 'armL', ox: -17, oy: -9, origin: [22 / ARM_W, 4 / ARM_H] },
+    { role: 'core', tex: 'seed', ox: 0, oy: 1 },
   ],
-  tier: { spriteScale: 5.4, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' },
+  tier: { spriteScale: 4.6, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' },
 };
 validate(GAIKA);
