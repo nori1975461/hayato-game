@@ -13,7 +13,7 @@ import { CATHEDRAL } from '../src/data/enemies.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CATH = { id: 'cathedral', sprites: CATHEDRAL.sprites, rig: CATHEDRAL.rig, tier: CATH_DRAFT.tier };
 
-sheet(GAIKA, "SOUSHIN GAIKA / 5TH PLAN", path.join(HERE, "gaika-sheet.png"));
+sheet(GAIKA, "SOUSHIN GAIKA / 6TH PLAN", path.join(HERE, "gaika-sheet.png"));
 grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA, 'SOUSHIN GAIKA']], path.join(HERE, 'gaika-four.png'));
 partsSheet(GAIKA, path.join(HERE, 'gaika-parts.png'));
 report([['大聖堂', CATH], ['腐蝕の玉座', THRONE], ['軌道神核', GODCORE], ['マオウレクス', MAOU1], ['蒼神骸華', GAIKA]]);
