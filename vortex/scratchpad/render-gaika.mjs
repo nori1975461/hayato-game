@@ -1,9 +1,10 @@
-// 「蒼神骸華」の確認シート。node scratchpad/render-gaika.mjs
-//   出力: gaika-sheet.png（A案・等倍／拡大／黒塗り）・gaika-sheet-B.png（B案）・gaika-four.png／gaika-four-B.png（四神柱の並び・縦 440 のセル＝全身を比べる）・gaika-parts.png（B案の全パーツ）
+// 「蒼神骸華」と「首無しの近侍」の確認シート。node scratchpad/render-gaika.mjs
+//   出力: gaika-sheet.png（骸華・等倍／拡大／黒塗り）・gaika-retainer-sheet.png（近侍 右）・gaika-battle.png（陣形＝骸華と侍二体・枠 640×440 に本当の画面 360 の帯）
+//         gaika-four.png（四神柱の並び・縦 440 のセル）・gaika-parts.png（骸華の全パーツ）
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sheet, grid4, partsSheet, report } from './gods-sheet.mjs';
-import { GAIKA_A, GAIKA_B } from './gaika-candidates.mjs';
+import { sheet, grid4, partsSheet, report, formationSheet } from './gods-sheet.mjs';
+import { GAIKA, RETAINER_R, RETAINER_L } from './gaika-candidates.mjs';
 import { THRONE } from './throne-candidates.mjs';
 import { GODCORE } from './godcore-candidates.mjs';
 import { MAOU1 } from './maou1-candidates.mjs';
@@ -12,10 +13,11 @@ import { CATHEDRAL } from '../src/data/enemies.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CATH = { id: 'cathedral', sprites: CATHEDRAL.sprites, rig: CATHEDRAL.rig, tier: CATH_DRAFT.tier };
+const S = 4.2;   // 骸華の spriteScale。近侍は座の両脇 (±54,+52) units
 
-sheet(GAIKA_A, "SOUSHIN GAIKA / 7TH PLAN A", path.join(HERE, "gaika-sheet.png"));
-sheet(GAIKA_B, "SOUSHIN GAIKA / 7TH PLAN B", path.join(HERE, "gaika-sheet-B.png"));
-grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA_A, 'SOUSHIN GAIKA (A)']], path.join(HERE, 'gaika-four.png'), { cellH: 440 });
-grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA_B, 'SOUSHIN GAIKA (B)']], path.join(HERE, 'gaika-four-B.png'), { cellH: 440 });
-partsSheet(GAIKA_B, path.join(HERE, 'gaika-parts.png'));
-report([['大聖堂', CATH], ['腐蝕の玉座', THRONE], ['軌道神核', GODCORE], ['マオウレクス', MAOU1], ['蒼神骸華 A', GAIKA_A], ['蒼神骸華 B', GAIKA_B]]);
+sheet(GAIKA, "SOUSHIN GAIKA / 8TH PLAN", path.join(HERE, "gaika-sheet.png"));
+sheet(RETAINER_R, "KUBINASHI NO KINJI (R) / RETAINER", path.join(HERE, "gaika-retainer-sheet.png"));
+formationSheet([[GAIKA, 0, 0], [RETAINER_R, 54 * S, 52 * S], [RETAINER_L, -54 * S, 52 * S]], "SOUSHIN GAIKA + 2 KINJI / BATTLE FORMATION", path.join(HERE, "gaika-battle.png"), { fh: 440 });
+grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA, 'SOUSHIN GAIKA']], path.join(HERE, 'gaika-four.png'), { cellH: 440 });
+partsSheet(GAIKA, path.join(HERE, 'gaika-parts.png'));
+report([['大聖堂', CATH], ['腐蝕の玉座', THRONE], ['軌道神核', GODCORE], ['マオウレクス', MAOU1], ['蒼神骸華', GAIKA], ['近侍 右', RETAINER_R], ['近侍 左', RETAINER_L]]);

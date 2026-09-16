@@ -1,4 +1,16 @@
-// 「蒼神骸華」（そうしんがいか）＝マキナ四神柱の頂点・すべてのマキナの創造主。第7案＝両案 A／B（2026-09-16 20:33 FB）。
+// 「蒼神骸華」（そうしんがいか）＝マキナ四神柱の頂点・すべてのマキナの創造主。第8案（2026-09-16 21:19 FB・第7案 A を軸に）。
+//
+// 第7案への FB（09-16 21:19）：「A のほうがイメージに近い。下記の設定でもうひとひねり」
+//   ・蒼神骸華は基本、悪神であり闘神。あまりに悪逆非道なふるまいに、他の三神とモビット達が力を合わせてようやく封印した神。
+//     ただの悪神と切り捨てられない魅力と圧倒的な力を併せ持つ。
+//   ・「三尊形式の脇侍＝跪いて合掌する頭の無い骸2体」はすごくいい → 骸華のビジュアルに組み込むのではなく、もっとも信頼の厚い侍として横に侍る別個体に。
+//     蒼神骸華との闘い＝「蒼神骸華と侍二体」との闘い。
+// 第8案のひねり：
+//   ①封印＝横綱の注連縄：三神とモビットが施した封印を、腰に巻いた骨白の綱（撚りの溝は黒）＋紙垂5本として着せる。縛る縄がそのまま「最強の闘神の証」（横綱の綱）に見える二重の意味。
+//     結び目3つが三神の印＝左は大聖堂の琥珀の環・中は玉座の緑青の玉・右は軌道神核の紫の環（他の三体の色を骸華に置くのはここだけ＝封印した側の色）。紙垂＝モビット達の封印。
+//     損傷は無い。封印は破れていない（封じられたまま闘う＝それでも圧倒的、という設定を絵で言う）。前の左手の死面が綱の左端に重なる＝手が綱の前にある。
+//   ②悪神の読み：背後の蓮華の花弁＝首を捧げて祈る骸＝「首を捧げた者だけが侍ることを許される」。侍二体はその生き残り＝同じ蒼硝子の骸に黒鉄の肩当て、脇に薙刀を突き立てて跪き合掌する。
+//   ③侍二体（近侍）＝別個体 `RETAINER_R/L`：跪く頭の無い蒼硝子の骸（40×52）＋薙刀（14×72・刃は外へ反る・深紅の房）。座の両脇 (±54,+52) に配置＝「蒼神骸華と侍二体」の陣形を gaika-battle.png で見せる。
 //
 // 第6案への FB（09-16 20:33）：「花弁を正面向きの骸にする」と「左右1枚ずつを本体の外へ出して全身見せる」を **両方やって**、それぞれ画像に。進める際の指示2つ：
 //   ①「荘厳さと退廃さを両立して」の退廃の見せ方に問題あり。腐食や錆、故障部分を見せることが退廃だと考えているなら間違い。
@@ -52,6 +64,8 @@ export const PAL = {
   c: '#38e1ff',                                                           // マキナの神経光（導管）
   y: '#7a5a12', Y: '#c9971f', G: '#ffd23f', W: '#ffedb0',                 // 金（くすんだ金 Y/y が地・G/W は一筋）
   r: '#8a1622', R: '#e03040', A: '#ff7a6a',                               // 深紅（胎の胸・盃から流れる）
+  e: '#1b3a30', E: '#5fbf95',                                             // 玉座の緑青（封印の結び目だけ）
+  v: '#4a3b7d', V: '#c0aef5',                                             // 軌道神核の紫（封印の結び目だけ）
 };
 
 const LIGHT = [-0.5, -0.62];   // 光は左上（他の三体と同じ）
@@ -148,7 +162,7 @@ function chain(G, pts, pitch = 2.2) {
 // 骸（正面向き）：跪く頭の無い上体を正面から。根元 (bx,by)＝腰の底、角度 ang（垂直から・右が正）、長さ len（腰の底→肩の頂）、半幅 hw。
 //   蒼い硝子。縁は金・首の穴（背景が透ける）と首の下の金の襟・金の首飾り・腰の金の帯・胸で組んだ両腕（拳は反対の肩の下）・裾は衣（足は無い）
 // =====================================================================
-function corpse(G, bx, by, ang, len, hw) {
+function corpse(G, bx, by, ang, len, hw, opt = {}) {
   // 頭の無い合掌の人影。人の輪郭を決めるのは「なで肩・首の切り株・体の外へ張り出す肘」＝この3つを影絵で読めるようにする
   const t = ang * Math.PI / 180, ux = Math.sin(t), uy = -Math.cos(t), nx = -uy, ny = ux, ls = litSign(nx, ny), neck = hw * 0.36;
   const PROF = [[0, 1.13], [0.1, 1.05], [0.45, 0.7], [0.78, 0.86], [0.86, 0.9], [1.0, 0.32]];                                 // 裾 → 腰のくびれ → 胸 → なで肩 → 首の付け根
@@ -182,6 +196,9 @@ function corpse(G, bx, by, ang, len, hw) {
     const q = (u - 0.62) / 0.26, w = hw * 0.22 * Math.sin(Math.PI * Math.min(1, q * 1.15)) + 0.4;
     for (let k = -w; k <= w; k += 0.25) { const [x, y] = at(u, k); P(G, x, y, Math.abs(k) > w - 0.7 ? 'k' : Math.abs(k) < 0.35 ? 'Q' : k * ls > 0 ? 'N' : 'P'); }
   }
+  if (opt.pauldron) for (const s of [1, -1]) for (let u = 0.84; u <= 0.95; u += 0.003) for (let k = hw * 0.5; k <= hw * 1.08; k += 0.25) {   // 黒鉄の肩当て（近侍だけ・腕は肩当ての下から出る）
+    const [x, y] = at(u, s * k); P(G, x, y, u > 0.94 ? 'Y' : k > hw * 1.0 ? 'k' : s * ls > 0 ? 'm' : 'j');
+  }
 }
 
 // =====================================================================
@@ -201,10 +218,25 @@ function mandorla(variant) {
   OUTLINE(G);
   return R(G);
 }
-// 脇侍（B のみ）40×52：座の脇に跪く全身の骸。外へ 8° 傾く。根元＝(17 or 23, 51)
-const ATT_W = 40, ATT_H = 52;
-const attendant = (side) => { const G = g(ATT_W, ATT_H); corpse(G, 20 - side * 3, 51, side * 8, 45, 9.5); OUTLINE(G); return R(G); };
-const ATTEND_R = attendant(1), ATTEND_L = attendant(-1);
+// =====================================================================
+// 近侍（別個体）＝跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て。外へ 8° 傾く。根元＝(17 or 23, 51)。脇に薙刀を突き立てる（手は合掌のまま）
+// =====================================================================
+const RET_W = 40, RET_H = 52;
+const retainerBody = (side) => { const G = g(RET_W, RET_H); corpse(G, 20 - side * 3, 51, side * 8, 45, 9.5, { pauldron: true }); OUTLINE(G); return R(G); };
+const POLE_W = 14, POLE_H = 72;
+const pole = (side) => {                                                                                                     // 薙刀：黒鉄の柄・金の環3つ・石突・深紅の房・蒼硝子の刃（外へ反る）
+  const G = g(POLE_W, POLE_H), sx = 6.5;
+  for (let y = 18; y <= 71; y++) for (let x = sx - 1.5; x <= sx + 1.5; x += 0.5) P(G, x, y, y >= 68 ? (x < sx ? 's' : 'f') : x < sx - 0.6 ? 'm' : x < sx + 0.6 ? 'j' : 'k');
+  for (const y of [30, 44, 58]) for (let x = sx - 1.5; x <= sx + 1.5; x += 0.5) { P(G, x, y, 'G'); P(G, x, y + 1, 'Y'); }
+  for (const dx of [-2, 0, 2]) for (let y = 19; y <= 25 - Math.abs(dx); y += 0.25) P(G, sx + dx + Math.sin(y * 1.3) * 0.4, y, y % 2 < 1 ? 'R' : 'r');   // 房
+  for (let x = sx - 2.5; x <= sx + 2.5; x += 0.5) P(G, x, 18, 'Y');
+  for (let t = 0; t <= 1; t += 0.004) {                                                                                      // 刃：根元から先へ細り、外側へ反る
+    const x = sx + side * 4.2 * t * t, y = 17 - 17 * t, w = 3.4 * (1 - t) + 0.6;
+    for (let k = -w; k <= w; k += 0.25) { const o = k * side; P(G, x + k, y, o > w - 0.9 ? 'C' : o > 0.1 ? 'N' : o > -w + 0.9 ? 'P' : 'Q'); }
+  }
+  OUTLINE(G);
+  return R(G);
+};
 
 // =====================================================================
 // ② 歯車の円光（podL）41×41：開いた輪光（中は背景＝無い頭）。外縁に歯16枚（金）と宝珠5つ。内縁は金。すべて揃っている
@@ -566,14 +598,39 @@ const CONCEPT_BASE = '牙の座に結跏趺坐する創造主の亡骸＝金属�
   + '八本の骨の腕（上腕にピストン・関節はボルト）：前の右手は導管つきの金棒、中の右手は曲刀、後の両手は日輪と月、第4の右手は軌道神核の雛形（子の心臓）を掲げる。'
   + '両肩の後ろに排気管（右は熱・左は煙）、左肩の後ろから配線が座の継ぎ口へ。黒鉄の鎧に金の縁と鋲、帯の中央に深紅の玉、帯の下に通気口。'
   + '下半身は裳懸座＝黒鉄の裳が膝の下から牙の座の前を四段で流れ落ち、その下に蓮華座の段（仰蓮・段・反花に金の鎖の垂れ飾り・框に配管）。足は無い。';
-const CONCEPT = {
-  A: CONCEPT_BASE + '背後の光背は「骸の蓮華」＝四枚の花弁が正面向きの頭の無い骸（金の襟と首飾り・胸で組んだ両腕・腰の帯）。創造主が造って捨てた試作のマキナが花弁になって祈る。炎は花弁の間から。',
-  B: CONCEPT_BASE + '背後の光背は「骸の蓮華」＝内側二枚の花弁が正面向きの頭の無い骸。外側の二枚は座の両脇へ出て、全身（裾は衣・足は無い）を見せて跪いて祈る＝三尊形式の脇侍。炎は花弁の間から。',
-};
+const CONCEPT = CONCEPT_BASE
+  + '背後の光背は「骸の蓮華」＝四枚の花弁が正面向きの頭の無い骸（なで肩・首の切り株・肘を張り出した合掌）。首を捧げて祈った者たちが花弁になっている。炎は花弁の間から。'
+  + '腰には三神とモビットが施した封印の綱＝骨白の注連縄（横綱の綱）。結び目は左から大聖堂の琥珀・玉座の緑青・軌道神核の紫、綱の下に紙垂5本。封印は破れていない＝封じられたまま闘う。';
+const CONCEPT_RET = '蒼神骸華にもっとも信頼の厚い侍二体（別個体）。跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て、脇に薙刀（蒼硝子の刃・深紅の房）を突き立てる。首を捧げた者だけが侍ることを許される。';
 
-function build(variant) {
+// =====================================================================
+// ⑭ 封印の綱（cannon・深度10＝本体と前の腕の間）46×14＝世界 x ±23・y +7〜+20。
+//    三神とモビットが施した封印を「横綱の注連縄」として腰に巻く＝縛る縄がそのまま最強の闘神の証。
+//    結び目3つ＝三神の印（左＝大聖堂の琥珀・中＝玉座の緑青・右＝軌道神核の紫）。紙垂5本＝モビット達の封印。綱は骨白（白麻）・撚りの溝は黒
+// =====================================================================
+const SEAL_W = 46, SEAL_H = 16;
+const SEAL = (() => {
+  const G = g(SEAL_W, SEAL_H), cx = 22.5;
+  const th = (u) => 2.6 + 3.4 * (1 - u * u), yc = (u) => 3.3 + 0.9 * u * u;                                                // 大根締め＝中央が太く両端へ細る・腰に巻くのでわずかに下へ反る
+  for (let x = 1; x <= 44; x += 0.25) {
+    const u = (x - cx) / 21.5, h = th(u), y0 = yc(u) - h / 2;
+    for (let y = y0; y < y0 + h; y += 0.25) {
+      const t = (y - y0) / h, tw = (((x + (y - yc(u)) * 1.4) % 7) + 7) % 7;
+      P(G, x, y, tw < 1.6 ? 'k' : t < 0.2 ? 'n' : t < 0.6 ? 's' : 'f');                                                  // 撚りの溝は黒・上面は白骨色
+    }
+  }
+  const shide = (kx, y0) => { for (let y = 0; y < 8; y += 0.25) { const off = y < 2.6 ? 0 : y < 5.2 ? 1.6 : 0; for (let k = 0; k < 2.6; k += 0.25) P(G, kx + off + k - 1.3, y0 + y, y < 0.5 ? 'f' : k > 2.0 ? 's' : 'n'); } };   // 紙垂＝稲妻形の白い紙3本
+  for (const dx of [0, -11, 11]) { const u = dx / 21.5; shide(cx + dx, yc(u) + th(u) / 2 - 0.3); }
+  const knot = (kx, ky, rim, core, glint) => { DISC(G, kx, ky, 3.1, 'k'); DISC(G, kx, ky, 2.5, rim); DISC(G, kx, ky, 1.3, core); P(G, kx - 0.9, ky - 0.9, glint); };
+  knot(cx - 19, 4.0, 'Y', 'G', 'W'); knot(cx, 3.3, 'e', 'E', 'n'); knot(cx + 19, 4.0, 'v', 'V', 'n');                     // 三神の印＝大聖堂の琥珀・玉座の緑青・軌道神核の紫
+  OUTLINE(G);
+  return R(G);
+})();
+
+function build() {
   const sprites = {
-    mandorla: { rows: mandorla(variant), palette: PAL },
+    mandorla: { rows: mandorla('A'), palette: PAL },
+    seal: { rows: SEAL, palette: PAL },
     halo: { rows: HALO, palette: PAL },
     pedestal: { rows: PEDESTAL, palette: PAL },
     torso: { rows: TORSO, palette: PAL },
@@ -592,8 +649,7 @@ function build(variant) {
     cables: { rows: CABLES, palette: PAL },
     seed: { rows: SEED, palette: PAL },
   };
-  if (variant === 'B') { sprites.attendR = { rows: ATTEND_R, palette: PAL }; sprites.attendL = { rows: ATTEND_L, palette: PAL }; }
-  // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < arm 11 < core 12
+  // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < cannon 10 < arm 11 < core 12
   const rig = [
     { role: 'thruster', tex: 'mandorla', ox: 0, oy: -46, origin: [0.5, 0] },
     { role: 'wingR', tex: 'wingR', ox: 10, oy: -16, origin: [2 / WINGR_W, 31 / WINGR_H] },
@@ -605,22 +661,28 @@ function build(variant) {
     { role: 'trackR', tex: 'stackR', ox: 13, oy: -26, origin: [0, 0] },
     { role: 'trackL', tex: 'stackL', ox: -13, oy: -26, origin: [1, 0] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 20, origin: [0.5, 0] },
-    ...(variant === 'B' ? [
-      { role: 'podR', tex: 'attendR', ox: 54, oy: 52, origin: [17 / ATT_W, 51 / ATT_H] },
-      { role: 'qlegBR', tex: 'attendL', ox: -54, oy: 52, origin: [23 / ATT_W, 51 / ATT_H] },
-    ] : []),
     { role: 'qlegBL', tex: 'cables', ox: -19, oy: -14, origin: [12 / CAB_W, 0] },
     { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 6, origin: [28 / QL_W, 24 / QL_H] },
     { role: 'body', tex: 'torso', ox: 0, oy: -16, origin: [0.5, 0] },
     { role: 'dome', tex: 'crown', ox: 0, oy: -40, origin: [0.5, 0] },
     { role: 'rack', tex: 'lotus', ox: 0, oy: 1 },
+    { role: 'cannon', tex: 'seal', ox: 0, oy: 7, origin: [0.5, 0] },
     { role: 'armR', tex: 'armR', ox: 17, oy: -9, origin: [3 / ARMR_W, 24 / ARMR_H] },
     { role: 'armL', tex: 'armL', ox: -17, oy: -9, origin: [22 / ARML_W, 4 / ARML_H] },
     { role: 'core', tex: 'seed', ox: 0, oy: 1 },
   ];
-  return { id: 'gaika-' + variant, name: '蒼神骸華', concept: CONCEPT[variant], sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
+  return { id: 'gaika', name: '蒼神骸華', concept: CONCEPT, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
 }
-export const GAIKA_A = build('A');
-export const GAIKA_B = build('B');
-export const GAIKA = GAIKA_A;
-validate(GAIKA_A); validate(GAIKA_B);
+// 近侍（別個体）：薙刀は体の後ろ（wingR・深度7）に突き立つ。根元＝裾の中央 (0,0)・薙刀の石突＝(±15,+1)
+function buildRetainer(side) {
+  const sprites = { body: { rows: retainerBody(side), palette: PAL }, pole: { rows: pole(side), palette: PAL } };
+  const rig = [
+    { role: 'wingR', tex: 'pole', ox: side * 15, oy: 1, origin: [6.5 / POLE_W, 70 / POLE_H] },
+    { role: 'body', tex: 'body', ox: 0, oy: 0, origin: [(20 - side * 3) / RET_W, 51 / RET_H] },
+  ];
+  return { id: 'gaika-retainer-' + (side > 0 ? 'R' : 'L'), name: '首無しの近侍', concept: CONCEPT_RET, sprites, rig, tier: { spriteScale: 4.2, glowScale: 4.5, glowOuter: '#2f8fd8', glowInner: '#9fd8ff' } };
+}
+export const GAIKA = build();
+export const RETAINER_R = buildRetainer(1);
+export const RETAINER_L = buildRetainer(-1);
+validate(GAIKA); validate(RETAINER_R); validate(RETAINER_L);

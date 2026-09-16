@@ -80,6 +80,23 @@ export function sheet(def, title, file) {
   renderBoss(cv, def, def.tier, sx0 + 320 - (b.l + b.w / 2) * ss, sy0 + 140 - (b.t + b.h / 2) * ss, { scaleOverride: ss, silhouette: '#101018' });
   writePng(cv, file);
 }
+// 陣形（複数の個体を一つの枠に）：左＝実プレイ等倍（枠は opt.fh・中に本当の画面 360 の帯を薄い枠で示す）／右＝黒塗り。items＝[[def, dx, dy], ...]（dx/dy は画面中心からの px）
+export function formationSheet(items, title, file, opt = {}) {
+  const fh = opt.fh ?? 440, cv = makeCanvas(1310, fh + 76);
+  text(cv, title, 12, 10, WHITE, 3);
+  const draw = (x0, y0, label, sil) => {
+    const bg = sil ? [232, 232, 240] : BGC;
+    rect(cv, x0, y0, 640, fh, bg); frame(cv, x0, y0, 640, fh, FR); text(cv, label, x0 + 6, y0 - 16, DIM, 2);
+    const tmp = makeCanvas(640, fh); rect(tmp, 0, 0, 640, fh, bg);
+    for (const [d, dx, dy] of items) renderBoss(tmp, d, d.tier, 320 + dx, fh / 2 + dy, sil ? { silhouette: '#101018' } : {});
+    if (!sil) blitSimple(tmp, PLAYER_SPRITES[2], 300, fh - 50, 3);
+    for (let y = 1; y < fh - 1; y++) for (let x = 1; x < 639; x++) { const a = idx(cv, x0 + x, y0 + y), b = idx(tmp, x, y); cv.px[a] = tmp.px[b]; cv.px[a + 1] = tmp.px[b + 1]; cv.px[a + 2] = tmp.px[b + 2]; }
+    if (fh > 360) frame(cv, x0, y0 + Math.floor((fh - 360) / 2), 640, 360, sil ? [150, 150, 180] : [90, 92, 140]);
+  };
+  draw(12, 46, `IN GAME 640×${fh} (SCREEN IS 640×360 = INNER FRAME)`, false);
+  draw(668, 46, 'SILHOUETTE', true);
+  writePng(cv, file);
+}
 // 2×2 の並び（各セルは実プレイ等倍。opt.cellH で縦を広げられる＝画面より背の高いボスも全身を比べる）
 export function grid4(cells, file, opt = {}) {
   const ch = opt.cellH ?? 360;
