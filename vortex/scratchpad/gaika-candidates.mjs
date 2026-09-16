@@ -15,6 +15,12 @@
 //   ④背後＝結界の橛：座の外の地面に立つ二本の黒鉄の橛（金の三鈷の頭・神経光の導管）と、頭の間に張った注連縄（紙垂2本）。三神が張った結界の中に骸華が座る＝祟り神を祀って鎮める（御霊）の形。
 //     腰の綱（個の封印）→ 裳の御札（座への封印）→ 橛と注連縄（場の封印）の三段で「封印」を一つの語彙に揃える。大きな形を一つずつ＝数を増やさない。
 //   ⑤下半身＝封印の御札：裳の中央に貼られた骨白の札（上端は金の帯・三神の印を縦に・下に深紅の押印）。U字のたるみが札の後ろを通る。
+// 第8案改への FB（09-16 22:10）→ 第9案：「顔の色は灰色でなく黒に／祟り神を祀って鎮める＝封印の設定はすごくいい・ただ封印のビジュアルを他の形で／右手の武器をもっと強調／全体にほんの数滴の赤」
+//   ⑥顔の位置＝骨の襟（灰色の楕円＝顔に見えた）を黒鉄に沈める。頭の場所は黒い空洞と首の穴だけ。
+//   ⑦封印を「三神の環」に置き換え（縄・紙垂・御札・橛は撤去）：円光＝大聖堂の環（頭の無い場所を封じる）に加え、体を巡る二つの環＝玉座の緑青（外・裳の高さ）と軌道神核の紫（内・帯の高さ）。
+//     軌道神核の環と同じ語彙＝金属生命体の世界の封印。奥半分は最奥・手前半分は本体と前の腕の間。正面で交わる錠は深紅。祀って鎮める設定は据え置き（跪いて祈る名無し・祈る花弁＝祀る者たち）。
+//   ⑧右手の金棒を前面へ：ARM_R 24×64 → 40×92。金棒は右へ傾いて立ち、頭（黒鉄・金の帽と襟・蒼硝子の鋲6つ・帽に深紅の玉）は冠より高い（世界 -49）。腕は肩から外へ張り出して柄を握る。
+//   ⑨深紅を数滴：死面の右目から一筋の涙／冠の帯の中央の玉／金棒の帽の玉／環の錠2つ／帯の中央の玉（綱を外して見える）。胎の心臓と盃の流れは据え置き。
 //
 // 第6案への FB（09-16 20:33）：「花弁を正面向きの骸にする」と「左右1枚ずつを本体の外へ出して全身見せる」を **両方やって**、それぞれ画像に。進める際の指示2つ：
 //   ①「荘厳さと退廃さを両立して」の退廃の見せ方に問題あり。腐食や錆、故障部分を見せることが退廃だと考えているなら間違い。
@@ -305,10 +311,6 @@ const PEDESTAL = (() => {
   }
   for (const dx of [26, 30]) for (let y = 1; y <= 22; y++) { P(G, cx - dx, y, 'k'); P(G, cx - dx + 1, y, 'm'); P(G, cx + dx, y, 'k'); P(G, cx + dx - 1, y, 'f'); }   // 膝の外＝縦の襞
   for (let i = 0; i < 9; i++) { const xc = cx - 32 + (i + 0.5) * (64 / 9); for (let k = -3.2; k <= 3.2; k += 0.25) P(G, xc + k, 23.5 + Math.sqrt(Math.max(0, 10.2 - k * k)) * 0.5, 'Y'); }   // 裾の波形（金）
-  for (let y = 5; y <= 21; y++) for (let x = cx - 3.5; x <= cx + 3.5; x += 0.5) P(G, x, y, y === 5 ? 'Y' : y === 6 ? 'y' : x > cx + 2.6 ? 's' : 'n');   // 封印の御札（裳の中央・骨白の紙・上端は金の帯）
-  for (const [y, x0, x1] of [[8.5, -2, 2], [10, -1, 1], [11.5, -2, 1], [13.5, -1.5, 1.5], [15, -2, 2], [16.5, -1, 2]]) for (let x = x0; x <= x1; x += 0.5) P(G, cx + x, y, 'k');   //   墨の文字（縦書きの封の字を示す黒い画）
-  for (const y of [9, 10.5, 14, 15.5]) P(G, cx - 2, y, 'k');
-  RECT(G, cx - 1.5, 18.5, cx + 1.5, 20.5, 'R'); P(G, cx, 19.5, 'r');                                                                                 //   深紅の押印（三神の色は腰の結び目に置き、札には足さない＝信号機に見えるのを避ける）
   for (let y = 0; y <= 20; y += 0.25) P(G, 18 - y * 0.02, y, y % 3 < 1.5 ? 'R' : 'r');                                                              // 盃の深紅（仰蓮を伝う）
   for (let x = 15; x <= 21; x++) P(G, x, 21, 'R'); for (let x = 16; x <= 20; x++) P(G, x, 22, 'r');                                                  // 帯で溜まる
   for (let y = 23; y <= 28; y += 0.25) P(G, 18, y, 'r');                                                                                           // さらに反花へ垂れる
@@ -363,9 +365,9 @@ const TORSO = (() => {
   }
   for (let d = 0; d <= 1; d += 0.25) ARC(G, cx, 2, 12 + d, 6.5 + d, 25, 155, d < 0.5 ? 'G' : 'Y');                 // 牙の首飾り
   for (const a of [45, 68, 90, 112, 135]) { const t = a * Math.PI / 180, tx = cx + Math.cos(t) * 12.6, ty = 2 + Math.sin(t) * 7.4; bone(G, tx, ty, tx, ty + 2.6, 0.9, 0.3); P(G, tx, ty + 2.8, 'n'); }
-  for (let y = -3; y <= 3; y += 0.25) for (let x = -9; x <= 9; x += 0.25) {                                          // 骨の襟
+  for (let y = -3; y <= 3; y += 0.25) for (let x = -9; x <= 9; x += 0.25) {                                          // 黒鉄の襟（顔の位置は黒＝灰色の楕円が顔に見えるのを避ける）
     const dd = (x / 9) ** 2 + (y / 3) ** 2; if (dd > 1) continue;
-    P(G, cx + x, 2 + y, shade4(-(x / 9 * LIGHT[0] + y / 3 * LIGHT[1]) * 0.9 - 0.1));
+    P(G, cx + x, 2 + y, dd > 0.78 && y > 0.5 ? 'm' : 'j');
   }
   ELL(G, cx, 1.2, 5.5, 1.7, 'k');                                                                                   // 首の穴
   for (let x = cx - 4; x <= cx + 4; x++) P(G, x, 0, 'k');
@@ -389,7 +391,7 @@ const CROWN = (() => {
   }
   for (let x = 10; x <= 29; x++) { P(G, x, B, x < 16 ? 'W' : 'G'); P(G, x, B + 1, x < 16 ? 'G' : 'Y'); P(G, x, B + 2, 'y'); }
   for (const x of [13, 26]) P(G, x, B + 1, 'k');
-  P(G, 16, B + 1, 'q'); P(G, 23, B + 1, 'q'); P(G, 19, B + 1, 'q'); P(G, 20, B + 1, 'Q');
+  P(G, 16, B + 1, 'q'); P(G, 23, B + 1, 'q'); P(G, 19, B + 1, 'R'); P(G, 20, B + 1, 'A');                            // 帯の中央の玉は深紅（一滴）
   for (let y = B - 9; y <= B - 1; y++) { const hw = y < B - 6 ? 0.5 : 1.5; for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) P(G, x, y, x < cx ? (y < B - 6 ? 'W' : 'G') : 'Y'); }
   P(G, 19, B - 9, 'W'); P(G, 20, B - 9, 'W');
   for (const [c0, lit] of [[14.5, true], [25.5, false]]) {
@@ -430,19 +432,25 @@ const SEED = (() => {                                                           
 //   右 24×64：肩 (3,24)＝世界 (17,-9)。肘 (12,38) → 手首 (12,30) → 拳 (12,27) が金棒（黒鉄・金の鋲と環・柄に神経光の導管・頭に通気の溝）を握る
 //   左 36×44：肩 (22,4)＝世界 (-17,-9)。肘 (16,19) → 手首 (23,27) → 掌 (24,31) を上に向け、自分の金の死面を載せる（指3本が顎を支える）
 // =====================================================================
-const ARMR_W = 24, ARMR_H = 64;
+const ARMR_W = 44, ARMR_H = 92;
 const ARM_R = (() => {
-  const G = g(ARMR_W, ARMR_H), sx = 12;
-  for (let y = 0; y <= 18; y++) { const hw = y < 2 || y > 16 ? 2 : 3; for (let x = sx - hw; x <= sx + hw; x++) P(G, x, y, x === sx - hw ? 'f' : x < sx ? 'm' : x === sx + hw ? 'k' : 'j'); }
-  for (const y of [1, 17]) for (let x = sx - 3; x <= sx + 3; x++) P(G, x, y, x < sx ? 'G' : 'Y');
-  for (const y of [4, 9, 14]) for (const x of [sx - 2, sx + 1]) { P(G, x, y, 'Y'); P(G, x + 1, y, 'Y'); P(G, x, y + 1, 'Y'); P(G, x + 1, y + 1, 'y'); P(G, x, y, 'W'); }
-  for (const y of [6, 7, 11, 12]) P(G, sx, y, 'k');                                                    // 頭の通気の溝
-  for (let y = 19; y <= 59; y++) for (let x = sx - 1; x <= sx + 1; x++) P(G, x, y, x === sx - 1 ? 'f' : x === sx ? 'm' : 'j');
-  for (let y = 20; y <= 56; y++) P(G, sx + 1, y, 'c');                                                 // 柄の導管（神経光・連続線）
-  for (const y of [22, 36, 50]) for (let x = sx - 1; x <= sx + 1; x++) P(G, x, y, 'Y');
-  for (let y = 57; y <= 60; y++) for (let x = sx - 2; x <= sx + 2; x++) P(G, x, y, y === 57 ? 'G' : 'Y');
-  arm(G, [[3, 24], [12, 38], [12, 30]], 3.4, 2.6);
-  fist(G, 12, 27, 3.4, 3.2);
+  // 肩 (3,40)＝世界 (17,-9)。肘 (15,54) → 拳 (26,45) が金棒の柄を握る。金棒は右へ傾いて立ち、頭は冠より高い（世界 -49〜-20・x 40〜50）。石突は座の上（世界 +37）
+  const G = g(ARMR_W, ARMR_H);
+  const ax = (y) => 26 + (44 - y) * 0.11;                                                                                  // 柄の軸（右へ傾く）
+  for (let y = 30; y <= 85; y++) { const c = ax(y); for (let x = c - 2.5; x <= c + 2.5; x += 0.5) P(G, x, y, x < c - 1.6 ? 'f' : x < c - 0.4 ? 'm' : x < c + 1.6 ? 'j' : 'k'); }   // 柄
+  for (let y = 32; y <= 83; y += 0.5) P(G, ax(y) + 1, y, 'c');                                                            // 柄の導管（神経光・連続線）
+  for (const y of [50, 66, 80]) { const c = ax(y); for (let x = c - 2.5; x <= c + 2.5; x += 0.5) { P(G, x, y, 'G'); P(G, x, y + 1, 'Y'); } }   // 金の環
+  for (let y = 86; y <= 91; y++) { const c = ax(y); for (let x = c - 3; x <= c + 3; x += 0.5) P(G, x, y, y === 86 ? 'G' : 'Y'); }   // 石突
+  const headHw = (y) => 6.2 - 1.6 * (y / 27);                                                                                // 頭は上へ広がる（鬼の金棒）
+  for (const y of [5, 11, 17, 23]) for (const d of [-1, 1]) { const c = ax(y) + d * (headHw(y) - 0.4); bone(G, c, y + 0.6, c + d * 3.4, y - 2.2, 1.7, 0.6); P(G, c + d * 3.6, y - 2.5, 'n'); }   // 骨の棘：左右へ4本ずつ張り出す（影絵で金棒と分かる）
+  for (let y = 0; y <= 29; y++) {                                                                                           // 頭：黒鉄・金の帽と襟
+    const c = ax(y), hw = y < 2 ? 5 : y < 27 ? headHw(y) : 4.2;
+    for (let x = c - hw; x <= c + hw; x += 0.5) P(G, x, y, y < 3 || y > 26 ? (x < c ? 'G' : 'Y') : x < c - hw + 1.2 ? 'f' : x < c - 1 ? 'm' : x < c + hw - 1.2 ? 'j' : 'k');
+  }
+  for (const y of [8, 16, 24]) { const c = ax(y); DISC(G, c, y, 2.0, 'k'); DISC(G, c, y, 1.5, 'N'); P(G, c - 0.6, y - 0.6, 'C'); }   // 蒼硝子の鋲3つ（正面・大きめ）
+  DISC(G, ax(1.5), 1.5, 1.3, 'k'); DISC(G, ax(1.5), 1.5, 0.9, 'R'); P(G, ax(1.5) - 0.4, 1.1, 'A');                          // 帽の深紅の玉（一滴）
+  arm(G, [[3, 40], [15, 54], [26, 46]], 3.6, 2.7);
+  fist(G, 26, 45, 3.8, 3.4);
   OUTLINE(G);
   return R(G);
 })();
@@ -462,6 +470,7 @@ const ARM_L = (() => {
     P(G, MX + x + y * SH, MY + y, v > 0.75 ? 'W' : v > 0.35 ? 'G' : v > -0.15 ? 'Y' : 'y');
   }
   for (const s of [-1, 1]) ARC(G, MX + s * 2.1 + (-1.3) * SH, MY - 1.2, 1.1, 0.7, 200, 340, 'k');                     // 閉じた目（伏せた瞼の弧）
+  P(G, MX + 2.4 + 0.2 * SH, MY + 0.2, 'R'); P(G, MX + 2.5 + 1.1 * SH, MY + 1.1, 'R'); P(G, MX + 2.6 + 2.0 * SH, MY + 2.0, 'r');   // 右目から一筋の深紅の涙（一滴）
   for (let x = -1.0; x <= 1.0; x += 0.25) { P(G, MX + x + 2.7 * SH, MY + 2.7, 'k'); P(G, MX + x + 3.5 * SH, MY + 3.5, 'y'); }   // 口（結んだ唇と影）
   P(G, MX + 1.0 * SH, MY + 1.0, 'y');                                                                               // 鼻筋の影
   for (let i = 0; i < 3; i++) {                                                                                       // 指3本が死面の顎を支える（死面より手前）
@@ -608,7 +617,8 @@ const CONCEPT_BASE = '牙の座に結跏趺坐する創造主の亡骸＝金属�
   + '下半身は裳懸座＝黒鉄の裳が膝の下から牙の座の前を四段で流れ落ち、その下に蓮華座の段（仰蓮・段・反花に金の鎖の垂れ飾り・框に配管）。足は無い。';
 const CONCEPT = CONCEPT_BASE
   + '背後の光背は「骸の蓮華」＝四枚の花弁が正面向きの頭の無い骸（なで肩・首の切り株・肘を張り出した合掌）。首を捧げて祈った者たちが花弁になっている。炎は花弁の間から。'
-  + '腰には三神とモビットが施した封印の綱＝骨白の注連縄（横綱の綱）。結び目は左から大聖堂の琥珀・玉座の緑青・軌道神核の紫、綱の下に紙垂5本。封印は破れていない＝封じられたまま闘う。';
+  + '封印＝三神の環：円光は大聖堂の環（頭の無い場所を封じる）、体を巡る玉座の緑青の環と軌道神核の紫の環、正面で交わる錠は深紅。祟り神を祀って鎮める形＝跪いて祈る名無しと祈る花弁が祀る者たち。封印は破れていない＝封じられたまま闘う。'
+  + '前の右手は冠より高く立てた金棒（黒鉄の頭に蒼硝子の鋲・帽に深紅の玉）。深紅は数滴だけ＝死面の涙・冠の玉・金棒の帽・環の錠・帯の玉・胎の心臓・盃の流れ。';
 const CONCEPT_RET = '「名無し」＝蒼神骸華にもっとも信頼の厚い侍二体（別個体）。跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て、脇に薙刀（蒼硝子の刃・深紅の房）を突き立てる。首を捧げた者だけが侍ることを許される。薙刀で斬り、結界を張り、骸華と三位一体の特殊攻撃を放つ。';
 
 // =====================================================================
@@ -643,6 +653,27 @@ const KEKKAI = (() => {
 //    三神とモビットが施した封印を「横綱の注連縄」として腰に巻く＝縛る縄がそのまま最強の闘神の証。
 //    結び目3つ＝三神の印（左＝大聖堂の琥珀・中＝玉座の緑青・右＝軌道神核の紫）。紙垂5本＝モビット達の封印。綱は骨白（白麻）・撚りの溝は黒
 // =====================================================================
+// =====================================================================
+// ⑯ 三神の環（第9案の封印）140×50＝世界 x ±70・y −14〜+36。円光＝大聖堂の環に加え、体を巡る二つの環＝玉座の緑青（外・rx68 ry18・中心 +14）と軌道神核の紫（内・rx60 ry14・中心 +2）。
+//    奥半分（ringsB）は thruster の最奥・手前半分（ringsF）は cannon＝本体と前の腕の間。正面で交わる錠は深紅
+// =====================================================================
+const RING_W = 140, RING_H = 50;
+const RINGS = [[68, 18, 14, 'e', 'E'], [60, 14, 2, 'v', 'V']];                                                              // [rx, ry, 中心 y（世界）, 影, 光]
+function ringBand(G, cx, cy, rx, ry, a0, a1, dark, light) {
+  for (let a = a0; a <= a1; a += 0.1) {
+    const t = a * Math.PI / 180, ca = Math.cos(t), sa = Math.sin(t);
+    for (let d = -1.3; d <= 1.3; d += 0.25) P(G, cx + ca * (rx + d), cy + sa * (ry + d), Math.abs(d) > 0.8 ? 'k' : d < 0 ? light : dark);
+  }
+}
+const ringsSprite = (front) => {
+  const G = g(RING_W, RING_H), cx = 69.5;
+  for (const [rx, ry, wy, dark, light] of RINGS) ringBand(G, cx, wy + 14, rx, ry, front ? 0 : 180, front ? 180 : 360, dark, light);
+  if (front) for (const [, ry, wy] of RINGS) { const y = wy + 14 + ry; DISC(G, cx, y, 2.3, 'k'); DISC(G, cx, y, 1.6, 'R'); P(G, cx - 0.6, y - 0.6, 'A'); }   // 錠（深紅・二滴）
+  OUTLINE(G);
+  return R(G);
+};
+const RINGS_B = ringsSprite(false), RINGS_F = ringsSprite(true);
+
 const SEAL_W = 46, SEAL_H = 16;
 const SEAL = (() => {
   const G = g(SEAL_W, SEAL_H), cx = 22.5;
@@ -664,9 +695,9 @@ const SEAL = (() => {
 
 function build() {
   const sprites = {
-    kekkai: { rows: KEKKAI, palette: PAL },
+    ringsB: { rows: RINGS_B, palette: PAL },
     mandorla: { rows: mandorla('A'), palette: PAL },
-    seal: { rows: SEAL, palette: PAL },
+    ringsF: { rows: RINGS_F, palette: PAL },
     halo: { rows: HALO, palette: PAL },
     pedestal: { rows: PEDESTAL, palette: PAL },
     torso: { rows: TORSO, palette: PAL },
@@ -687,7 +718,7 @@ function build() {
   };
   // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < cannon 10 < arm 11 < core 12
   const rig = [
-    { role: 'thruster', tex: 'kekkai', ox: 0, oy: -53, origin: [0.5, 0] },
+    { role: 'thruster', tex: 'ringsB', ox: 0, oy: -14, origin: [0.5, 0] },
     { role: 'thruster', tex: 'mandorla', ox: 0, oy: -46, origin: [0.5, 0] },
     { role: 'wingR', tex: 'wingR', ox: 10, oy: -16, origin: [2 / WINGR_W, 31 / WINGR_H] },
     { role: 'wingL', tex: 'wingL', ox: -10, oy: -16, origin: [21 / WINGL_W, 32 / WINGL_H] },
@@ -703,8 +734,8 @@ function build() {
     { role: 'body', tex: 'torso', ox: 0, oy: -16, origin: [0.5, 0] },
     { role: 'dome', tex: 'crown', ox: 0, oy: -40, origin: [0.5, 0] },
     { role: 'rack', tex: 'lotus', ox: 0, oy: 1 },
-    { role: 'cannon', tex: 'seal', ox: 0, oy: 7, origin: [0.5, 0] },
-    { role: 'armR', tex: 'armR', ox: 17, oy: -9, origin: [3 / ARMR_W, 24 / ARMR_H] },
+    { role: 'cannon', tex: 'ringsF', ox: 0, oy: -14, origin: [0.5, 0] },
+    { role: 'armR', tex: 'armR', ox: 17, oy: -9, origin: [3 / ARMR_W, 40 / ARMR_H] },
     { role: 'armL', tex: 'armL', ox: -17, oy: -9, origin: [22 / ARML_W, 4 / ARML_H] },
     { role: 'core', tex: 'seed', ox: 0, oy: 1 },
   ];

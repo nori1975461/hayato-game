@@ -15,9 +15,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CATH = { id: 'cathedral', sprites: CATHEDRAL.sprites, rig: CATHEDRAL.rig, tier: CATH_DRAFT.tier };
 const S = 4.2;   // 骸華の spriteScale。近侍は座の両脇 (±54,+52) units
 
-sheet(GAIKA, "SOUSHIN GAIKA / 8TH PLAN", path.join(HERE, "gaika-sheet.png"));
+sheet(GAIKA, "SOUSHIN GAIKA / 9TH PLAN", path.join(HERE, "gaika-sheet.png"));
 sheet(RETAINER_R, "NANASHI (R) / RETAINER", path.join(HERE, "gaika-retainer-sheet.png"));
-formationSheet([[GAIKA, 0, 0], [RETAINER_R, 54 * S, 52 * S], [RETAINER_L, -54 * S, 52 * S]], "SOUSHIN GAIKA + 2 NANASHI / BATTLE FORMATION", path.join(HERE, "gaika-battle.png"), { fh: 460 });
+formationSheet([[GAIKA, 0, 0], [RETAINER_R, 54 * S, 52 * S], [RETAINER_L, -54 * S, 52 * S]], "SOUSHIN GAIKA + 2 NANASHI / BATTLE FORMATION", path.join(HERE, "gaika-battle.png"), { fh: 440 });
 grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA, 'SOUSHIN GAIKA']], path.join(HERE, 'gaika-four.png'), { cellH: 440 });
 partsSheet(GAIKA, path.join(HERE, 'gaika-parts.png'));
 report([['大聖堂', CATH], ['腐蝕の玉座', THRONE], ['軌道神核', GODCORE], ['マオウレクス', MAOU1], ['蒼神骸華', GAIKA], ['名無し 右', RETAINER_R], ['名無し 左', RETAINER_L]]);
