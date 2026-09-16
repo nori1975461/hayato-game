@@ -10,7 +10,11 @@
 //     結び目3つが三神の印＝左は大聖堂の琥珀の環・中は玉座の緑青の玉・右は軌道神核の紫の環（他の三体の色を骸華に置くのはここだけ＝封印した側の色）。紙垂＝モビット達の封印。
 //     損傷は無い。封印は破れていない（封じられたまま闘う＝それでも圧倒的、という設定を絵で言う）。前の左手の死面が綱の左端に重なる＝手が綱の前にある。
 //   ②悪神の読み：背後の蓮華の花弁＝首を捧げて祈る骸＝「首を捧げた者だけが侍ることを許される」。侍二体はその生き残り＝同じ蒼硝子の骸に黒鉄の肩当て、脇に薙刀を突き立てて跪き合掌する。
-//   ③侍二体（近侍）＝別個体 `RETAINER_R/L`：跪く頭の無い蒼硝子の骸（40×52）＋薙刀（14×72・刃は外へ反る・深紅の房）。座の両脇 (±54,+52) に配置＝「蒼神骸華と侍二体」の陣形を gaika-battle.png で見せる。
+//   ③侍二体＝別個体 `RETAINER_R/L`「名無し」：跪く頭の無い蒼硝子の骸（40×52）＋薙刀（14×72・刃は外へ反る・深紅の房）。座の両脇 (±54,+52) に配置＝「蒼神骸華と侍二体」の陣形を gaika-battle.png で見せる。
+// 第8案への FB（09-16 21:50）：「腰の注連縄だけではひとひねりと言えない。下半身と背後にもうひとひねり。ゴチャゴチャしすぎないように。近侍の名前＝名無し。薙刀で斬り結界を張る・三位一体の特殊攻撃も」
+//   ④背後＝結界の橛：座の外の地面に立つ二本の黒鉄の橛（金の三鈷の頭・神経光の導管）と、頭の間に張った注連縄（紙垂2本）。三神が張った結界の中に骸華が座る＝祟り神を祀って鎮める（御霊）の形。
+//     腰の綱（個の封印）→ 裳の御札（座への封印）→ 橛と注連縄（場の封印）の三段で「封印」を一つの語彙に揃える。大きな形を一つずつ＝数を増やさない。
+//   ⑤下半身＝封印の御札：裳の中央に貼られた骨白の札（上端は金の帯・三神の印を縦に・下に深紅の押印）。U字のたるみが札の後ろを通る。
 //
 // 第6案への FB（09-16 20:33）：「花弁を正面向きの骸にする」と「左右1枚ずつを本体の外へ出して全身見せる」を **両方やって**、それぞれ画像に。進める際の指示2つ：
 //   ①「荘厳さと退廃さを両立して」の退廃の見せ方に問題あり。腐食や錆、故障部分を見せることが退廃だと考えているなら間違い。
@@ -301,6 +305,10 @@ const PEDESTAL = (() => {
   }
   for (const dx of [26, 30]) for (let y = 1; y <= 22; y++) { P(G, cx - dx, y, 'k'); P(G, cx - dx + 1, y, 'm'); P(G, cx + dx, y, 'k'); P(G, cx + dx - 1, y, 'f'); }   // 膝の外＝縦の襞
   for (let i = 0; i < 9; i++) { const xc = cx - 32 + (i + 0.5) * (64 / 9); for (let k = -3.2; k <= 3.2; k += 0.25) P(G, xc + k, 23.5 + Math.sqrt(Math.max(0, 10.2 - k * k)) * 0.5, 'Y'); }   // 裾の波形（金）
+  for (let y = 5; y <= 21; y++) for (let x = cx - 3.5; x <= cx + 3.5; x += 0.5) P(G, x, y, y === 5 ? 'Y' : y === 6 ? 'y' : x > cx + 2.6 ? 's' : 'n');   // 封印の御札（裳の中央・骨白の紙・上端は金の帯）
+  for (const [y, x0, x1] of [[8.5, -2, 2], [10, -1, 1], [11.5, -2, 1], [13.5, -1.5, 1.5], [15, -2, 2], [16.5, -1, 2]]) for (let x = x0; x <= x1; x += 0.5) P(G, cx + x, y, 'k');   //   墨の文字（縦書きの封の字を示す黒い画）
+  for (const y of [9, 10.5, 14, 15.5]) P(G, cx - 2, y, 'k');
+  RECT(G, cx - 1.5, 18.5, cx + 1.5, 20.5, 'R'); P(G, cx, 19.5, 'r');                                                                                 //   深紅の押印（三神の色は腰の結び目に置き、札には足さない＝信号機に見えるのを避ける）
   for (let y = 0; y <= 20; y += 0.25) P(G, 18 - y * 0.02, y, y % 3 < 1.5 ? 'R' : 'r');                                                              // 盃の深紅（仰蓮を伝う）
   for (let x = 15; x <= 21; x++) P(G, x, 21, 'R'); for (let x = 16; x <= 20; x++) P(G, x, 22, 'r');                                                  // 帯で溜まる
   for (let y = 23; y <= 28; y += 0.25) P(G, 18, y, 'r');                                                                                           // さらに反花へ垂れる
@@ -601,7 +609,34 @@ const CONCEPT_BASE = '牙の座に結跏趺坐する創造主の亡骸＝金属�
 const CONCEPT = CONCEPT_BASE
   + '背後の光背は「骸の蓮華」＝四枚の花弁が正面向きの頭の無い骸（なで肩・首の切り株・肘を張り出した合掌）。首を捧げて祈った者たちが花弁になっている。炎は花弁の間から。'
   + '腰には三神とモビットが施した封印の綱＝骨白の注連縄（横綱の綱）。結び目は左から大聖堂の琥珀・玉座の緑青・軌道神核の紫、綱の下に紙垂5本。封印は破れていない＝封じられたまま闘う。';
-const CONCEPT_RET = '蒼神骸華にもっとも信頼の厚い侍二体（別個体）。跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て、脇に薙刀（蒼硝子の刃・深紅の房）を突き立てる。首を捧げた者だけが侍ることを許される。';
+const CONCEPT_RET = '「名無し」＝蒼神骸華にもっとも信頼の厚い侍二体（別個体）。跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て、脇に薙刀（蒼硝子の刃・深紅の房）を突き立てる。首を捧げた者だけが侍ることを許される。薙刀で斬り、結界を張り、骸華と三位一体の特殊攻撃を放つ。';
+
+// =====================================================================
+// ⑮ 結界の橛（thruster・最奥＝光背より後ろ）130×106＝世界 x ±65・y −53〜+53。座の外の地面に立つ二本の黒鉄の橛（金の三鈷の頭・神経光の導管・金の環）。
+//    頭の間に注連縄（紙垂2本＝橛の近く。中央は円光と冠の上を空けておく）＝三神が張った結界の中に骸華が座る＝祟り神を祀って鎮める（御霊）の形
+// =====================================================================
+const KEK_W = 130, KEK_H = 106;
+const KEKKAI = (() => {
+  const G = g(KEK_W, KEK_H), cx = 65;
+  for (const s of [-1, 1]) {
+    const px = cx + s * 58;
+    for (let y = 9; y <= 105; y++) for (let x = px - 2; x <= px + 2; x += 0.5) P(G, x, y, x < px - 1.2 ? 'f' : x < px - 0.2 ? 'm' : x < px + 1.2 ? 'j' : 'k');   // 柱
+    for (let y = 14; y <= 99; y++) P(G, px - 0.5, y, y % 9 < 6 ? 'c' : 'j');                                                                     // 神経光の導管（破線）
+    for (const y of [13, 42, 71, 98]) for (let x = px - 2.5; x <= px + 2.5; x += 0.5) { P(G, x, y, 'G'); P(G, x, y + 1, 'Y'); P(G, x, y + 2, 'y'); }   // 金の環
+    for (let y = 101; y <= 105; y++) for (let x = px - 3.5; x <= px + 3.5; x += 0.5) P(G, x, y, y === 101 ? 'Y' : x < px ? 'm' : 'j');            // 台
+    for (let y = 0; y <= 8; y += 0.25) for (let x = -1.3 * (1 - y / 8) - 0.4; x <= 1.3 * (1 - y / 8) + 0.4; x += 0.25) P(G, px + x, y, x < 0 ? 'G' : 'Y');   // 三鈷の頭：中央の鈷
+    for (const d of [-1, 1]) for (let t = 0; t <= 1; t += 0.01) { const x = px + d * 3.6 * Math.sin(t * Math.PI / 2), y = 8.5 - 7 * t + 2.5 * t * t; DISC(G, x, y, 0.9, d < 0 ? 'G' : 'Y'); }   // 左右の反った鈷
+    DISC(G, px, 9, 2.6, 'k'); DISC(G, px, 9, 2.0, 'Y'); P(G, px - 0.8, 8.3, 'W');                                                                   // 頭の座の玉
+  }
+  const ropeY = (u) => 4.5 + 3.5 * (1 - u * u);                                                                                                       // 注連縄：橛の頭の間・中央で垂れる
+  for (let x = cx - 56; x <= cx + 56; x += 0.25) {
+    const u = (x - cx) / 56, y0 = ropeY(u);
+    for (let y = y0; y < y0 + 3; y += 0.25) { const t = (y - y0) / 3, tw = (((x + (y - y0) * 1.4) % 6) + 6) % 6; P(G, x, y, tw < 1.4 ? 'k' : t < 0.3 ? 'n' : t < 0.7 ? 's' : 'f'); }
+  }
+  for (const dx of [-50, 50]) { const y0 = ropeY(dx / 56) + 2.8; for (let y = 0; y < 7; y += 0.25) { const off = y < 2.3 ? 0 : y < 4.6 ? 1.4 : 0; for (let k = 0; k < 2.2; k += 0.25) P(G, cx + dx + off + k - 1.1, y0 + y, y < 0.4 ? 'f' : k > 1.7 ? 's' : 'n'); } }   // 紙垂
+  OUTLINE(G);
+  return R(G);
+})();
 
 // =====================================================================
 // ⑭ 封印の綱（cannon・深度10＝本体と前の腕の間）46×14＝世界 x ±23・y +7〜+20。
@@ -629,6 +664,7 @@ const SEAL = (() => {
 
 function build() {
   const sprites = {
+    kekkai: { rows: KEKKAI, palette: PAL },
     mandorla: { rows: mandorla('A'), palette: PAL },
     seal: { rows: SEAL, palette: PAL },
     halo: { rows: HALO, palette: PAL },
@@ -651,6 +687,7 @@ function build() {
   };
   // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < cannon 10 < arm 11 < core 12
   const rig = [
+    { role: 'thruster', tex: 'kekkai', ox: 0, oy: -53, origin: [0.5, 0] },
     { role: 'thruster', tex: 'mandorla', ox: 0, oy: -46, origin: [0.5, 0] },
     { role: 'wingR', tex: 'wingR', ox: 10, oy: -16, origin: [2 / WINGR_W, 31 / WINGR_H] },
     { role: 'wingL', tex: 'wingL', ox: -10, oy: -16, origin: [21 / WINGL_W, 32 / WINGL_H] },
@@ -680,7 +717,7 @@ function buildRetainer(side) {
     { role: 'wingR', tex: 'pole', ox: side * 15, oy: 1, origin: [6.5 / POLE_W, 70 / POLE_H] },
     { role: 'body', tex: 'body', ox: 0, oy: 0, origin: [(20 - side * 3) / RET_W, 51 / RET_H] },
   ];
-  return { id: 'gaika-retainer-' + (side > 0 ? 'R' : 'L'), name: '首無しの近侍', concept: CONCEPT_RET, sprites, rig, tier: { spriteScale: 4.2, glowScale: 4.5, glowOuter: '#2f8fd8', glowInner: '#9fd8ff' } };
+  return { id: 'nanashi-' + (side > 0 ? 'R' : 'L'), name: '名無し', concept: CONCEPT_RET, sprites, rig, tier: { spriteScale: 4.2, glowScale: 4.5, glowOuter: '#2f8fd8', glowInner: '#9fd8ff' } };
 }
 export const GAIKA = build();
 export const RETAINER_R = buildRetainer(1);
