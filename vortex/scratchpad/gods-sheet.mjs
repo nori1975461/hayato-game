@@ -105,6 +105,14 @@ export function grid4(cells, file, opt = {}) {
   cells.forEach(([d, l], i) => playFrame(cv, pos[i][0], pos[i][1], d, l, 640, ch));
   writePng(cv, file);
 }
+// 1×2 の並び（変種の比較用。各セルは実プレイ等倍）
+export function grid2(cells, file, opt = {}) {
+  const ch = opt.cellH ?? 360;
+  const cv = makeCanvas(1310, ch + 40);
+  const pos = [[12, 30], [668, 30]];
+  cells.forEach(([d, l], i) => playFrame(cv, pos[i][0], pos[i][1], d, l, 640, ch));
+  writePng(cv, file);
+}
 // 全パーツ（拡大）：設計の点検用
 export function partsSheet(d, file) {
   const names = Object.keys(d.sprites);

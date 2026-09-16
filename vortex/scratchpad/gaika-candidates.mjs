@@ -533,8 +533,24 @@ const ARM_L = (() => {
 })();
 
 // =====================================================================
-// ⑨ 中の腕（baseL だけ・深度7）29×50＝傾いた盃から深紅が座（+20）まで流れ落ちる。第14案改：画面右の曲刀の腕（baseR 35×41）は削除＝左肩の上を空ける
+// ⑨ 中の腕（深度7）左 29×50＝傾いた盃から深紅が座（+20）まで流れ落ちる／右 35×41＝曲刀を掲げる。
+//    第14案改：画面右の曲刀の腕（baseR）は既定では外す＝左肩の上を空ける。比較のため変種 `build({ sword: true })` でだけ付く
 // =====================================================================
+const BASER_W = 35, BASER_H = 41;
+const BASE_R = (() => {
+  const G = g(BASER_W, BASER_H);
+  arm(G, [[2, 30], [18, 34], [21, 24]], 3.2, 2.4);
+  const bx0 = 22, by0 = 18.5, bx1 = 33, by1 = 1, dx = bx1 - bx0, dy = by1 - by0, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  for (let u = 0; u <= 1; u += 0.004) {
+    const w = 2.6 * (1 - u * 0.7), cx = bx0 + ux * L * u + nx * 1.8 * u * u, cy = by0 + uy * L * u + ny * 1.8 * u * u;
+    for (let k = -w; k <= w; k += 0.25) P(G, cx + nx * k, cy + ny * k, k > w * 0.35 ? (u > 0.93 ? 'n' : 's') : k > -w * 0.3 ? 'f' : k > -w * 0.75 ? 'm' : 'j');
+  }
+  for (let u = 0.15; u <= 0.85; u += 0.01) { const cx = bx0 + ux * L * u + nx * 1.8 * u * u, cy = by0 + uy * L * u + ny * 1.8 * u * u; P(G, cx - nx * 0.9, cy - ny * 0.9, 'c'); }   // 刃の導管（連続線）
+  for (let k = -3.5; k <= 3.5; k += 0.25) { P(G, bx0 + nx * k, by0 + ny * k + 0.5, 'Y'); P(G, bx0 + nx * k, by0 + ny * k + 1.5, 'y'); }
+  fist(G, 22, 21.5, 3.2, 3.0);
+  OUTLINE(G);
+  return R(G);
+})();
 const BASEL_W = 29, BASEL_H = 50;
 const BASE_L = (() => {
   const G = g(BASEL_W, BASEL_H);
@@ -730,8 +746,9 @@ const SEAL = (() => {
   return R(G);
 })();
 
-function build() {
+function build(opts = {}) {   // opts.sword＝曲刀の中の左手（baseR）を付ける変種（第14案改の比較用・既定は無し）
   const sprites = {
+    ...(opts.sword ? { baseR: { rows: BASE_R, palette: PAL } } : {}),
     ringsB: { rows: RINGS_B, palette: PAL },
     mandorla: { rows: mandorla('A'), palette: PAL },
     ringsF: { rows: RINGS_F, palette: PAL },
@@ -757,6 +774,7 @@ function build() {
     { role: 'thruster', tex: 'ringsB', ox: 0, oy: -14, origin: [0.5, 0] },
     { role: 'thruster', tex: 'mandorla', ox: 0, oy: -46, origin: [0.5, 0] },
     { role: 'wingL', tex: 'wingL', ox: -10, oy: -16, origin: [38 / WINGL_W, 53 / WINGL_H] },
+    ...(opts.sword ? [{ role: 'baseR', tex: 'baseR', ox: 14, oy: -12, origin: [2 / BASER_W, 30 / BASER_H] }] : []),
     { role: 'baseL', tex: 'baseL', ox: -14, oy: -12, origin: [26 / BASEL_W, 17 / BASEL_H] },
     { role: 'qlegFR', tex: 'qlegR', ox: 12, oy: 6, origin: [2 / QR_W, 26 / QR_H] },
     { role: 'podL', tex: 'halo', ox: 0, oy: -22, origin: [0.5, 0.5] },
@@ -774,7 +792,7 @@ function build() {
     { role: 'armL', tex: 'armL', ox: -17, oy: -9, origin: [41 / ARML_W, 48 / ARML_H] },
     { role: 'core', tex: 'seed', ox: 0, oy: 1 },
   ];
-  return { id: 'gaika', name: '蒼神骸華', concept: CONCEPT, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
+  return { id: opts.sword ? 'gaika-sword' : 'gaika', name: '蒼神骸華', concept: CONCEPT, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
 }
 // 近侍（別個体）：薙刀は体の後ろ（wingR・深度7）に突き立つ。根元＝裾の中央 (0,0)・薙刀の石突＝(±15,+1)
 function buildRetainer(side) {
@@ -786,6 +804,7 @@ function buildRetainer(side) {
   return { id: 'nanashi-' + (side > 0 ? 'R' : 'L'), name: '名無し', concept: CONCEPT_RET, sprites, rig, tier: { spriteScale: 4.2, glowScale: 4.5, glowOuter: '#2f8fd8', glowInner: '#9fd8ff' } };
 }
 export const GAIKA = build();
+export const GAIKA_SWORD = build({ sword: true });   // 比較用の変種＝曲刀の腕あり
 export const RETAINER_R = buildRetainer(1);
 export const RETAINER_L = buildRetainer(-1);
-validate(GAIKA); validate(RETAINER_R); validate(RETAINER_L);
+validate(GAIKA); validate(GAIKA_SWORD); validate(RETAINER_R); validate(RETAINER_L);
