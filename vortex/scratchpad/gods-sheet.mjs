@@ -35,12 +35,14 @@ export function text(cv, str, x, y, c, sc = 2) {
 }
 export const WHITE = [230, 232, 245], DIM = [130, 134, 160], BGC = [10, 10, 30], FR = [60, 62, 90];
 
-// 実プレイ画面（640×360）にボスと主人公を置く
-export function playFrame(cv, x0, y0, def, label) {
-  rect(cv, x0, y0, 640, 360, BGC); frame(cv, x0, y0, 640, 360, FR);
+// 実プレイ画面（既定 640×360）にボスと主人公を置く。枠より大きいボスは枠で切る（画面に入らない事実をそのまま見せる）
+export function playFrame(cv, x0, y0, def, label, fw = 640, fh = 360) {
+  rect(cv, x0, y0, fw, fh, BGC); frame(cv, x0, y0, fw, fh, FR);
   if (label) text(cv, label, x0 + 6, y0 - 16, DIM, 2);
-  renderBoss(cv, def, def.tier, x0 + 320, y0 + 180);
-  blitSimple(cv, PLAYER_SPRITES[2], x0 + 300, y0 + 310, 3);
+  const tmp = makeCanvas(fw, fh); rect(tmp, 0, 0, fw, fh, BGC);
+  renderBoss(tmp, def, def.tier, fw / 2, fh / 2);
+  blitSimple(tmp, PLAYER_SPRITES[2], fw / 2 - 20, fh - 50, 3);
+  for (let y = 1; y < fh - 1; y++) for (let x = 1; x < fw - 1; x++) { const a = idx(cv, x0 + x, y0 + y), b = idx(tmp, x, y); cv.px[a] = tmp.px[b]; cv.px[a + 1] = tmp.px[b + 1]; cv.px[a + 2] = tmp.px[b + 2]; }
 }
 export function occupancy(def) { const b = bbox(def); const s = def.tier.spriteScale; return { w: Math.round(b.w * s), h: Math.round(b.h * s), units: `${b.w.toFixed(1)}×${b.h.toFixed(1)}` }; }
 // 実際に塗られた範囲（スプライトの余白を除く＝画面で目に見える大きさ）
@@ -78,11 +80,12 @@ export function sheet(def, title, file) {
   renderBoss(cv, def, def.tier, sx0 + 320 - (b.l + b.w / 2) * ss, sy0 + 140 - (b.t + b.h / 2) * ss, { scaleOverride: ss, silhouette: '#101018' });
   writePng(cv, file);
 }
-// 2×2 の並び（各セルは実プレイ等倍）
-export function grid4(cells, file) {
-  const cv = makeCanvas(1310, 790);
-  const pos = [[12, 30], [668, 30], [12, 420], [668, 420]];
-  cells.forEach(([d, l], i) => playFrame(cv, pos[i][0], pos[i][1], d, l));
+// 2×2 の並び（各セルは実プレイ等倍。opt.cellH で縦を広げられる＝画面より背の高いボスも全身を比べる）
+export function grid4(cells, file, opt = {}) {
+  const ch = opt.cellH ?? 360;
+  const cv = makeCanvas(1310, ch * 2 + 70);
+  const pos = [[12, 30], [668, 30], [12, ch + 60], [668, ch + 60]];
+  cells.forEach(([d, l], i) => playFrame(cv, pos[i][0], pos[i][1], d, l, 640, ch));
   writePng(cv, file);
 }
 // 全パーツ（拡大）：設計の点検用
