@@ -16,7 +16,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CATH = { id: 'cathedral', sprites: CATHEDRAL.sprites, rig: CATHEDRAL.rig, tier: CATH_DRAFT.tier };
 const S = 4.2;   // 骸華の spriteScale。近侍は座の両脇 (±66,+52) units（第13案：大きい鐘が斜め下へ出るぶん外へ。幅は採用時の scale で収める）
 
-sheet(GAIKA, "SOUSHIN GAIKA / 23RD PLAN", path.join(HERE, "gaika-sheet.png"));
+sheet(GAIKA, "SOUSHIN GAIKA / 24TH PLAN", path.join(HERE, "gaika-sheet.png"));
 sheet(RETAINER_R, "NANASHI (R) / RETAINER", path.join(HERE, "gaika-retainer-sheet.png"));
 formationSheet([[GAIKA, 0, 0], [RETAINER_R, 66 * S, 52 * S], [RETAINER_L, -66 * S, 52 * S]], "SOUSHIN GAIKA + 2 NANASHI / BATTLE FORMATION", path.join(HERE, "gaika-battle.png"), { fh: 440 });
 grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA, 'SOUSHIN GAIKA']], path.join(HERE, 'gaika-four.png'), { cellH: 440 });
