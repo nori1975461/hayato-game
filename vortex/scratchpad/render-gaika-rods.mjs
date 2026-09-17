@@ -20,11 +20,11 @@ const paste = (dst, src, x0, y0) => { for (let y = 0; y < src.h; y++) for (let x
 
 const keys = Object.keys(GAIKA_RODS);
 const full = keys.map((k) => crop(GAIKA_RODS[k], -84, -96, 78, 160, 1));          // 等倍・棒の全長と体の左半分
-const capz = keys.map((k) => crop(GAIKA_RODS[k], -64, -92, 22, 28, 3));           // 上端の箍を 3 倍
+const capz = keys.map((k) => crop(GAIKA_RODS[k], -66, -92, 26, 34, 3));           // 上端の箍を 3 倍
 const gap = 14, cw = full[0].w, chh = full[0].h, zw = capz[0].w, zh = capz[0].h;
 const sheetW = gap + keys.length * (cw + gap), sheetH = 56 + chh + 40 + zh + 20;
 const cv = makeCanvas(sheetW, sheetH); rect(cv, 0, 0, sheetW, sheetH, BGC);
-text(cv, 'SOUSHIN GAIKA / 21ST PLAN - THE IRON CLUB (SAME SHAPE, 4 SHAFT TONES) / IN GAME SCALE 4.2', gap, 10, WHITE, 2);
+text(cv, 'SOUSHIN GAIKA / 22ND PLAN - ONYX SHAFT + 4 IDEAS FOR THE HEAD / IN GAME SCALE 4.2', gap, 10, WHITE, 2);
 keys.forEach((k, i) => { const x = gap + i * (cw + gap); text(cv, LABEL[k], x, 34, DIM, 2); paste(cv, full[i], x, 52); frame(cv, x, 52, cw, chh, FR);
   const zx = x + Math.floor((cw - zw) / 2); text(cv, k + ': TOP HOOP X3', zx, 52 + chh + 18, DIM, 2); paste(cv, capz[i], zx, 52 + chh + 36); frame(cv, zx, 52 + chh + 36, zw, zh, FR); });
 writePng(cv, path.join(HERE, 'gaika-rods.png'));
