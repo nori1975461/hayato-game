@@ -8,7 +8,7 @@ import { GAIKA_RODS, GAIKA_ROD_LABELS } from './gaika-candidates.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const keys = (process.argv.slice(2).length ? process.argv.slice(2) : ['A', 'D']).filter((k) => GAIKA_RODS[k]);
-const CW = 648, CH = 700, GAP = 12, CY = 404;
+const CW = 600, CH = 760, GAP = 12, CY = 388;
 const W = GAP + keys.length * (CW + GAP), H = 56 + CH + GAP;
 const cv = makeCanvas(W, H);
 rect(cv, 0, 0, W, H, BGC);
