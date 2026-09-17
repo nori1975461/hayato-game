@@ -125,6 +125,13 @@
 //   ㊸**学び＝横の張り出しが迫力の正体だった**。光背と環と蓮華座が体の外へ大きく出ていることで「四神柱」の格が出る。比率のために詰めると数字は良くなるが**神が小さく見える**。比率は横を削って作るものではない。
 //   ㊸添付画像の縦横比を実測＝JPEG を PNG に変換し、光暈を外す閾値（max(r,g,b)<90 かつ彩度<40 を背景とみなす）で塗りの外接枠を取ると **912×943 px＝0.967**。これに合わせて錫杖の石突きを 2 ドット深く埋め（B0 −54→−56・B1 −59→−61）、**実測 142×147 units＝0.966**（第22案は 142×143＝0.993）。
 //   ㊸**据え置き**＝先端の宝塔（D）・月牙の二枚重ね（紫は廃止のまま）・冕冠は第22案のまま・須弥壇は無し。添付画像は紫の月と古い錫杖の頭を持つ旧い版なので、**比率だけを読み、武具と月は修正済みのものを使う**（ユーザーが明示）。
+// 第26案への FB（09-18 02:28）「封じた『縦に足す』の意味を取り違えている。蒼神骸華の身体以外の物（須弥壇など）を使って縦に足すのは禁止としただけ。蒼神骸華の身体自身を縦に伸ばすのは禁じていない。今の蒼神骸華は縦の長さがたりない。つまり太ってみえている。蒼神骸華自身の身体の縦横比率を、添付資料の縦横比率で作り直して」→ 第27案：
+//   ㊹**禁止の正しい範囲**＝縦を稼ぐために**身体以外の物を足す**のが禁止（須弥壇・伸ばした冕冠の角）。**骸華自身の身体を伸ばすのは可**。㊸で「比率を直す手は二つとも封じられた」と書いたのは私の読み違い。
+//   ㊹**錫杖は縦の数字を膨らませるだけで figure は太ったまま**＝㊸の 0.966 は棒込みの数字で、身体だけなら 142×123＝1.154 だった。今回は**身体（棒を除いた塗り）を 142×147＝0.966** にした（添付の実測 0.967）。棒込みは 0.821。
+//   ㊹伸ばしたのは**胴だけ（40→64・+24）**。肩から上は 10 上げ・腰から下は 14 下げ（荘厳具は rig の oy で送るだけ＝寸法は 1 ドットも変えない）。**横（ox・幅）は全部そのまま**＝迫力の源を削らない。
+//   ㊹**落とした稿**＝①裳（裳懸座の衣）を 8 伸ばして胴を 16 に留める → 下半身がいちばん幅の広い部分なので、**縦に伸ばすほど「黒い箱」になって余計に太く見えた**。学び＝**高さは幅の狭い部位（胴）に入れる。幅の広い部位（裾・座）に入れると太る**。
+//   ㊹伸ばした胴が平らな板に見えたので三つ直した＝①**円筒の陰影**（左に照り `f`・右は闇 `k` へ 4 階調）②**札の段を五段**（大鎧の胴の段数。継ぎ目は黒・その下の行は左半分だけ光る稜。全幅を光らせると箪笥の引き出しに見えた）③**引合（縦の合わせ目）は腰の側だけ**（全長に通すと横の継ぎ目と交差して煉瓦の目地になった）。さらに**胸から腰へ細らせ腰から膝へ開く**（まっすぐな側面＝箱）。
+//   ㊹中段の腕（盃の腕・曲刀の腕）は oy −22→−2＝**伸びた胴の中ほどへ下げる**。肩に寄せたままだと胸の下半分が誰も通らない空き地になった。配線も 44→60 に伸ばして座まで届かせた。
 //
 // 第6案への FB（09-16 20:33）：「花弁を正面向きの骸にする」と「左右1枚ずつを本体の外へ出して全身見せる」を **両方やって**、それぞれ画像に。進める際の指示2つ：
 //   ①「荘厳さと退廃さを両立して」の退廃の見せ方に問題あり。腐食や錆、故障部分を見せることが退廃だと考えているなら間違い。
@@ -396,37 +403,38 @@ const HALO = (() => {
 //    後ろの段は下から：框（黒鉄・配管）→ 反花（下向きの蒼硝子の花弁・金の鎖の垂れ飾り）→ 段（黒鉄・鋲）→ 仰蓮（上向きの花弁）→ 金の帯 → 牙。
 //    盃の深紅（x 18）が帯の上から段で溜まり、さらに垂れる
 // =====================================================================
-const PED_W = 108, PED_H = 34;
+const DRAPE_EXT = 0;                                                                                                                               // 第27案：裳（骸華自身の衣）だけを縦に伸ばす（+8）。蓮華座そのものの寸法は 1 ドットも変えず、伸びた衣のぶんだけ下へ送る
+const PED_W = 108, PED_H = 34 + DRAPE_EXT;
 const PEDESTAL = (() => {
-  const G = g(PED_W, PED_H), cx = 53.5;
-  RECT(G, 7, 8, 100, 20, 'q');                                                                                                                     // 仰蓮の地
-  for (let i = 0; i < 10; i++) { const px = cx + (i - 4.5) * 10.4; petal(G, px, 20.5, px, 8, 4.8, 0, { gilt: true }); }                            // 仰蓮（上向きの蒼硝子の花弁・裳の両脇に見える）
-  for (let x = 4; x <= 103; x++) { P(G, x, 21, 'Y'); P(G, x, 22, 'y'); }                                                                            // 金の帯
-  for (let y = 23; y <= 31; y++) for (let x = Math.ceil(cx - 51 - (y - 23) * 0.25); x <= Math.floor(cx + 51 + (y - 23) * 0.25); x++) P(G, x, y, 'q');   // 反花の地（少し広がる）
-  for (let i = 0; i < 11; i++) { const px = cx + (i - 5) * 10.2; petal(G, px, 23.5, px, 31.5, 4.6, 0, { gilt: true }); }                            // 反花（下向き）
-  for (let x = 0; x <= 107; x++) { P(G, x, 32, 'm'); P(G, x, 33, 'k'); }                                                                             // 框
-  for (let x = 6; x <= 101; x += 13) P(G, x, 32, 'Y');
+  const G = g(PED_W, PED_H), cx = 53.5, D = DRAPE_EXT;
+  RECT(G, 7, 8 + D, 100, 20 + D, 'q');                                                                                                             // 仰蓮の地
+  for (let i = 0; i < 10; i++) { const px = cx + (i - 4.5) * 10.4; petal(G, px, 20.5 + D, px, 8 + D, 4.8, 0, { gilt: true }); }                    // 仰蓮（上向きの蒼硝子の花弁・裳の両脇に見える）
+  for (let x = 4; x <= 103; x++) { P(G, x, 21 + D, 'Y'); P(G, x, 22 + D, 'y'); }                                                                    // 金の帯
+  for (let y = 23 + D; y <= 31 + D; y++) for (let x = Math.ceil(cx - 51 - (y - 23 - D) * 0.25); x <= Math.floor(cx + 51 + (y - 23 - D) * 0.25); x++) P(G, x, y, 'q');   // 反花の地（少し広がる）
+  for (let i = 0; i < 11; i++) { const px = cx + (i - 5) * 10.2; petal(G, px, 23.5 + D, px, 31.5 + D, 4.6, 0, { gilt: true }); }                    // 反花（下向き）
+  for (let x = 0; x <= 107; x++) { P(G, x, 32 + D, 'm'); P(G, x, 33 + D, 'k'); }                                                                    // 框
+  for (let x = 6; x <= 101; x += 13) P(G, x, 32 + D, 'Y');
   for (let x = 8; x <= 99; x++) { P(G, x, 6, 'Y'); P(G, x, 7, 'y'); }                                                                               // 牙の座の金の帯
   for (const i of [0, 1, 5, 6]) {                                                                                                                  // 牙（裳の脇の4本）
     const px = cx + (i - 3) * 14, lean = Math.sign(i - 3) * Math.min(1, Math.abs(i - 3) * 0.5);
     bone(G, px, 6.5, px + lean * 1.5, 2.8, 2.4, 1.6); bone(G, px + lean * 1.5, 2.8, px + lean * 3.2, 0.4, 1.6, 0.6); P(G, px + lean * 3.2, 0.3, 'n');
     P(G, px + lean * 0.7 - 1, 4.5, 'k'); P(G, px + lean * 0.7 + 1, 4.5, 'k');
   }
-  for (let y = 0; y <= 23; y++) {                                                                                                                  // 裳（黒鉄の衣が両膝から座へ垂れる＝裳懸座）
-    const hw = 20 + 12 * (y / 23);
-    for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) P(G, x, y, y === 23 ? 'Y' : (x - cx) / hw < -0.55 ? 'm' : 'j');
+  for (let y = 0; y <= 23 + D; y++) {                                                                                                              // 裳（黒鉄の衣が両膝から座へ垂れる＝裳懸座）
+    const hw = 20 + 12 * (y / (23 + D));
+    for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) P(G, x, y, y === 23 + D ? 'Y' : (x - cx) / hw < -0.55 ? 'm' : 'j');
   }
-  for (const r of [7, 12, 17, 22]) for (let a = 0; a <= 180; a += 0.5) {                                                                           // 膝の間のたるみ＝入れ子のU字（上が溝・下が光る稜）
+  for (const r of [7, 12, 17, 22, 27]) for (let a = 0; a <= 180; a += 0.5) {                                                                       // 膝の間のたるみ＝入れ子のU字（上が溝・下が光る稜）。衣が伸びたぶん襞を1本増やす＝長い布は襞の数で長さを言う
     const s = a * Math.PI / 180, x = cx - r * Math.cos(s), y = 3 + r * 0.95 * Math.sin(s);
     P(G, x, y, 'k'); P(G, x, y + 1, x < cx - 2 ? 'm' : 'f');
   }
-  for (const dx of [26, 30]) for (let y = 1; y <= 22; y++) { P(G, cx - dx, y, 'k'); P(G, cx - dx + 1, y, 'm'); P(G, cx + dx, y, 'k'); P(G, cx + dx - 1, y, 'f'); }   // 膝の外＝縦の襞
-  for (let i = 0; i < 9; i++) { const xc = cx - 32 + (i + 0.5) * (64 / 9); for (let k = -3.2; k <= 3.2; k += 0.25) P(G, xc + k, 23.5 + Math.sqrt(Math.max(0, 10.2 - k * k)) * 0.5, 'Y'); }   // 裾の波形（金）
-  for (let y = 0; y <= 20; y += 0.25) P(G, 18 - y * 0.02, y, y % 3 < 1.5 ? 'R' : 'r');                                                              // 盃の深紅（仰蓮を伝う）
-  for (let x = 15; x <= 21; x++) P(G, x, 21, 'R'); for (let x = 16; x <= 20; x++) P(G, x, 22, 'r');                                                  // 帯で溜まる
-  for (let y = 23; y <= 28; y += 0.25) P(G, 18, y, 'r');                                                                                           // さらに反花へ垂れる
-  chain(G, [[6, 24], [16, 30], [26, 24]]); chain(G, [[81, 24], [91, 30], [101, 24]]);                                                            // 金の鎖の垂れ飾り
-  for (const x of [16, 91]) { DISC(G, x, 30.6, 1.5, 'k'); DISC(G, x, 30.6, 1.1, 'R'); P(G, x - 0.4, 30.2, 'A'); }                                  // 鎖の底の深紅の玉
+  for (const dx of [26, 30]) for (let y = 1; y <= 22 + D; y++) { P(G, cx - dx, y, 'k'); P(G, cx - dx + 1, y, 'm'); P(G, cx + dx, y, 'k'); P(G, cx + dx - 1, y, 'f'); }   // 膝の外＝縦の襞
+  for (let i = 0; i < 9; i++) { const xc = cx - 32 + (i + 0.5) * (64 / 9); for (let k = -3.2; k <= 3.2; k += 0.25) P(G, xc + k, 23.5 + D + Math.sqrt(Math.max(0, 10.2 - k * k)) * 0.5, 'Y'); }   // 裾の波形（金）
+  for (let y = 0; y <= 20 + D; y += 0.25) P(G, 18 - y * 0.02, y, y % 3 < 1.5 ? 'R' : 'r');                                                          // 盃の深紅（仰蓮を伝う）
+  for (let x = 15; x <= 21; x++) P(G, x, 21 + D, 'R'); for (let x = 16; x <= 20; x++) P(G, x, 22 + D, 'r');                                          // 帯で溜まる
+  for (let y = 23 + D; y <= 28 + D; y += 0.25) P(G, 18, y, 'r');                                                                                   // さらに反花へ垂れる
+  chain(G, [[6, 24 + D], [16, 30 + D], [26, 24 + D]]); chain(G, [[81, 24 + D], [91, 30 + D], [101, 24 + D]]);                                      // 金の鎖の垂れ飾り
+  for (const x of [16, 91]) { DISC(G, x, 30.6 + D, 1.5, 'k'); DISC(G, x, 30.6 + D, 1.1, 'R'); P(G, x - 0.4, 30.2 + D, 'A'); }                       // 鎖の底の深紅の玉
   OUTLINE(G);
   return R(G);
 })();
@@ -434,35 +442,40 @@ const PEDESTAL = (() => {
 // =====================================================================
 // ④ 本体（body）46×40。上端＝襟（世界 -16）・下端＝膝（+23）。黒鉄の鎧（板の継ぎ目・金の縁・鋲）・帯（深紅の玉）・通気口。左右の肩当てに牙
 // =====================================================================
-const TORSO_W = 46, TORSO_H = 40;
+const TORSO_EXT = 24;                                                                                         // 第27案：骸華自身の胴を縦に伸ばす（+16）。板の継ぎ目は 8 行ごとのまま＝2 本から 4 本に増えて「長い胴」を形が言う。幅（46）は 1 ドットも動かさない
+const TORSO_W = 46, TORSO_H = 40 + TORSO_EXT;
 const TORSO = (() => {
-  const G = g(TORSO_W, TORSO_H), cx = 22.5;
-  const hwAt = (y) => (y <= 8 ? 8.5 + 10.5 * Math.sqrt(Math.max(0, (y - 1) / 7)) : y <= 22 ? 19 - 2 * (y - 8) / 14 : y <= 34 ? 17 + 6 * (y - 22) / 12 : 23);
+  const G = g(TORSO_W, TORSO_H), cx = 22.5, E = TORSO_EXT;
+  const seam = (y) => y >= 13 && y <= 21 + E && (y - 13) % 8 === 0;                                            // 継ぎ目＝13・21・29・37
+  const hwAt = (y) => (y <= 8 ? 8.5 + 10.5 * Math.sqrt(Math.max(0, (y - 1) / 7))                               // なで肩
+    : y <= 22 + E ? 19 - 5.5 * Math.pow((y - 8) / (14 + E), 1.6)                                               // 胸から腰へ細る。伸ばした胴をまっすぐな側面のままにすると箱に見える
+    : y <= 34 + E ? 13.5 + 9.5 * (y - 22 - E) / 12 : 23);                                                      // 腰から膝へ開く＝草摺の張り出し
   for (let y = 1; y < TORSO_H; y++) {
     const hw = hwAt(y);
     for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) {
       const u = (x - cx) / hw;
-      let ch = u < -0.55 ? 'm' : 'j';
-      if (y === 13 || y === 21) ch = 'k';
+      let ch = u < -0.86 ? 'f' : u < -0.4 ? 'm' : u < 0.55 ? 'j' : 'k';                                        // 円筒の陰影＝左に照りの一筋・右は闇へ沈む。二階調のままだと伸ばした胴が平らな黒い板に見える（黒は保つ＝退廃は色で出す）
+      if (seam(y - 1) && u < 0.12) ch = u < -0.4 ? 'f' : 'm';                                                  // 札の段の上端＝光の当たる左半分だけ稜が光る（全幅を光らせると箪笥の引き出しに見えた）。胴は五段＝大鎧の段数
+      if (seam(y)) ch = 'k';
       if (y === 14) ch = u < 0 ? 'R' : 'r';                                                                   // 上の継ぎ目だけ赤糸縅（深紅の糸で板を綴る）
-      if (y === 22) ch = 'r';                                                                                 // 下の継ぎ目は暗い深紅（胸の赤を少し減らす）
-      if (y === 25) ch = u < -0.3 ? 'G' : u < 0.3 ? 'Y' : 'y';
-      if (y === 26) ch = u < -0.3 ? 'Y' : 'y';
+      if (y === 22 + E) ch = 'r';                                                                             // 下の継ぎ目は暗い深紅（胸の赤を少し減らす＝赤は伸ばしても増やさない）
+      if (y === 25 + E) ch = u < -0.3 ? 'G' : u < 0.3 ? 'Y' : 'y';
+      if (y === 26 + E) ch = u < -0.3 ? 'Y' : 'y';
       P(G, x, y, ch);
     }
   }
-  for (let y = 9; y <= 24; y++) if (y !== 13 && y !== 21) P(G, cx, y, 'k');
-  for (const y of [15, 23]) for (const x of [cx - 15, cx - 10, cx + 10, cx + 15]) { P(G, x, y, 'Y'); P(G, x, y - 0.5, 'W'); }
-  for (let y = 27; y <= 29; y++) for (let x = cx - 6; x <= cx + 6; x++) P(G, x, y, y === 28 ? 'k' : 'm');   // 通気口（帯の下）
-  for (const x of [cx - 3, cx + 3]) for (let y = 27; y <= 29; y++) P(G, x, y, 'k');
+  for (let y = 15 + E; y <= 24 + E; y++) if (!seam(y)) P(G, cx, y, 'k');                                       // 引合（胴の合わせ目）は腰の側だけ。伸ばした胴の全長に通すと横の継ぎ目と交差して煉瓦の目地になった
+  for (const y of [15, 23 + E]) for (const x of [cx - 15, cx - 10, cx + 10, cx + 15]) { P(G, x, y, 'Y'); P(G, x, y - 0.5, 'W'); }
+  for (let y = 27 + E; y <= 29 + E; y++) for (let x = cx - 6; x <= cx + 6; x++) P(G, x, y, y === 28 + E ? 'k' : 'm');   // 通気口（帯の下）
+  for (const x of [cx - 3, cx + 3]) for (let y = 27 + E; y <= 29 + E; y++) P(G, x, y, 'k');
   for (const [kx, lit] of [[cx - 12, true], [cx + 12, false]]) {                                            // 膝
-    for (let y = 29; y < TORSO_H; y++) for (let x = Math.ceil(kx - 10.5); x <= Math.floor(kx + 10.5); x++) {
-      const ddx = (x - kx) / 10.5, ddy = (y - 35) / 5.2;
+    for (let y = 29 + E; y < TORSO_H; y++) for (let x = Math.ceil(kx - 10.5); x <= Math.floor(kx + 10.5); x++) {
+      const ddx = (x - kx) / 10.5, ddy = (y - 35 - E) / 5.2;
       if (ddx * ddx + ddy * ddy > 1) continue;
       P(G, x, y, shade4(-(ddx * LIGHT[0] + ddy * LIGHT[1]) * 0.7 - (lit ? 0.2 : 0.55)));
     }
   }
-  for (let y = 31; y < TORSO_H; y++) P(G, cx, y, 'k');
+  for (let y = 31 + E; y < TORSO_H; y++) P(G, cx, y, 'k');
   for (const [dir, lit] of [[-1, true], [1, false]]) {                                                       // 肩当て（2層）＋牙
     for (let layer = 0; layer < 2; layer++) {
       const y0 = 4 + layer * 3, x0 = cx + dir * (10 + layer * 2), x1 = cx + dir * (17 + layer * 2);
@@ -484,7 +497,7 @@ const TORSO = (() => {
   }
   ELL(G, cx, 1.2, 5.5, 1.7, 'k');                                                                                   // 首の穴
   for (let x = cx - 4; x <= cx + 4; x++) P(G, x, 0, 'k');
-  for (const [x, ch] of [[cx - 12, 'Y'], [cx - 6, 'W'], [cx, 'R'], [cx + 6, 'W'], [cx + 12, 'Y']]) P(G, x, 25, ch);   // 帯の玉（中央は深紅）
+  for (const [x, ch] of [[cx - 12, 'Y'], [cx - 6, 'W'], [cx, 'R'], [cx + 6, 'W'], [cx + 12, 'Y']]) P(G, x, 25 + E, ch);   // 帯の玉（中央は深紅）
   P(G, cx + 12, 13, 'N'); P(G, cx + 14, 10, 'C'); P(G, cx - 12, 13, 'N');                                            // 鎧の照り返し
   OUTLINE(G);
   return R(G);
@@ -569,7 +582,7 @@ const ARM_R = (() => {
   OUTLINE(G);
   return R(G);
 })();
-const ARML_W = 52, ARML_H = 164;
+const ARML_W = 52, ARML_H = 190;
 // ORIGIN 45 90
 // 骸華の右手（画面左）。肩 (45,90)＝世界 (-17,-9)。肘 (31,105) → 拳 (10,97)＝世界 (-52,-3)。texture ＝ 世界 + (62, 99)
 // 第22案：ユーザー指示「柄の色はオニキスブラックで。柄の先の金棒部分が、蒼神骸華にあわない。そこを極限まで思考して、いいアイデアを創造して。荘厳さと退廃さをあわせもつ武具を」
@@ -600,7 +613,7 @@ const HEADS = {
     [-4, 'YYYYYYYY'], [-4, 'GmjjjjmY'], [-4, 'YYYYYYYY']] };                        // 基壇＝上框・束・下框
 const armL = (rod) => {
   const G = g(ARML_W, ARML_H), key = HEADS[rod] ? rod : ROD_DEFAULT, H = HEADS[key];
-  const CX = 10, FY = 96, TOP = 83, B0 = -56, B1 = -61;                              // 柄の中心 x・拳の y／棒の頂／柄の下端と石突きの下端（s＝拳から上）。第23案で棒を基壇の下端（世界 +78）まで伸ばした＝床に立てる杖
+  const CX = 10, FY = 96, TOP = 83, B0 = -82, B1 = -87;                              // 柄の中心 x・拳の y／棒の頂／柄の下端と石突きの下端（s＝拳から上）。第27案：身体が縦に 24 伸びた（肩が 10 上がり地が 14 下がった）ぶん柄も伸ばす＝石突きは座の下の地（世界 +74）のまま
   const put = (s, dx, ch) => P(G, CX + dx, FY - s, ch);
   const line = (s, x0, cols) => { for (let i = 0; i < cols.length; i++) if (cols[i] !== '.') put(s, x0 + i, cols[i]); };
   H.forEach(([x0, cols], i) => line(TOP - i, x0, cols));
@@ -756,14 +769,14 @@ const SUZU = (() => {
 // =====================================================================
 // ⑬ 配線（qlegBL・深度7）16×44：左肩の後ろ（世界 -19,-14）から垂れて座の継ぎ口（+28）に刺さる。3本。1本は神経光の導管（連続線）
 // =====================================================================
-const CAB_W = 16, CAB_H = 44;
+const CAB_W = 16, CAB_H = 60;                                                                        // 第27案：胴が 24 伸びて肩と座が離れたぶん配線も伸ばす（44→60）
 const CABLES = (() => {
   const G = g(CAB_W, CAB_H);
   const cable = (pts, ch) => { for (let i = 0; i + 1 < pts.length; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; for (let u = 0; u <= 1; u += 0.02) { const x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u; P(G, x - 0.9, y, 'k'); P(G, x, y, ch); P(G, x + 0.9, y, 'k'); } } };
-  cable([[12, 0], [8, 8], [5, 18], [4, 28], [5, 42]], 'm');
-  cable([[13, 1], [11, 10], [9, 22], [10, 34], [10, 42]], 'c');
-  cable([[14, 2], [13, 9], [12, 18], [12, 30], [11, 42]], 'j');
-  for (let x = 3; x <= 12; x++) { P(G, x, 42, 'Y'); P(G, x, 43, 'y'); }                              // 座の継ぎ口
+  cable([[12, 0], [8, 11], [5, 25], [4, 39], [5, 58]], 'm');
+  cable([[13, 1], [11, 14], [9, 30], [10, 47], [10, 58]], 'c');
+  cable([[14, 2], [13, 12], [12, 25], [12, 42], [11, 58]], 'j');
+  for (let x = 3; x <= 12; x++) { P(G, x, 58, 'Y'); P(G, x, 59, 'y'); }                              // 座の継ぎ口
   OUTLINE(G);
   return R(G);
 })();
@@ -779,7 +792,7 @@ const CONCEPT = CONCEPT_BASE
   + '封印＝三神の環：体を巡る三つの環＝玉座の緑青（座の高さ）・大聖堂の金（裳）・軌道神核の紫（帯）。三神が力を合わせて封じた印で、正面の錠は深紅（紫の環には無い）。円光は骸華自身の光背で、その中は塗り潰した黒＝無い顔。'
   + '祟り神を祀って鎮める形＝跪いて祈る名無しと祈る花弁が祀る者たち。封印は破れていない＝封じられたまま闘う。'
   + '前の右手（画面左）は錫杖＝本来は鳴らして獣を追い払う音の杖で、殺さないための道具。柄は磨いた黒曜石で、鋭い照りが一筋だけ走る。頂は宝塔（ほうとう）＝舎利を納めるための塔で、宝形の屋根が四段に開き、軒の両端に深紅の風鐸（ふうたく）が下がる。塔身の中は塗り潰した黒＝円光の中が空なのと同じで、納められるべき舎利は無い。獣を退けるための杖を人の背丈を越える長さに伸ばし、石突きは座の下の地を踏んでいる＝杖でなく柱として立っている。'
-  + '姿の比＝錫杖まで入れて 142×147 units（横/縦 0.966）・身体だけなら 142×123（1.154）。荘厳具（骸の蓮華・三神の環・蓮華座の段）は体の外へ大きく張り出したまま＝この張り出しが迫力そのもので、詰めると神が小さく見える。縦は錫杖が座の下の地まで届いて作る。'
+  + '姿の比＝身体（錫杖を除く塗り）が 142×147 units（横/縦 0.966）・錫杖まで入れると 142×173（0.821）。荘厳具（骸の蓮華・三神の環・蓮華座の段）は体の外へ大きく張り出したまま＝この張り出しが迫力そのもので、詰めると神が小さく見える。縦は骸華自身の胴を伸ばして作る（胴 46×64＝大鎧の五段）。'
   + '後の右手（画面左上）の月牙は二枚重ね＝手前が深紅の縁に蒼硝子の身、その後ろに同じ刃がもう一枚、暗い深紅と沈んだ蒼で影になって並ぶ。二枚めがあることで「列」になり、片側だけの翼の非対称が効く。'
   + '深紅は封印の内側から滲む神の色＝胸の赤糸縅・円光の宝珠・宝塔の風鐸・環の錠・月牙の玉・死面の涙・胎の心臓・盃の流れ。紙垂は骨白＝封印の紙は清い。';
 const CONCEPT_RET = '「名無し」＝蒼神骸華にもっとも信頼の厚い侍二体（別個体）。跪いて合掌する頭の無い蒼硝子の骸に黒鉄の肩当て、脇に薙刀（蒼硝子の刃・深紅の房）を突き立てる。首を捧げた者だけが侍ることを許される。薙刀で斬り、結界を張り、骸華と三位一体の特殊攻撃を放つ。';
@@ -882,27 +895,28 @@ function build(opts = {}) {   // opts.sword＝曲刀の中の左手（baseR）�
   };
   // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < cannon 10 < arm 11 < core 12
   const rig = [
-    { role: 'thruster', tex: 'ringsB', ox: 0, oy: -14, origin: [0.5, 0] },
-    { role: 'thruster', tex: 'mandorla', ox: 0, oy: -46, origin: [0.5, 0] },
-    { role: 'wingL', tex: 'wingL', ox: -10, oy: -16, origin: [38 / WINGL_W, 53 / WINGL_H] },
-    ...(opts.sword ? [{ role: 'baseR', tex: 'baseR', ox: 14, oy: -12, origin: [2 / BASER_W, 30 / BASER_H] }] : []),
-    { role: 'baseL', tex: 'baseL', ox: -14, oy: -12, origin: [26 / BASEL_W, 17 / BASEL_H] },
-    { role: 'qlegFR', tex: 'qlegR', ox: 12, oy: 6, origin: [2 / QR_W, 26 / QR_H] },
-    { role: 'podL', tex: 'halo', ox: 0, oy: -22, origin: [0.5, 0.5] },
-    { role: 'trackR', tex: 'stackR', ox: 13, oy: -26, origin: [0, 0] },
-    { role: 'trackL', tex: 'stackL', ox: -13, oy: -26, origin: [1, 0] },
-    { role: 'legL', tex: 'pedestal', ox: 0, oy: 20, origin: [0.5, 0] },
-    { role: 'qlegBL', tex: 'cables', ox: -19, oy: -14, origin: [12 / CAB_W, 0] },
-    { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 6, origin: [28 / QL_W, 24 / QL_H] },
-    { role: 'body', tex: 'torso', ox: 0, oy: -16, origin: [0.5, 0] },
-    { role: 'dome', tex: 'crown', ox: 0, oy: -40, origin: [0.5, 0] },
-    { role: 'dome', tex: 'suzu', ox: 21.5, oy: -18, origin: [1 / SUZU_W, 1 / SUZU_H] },
-    { role: 'rack', tex: 'lotus', ox: 0, oy: 1 },
-    { role: 'cannon', tex: 'ringsF', ox: 0, oy: -14, origin: [0.5, 0] },
-    { role: 'cannon', tex: 'seal', ox: 0, oy: 7, origin: [0.5, 0] },
-    { role: 'armR', tex: 'armR', ox: 17, oy: -9, origin: [5 / ARMR_W, 4 / ARMR_H] },
-    { role: 'armL', tex: 'armL', ox: -17, oy: -9, origin: [45 / ARML_W, 90 / ARML_H] },
-    { role: 'core', tex: 'seed', ox: 0, oy: 1 },
+    // 第27案＝身体を縦に 24 伸ばす。肩から上は 10 上げ（-10）・腰から下は 6 下げ（+6）・裳の伸び 8 は蓮華座の中で吸う。横（ox）は 1 ドットも動かさない
+    { role: 'thruster', tex: 'ringsB', ox: 0, oy: 0, origin: [0.5, 0] },
+    { role: 'thruster', tex: 'mandorla', ox: 0, oy: -56, origin: [0.5, 0] },
+    { role: 'wingL', tex: 'wingL', ox: -10, oy: -26, origin: [38 / WINGL_W, 53 / WINGL_H] },
+    ...(opts.sword ? [{ role: 'baseR', tex: 'baseR', ox: 14, oy: -2, origin: [2 / BASER_W, 30 / BASER_H] }] : []),
+    { role: 'baseL', tex: 'baseL', ox: -14, oy: -2, origin: [26 / BASEL_W, 17 / BASEL_H] },
+    { role: 'qlegFR', tex: 'qlegR', ox: 12, oy: 20, origin: [2 / QR_W, 26 / QR_H] },
+    { role: 'podL', tex: 'halo', ox: 0, oy: -32, origin: [0.5, 0.5] },
+    { role: 'trackR', tex: 'stackR', ox: 13, oy: -36, origin: [0, 0] },
+    { role: 'trackL', tex: 'stackL', ox: -13, oy: -36, origin: [1, 0] },
+    { role: 'legL', tex: 'pedestal', ox: 0, oy: 34, origin: [0.5, 0] },
+    { role: 'qlegBL', tex: 'cables', ox: -19, oy: -24, origin: [12 / CAB_W, 0] },
+    { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 20, origin: [28 / QL_W, 24 / QL_H] },
+    { role: 'body', tex: 'torso', ox: 0, oy: -26, origin: [0.5, 0] },
+    { role: 'dome', tex: 'crown', ox: 0, oy: -50, origin: [0.5, 0] },
+    { role: 'dome', tex: 'suzu', ox: 21.5, oy: -28, origin: [1 / SUZU_W, 1 / SUZU_H] },
+    { role: 'rack', tex: 'lotus', ox: 0, oy: -6 },
+    { role: 'cannon', tex: 'ringsF', ox: 0, oy: 0, origin: [0.5, 0] },
+    { role: 'cannon', tex: 'seal', ox: 0, oy: 21, origin: [0.5, 0] },
+    { role: 'armR', tex: 'armR', ox: 17, oy: -19, origin: [5 / ARMR_W, 4 / ARMR_H] },
+    { role: 'armL', tex: 'armL', ox: -17, oy: -19, origin: [45 / ARML_W, 90 / ARML_H] },
+    { role: 'core', tex: 'seed', ox: 0, oy: -6 },
   ];
   return { id: opts.sword ? 'gaika-sword' : 'gaika', name: '蒼神骸華', concept: CONCEPT, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
 }
