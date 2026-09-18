@@ -762,7 +762,7 @@ const WING_L = (() => {                                                         
 //   違いは腕だけ＝骨の腕と拳をやめ、細い黒鉄の支柱（ピストン・ボルト）の先に金の留め金で刃を直に継ぐ＝刃そのものが腕。
 //   rootOff / elbowOff は主の月の中心からの相対。画面右の二本は rig の mirror で反転（逆三日月 → 三日月）
 // =====================================================================
-const MOON_W = 74, MOON_H = 62, MOON_C = [22, 19];
+const MOON_W = 80, MOON_H = 62, MOON_C = [22, 19];
 const moonArm = (rootOff, elbowOff) => {
   const G = g(MOON_W, MOON_H), [cx, cy] = MOON_C;
   const pts = [[cx + rootOff[0], cy + rootOff[1]], [cx + elbowOff[0], cy + elbowOff[1]], [cx - 1, cy + 11]];
@@ -778,18 +778,18 @@ const moonArm = (rootOff, elbowOff) => {
 const MOONS = [   // [刃の中心（世界）, 付け根（世界）, 肘（中心からの相対）]。上から T・M・B。画面左は三本とも・画面右は T と M だけ
   { c: [-27, -60], root: [-10, -24], elbow: [-7, 21] },
   { c: [-48, -34], root: [-14, -16], elbow: [2, 24] },
-  { c: [-54, -6], root: [-14, -6], elbow: [8, 22] },
+  { c: [-64, 8], root: [-14, -4], elbow: [10, 21] },   // 第2稿：支柱を 39→52 に伸ばし下向きに（FB「もう少し長く・少し下向き」）
 ].map((m) => { const off = [m.root[0] - m.c[0], m.root[1] - m.c[1]]; return { ...m, rows: moonArm(off, m.elbow), origin: [(MOON_C[0] + off[0]) / MOON_W, (MOON_C[1] + off[1]) / MOON_H] }; });
 
 // =====================================================================
-// 【第二案】梵鐘のガトリング「百八」（armR・深度11）。自前の両腕で腰だめに構える。世界→スプライトは (+32,+22)
+// 【第二案】梵鐘のガトリング「百八」（armR・深度11）。自前の両腕で腰だめに構える。世界→スプライトは (+GAT_OX,+GAT_OY)。第2稿：腕を野太く（3.4→6.0・拳 3.3→5.2＝FB「これだけ巨大なガトリングは細い腕では持てない」）・肩は ±20 へ・上腕に金の腕輪
 //   後ろ＝黒鉄の胴（マニ車＝回すことが祈り）・中＝黒石の砲身の束（見えるのは四本）と金の箍二つ・先＝砲口がそのまま金の梵鐘（見えるのは三口）
 //   百八の煩悩を払う鐘が百八発を撃つ＝「鎮めの道具を武器に変える」の延長。紙垂が一対、箍から垂れる
 // =====================================================================
-const GAT_W = 112, GAT_H = 82, GAT_K = 1.25;   // GAT_K＝太さの倍率（1回目は体に対して小さかった）
+const GAT_W = 118, GAT_H = 88, GAT_K = 1.25, GAT_OX = 36, GAT_OY = 26;   // GAT_K＝太さの倍率（1回目は体に対して小さかった）
 const GATLING = (() => {
-  const G = g(GAT_W, GAT_H), X = (x) => x + 32, Y = (y) => y + 22;
-  arm(G, [[X(-17), Y(-17)], [X(-26), Y(-3)], [X(-11), Y(1)]], 3.4, 2.6);                                                   // 骸華の右手（画面左）＝後ろの握り
+  const G = g(GAT_W, GAT_H), X = (x) => x + GAT_OX, Y = (y) => y + GAT_OY;
+  arm(G, [[X(-20), Y(-16)], [X(-29), Y(-1)], [X(-11), Y(1)]], 6.0, 4.8); armlet(G, [X(-20), Y(-16)], [X(-29), Y(-1)], 0.5, 6.0, true);                                                   // 骸華の右手（画面左）＝後ろの握り
   const ax0 = X(-6), ay0 = Y(4), dx = 68, dy = 38, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;  // n は左下向き＝k<0 が光の当たる上側
   const slab = (u0, u1, hw, col, kc = 0) => { for (let u = u0; u <= u1; u += 0.2 / L) { const h = (typeof hw === 'function' ? hw(u) : hw) * GAT_K, kk = kc * GAT_K; for (let k = -h; k <= h; k += 0.25) { const c = col(k / h, u); if (c) P(G, ax0 + ux * L * u + nx * (k + kk), ay0 + uy * L * u + ny * (k + kk), c); } } };
   const gold = (v) => (v < -0.55 ? 'G' : v < 0.3 ? 'Y' : 'y');
@@ -809,8 +809,8 @@ const GATLING = (() => {
   for (const u of [0.34, 0.58]) for (let k = -11 * GAT_K; k <= -6.4 * GAT_K; k += 0.25) for (let j = -0.8; j <= 0.8; j += 0.25) P(G, ax0 + ux * (L * u + j) + nx * k, ay0 + uy * (L * u + j) + ny * k, 'm');   // 提げ手の脚
   slab(0.32, 0.60, 1.2, (v) => (v < 0 ? 'f' : 'm'), -11);                                                                 // 提げ手
   const hx = ax0 + ux * L * 0.46 + nx * -11 * GAT_K, hy = ay0 + uy * L * 0.46 + ny * -11 * GAT_K;
-  arm(G, [[X(17), Y(-17)], [X(33), Y(-4)], [hx, hy]], 3.4, 2.6); fist(G, hx, hy, 3.3, 3.0);                               // 骸華の左手（画面右）＝提げ手を握る
-  fist(G, X(-11), Y(1), 3.3, 3.0);
+  arm(G, [[X(20), Y(-16)], [X(37), Y(-3)], [hx, hy]], 6.0, 4.8); armlet(G, [X(20), Y(-16)], [X(37), Y(-3)], 0.5, 6.0, true); fist(G, hx, hy, 5.2, 4.6);                               // 骸華の左手（画面右）＝提げ手を握る
+  fist(G, X(-11), Y(1), 5.2, 4.6);
   OUTLINE(G);
   return R(G);
 })();
@@ -1056,16 +1056,16 @@ const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
   + '【第二案】腕は持ち物ごと全て外した。右半身（画面左）に逆三日月の機械腕が上下に三本、左半身（画面右）に三日月の機械腕が二本＝刃そのものが腕（深紅の縁・蒼硝子の身・深紅の玉）。'
   + '自前の両腕は梵鐘のガトリング「百八」を腰だめに構える＝黒鉄の胴・黒石の砲身の束・砲口がそのまま金の梵鐘。';
 function build2(opts = {}) {
-  const P7 = (rows) => ({ rows, palette: PAL });
+  const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ringsB: P7(RINGS_B), ...(opts.mandorla === false ? {} : { mandorla: P7(mandorla('A')) }), ringsF: P7(RINGS_F), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(PEDESTAL),
+    ringsB: P7(RINGS_B), ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), ringsF: P7(RINGS_F), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(PEDESTAL),
     torso: P7(TORSO), crown: P7(CROWN), lotus: P7(LOTUS), stackR: P7(STACK_R), stackL: P7(STACK_L), suzu: P7(SUZU), cables: P7(CABLES), seed: P7(SEED),
     moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), gatling: P7(GATLING),
   };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS[i].root[0] * (mirror ? -1 : 1), oy: MOONS[i].root[1], origin: MOONS[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'ringsB', ox: 0, oy: -4, origin: [0.5, 0] },
-    ...(opts.mandorla === false ? [] : [{ role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] }]),
+    ...(noMan ? [] : [{ role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] }]),
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),
     { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
     { role: 'trackR', tex: 'stackR', ox: 13, oy: -34, origin: [0, 0] },
@@ -1078,13 +1078,13 @@ function build2(opts = {}) {
     { role: 'rack', tex: 'lotus', ox: 0, oy: -4 },
     { role: 'cannon', tex: 'ringsF', ox: 0, oy: -4, origin: [0.5, 0] },
     { role: 'cannon', tex: 'seal', ox: 0, oy: 17, origin: [0.5, 0] },
-    { role: 'armR', tex: 'gatling', ox: 0, oy: 0, origin: [32 / GAT_W, 22 / GAT_H] },
+    { role: 'armR', tex: 'gatling', ox: 0, oy: 0, origin: [GAT_OX / GAT_W, GAT_OY / GAT_H] },
     { role: 'core', tex: 'seed', ox: 0, oy: -4 },
   ];
-  return { id: 'gaika2' + (opts.mandorla === false ? '-nomandorla' : ''), name: '蒼神骸華', concept: CONCEPT2, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
+  return { id: 'gaika2' + (noMan ? '' : '-mandorla'), name: '蒼神骸華', concept: CONCEPT2, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
 }
 export const GAIKA2 = build2();
-export const GAIKA2_NOMANDORLA = build2({ mandorla: false });
+export const GAIKA2_MANDORLA = build2({ mandorla: true });   // 比較用＝光背あり（第1稿の姿）
 export const GAIKA = build();
 export const GAIKA_SWORD = build({ sword: false });   // 比較用の変種＝曲刀の腕なし（第14案改〜第28案改３までの姿）
 export const GAIKA_RODS = { A: build({ rod: 'A' }), B: build({ rod: 'B' }), C: build({ rod: 'C' }), D: build({ rod: 'D' }) };   // 第20案：棒の柄の仕上げ 4 種（形は同じ・比較用）
