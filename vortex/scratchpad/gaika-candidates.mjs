@@ -1164,6 +1164,59 @@ const SKIRT = skirtTex([[-27, 12, 54, 5.5, 13], [27, 12, 54, 5.5, 13], [-50, 22,
 const SK4_H = 150;
 const SKIRT4 = skirtTex([[-27, 12, 92, 11.5, 11.5], [27, 12, 92, 11.5, 11.5], [-50, 22, 80, 8.5, 8.5], [50, 22, 80, 8.5, 8.5]], [[-50, 82, 34, 7], [50, 82, 34, 7], [-27, 94, 48, 9.5], [27, 94, 48, 9.5]], SK4_H, 'tube');
 
+// 第25稿：ユーザーの資料（ネオ・ジオングの二つの版）＝下半身を「腰の扇」と「脚」に分け、脚を二通り作る
+const SK_BLADES = skirtTex([], [], SK_H);   // 逆さ扇⭐の刃だけ（噴射口は脚の側が持つ）
+
+// 版A＝ロケットブースター（資料の左）。等径の太い円筒が二本・下寄りに明るい帯が二本・先端に金の口縁と灼け
+const BOOST_W = 130, BOOST_H = 192, BOOST_CX = 65, BOOST_Y1 = 120;
+const BOOST = (() => {
+  const G = g(BOOST_W, BOOST_H), cx = BOOST_CX;
+  for (const s of [-1, 1]) {
+    const bx = s * 25, hw = 14;
+    for (let y = 0; y <= BOOST_Y1; y += 0.5) {
+      const lip = y > BOOST_Y1 - 6, band = (y > 86 && y < 91.5) || (y > 96 && y < 101.5), half = lip ? hw + 2.6 : hw;
+      for (let x = -half; x <= half; x += 0.5) {
+        const v = x / half;
+        let c;
+        if (lip) c = y > BOOST_Y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.abs(v) > 0.88 ? 'k' : v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j';
+        else if (band) c = Math.abs(v) > 0.9 ? 'k' : v < -0.45 ? 'n' : v < 0.35 ? 's' : 'f';
+        else c = Math.abs(v) > 0.93 ? 'k' : v < -0.68 ? 'm' : v < -0.22 ? 'f' : v < 0.5 ? 'm' : 'j';
+        P(G, cx + bx + x, y, c);
+      }
+    }
+    for (let x = -hw + 1; x <= hw - 1; x += 0.5) for (let y = 0; y <= 3.5; y += 0.5) P(G, cx + bx + x, BOOST_Y1 - 4 + y, Math.abs(x) < hw * 0.4 ? 'G' : Math.abs(x) < hw * 0.75 ? 'A' : 'R');
+    for (let y = 0; y <= 58; y += 0.25) { const tt = y / 58, w = 11.5 * Math.pow(1 - tt, 0.7) + 0.3; for (let x = -w; x <= w; x += 0.25) { const a = Math.abs(x) / w + tt * 0.5; P(G, cx + bx + x, BOOST_Y1 + 3 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); } }
+  }
+  OUTLINE(G);
+  return R(G);
+})();
+
+// 版B＝脚（資料の右）。腿・膝・脛・足の四節。膝と足の縁に金・脛に深紅の一筋
+const LEG_W = 160, LEG_H = 178, LEG_CX = 80;
+const LEGS = (() => {
+  const G = g(LEG_W, LEG_H), cx = LEG_CX;
+  const seg = (s, y0, y1, x0, x1, h0, h1, gold) => {
+    for (let y = y0; y <= y1; y += 0.5) {
+      const u = (y - y0) / (y1 - y0), bx = s * (x0 + (x1 - x0) * u), hw = h0 + (h1 - h0) * u;
+      for (let x = -hw; x <= hw; x += 0.5) {
+        const v = s > 0 ? x / hw : -x / hw;
+        let c = Math.abs(v) > 0.93 ? 'k' : v < -0.62 ? 'f' : v < -0.05 ? 'm' : v < 0.72 ? 'j' : 'k';
+        if (gold && (y < y0 + 1.8 || y > y1 - 1.8)) c = v < 0 ? 'Y' : 'y';
+        P(G, cx + bx + x, y, c);
+      }
+    }
+  };
+  for (const s of [-1, 1]) {
+    seg(s, 2, 56, 24, 25, 16, 14.5, false);
+    seg(s, 54, 72, 25, 26, 17.5, 16, true);
+    seg(s, 70, 142, 26, 28, 15, 12, false);
+    seg(s, 140, 160, 28, 29.5, 18, 15, true);
+    for (let y = 78; y <= 134; y += 0.5) { const u = (y - 70) / 72, bx = s * (26 + 2 * u), hw = 15 - 3 * u; for (let x = -1.3; x <= 1.3; x += 0.5) P(G, cx + bx + x + s * hw * 0.42, y, x < 0 ? 'R' : 'r'); }
+  }
+  OUTLINE(G);
+  return R(G);
+})();
+
 // 肩＝推進器の箱（第10稿）。面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本。X/Y は世界→スプライトの写像
 // 幾何の向きのままの帯（mkSlab の col は光の向きで符号が返るので刃側と峰側を塗り分けられない）。k は法線 (-uy,ux) の向き・hN/hP＝負側／正側の半幅
 function geoSlab(G, x0, y0, x1, y1, hN, hP, col) {
@@ -1601,7 +1654,7 @@ const TORSO4 = (() => {
       P(G, X(x), Y(y), c);
     }
   }
-  for (const s of [-1, 1]) { DISC(G, X(s * 30.5), Y(-27), 6.6, 'k'); DISC(G, X(s * 30.5), Y(-27), 5.7, 'm'); DISC(G, X(s * 30.5), Y(-27), 3.8, 'k'); DISC(G, X(s * 30.5), Y(-27), 2.8, s < 0 ? 'f' : 'm'); }   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
+  for (const s of [-1, 1]) for (const [dx, dy] of [[35, -28], [36.5, -6]]) { DISC(G, X(s * dx), Y(dy), 6.6, 'k'); DISC(G, X(s * dx), Y(dy), 5.7, 'm'); DISC(G, X(s * dx), Y(dy), 3.8, 'k'); DISC(G, X(s * dx), Y(dy), 2.8, s < 0 ? 'f' : 'm'); }   // 第25稿：四本の腕ぶん関節を上下二つに   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
   // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
   for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
   for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
@@ -1649,7 +1702,7 @@ const HANDS4 = (() => {
 // 第21稿：FB「仏の印の手は不要。創造して」「四本の光刃がそぐわない。浮いている。ただ四本の光刃はいれたい。ノイエ・ジールを参考に」＝二つを一つに統合。
 //   ノイエ・ジールの光刃は、バインダーの中から出る装甲の腕の爪の中心から出る。細い骨の副腕（第一案の語彙＝浮いた原因）をやめ、**紺の装甲の腕四本が肩の装甲の陰から現れ、爪の中心から太い光刃を下へ抜く**＝これが両腕を兼ねる（四本腕の闘神）。
 //   深度は肩の装甲より奥（rig で shell の前に置く）＝腕は装甲の外の輪郭から生える
-const ARM4_W = 328, ARM4_H = 204, ARM4_O = [164, 32];
+const ARM4_W = 328, ARM4_H = 260, ARM4_O = [164, 48];   // 第25稿：付け根を肩の関節へ上げたぶん原点を下げ、下へ垂らした腕が入るよう縦を伸ばす
 function arms4(sb) {   // sb＝光刃の色 {core, a, b, c}
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   const one = (s, root, elbow, wrist, deg, L) => {
@@ -1666,7 +1719,8 @@ function arms4(sb) {   // sb＝光刃の色 {core, a, b, c}
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 5 + Math.cos(ca) * 14, W0[1] + dy * 5 + Math.sin(ca) * 14); cl.slab(0, 1, (u) => 3.2 * (1 - u) + 0.4, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 爪二本
     const em = mkSlab(G, S0[0] - dx * 1.5, S0[1] - dy * 1.5, S0[0] + dx * 2, S0[1] + dy * 2); em.slab(0, 1, 4.4, goldCol);                                                  // 発振器の金の輪
   };
-  for (const s of [-1, 1]) { one(s, [42, -14], [76, 4], [100, 30], 62, 100); one(s, [34, 10], [60, 32], [82, 54], 80, 104); }
+  // 第25稿：FB「腕が下過ぎ。腕の付け根が宙に浮いてる？」＝根を胴の肩の関節の円盤（上 ±30.5,−27／下 ±32,−7）に合わせ、全体を上へ
+  for (const s of [-1, 1]) { one(s, [36, -28], [70, -4], [92, 26], 62, 100); one(s, [37, -6], [64, 20], [82, 48], 80, 104); }   // 根は肩の関節・肘から先は下へ垂らす（刃は下外向き）
   OUTLINE(G);
   return R(G);
 }
@@ -1684,12 +1738,14 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
 
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
 function build4(o = {}) {
+  const limbs = o.limbs || 'booster';
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SKIRT4), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SK_BLADES), limbs: P7(limbs === 'leg' ? LEGS : BOOST), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
+    { role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] },   // 第25稿：脚は腰の扇より奥
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),   // 第22稿：月牙を戻す（3対2）
@@ -1704,7 +1760,8 @@ export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-
   [build4({ tag: '-V22', ring: 'red', tongue: 'red', saber: 'red', trim: ['R', 'R'], glow: ['#8a1622', '#ff7a3a'] }), '22nd  ALL CRIMSON'],
   [build4({ tag: '-ALLBLUE', ring: 'blue', tongue: 'blue', saber: 'blue' }), 'REJECTED  ALL BLUE'],
 ];
-export const GAIKA2 = build4();
+export const GAIKA2 = build4();                                   // 版A＝ロケットブースター
+export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });   // 版B＝脚
 
 
 export const GAIKA2_MANDORLA = build2({ mandorla: true });   // 比較用＝光背あり（第1稿の姿）
