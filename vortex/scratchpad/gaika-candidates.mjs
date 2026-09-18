@@ -1186,7 +1186,7 @@ const BOOST = (() => {
           else if (i > 0 && y < y0 + 5.4) c = 'r';
           else if (y > y1 - 1.7 && i < 2) c = v < 0 ? 'Y' : 'y';
           else if (Math.abs(Math.abs(v) - 0.56) < 0.05) c = 'k';
-          else c = Math.abs(v) > 0.93 ? 'k' : v < -0.68 ? 'm' : v < -0.22 ? 'f' : v < 0.52 ? 'm' : 'j';
+          else c = Math.abs(v) > 0.93 ? 'k' : v < -0.68 ? 'j' : v < -0.22 ? 'm' : v < 0.52 ? 'j' : 'k';
           P(G, cx + bx + x, y, c);
         }
       }
@@ -1615,7 +1615,7 @@ const SH_W = 102, SH_H = 208, SH_TOP = -134, SH_LEN = 186;   // 2回目：1回�
 // 第22稿：FB「二枚の紺の装甲がよくない。ひとめですごく目立つ。浮いて見える」「昔のロボットアニメのヒーロー風な感じが強い。12稿の方が悪神的な破滅的要素があった」
 //   診断＝ヒーロー感の正体は①彩度の高い青＋赤＋金の三原色 ②滑らかな曲線に等間隔の金の縞。第12稿の悪神らしさ＝黒鉄と深紅・鋭角の面・月牙の深紅の曲線・左右の非対称。
 //   直し＝輪郭を折れ線の鋭角へ・紺をやめ黒鉄と鋼（稜線で割った二面）・段は三枚で隙間から炉の光・外の縁は逆さ扇⭐と同じ「縁から入った深紅の刺繍」・金は牙の先だけ。月牙は build4 の rig で戻す
-const SH_IN = [[22, -134], [15, -70], [17, -6], [52, 52]], SH_OUT = [[22, -134], [66, -108], [97, -44], [86, 8], [52, 52]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [52, 52]];
+const SH_IN = [[22, -134], [15, -70], [17, -6], [52, 52]], SH_OUT = [[22, -134], [52, -100], [84, -46], [88, 6], [52, 52]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [52, 52]];
 const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
 const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
 function shell(s, trim = ['R', 'R']) {
@@ -1631,12 +1631,12 @@ function shell(s, trim = ['R', 'R']) {
       else if (dIn < 4.3) c = 'k';
       else if (dIn < 12 && tt > 0.1 && tt < 0.86) c = Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j';       // 黒い内板（放熱の横溝）
       else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = 'k';
-      else if (f > 0.9 && fr < 0.04) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
-      else if (f > 0.9 && fr < 0.085) c = 'r';
-      else if (f > 0.9 && fr < 0.15) c = 'k';
+      else if (f > 0.9 && fr < 0.075) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
+      else if (f > 0.9 && fr < 0.15) c = 'r';
+      else if (f > 0.9 && fr < 0.22) c = 'k';
       else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
-      else c = lit ? (fr > 0.9 ? 'f' : 'm') : dOut < 1.2 || fr > 0.93 ? 'k' : 'j';                     // 黒鉄の二面（光の面は鋼）
+      else c = lit ? (fr > 0.9 ? 'm' : 'j') : 'k';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
       P(G, X(s * x), Y(y), c);
     }
   }
@@ -1645,10 +1645,10 @@ function shell(s, trim = ['R', 'R']) {
   return R(G);
 }
 // 月牙（第二案の最初の指示＝右半身に三本・左半身に二本）。肩の面に格納二枚ずつ、画面左の一枚は発射済みで有線で輪の外に浮く
-const MOONS4 = [{ c: [-52, -82], root: [-52, -82], mode: 'dock' }, { c: [-68, -40], root: [-68, -40], mode: 'dock' }, { c: [-132, -68], root: [-78, -30], mode: 'wire' }]
+const MOONS4 = [{ c: [-50, -86], root: [-50, -86], mode: 'dock' }, { c: [-64, -46], root: [-64, -46], mode: 'dock' }, { c: [-72, -8], root: [-72, -8], mode: 'dock' }, { c: [-132, -68], root: [-78, -30], mode: 'wire' }]
   .map((m) => { const off = [m.root[0] - m.c[0], m.root[1] - m.c[1]]; return { ...m, rows: moonArm(off, [10, 21], m.mode), origin: [(MOON_C[0] + off[0]) / MOON_W, (MOON_C[1] + off[1]) / MOON_H] }; });
 
-const TOR4_W = 76, TOR4_H = 98, TOR4_OY = 58;
+const TOR4_W = 76, TOR4_H = 112, TOR4_OY = 58;   // 第28稿：腰の下に牙の列を足すぶん縦を伸ばす
 const TORSO4 = (() => {
   const G = g(TOR4_W, TOR4_H), X = (x) => x + 38, Y = (y) => y + TOR4_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
   for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * 12, -53], [s * 22, -46], [s * 25, -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
@@ -1658,10 +1658,10 @@ const TORSO4 = (() => {
       const lx = (x + w) / (2 * w);
       let c;
       if (y < -33) c = lx < 0.3 ? 'm' : 'j';
-      else if (y < -3) c = y > -4.6 ? 'R' : Math.abs(Math.abs(x) - 16) < 0.5 ? 'k' : Math.abs(x) > 17.5 && Math.abs(x) < 24.5 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55) ? 'k' : lx < 0.05 ? 'f' : lx < 0.42 ? 'm' : lx < 0.94 ? 'j' : 'k';                   // 紺の胸（分割線・吸気の溝・下の縁に金）
+      else if (y < -3) c = y > -4.6 ? 'R' : Math.abs(Math.abs(x) - 16) < 0.5 ? 'k' : Math.abs(x) > 17.5 && Math.abs(x) < 24.5 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55) ? 'k' : lx < 0.05 ? 'm' : lx < 0.44 ? 'j' : 'k';                   // 紺の胸（分割線・吸気の溝・下の縁に金）
       else if (y < 18) c = Math.abs(((y + 3) % 5.2) - 0.3) < 0.5 ? 'k' : lx < 0.12 ? 'm' : lx < 0.6 ? 'j' : 'k';   // 節のある黒い腹
       else if (y < 22) c = y < 19 ? 'Y' : 'y';   // くすんだ金の帯
-      else c = y > 36.4 ? 'R' : lx < 0.05 ? 'f' : lx < 0.4 ? 'm' : lx < 0.92 ? 'j' : 'k';   // 腰
+      else c = y > 36.4 ? 'R' : lx < 0.05 ? 'm' : lx < 0.42 ? 'j' : 'k';   // 腰
       P(G, X(x), Y(y), c);
     }
   }
@@ -1669,6 +1669,7 @@ const TORSO4 = (() => {
   // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
   for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
   for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
+  for (const bx of [-21, -14, -7, 0, 7, 14, 21]) for (let y = 0; y <= 11; y += 0.5) { const hw = 3.2 * (1 - y / 11); for (let x = -hw; x <= hw; x += 0.5) P(G, X(bx + x), Y(38 + y), y > 8.4 ? 's' : x < -hw * 0.3 ? 'f' : x < hw * 0.5 ? 'm' : 'k'); }   // 第28稿：腰の牙の列（第12稿）
   OUTLINE(G);
   return R(G);
 })();
@@ -1719,7 +1720,7 @@ function arms4(sb) {
     const pts = [[33, -28], [48, 6], [57, 42]].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 7.2);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k'));
+    fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
     fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
     fa.slab(0.42, 0.75, 2.8, (v) => (v < 0 ? 'R' : 'r'));
     const W0 = pts[2], dx = s * 0.26, dy = 0.966;
@@ -1736,7 +1737,7 @@ function arms4(sb) {
     const pts = [[52, -30], [86, -2], [104, 26]].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 4.4);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    fa.slab(0.22, 0.9, 6.2, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k'));
+    fa.slab(0.22, 0.9, 6.2, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
     fa.slab(0.22, 0.3, 6.8, goldCol); fa.slab(0.82, 0.9, 6.8, goldCol);
     fa.slab(0.4, 0.72, 1.7, (v) => (v < 0 ? sb.b : sb.c));
     const a = (62 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
@@ -1768,14 +1769,14 @@ function build4(o = {}) {
   const limbs = o.limbs || 'booster';
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SK_BLADES), limbs: P7(limbs === 'leg' ? LEGS : BOOST), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
-  const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SK_BLADES), limbs: P7(limbs === 'leg' ? LEGS : BOOST), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     { role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] },   // 第25稿：脚は腰の扇より奥
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
-    moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),   // 第22稿：月牙を戻す（3対2）
+    moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
