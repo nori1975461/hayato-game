@@ -1144,44 +1144,65 @@ const SKIRT = (() => {
 })();
 
 // 肩＝推進器の箱（第10稿）。面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本。X/Y は世界→スプライトの写像
+// 幾何の向きのままの帯（mkSlab の col は光の向きで符号が返るので刃側と峰側を塗り分けられない）。k は法線 (-uy,ux) の向き・hN/hP＝負側／正側の半幅
+function geoSlab(G, x0, y0, x1, y1, hN, hP, col) {
+  const m = mkSlab(G, x0, y0, x1, y1);
+  for (let u = 0; u <= 1; u += 0.2 / m.L) { const a = hN(u), b = hP(u); for (let k = -a; k <= b; k += 0.25) { const c = col(k, u, a, b); if (c) { const [x, y] = m.pt(u, k); P(G, x, y, c); } } }
+}
+// 第15稿：FB「肩のプロテクターもいまの蒼神骸華に合うように」＝排気の溝三本の箱（放熱器に見える別の機体の部品）をやめ、逆さ扇・バインダーと同じ刃の語彙の**楔形の装甲**へ。
+//   鋼の面二つ（稜線一本）・外の縁から入った深紅の刺繍・切っ先の金・稜線に灼けた溝一本だけ。切っ先は外上へ跳ね、頭のまわりの刃の放射に加わる
 function shoulderBoxes(G, X, Y) {
+  const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), ds = (a, b, x, y) => Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1]);
   for (const s of [-1, 1]) {
-    const q = [[-6, -8], [12, -10], [14, 2], [9, 8], [-6, 5]].map(([o, y]) => [X(s * (20 + o)), Y(-17 + y)]);
-    const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
-    for (let y = Y(-28); y <= Y(-8); y += 0.25) for (let o = -7; o <= 15; o += 0.25) {
+    const q = [[-7, -9], [17, -24], [23, -3], [13, 9], [-7, 6]].map(([o, y]) => [X(s * (20 + o)), Y(-17 + y)]);
+    const A = [X(s * 13), Y(-18)], Pk = q[1], RL2 = (Pk[0] - A[0]) ** 2 + (Pk[1] - A[1]) ** 2, upSign = Math.sign(cr(A, Pk, q[0][0], q[0][1]));
+    for (let y = Y(-43); y <= Y(-6); y += 0.25) for (let o = -8; o <= 24; o += 0.25) {
       const x = X(s * (20 + o)), sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % 5], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
-      const ry = y - Y(-17), vent = [-2, 1, 4].some((vy) => Math.abs(ry - vy) < 0.6) && o > -3 && o < 8;
-      P(G, x, y, vent ? (Math.abs(o - 2.5) < 1.5 ? 'A' : 'R') : ry < -6.5 ? 'f' : ry < -4.5 ? 'm' : Math.abs(ry + 4) < 0.4 ? 'k' : o > 10.5 ? (s < 0 ? 'm' : 'k') : 'j');
+      const tR = ((x - A[0]) * (Pk[0] - A[0]) + (y - A[1]) * (Pk[1] - A[1])) / RL2, dR = ds(A, Pk, x, y), dPk = Math.hypot(x - Pk[0], y - Pk[1]);
+      const emb = Math.min(ds(q[1], q[2], x, y), ds(q[2], q[3], x, y)), up = Math.sign(cr(A, Pk, x, y)) === upSign;
+      let c;
+      if (dPk < 1.6) c = 'G'; else if (dPk < 3.8) c = 'Y';
+      else if (dR < 0.45) c = 'k';   // 3回目：稜線の灼けた溝は消した（角・襟・刺繍の赤い斜線と混む）＝稜線は黒一本
+      else if (emb >= 1.4 && emb < 2.3) c = 'R';
+      else if (up) c = ds(q[0], q[1], x, y) < 0.8 ? (s < 0 ? 's' : 'f') : s < 0 ? 'f' : 'm';
+      else c = ds(q[3], q[4], x, y) < 0.9 || ds(q[2], q[3], x, y) < 0.7 ? 'k' : 'j';
+      P(G, x, y, c);
     }
   }
 }
 // 【第二案 第13稿】機械の頭と襟の装甲（dome）。FB「いまの蒼神骸華に、いまの顔がもはやあわない。顔と肩まわりを修正して」＝金の冕冠・骨の角・玉の簾・排気管・鈴・配線を外す。
 //   低い多面の兜が襟の装甲に沈み、深紅の溝の中を単眼が一つだけ灯る。立物は金の刃一枚と、後ろへ払った黒い鰭二枚。世界→スプライトは (+32,+62)
-const HEAD2_W = 64, HEAD2_H = 58;   // 第14稿：FB「顔が全然だめ。仮面ライダーにちかい。機械よりも人間ぽい。**破滅的な悪魔の機械**」＝第13稿は兜・横一文字の目・中央の立物＝人の頭の記号を三つ揃えていた。
-//   直し＝マオウレクスで合格した「顔は構造であって顔ではない」へ戻す。目は無い。頭は下へ尖る黒い楔で、正中が縦に裂けて中の炉が灼け、下で口に開いて黒い牙の格子が掛かる。角は内へ曲がる黒い刃二本。襟は刃。世界→スプライトは (+32,+74)
+// 第15稿：FB「顔がダメ。破滅的なイメージとスタイリッシュさを併せ持った顔に」＝第14稿（炉の裂け目と牙の格子・内へ曲がる短い角）は禍々しいが鈍重で洒落ていなかった。
+//   直し＝**線を減らす**。下へ長く尖る鋼の頭巾（嘴）・V 字の黒い溝を走る**蒼い単眼**（灼ける機体のなかで唯一冷たい光＝蒼神の名。画面左＝放った月牙の方を睨む）・外上へ真っ直ぐ払う長い黒い刃の角二本（内の縁が深紅）。
+//   金の立物と赤い目は置かない（第13稿の「仮面ライダー」の原因）。世界→スプライトは (+32,+HEAD2_OY)
+const HEAD2_W = 72, HEAD2_H = 72, HEAD2_OY = 86;   // 2回目：角は黒だとバインダーの内の面（j）に沈んだ＝鋼へ。耳に見えないよう広い V に開く
 const HEAD2 = (() => {
-  const G = g(HEAD2_W, HEAD2_H), X = (x) => x + 32, Y = (y) => y + 74;
+  const G = g(HEAD2_W, HEAD2_H), X = (x) => x + 36, Y = (y) => y + HEAD2_OY;
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), dist = (a, b, x, y) => Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1]);
   const fillPoly = (pts, col) => { const q = pts.map(([x, y]) => [X(x), Y(y)]), N = q.length; for (let y = 0; y < HEAD2_H; y += 0.25) for (let x = 0; x < HEAD2_W; x += 0.25) { const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue; P(G, x, y, col(x - X(0), y - Y(0), (i) => dist(q[i], q[(i + 1) % N], x, y))); } };
-  for (const s of [-1, 1]) fillPoly([[s * 6, -24], [s * 15, -48], [s * 22, -36], [s * 14, -21]], (x, y, d) => (d(0) < 0.8 ? 'm' : Math.min(d(0), d(1)) >= 1.3 && Math.min(d(0), d(1)) < 2.3 ? 'R' : s < 0 ? 'j' : 'k'));   // 襟の刃
-  for (const s of [-1, 1]) {   // 悪魔の角＝外へ立ち上がり内へ曲がる黒い刃
-    const a = mkSlab(G, X(s * 7), Y(-42), X(s * 13), Y(-58)); a.slab(0, 1, (u) => 3.0 - 1.3 * u, (v) => (v < 0 ? 'm' : 'j'));
-    const b = mkSlab(G, X(s * 13), Y(-58), X(s * 9), Y(-71)); b.slab(0, 1, (u) => 1.7 * (1 - u) + 0.35, (v, u) => (u > 0.72 ? 'Y' : v < 0 ? 'm' : 'j'));
-  }
-  fillPoly([[-16, -40], [-6, -45], [6, -45], [16, -40], [8, -23], [-8, -23]], (x, y, d) => {
-    const w = y < -33 ? 1.0 + 0.5 * ((y + 45) / 12) : 1.5 + 4.6 * Math.sin(Math.min(1, (y + 33) / 9) * Math.PI * 0.6), ax = Math.abs(x);
-    if (ax <= w) return y > -31 && Math.abs(ax - 2.6) < 0.55 ? 'k' : ax < w * 0.35 ? 'G' : ax < w * 0.7 ? 'A' : 'R';   // 炉の裂け目と牙の格子
-    if (ax <= w + 0.9) return 'k';
-    if (Math.abs(ax - 8) < 0.45 && y > -41) return 'k';                                                               // 装甲の分割線
-    return y < -42 ? 'm' : Math.min(d(0), d(5)) < 0.8 && x < 0 ? 'm' : x < 0 || ax < 11 ? 'j' : 'k';   // 右半分を全部 k にすると輪郭が消える＝外の縁だけ k
+  const segD = (ax, ay, bx, by, x, y) => { const vx = bx - ax, vy = by - ay, u = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy))); return Math.hypot(x - ax - vx * u, y - ay - vy * u); };
+  for (const s of [-1, 1]) fillPoly([[s * 6, -24], [s * 15, -48], [s * 22, -36], [s * 14, -21]], (x, y, d) => (d(0) < 0.8 ? 'm' : Math.min(d(0), d(1)) >= 1.3 && Math.min(d(0), d(1)) < 2.3 ? 'R' : 'j'));   // 襟の刃
+  for (const s of [-1, 1]) geoSlab(G, X(s * 5.5), Y(-45), X(s * 12.5), Y(-85), (u) => 2.6 * (1 - u) + 0.3, (u) => 2.6 * (1 - u) + 0.3,   /* 3回目：広い V は月牙の円盤を横切って両方を損ねた＝バインダーの間の隙間（|x|<14）に収まる急な細い V へ */ (k, u, a) => { const e = (k * s) / a; return e < -0.5 ? 'A' : e < -0.1 ? 'R' : e > 0.5 ? (s < 0 ? 's' : 'm') : s < 0 ? 'f' : 'm'; });   // 角＝外上へ払う長い刃（内の縁が灼ける）
+  const EYE = [-5.4, -33.6];
+  fillPoly([[-15, -41], [-5, -47], [5, -47], [15, -41], [11, -33], [0, -17], [-11, -33]], (x, y, d) => {
+    const de = Math.hypot(x - EYE[0], y - EYE[1]), dv = Math.min(segD(0, -30, -12, -38, x, y), segD(0, -30, 12, -38, x, y));
+    if (de < 1.2) return 'C'; if (de < 2.2) return 'N'; if (de < 3.0) return 'P';
+    if (dv < 0.6) return 'Q'; if (dv < 1.8) return 'k';                                          // V 字の溝と単眼の軌条
+    const ch = Math.min(d(4), d(5)); if (y > -29 && ch >= 1.2 && ch < 2.5) return 'R';           // 嘴の縁の刺繍
+    if (y > -20.5) return 'Y';
+    if (Math.abs(x) < 0.5 && y > -27.5) return 's';                                              // 嘴の稜線
+    if (y < -42.5) return x < 0 ? 's' : 'f';
+    return x < -6 ? 'm' : x < 0 ? 'f' : d(3) < 0.8 || d(4) < 0.8 ? 'k' : x < 6 ? 'm' : 'j';   // 四つの面（右の外だけ j）
   });
   OUTLINE(G);
   return R(G);
 })();
 
 // 【第二案 第12稿→第13稿】機械の腕（armR・深度11）。FB「ガトリングとパルスレーザー、どちらもはずそう」＝持ち物なし。肘を外へ張り、三本の鉤爪を下へ開いて構える（ノイエ・ジールの爪の腕）
-const ARM2_W = 204, ARM2_H = 110, ARM2_O = [102, 36];   // 第14稿：FB「腕の武器が弱い。迫力不足。杭打機は強い武器にはなりえない。四神柱最強の神が振るうにふさわしい武器を」
-//   直し＝前腕ごと**巨大な三本の鉤爪**（悪魔の機械＝爪）。爪の内側の縁は灼けた深紅の刃・切っ先は金。三本が抱える掌には**大口径の砲が充填中**（白熱の芯）＝掴んだものを至近で焼き払う。ノイエ・ジールの爪の腕を最大化した形
+// 第15稿：FB「腕の武器はもっと禍々しさをだす武器で。ノイエ・ジールのサーベルのように長く」＝第14稿の三本の鉤爪と掌の砲は短く、武器として弱かった。
+//   直し＝爪は二本の顎に縮めて**発振器**にし、掌から**逆棘の灼刃**（長さ 108）を抜く。黒い刃の身に鋼の稜線一本・外の刃側は白熱→深紅の炎が銛の返しの形に逆立つ（返しは手元へ向く＝刺さったら抜けない）。
+//   両腕を開いて下ろすと身体を挟む巨大な Λ になる。細い光刃の副腕（BEAM）は同じ向きで重なるので rig から外した（定義は残す）
+const ARM2_W = 264, ARM2_H = 200, ARM2_O = [132, 52], SABER_L = 108;
 const ARMS2 = (() => {
   const G = g(ARM2_W, ARM2_H), X = (x) => x + ARM2_O[0], Y = (y) => y + ARM2_O[1];
   for (const s of [-1, 1]) {
@@ -1193,15 +1214,25 @@ const ARMS2 = (() => {
     ax.slab(0, 0.05, 10, goldCol); ax.slab(0.93, 1, 10, goldCol);
     for (const u of [0.25, 0.4, 0.55]) ax.slab(u, u + 1.4 / ax.L, 6, (v) => (Math.abs(v) < 0.4 ? 'A' : 'R'));              // 灼けた溝
     ax.slab(0.72, 0.72 + 1 / ax.L, 9.5, () => 'k');
-    const base = Math.atan2(Wr[1] - E[1], Wr[0] - E[0]);
-    for (const [da, len] of [[-0.5 * s, 34], [0.48 * s, 28], [0, 38]]) {                                                   // 鉤爪三本（外・内・中）
+    const base = Math.atan2(Wr[1] - E[1], Wr[0] - E[0]), cx = Math.cos(base), cy = Math.sin(base);
+    const B0 = [Wr[0] + cx * 5, Wr[1] + cy * 5], B1 = [B0[0] + cx * SABER_L, B0[1] + cy * SABER_L];
+    const spine = (u) => 3.4 * Math.pow(1 - u, 0.7) + 0.4;
+    const edge = (u) => 5.6 * Math.pow(1 - u, 0.5) + 0.6 + (u > 0.06 ? 7 * Math.pow(1 - u, 0.35) * (1 - ((u * SABER_L) % 15.5) / 15.5) : 0);   // 2回目：返し 3.6→7・周期 12→15.5（等倍で鋸歯が読めなかった）   // 返し＝手元側が切り立つ鋸歯
+    geoSlab(G, B0[0], B0[1], B1[0], B1[1], s > 0 ? edge : spine, s > 0 ? spine : edge, (k, u, a, b) => {
+      const e = -k * s, ew = s > 0 ? a : b, sw = s > 0 ? b : a;
+      if (u > 0.94) return 'A';
+      if (e < 0) return -e > sw - 0.7 ? 'k' : 'j';
+      if (e < 0.6) return 'm'; if (e < 1.5) return 'j';
+      const t = (e - 1.5) / Math.max(0.01, ew - 1.5);
+      return t < 0.2 ? 'W' : t < 0.48 ? 'A' : t < 0.82 ? 'R' : 'r';
+    });
+    DISC(G, B0[0], B0[1], 5.6, 'r'); DISC(G, B0[0], B0[1], 4.2, 'R'); DISC(G, B0[0], B0[1], 2.6, 'A');                   // 掌の発振器
+    const gd = mkSlab(G, B0[0], B0[1], B1[0], B1[1]); gd.slab(0.025, 0.07, 7.4, goldCol);                                  // 鍔
+    for (const [da, len] of [[-0.55 * s, 25], [0.52 * s, 21]]) {                                                          // 顎の爪二本（外・内）
       const a = base + da, fg = mkSlab(G, Wr[0] + Math.cos(a) * 3, Wr[1] + Math.sin(a) * 3, Wr[0] + Math.cos(a) * len, Wr[1] + Math.sin(a) * len);
-      fg.slab(0, 1, (u) => 4.4 * (1 - u) + 0.45, (v, u) => (u > 0.88 ? 'Y' : v > 0.5 ? 'R' : v < -0.3 ? 'm' : 'j'));
+      fg.slab(0, 1, (u) => 4.2 * (1 - u) + 0.45, (v, u) => (u > 0.86 ? 'Y' : v > 0.5 ? 'R' : v < -0.3 ? 'm' : 'j'));
     }
-    const px = Wr[0] + Math.cos(base) * 8, py = Wr[1] + Math.sin(base) * 8;                                               // 掌の砲＝充填中
-    DISC(G, px, py, 6.6, 'r'); DISC(G, px, py, 5.2, 'R'); DISC(G, px, py, 3.6, 'A'); DISC(G, px, py, 1.8, 'W');
     DISC(G, E[0], E[1], 6.6, 'k'); DISC(G, E[0], E[1], 5.8, 'm'); DISC(G, E[0], E[1], 4, 'k'); DISC(G, E[0], E[1], 3.2, 'f'); for (const [bx, by] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) P(G, E[0] + bx, E[1] + by, 'k');
-    const sp = mkSlab(G, X(s * 27), Y(-24), X(s * 38), Y(-47)); sp.slab(0, 1, (u) => 3.4 * (1 - u) + 0.4, (v, u) => (u > 0.85 ? 'Y' : v < 0 ? 'm' : 'j'));   // 肩の箱の後ろから立つ刃
   }
   shoulderBoxes(G, X, Y);
   OUTLINE(G);
@@ -1258,7 +1289,7 @@ const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
 function build2(opts = {}) {
   const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
+    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)),   // 第8稿：三神の環を外す・蓮華座→刃の裳
     torso: P7(TORSO), head: P7(HEAD2), lotus: P7(LOTUS), seed: P7(SEED),   // 第13稿：冕冠・排気管・鈴・配線を外し機械の頭へ
     moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), arms: P7(ARMS2),   // 第12稿：ガトリング（GATLING）とパルスレーザー（PULSE）は定義だけ残して外した
   };
@@ -1268,11 +1299,10 @@ function build2(opts = {}) {
     ...(noMan ? [] : [{ role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] }]),
     { role: 'trackL', tex: 'binderL', ox: -84, oy: -104, origin: [0, 0] }, { role: 'trackR', tex: 'binderR', ox: 8, oy: -104, origin: [0, 0] },   // 第11稿：バインダーは月牙の後ろ
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),
-    { role: 'wingR', tex: 'beam', ox: 72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H] }, { role: 'wingL', tex: 'beam', ox: -72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H], mirror: true },   // 光刃の副腕は月牙の手前
     { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'body', tex: 'torso', ox: 0, oy: -24, origin: [0.5, 0] },
-    { role: 'dome', tex: 'head', ox: 0, oy: -74, origin: [0.5, 0] },
+    { role: 'dome', tex: 'head', ox: 0, oy: -HEAD2_OY, origin: [0.5, 0] },
     { role: 'rack', tex: 'lotus', ox: 0, oy: -4 },
     { role: 'cannon', tex: 'seal', ox: 0, oy: 17, origin: [0.5, 0] },
     { role: 'armR', tex: 'arms', ox: 0, oy: 0, origin: [ARM2_O[0] / ARM2_W, ARM2_O[1] / ARM2_H] },
