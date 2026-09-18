@@ -829,16 +829,7 @@ const GATLING = (() => {
   const hx = ax0 + ux * L * 0.46 + nx * -11 * GAT_K, hy = ay0 + uy * L * 0.46 + ny * -11 * GAT_K;
   mechArm(G, [[X(20), Y(-16)], [X(37), Y(-3)], [hx, hy]], 5.4); mechHand(G, hx, hy);                               // 骸華の左手（画面右）＝提げ手を握る
   mechHand(G, X(-11), Y(1));
-  // 第10稿：肩＝推進器の箱（FB「腕が機械になると肩のプロテクターが人間ぽくてだめ。破滅的なビジュアルに合わせて」）。着る物（刺繍の入った肩当て）をやめ、機体の部品にする＝面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本
-  for (const s of [-1, 1]) {
-    const q = [[-6, -8], [12, -10], [14, 2], [9, 8], [-6, 5]].map(([o, y]) => [X(s * (20 + o)), Y(-17 + y)]);
-    const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
-    for (let y = Y(-28); y <= Y(-8); y += 0.25) for (let o = -7; o <= 15; o += 0.25) {
-      const x = X(s * (20 + o)), sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % 5], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
-      const ry = y - Y(-17), vent = [-2, 1, 4].some((vy) => Math.abs(ry - vy) < 0.6) && o > -3 && o < 8;
-      P(G, x, y, vent ? (Math.abs(o - 2.5) < 1.5 ? 'A' : 'R') : ry < -6.5 ? 'f' : ry < -4.5 ? 'm' : Math.abs(ry + 4) < 0.4 ? 'k' : o > 10.5 ? (s < 0 ? 'm' : 'k') : 'j');
-    }
-  }
+  shoulderBoxes(G, X, Y);
   OUTLINE(G);
   return R(G);
 })();
@@ -1119,35 +1110,62 @@ const PULSE = (() => {
   OUTLINE(G);
   return R(G);
 })();
-// 刃の裳（legL・蓮華座の置き換え）132×78＝世界 y +30〜+108。座らない＝腰から下は五枚の黒い刃（中央一・内二・外二）が逆さの扇に開き、刃の間から深紅の噴射が落ちて浮く。
-//   輪郭は逆三角＝上（月牙・長砲）が広く下が一点に尖る不安定さ。刃は肩のプロテクターと同じ語彙（黒・稜線一本・縁から入った深紅の刺繍一筋）＋切っ先に金
-const SK_W = 132, SK_H = 78;
+// 刃の裳（legL・蓮華座の置き換え）＝世界 y +30〜+140。座らない＝腰から下は五枚の黒い刃（中央一・内二・外二）が逆さの扇に開き、刃の間から深紅の噴射が落ちて浮く。
+//   輪郭は逆三角＝上が広く下が一点に尖る不安定さ。刃は黒・稜線一本・縁から入った深紅の刺繍一筋・切っ先に金
+//   第12稿：FB「逆さ扇をもっと大きく」＝刃の根（y=0）の幅はそのまま、先だけ横 1.3・縦 1.35 倍（根まで広げると腰の横に平らな上端が出る）
+//           FB「足をやめて他のアイデアを」＝**釣鐘形の噴射口**をいちばん奥に。隙間から裾の広がった鋼の塊が覗き、噴射はそこから落ちる＝火に出どころができた。機体の部品なので人の気配が消える
+const SK_KX = 1.3, SK_KY = 1.35, SK_W = 180, SK_H = 112;
 const SKIRT = (() => {
-  const G = g(SK_W, SK_H), cx = 65.5;
-  for (const s of [-1, 1]) {   // 第10稿：太い脚（ドム／パーフェクトジオング）を**いちばん奥**に。FB「逆さ扇は修正せず元に戻して。扇のわずかな隙間から太い足が少し見える感じで」＝第9稿は脚を刃の前に出して扇を壊した
-    const { slab, pt } = mkSlab(G, cx + s * 20, 4, cx + s * 25, 58), legCol = (v) => (v < -0.8 ? 'm' : v < -0.6 ? 'f' : v < -0.15 ? 'm' : v < 0.45 ? 'j' : 'k'), flare = (u) => 7 + 4.8 * Math.pow(Math.max(0, (u - 0.4) / 0.6), 1.4);
-    slab(0, 1.0, flare, legCol);
-    slab(0.32, 0.46, 8.6, (v) => (v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j')); slab(0.32, 0.335, 8.6, () => 'k'); slab(0.445, 0.46, 8.6, () => 'k');   // 膝の装甲
-    slab(0.88, 0.92, flare, (v) => (v < 0 ? 'R' : 'r'));                                                                  // 裾の深紅の帯
-    const [fx, fy] = pt(1.0, 0); for (let y = -1; y <= 5; y++) for (let x = -12.5; x <= 12.5; x += 0.5) P(G, fx + x, fy + y, y === -1 ? 'Y' : y === 0 ? 'y' : y === 5 ? 'k' : x < -5 ? 'm' : x < 6 ? 'j' : 'k');   // 裾の金と足
+  const G = g(SK_W, SK_H), cx = 89.5, sc = ([x, y]) => [y === 0 ? x : x * SK_KX, y * SK_KY];
+  for (const [bx, y0, y1, w0, w1] of [[-27, 12, 54, 5.5, 13], [27, 12, 54, 5.5, 13], [-50, 22, 46, 4, 9], [50, 22, 46, 4, 9]]) {   // 噴射口（刃と噴射の後ろ）
+    for (let y = y0; y <= y1; y += 0.5) { const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * Math.pow(t, 1.3); for (let x = -hw; x <= hw; x += 0.5) { const v = x / hw; P(G, cx + bx + x, y, y > y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.round(y - y0) % 7 === 6 ? 'k' : v < -0.75 ? 'm' : v < -0.5 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'); } }
+    for (let x = -w1 + 1.5; x <= w1 - 1.5; x += 0.5) for (let y = 0; y <= 2; y += 0.5) P(G, cx + bx + x, y1 + 0.5 + y, Math.abs(x) < w1 * 0.45 ? 'G' : 'A');   // 口の中の灼け
   }
-  for (const [jx, y0, len, w] of [[-42, 12, 44, 5], [42, 12, 44, 5], [-15, 8, 58, 5.5], [15, 8, 58, 5.5]]) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ）
+  for (const [jx, y0, len, w] of [[-50, 48, 38, 6.5], [50, 48, 38, 6.5], [-27, 56, 52, 9], [27, 56, 52, 9]]) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ・噴射口の前）
     const t = y / len, hw = w * Math.pow(1 - t, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + t * 0.5; P(G, cx + jx + x, y0 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); }
   }
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
   const blade = (pts, tipI) => {   // 凸多角形。辺 0（上端＝腰の中）には刺繍を入れない
-    const q = pts.map(([x, y]) => [cx + x, y]), N = q.length, top = [(q[0][0] + q[1][0]) / 2, (q[0][1] + q[1][1]) / 2], tip = q[tipI];
+    const q = pts.map(sc).map(([x, y]) => [cx + x, y]), N = q.length, top = [(q[0][0] + q[1][0]) / 2, (q[0][1] + q[1][1]) / 2], tip = q[tipI];
     const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
     for (let y = Math.min(...ys); y <= Math.max(...ys); y += 0.25) for (let x = Math.min(...xs); x <= Math.max(...xs); x += 0.25) {
       const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))); const ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
       let hem = 1e9; for (let i = 1; i < N; i++) { const a = q[i], b = q[(i + 1) % N]; hem = Math.min(hem, Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1])); }
       const side = cr(top, tip, x, y), dTip = Math.hypot(x - tip[0], y - tip[1]);
-      P(G, x, y, dTip < 4.5 ? (side > 0 ? 'Y' : 'y') : hem >= 1.4 && hem < 2.4 ? 'R' : Math.abs(side) / Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 0.5 ? 'm' : side > 0 ? 'j' : 'k');
+      P(G, x, y, dTip < 5.5 ? (side > 0 ? 'Y' : 'y') : hem >= 1.4 && hem < 2.4 ? 'R' : Math.abs(side) / Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 0.5 ? 'm' : side > 0 ? 'j' : 'k');
     }
   };
   for (const s of [-1, 1]) blade([[s * 20, 0], [s * 36, 0], [s * 64, 38], [s * 40, 22]], 2);                               // 外の刃
   for (const s of [-1, 1]) blade([[s * 8, 0], [s * 24, 0], [s * 36, 20], [s * 30, 58], [s * 14, 22]], 3);                  // 内の刃
   blade([[-11, 0], [11, 0], [13, 16], [0, 74], [-13, 16]], 3);                                                             // 中央の刃
+  OUTLINE(G);
+  return R(G);
+})();
+
+// 肩＝推進器の箱（第10稿）。面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本。X/Y は世界→スプライトの写像
+function shoulderBoxes(G, X, Y) {
+  for (const s of [-1, 1]) {
+    const q = [[-6, -8], [12, -10], [14, 2], [9, 8], [-6, 5]].map(([o, y]) => [X(s * (20 + o)), Y(-17 + y)]);
+    const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+    for (let y = Y(-28); y <= Y(-8); y += 0.25) for (let o = -7; o <= 15; o += 0.25) {
+      const x = X(s * (20 + o)), sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % 5], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
+      const ry = y - Y(-17), vent = [-2, 1, 4].some((vy) => Math.abs(ry - vy) < 0.6) && o > -3 && o < 8;
+      P(G, x, y, vent ? (Math.abs(o - 2.5) < 1.5 ? 'A' : 'R') : ry < -6.5 ? 'f' : ry < -4.5 ? 'm' : Math.abs(ry + 4) < 0.4 ? 'k' : o > 10.5 ? (s < 0 ? 'm' : 'k') : 'j');
+    }
+  }
+}
+// 【第二案 第12稿】素手の機械の腕（armR・深度11）。FB「ガトリングとパルスレーザー、どちらもはずそう」＝持ち物なし。肘を外へ張り、三本の鉤爪を下へ開いて構える（ノイエ・ジールの爪の腕）
+const ARM2_W = 104, ARM2_H = 78, ARM2_O = [52, 34];
+const ARMS2 = (() => {
+  const G = g(ARM2_W, ARM2_H), X = (x) => x + ARM2_O[0], Y = (y) => y + ARM2_O[1];
+  for (const s of [-1, 1]) {
+    const hx = X(s * 36), hy = Y(22);
+    mechArm(G, [[X(s * 20), Y(-16)], [X(s * 39), Y(2)], [hx, hy]], 5.4);
+    for (const i of [-1, 0, 1]) { const { slab } = mkSlab(G, hx + i * 3.4, hy + 3, hx + i * 5.2 + s * 1.5, hy + 15); slab(0, 1, (u) => 1.9 * (1 - u) + 0.45, (v) => (v < 0 ? 'f' : 'j')); }   // 鉤爪三本
+    mechHand(G, hx, hy);
+    for (let x = -5.2; x <= 5.2; x += 0.5) { P(G, hx + x, hy + 4.4, 'Y'); P(G, hx + x, hy + 5.0, 'y'); }               // 爪の付け根の金
+  }
+  shoulderBoxes(G, X, Y);
   OUTLINE(G);
   return R(G);
 })();
@@ -1192,13 +1210,14 @@ const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
   + '【第二案】腕は持ち物ごと全て外した。右半身（画面左）に逆三日月の機械腕が上下に三本、左半身（画面右）に三日月の機械腕が二本＝刃そのものが腕（深紅の縁・蒼硝子の身・深紅の玉）。'
   + '自前の両腕は梵鐘のガトリング「百八」を腰だめに構える＝黒鉄の胴・黒石の砲身の束・砲口がそのまま金の梵鐘。'
   + '【第8稿】三神の環は無い。背に二丁の長砲（月牙の後ろを斜めに貫き右上へ砲口が突き出る）・腰の左にパルスレーザー（ガトリングと八の字）。座らない＝腰から下は五枚の黒い刃が逆さの扇に開き、深紅の噴射で浮く。神自身は無傷のまま。'
-  + '【第11稿】骨格はノイエ・ジールの方向＝頭より高く跳ね上がる黒い肩のバインダー（下面に灼けた排気の溝と噴射）が月牙の地になり、外下の切っ先から細い副腕が下がって深紅の光刃が放射状に落ちる。';
+  + '【第11稿】骨格はノイエ・ジールの方向＝頭より高く跳ね上がる黒い肩のバインダー（下面に灼けた排気の溝と噴射）が月牙の地になり、外下の切っ先から細い副腕が下がって深紅の光刃が放射状に落ちる。'
+  + '【第12稿】ガトリングとパルスレーザーは外した＝自前の機械の腕は素手で、三本の鉤爪を下へ開く。逆さ扇は一回り大きく、脚は無い＝扇の隙間から釣鐘形の噴射口が覗き、噴射はそこから落ちる。';
 function build2(opts = {}) {
   const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), pulse: P7(PULSE), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
+    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
     torso: P7(TORSO), crown: P7(CROWN), lotus: P7(LOTUS), stackR: P7(STACK_R), stackL: P7(STACK_L), suzu: P7(SUZU), cables: P7(CABLES), seed: P7(SEED),
-    moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), gatling: P7(GATLING),
+    moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), arms: P7(ARMS2),   // 第12稿：ガトリング（GATLING）とパルスレーザー（PULSE）は定義だけ残して外した
   };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS[i].root[0] * (mirror ? -1 : 1), oy: MOONS[i].root[1], origin: MOONS[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
@@ -1217,8 +1236,7 @@ function build2(opts = {}) {
     { role: 'dome', tex: 'suzu', ox: 21.5, oy: -26, origin: [1 / SUZU_W, 1 / SUZU_H] },
     { role: 'rack', tex: 'lotus', ox: 0, oy: -4 },
     { role: 'cannon', tex: 'seal', ox: 0, oy: 17, origin: [0.5, 0] },
-    { role: 'cannon', tex: 'pulse', ox: -14, oy: 20, origin: [(PULSE_O[0] - 14) / PULSE_W, (PULSE_O[1] + 20) / PULSE_H] },
-    { role: 'armR', tex: 'gatling', ox: 0, oy: 0, origin: [GAT_OX / GAT_W, GAT_OY / GAT_H] },
+    { role: 'armR', tex: 'arms', ox: 0, oy: 0, origin: [ARM2_O[0] / ARM2_W, ARM2_O[1] / ARM2_H] },
     { role: 'core', tex: 'seed', ox: 0, oy: -4 },
   ];
   return { id: 'gaika2' + (noMan ? '' : '-mandorla'), name: '蒼神骸華', concept: CONCEPT2, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#8a1622', glowInner: '#ff7a3a' } };   // 第7稿：後光を蒼から深紅へ
