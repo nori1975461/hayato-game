@@ -1713,7 +1713,7 @@ const HANDS4 = (() => {
 
 // 第27稿：FB「四本の腕のバランスがわるい。蒼神骸華の腕が二本内側にあり、その外側に副腕があるという設計で。ノイエ・ジールのパターン。主要な腕と副腕できちんと描き分けて」
 //   主腕＝太い・肩の関節から真下へ垂れる・大きな装甲と深紅の帯・先に鋼の手（四本の指）。副腕＝細い・外へ広がる・薄い装甲とマゼンタの帯・爪の中心から光刃
-const ARM4_W = 328, ARM4_H = 260, ARM4_O = [164, 48];
+const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb) {
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   const main = (s) => {   // 主腕（内側）
@@ -1766,14 +1766,14 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
 
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
 function build4(o = {}) {
-  const limbs = o.limbs || 'booster';
+  const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SK_BLADES), limbs: P7(limbs === 'leg' ? LEGS : BOOST), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? SKIRT : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
-    { role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] },   // 第25稿：脚は腰の扇より奥
+    ...(limbs === 'none' ? [] : [{ role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] }]),   // 第25稿：脚は腰の扇より奥
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
@@ -1789,7 +1789,8 @@ export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-
   [build4({ tag: '-ALLBLUE', ring: 'blue', tongue: 'blue', saber: 'blue' }), 'REJECTED  ALL BLUE'],
 ];
 export const GAIKA2 = build4();                                   // 版A＝ロケットブースター
-export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });   // 版B＝脚
+export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });       // 版B＝脚（却下）
+export const GAIKA2_BOOST = build4({ tag: '-boost', limbs: 'booster' }); // 第27稿のブースター（却下・比較用に残す）
 
 
 export const GAIKA2_MANDORLA = build2({ mandorla: true });   // 比較用＝光背あり（第1稿の姿）
