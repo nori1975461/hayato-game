@@ -208,6 +208,7 @@ export const PAL = {
   c: '#38e1ff',                                                           // マキナの神経光（導管）
   y: '#7a5a12', Y: '#c9971f', G: '#ffd23f', W: '#ffedb0',                 // 金（くすんだ金 Y/y が地・G/W は一筋）
   r: '#8a1622', R: '#e03040', A: '#ff7a6a',                               // 深紅（胎の胸・盃から流れる）
+  x: '#6b0b3e', X: '#c41a72', z: '#ff5cb4', Z: '#ffe0f4',                // 第23稿：マゼンタ 4段（x→X→z→Z の順に明るい）＝敵側の機体の光刃の色。噴射の橙とも炉の深紅とも色相が離れる
   e: '#1b3a30', E: '#5fbf95',                                             // 玉座の緑青（封印の結び目だけ）
   v: '#4a3b7d', V: '#c0aef5',                                             // 軌道神核の紫（封印の結び目だけ）
 };
@@ -1116,13 +1117,13 @@ const PULSE = (() => {
 //   第12稿：FB「逆さ扇をもっと大きく」＝刃の根（y=0）の幅はそのまま、先だけ横 1.3・縦 1.35 倍（根まで広げると腰の横に平らな上端が出る）
 //           FB「足をやめて他のアイデアを」＝**釣鐘形の噴射口**をいちばん奥に。隙間から裾の広がった鋼の塊が覗き、噴射はそこから落ちる＝火に出どころができた。機体の部品なので人の気配が消える
 const SK_KX = 1.3, SK_KY = 1.35, SK_W = 180, SK_H = 112;
-const SKIRT = (() => {
-  const G = g(SK_W, SK_H), cx = 89.5, sc = ([x, y]) => [y === 0 ? x : x * SK_KX, y * SK_KY];
-  for (const [bx, y0, y1, w0, w1] of [[-27, 12, 54, 5.5, 13], [27, 12, 54, 5.5, 13], [-50, 22, 46, 4, 9], [50, 22, 46, 4, 9]]) {   // 噴射口（刃と噴射の後ろ）
-    for (let y = y0; y <= y1; y += 0.5) { const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * Math.pow(t, 1.3); for (let x = -hw; x <= hw; x += 0.5) { const v = x / hw; P(G, cx + bx + x, y, y > y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.round(y - y0) % 7 === 6 ? 'k' : v < -0.75 ? 'm' : v < -0.5 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'); } }
+function skirtTex(NZ, JT, H) {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がりの指数]・JT＝噴射 [x, y0, 長さ, 幅]。刃⭐は共通
+  const G = g(SK_W, H), cx = 89.5, sc = ([x, y]) => [y === 0 ? x : x * SK_KX, y * SK_KY];
+  for (const [bx, y0, y1, w0, w1, pw = 1.3] of NZ) {   // 噴射口（刃と噴射の後ろ）
+    for (let y = y0; y <= y1; y += 0.5) { const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * Math.pow(t, pw); for (let x = -hw; x <= hw; x += 0.5) { const v = x / hw; P(G, cx + bx + x, y, y > y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.round(y - y0) % 7 === 6 ? 'k' : v < -0.75 ? 'm' : v < -0.5 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'); } }
     for (let x = -w1 + 1.5; x <= w1 - 1.5; x += 0.5) for (let y = 0; y <= 2; y += 0.5) P(G, cx + bx + x, y1 + 0.5 + y, Math.abs(x) < w1 * 0.45 ? 'G' : 'A');   // 口の中の灼け
   }
-  for (const [jx, y0, len, w] of [[-50, 48, 38, 6.5], [50, 48, 38, 6.5], [-27, 56, 52, 9], [27, 56, 52, 9]]) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ・噴射口の前）
+  for (const [jx, y0, len, w] of JT) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ・噴射口の前）
     const t = y / len, hw = w * Math.pow(1 - t, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + t * 0.5; P(G, cx + jx + x, y0 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); }
   }
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
@@ -1141,7 +1142,11 @@ const SKIRT = (() => {
   blade([[-11, 0], [11, 0], [13, 16], [0, 74], [-13, 16]], 3);                                                             // 中央の刃
   OUTLINE(G);
   return R(G);
-})();
+}
+const SKIRT = skirtTex([[-27, 12, 54, 5.5, 13], [27, 12, 54, 5.5, 13], [-50, 22, 46, 4, 9], [50, 22, 46, 4, 9]], [[-50, 48, 38, 6.5], [50, 48, 38, 6.5], [-27, 56, 52, 9], [27, 56, 52, 9]], SK_H);
+// 第23稿：FB「エンジンのノズルの長さを伸ばそう。ネオ・ジオングが参考」＝長い筒が続き最後に釣鐘へ開く（指数 3.4）。内 42→78・外 24→56。噴射はその先から
+const SK4_H = 150;
+const SKIRT4 = skirtTex([[-27, 12, 90, 6.5, 14, 3.4], [27, 12, 90, 6.5, 14, 3.4], [-50, 22, 78, 5, 10.5, 3.4], [50, 22, 78, 5, 10.5, 3.4]], [[-50, 80, 36, 7.5], [50, 80, 36, 7.5], [-27, 92, 50, 10], [27, 92, 50, 10]], SK4_H);
 
 // 肩＝推進器の箱（第10稿）。面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本。X/Y は世界→スプライトの写像
 // 幾何の向きのままの帯（mkSlab の col は光の向きで符号が返るので刃側と峰側を塗り分けられない）。k は法線 (-uy,ux) の向き・hN/hP＝負側／正側の半幅
@@ -1533,7 +1538,7 @@ const SH_W = 102, SH_H = 208, SH_TOP = -134, SH_LEN = 186;   // 2回目：1回�
 const SH_IN = [[22, -134], [15, -70], [17, -6], [52, 52]], SH_OUT = [[22, -134], [66, -108], [97, -44], [86, 8], [52, 52]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [52, 52]];
 const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
 const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
-function shell(s) {
+function shell(s, trim = ['R', 'R']) {
   const G = g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
     const [xi, xo0, tt] = shellEdges(y), fo = ((y - SH_TOP) / 16) % 1, xo = xo0 + (y > -104 && y < 36 ? 6.5 * Math.pow(fo, 4) : 0), xr = polyX(SH_RIDGE, y);   // 外の縁の鋸歯＝下へ逆立つ刃先
@@ -1549,7 +1554,7 @@ function shell(s) {
       else if (f > 0.9 && fr < 0.04) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
       else if (f > 0.9 && fr < 0.085) c = 'r';
       else if (f > 0.9 && fr < 0.15) c = 'k';
-      else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = 'R';                                        // 縁から入った深紅の刺繍（逆さ扇と同じ語彙）
+      else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
       else c = lit ? (fr > 0.9 ? 'f' : 'm') : dOut < 1.2 || fr > 0.93 ? 'k' : 'j';                     // 黒鉄の二面（光の面は鋼）
       P(G, X(s * x), Y(y), c);
@@ -1629,31 +1634,43 @@ const HANDS4 = (() => {
 //   ノイエ・ジールの光刃は、バインダーの中から出る装甲の腕の爪の中心から出る。細い骨の副腕（第一案の語彙＝浮いた原因）をやめ、**紺の装甲の腕四本が肩の装甲の陰から現れ、爪の中心から太い光刃を下へ抜く**＝これが両腕を兼ねる（四本腕の闘神）。
 //   深度は肩の装甲より奥（rig で shell の前に置く）＝腕は装甲の外の輪郭から生える
 const ARM4_W = 328, ARM4_H = 204, ARM4_O = [164, 32];
-const ARMS4 = (() => {
+function arms4(sb) {   // sb＝光刃の色 {core, a, b, c}
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   const one = (s, root, elbow, wrist, deg, L) => {
     const pts = [root, elbow, wrist].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 6.2);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.22, 0.9, 8.2, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k')); fa.slab(0.22, 0.29, 8.8, goldCol); fa.slab(0.83, 0.9, 8.8, goldCol);   // 前腕の紺の装甲と金の輪
-    fa.slab(0.4, 0.72, 2.2, (v) => (v < 0 ? 'R' : 'r'));
+    fa.slab(0.4, 0.72, 2.2, (v) => (v < 0 ? sb.b : sb.c));
     const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 7, W0[1] + dy * 7); un.slab(0, 1, 6.4, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));              // 爪の基部
     const S0 = [W0[0] + dx * 8, W0[1] + dy * 8], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
-    bl.slab(0, 1, (u) => 4.6 * Math.pow(1 - u, 1.1) + 1.0, () => 'r');
-    bl.slab(0, 1, (u) => 3.1 * Math.pow(1 - u, 1.1) + 0.35, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.64 ? 'A' : 'R'));
+    bl.slab(0, 1, (u) => 4.6 * Math.pow(1 - u, 1.1) + 1.0, () => sb.c);
+    bl.slab(0, 1, (u) => 3.1 * Math.pow(1 - u, 1.1) + 0.35, (v) => (Math.abs(v) < 0.3 ? sb.core : Math.abs(v) < 0.64 ? sb.a : sb.b));
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 5 + Math.cos(ca) * 14, W0[1] + dy * 5 + Math.sin(ca) * 14); cl.slab(0, 1, (u) => 3.2 * (1 - u) + 0.4, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 爪二本
     const em = mkSlab(G, S0[0] - dx * 1.5, S0[1] - dy * 1.5, S0[0] + dx * 2, S0[1] + dy * 2); em.slab(0, 1, 4.4, goldCol);                                                  // 発振器の金の輪
   };
   for (const s of [-1, 1]) { one(s, [42, -14], [76, 4], [100, 30], 62, 100); one(s, [34, 10], [60, 32], [82, 54], 80, 104); }
   OUTLINE(G);
   return R(G);
-})();
+}
+// 第23稿：色の分担。熱い色＝内なる火だけ（モノアイ・炉の隙間・噴射）＝破滅／冷たい光＝神の光（光刃・輪）＝荘厳／地は黒漆・縁はくすんだ金一筋
+const SCH = { red: { core: 'W', a: 'A', b: 'R', c: 'r' }, blue: { core: 'C', a: 'N', b: 'P', c: 'Q' }, gold: { core: 'W', a: 'G', b: 'Y', c: 'y' }, dim: { core: 'G', a: 'Y', b: 'y', c: 'y' }, mag: { core: 'Z', a: 'z', b: 'X', c: 'x' }, silver: { core: 'n', a: 's', b: 'f', c: 'm' } };
+function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（荘厳と破滅を一つの輪で両立させる）
+  const G = g(ECL_S, ECL_S), c = ECL_S / 2;
+  for (let y = 0; y < ECL_S; y++) for (let x = 0; x < ECL_S; x++) {
+    const dx = x - c + 0.5, dy = y - c + 0.5, d = Math.hypot(dx, dy) - ECL_R, th = Math.atan2(dx, -dy), tongue = 2 + 13 * Math.pow(Math.abs(Math.cos(th * 12)), 26) + 5 * Math.pow(Math.abs(Math.sin(th * 12)), 40);
+    const ch = d >= -6.4 && d < -5.2 ? (dx + dy < 0 ? 'Y' : 'y') : d >= -3.2 && d < -2.2 ? sc.b : d >= -2.2 && d < -1.2 ? sc.a : d >= -1.2 && d < 0.4 ? sc.core : d >= 0.4 && d < 1.6 ? sc.a : d >= 1.6 && d < 1.6 + tongue * 0.5 ? tg.b : d >= 1.6 && d < 1.6 + tongue ? tg.c : null;
+    if (ch) G[y][x] = ch;
+  }
+  return R(G);
+}
 
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
-function build4() {
+function build4(o = {}) {
+  const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(ECLIPSE), pedestal: P7(SKIRT), shellL: P7(shell(-1)), shellR: P7(shell(1)), arms: P7(ARMS4), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(SKIRT4), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
@@ -1664,8 +1681,13 @@ function build4() {
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
   ];
-  return { id: 'gaika4', name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#8a1622', glowInner: '#ff7a3a' } };
+  return { id: 'gaika4' + (o.tag || ''), name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: glow[0], glowInner: glow[1] } };
 }
+export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-colors.mjs／面積を数える＝measure-gaika2-colors.mjs）
+  [build4(), '23rd  FINAL'],
+  [build4({ tag: '-V22', ring: 'red', tongue: 'red', saber: 'red', trim: ['R', 'R'], glow: ['#8a1622', '#ff7a3a'] }), '22nd  ALL CRIMSON'],
+  [build4({ tag: '-ALLBLUE', ring: 'blue', tongue: 'blue', saber: 'blue' }), 'REJECTED  ALL BLUE'],
+];
 export const GAIKA2 = build4();
 
 
