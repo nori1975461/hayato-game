@@ -778,7 +778,7 @@ const moonArm = (rootOff, elbowOff) => {
 const MOONS = [   // [刃の中心（世界）, 付け根（世界）, 肘（中心からの相対）]。上から T・M・B。画面左は三本とも・画面右は T と M だけ
   { c: [-27, -60], root: [-10, -24], elbow: [-7, 21] },
   { c: [-48, -34], root: [-14, -16], elbow: [2, 24] },
-  { c: [-64, 8], root: [-14, -4], elbow: [10, 21] },   // 第2稿：支柱を 39→52 に伸ばし下向きに（FB「もう少し長く・少し下向き」）
+  { c: [-64, 3], root: [-14, -4], elbow: [10, 21] },   // 第2稿：支柱を 39→52 に伸ばし下向きに（FB「もう少し長く・少し下向き」）
 ].map((m) => { const off = [m.root[0] - m.c[0], m.root[1] - m.c[1]]; return { ...m, rows: moonArm(off, m.elbow), origin: [(MOON_C[0] + off[0]) / MOON_W, (MOON_C[1] + off[1]) / MOON_H] }; });
 
 // =====================================================================
@@ -811,6 +811,8 @@ const GATLING = (() => {
   const hx = ax0 + ux * L * 0.46 + nx * -11 * GAT_K, hy = ay0 + uy * L * 0.46 + ny * -11 * GAT_K;
   arm(G, [[X(20), Y(-16)], [X(37), Y(-3)], [hx, hy]], 6.0, 4.8); armlet(G, [X(20), Y(-16)], [X(37), Y(-3)], 0.5, 6.0, true); fist(G, hx, hy, 5.2, 4.6);                               // 骸華の左手（画面右）＝提げ手を握る
   fist(G, X(-11), Y(1), 5.2, 4.6);
+  // 第3稿：肩のプロテクター＝黒鉄の一枚板の半球に金の縁を一筋だけ（FB「ごてごてしないように」＝板を重ねない・鋲も玉も置かない）
+  for (const sx of [-20, 20]) { const rx = 9, ry = 7.5; for (let y = -ry; y <= 2.5; y += 0.25) for (let x = -rx; x <= rx; x += 0.25) { if ((x / rx) ** 2 + (y / ry) ** 2 > 1) continue; const v = -(x / rx * LIGHT[0] + y / ry * LIGHT[1]); P(G, X(sx) + x, Y(-17) + y, y > 1.4 ? (v > 0.1 ? 'G' : 'Y') : v > 0.72 ? 's' : v > 0.35 ? 'f' : v > -0.2 ? 'm' : 'j'); } }
   OUTLINE(G);
   return R(G);
 })();
