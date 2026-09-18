@@ -1117,9 +1117,25 @@ const PULSE = (() => {
 //   第12稿：FB「逆さ扇をもっと大きく」＝刃の根（y=0）の幅はそのまま、先だけ横 1.3・縦 1.35 倍（根まで広げると腰の横に平らな上端が出る）
 //           FB「足をやめて他のアイデアを」＝**釣鐘形の噴射口**をいちばん奥に。隙間から裾の広がった鋼の塊が覗き、噴射はそこから落ちる＝火に出どころができた。機体の部品なので人の気配が消える
 const SK_KX = 1.3, SK_KY = 1.35, SK_W = 180, SK_H = 112;
-function skirtTex(NZ, JT, H) {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がりの指数]・JT＝噴射 [x, y0, 長さ, 幅]。刃⭐は共通
+function skirtTex(NZ, JT, H, style = 'taper') {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がりの指数]・JT＝噴射 [x, y0, 長さ, 幅]。刃⭐は共通
   const G = g(SK_W, H), cx = 89.5, sc = ([x, y]) => [y === 0 ? x : x * SK_KX, y * SK_KY];
   for (const [bx, y0, y1, w0, w1, pw = 1.3] of NZ) {   // 噴射口（刃と噴射の後ろ）
+    if (style === 'tube') {   // 第24稿：FB「ネオ・ジオングのノズルをそのまま描写して」＝先が開く円錐をやめ、等径の長い円筒・側面に補強の輪・先端だけ一段太い口縁
+      for (let y = y0; y <= y1; y += 0.5) {
+        const lip = y > y1 - 5.5, ring = !lip && y > y0 + 7 && ((y - y0) % 15) < 2.2, neck = y < y0 + 4;
+        const half = lip ? w1 + 2.6 : ring ? w1 + 1.1 : neck ? w1 + 1.6 : w1;
+        for (let x = -half; x <= half; x += 0.5) {
+          const v = x / half;
+          let c;
+          if (lip) c = y > y1 - 1.8 ? (v < 0 ? 'Y' : 'y') : Math.abs(v) > 0.86 ? 'k' : v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j';
+          else if (ring || neck) c = Math.abs(v) > 0.9 ? 'k' : v < -0.52 ? 'f' : v < 0.18 ? 'm' : 'j';
+          else c = Math.abs(v) > 0.93 ? 'k' : v < -0.66 ? 'm' : v < -0.2 ? 'f' : v < 0.55 ? 'm' : 'j';
+          P(G, cx + bx + x, y, c);
+        }
+      }
+      for (let x = -w1 + 1; x <= w1 - 1; x += 0.5) for (let y = 0; y <= 3; y += 0.5) P(G, cx + bx + x, y1 - 3.5 + y, Math.abs(x) < w1 * 0.4 ? 'G' : Math.abs(x) < w1 * 0.75 ? 'A' : 'R');   // 口の奥の灼け
+      continue;
+    }
     for (let y = y0; y <= y1; y += 0.5) { const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * Math.pow(t, pw); for (let x = -hw; x <= hw; x += 0.5) { const v = x / hw; P(G, cx + bx + x, y, y > y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.round(y - y0) % 7 === 6 ? 'k' : v < -0.75 ? 'm' : v < -0.5 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'); } }
     for (let x = -w1 + 1.5; x <= w1 - 1.5; x += 0.5) for (let y = 0; y <= 2; y += 0.5) P(G, cx + bx + x, y1 + 0.5 + y, Math.abs(x) < w1 * 0.45 ? 'G' : 'A');   // 口の中の灼け
   }
@@ -1144,9 +1160,9 @@ function skirtTex(NZ, JT, H) {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がり
   return R(G);
 }
 const SKIRT = skirtTex([[-27, 12, 54, 5.5, 13], [27, 12, 54, 5.5, 13], [-50, 22, 46, 4, 9], [50, 22, 46, 4, 9]], [[-50, 48, 38, 6.5], [50, 48, 38, 6.5], [-27, 56, 52, 9], [27, 56, 52, 9]], SK_H);
-// 第23稿：FB「エンジンのノズルの長さを伸ばそう。ネオ・ジオングが参考」＝長い筒が続き最後に釣鐘へ開く（指数 3.4）。内 42→78・外 24→56。噴射はその先から
+// 第24稿：ネオ・ジオングのシュツルム・ブースター＝等径の長い円筒（内 80・外 58）。補強の輪が等間隔・根元と先端だけ一段太い・口縁に金・口の奥が灼ける
 const SK4_H = 150;
-const SKIRT4 = skirtTex([[-27, 12, 90, 6.5, 14, 3.4], [27, 12, 90, 6.5, 14, 3.4], [-50, 22, 78, 5, 10.5, 3.4], [50, 22, 78, 5, 10.5, 3.4]], [[-50, 80, 36, 7.5], [50, 80, 36, 7.5], [-27, 92, 50, 10], [27, 92, 50, 10]], SK4_H);
+const SKIRT4 = skirtTex([[-27, 12, 92, 11.5, 11.5], [27, 12, 92, 11.5, 11.5], [-50, 22, 80, 8.5, 8.5], [50, 22, 80, 8.5, 8.5]], [[-50, 82, 34, 7], [50, 82, 34, 7], [-27, 94, 48, 9.5], [27, 94, 48, 9.5]], SK4_H, 'tube');
 
 // 肩＝推進器の箱（第10稿）。面取りした黒鉄の箱・上面だけ明るい・前面に灼けた排気の溝三本。X/Y は世界→スプライトの写像
 // 幾何の向きのままの帯（mkSlab の col は光の向きで符号が返るので刃側と峰側を塗り分けられない）。k は法線 (-uy,ux) の向き・hN/hP＝負側／正側の半幅
@@ -1675,9 +1691,9 @@ function build4(o = {}) {
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
-    { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 肩の装甲より奥
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),   // 第22稿：月牙を戻す（3対2）
+    { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
   ];
