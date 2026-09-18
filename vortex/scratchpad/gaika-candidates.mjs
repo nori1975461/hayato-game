@@ -1528,28 +1528,31 @@ export const GAIKA2_V19 = build3();   // 第19稿（全否決「正義のスー�
 // =====================================================================
 const SH_W = 102, SH_H = 208, SH_TOP = -134, SH_LEN = 186;   // 2回目：1回目（膨らみ 76・丸い頂・牙が y+72 まで）は青い卵に見え、逆さ扇⭐を隠した＝頂を角のように尖らせ・膨らみ 64・牙は短く外へ流す
 const shellEdges = (y) => { const tt = (y - SH_TOP) / SH_LEN; const sn = Math.sin(Math.PI * Math.pow(tt, 0.72)), drift = 22 * Math.pow(tt, 3) - 8 * Math.pow(1 - tt, 4); return [30 + drift - 14 * Math.pow(Math.sin(Math.PI * Math.pow(tt, 0.9)), 0.7), 30 + drift + 64 * Math.pow(sn, tt < 0.36 ? 1.45 : 0.9), tt]; };
+// 第21稿：FB「二枚の巨大な紺の装甲に、もっと荘厳さと破滅的要素を」＝荘厳＝翼の羽根のように重なる段の装甲（各段の下縁に金一筋）／破滅＝段の隙間から漏れる炉の光（深紅）と、外の輪郭に逆立つ羽根先の鋸歯。
+//   深紅の帯・金のバーニア・ミサイルの蓋は外した（段と金と炉の光で足りる＝線を増やさない）
+const SH_TIERS = 5.5;
 function shell(s) {
   const G = g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
+  const tone = (i, ck) => ['P', ck ? 'P' : 'Q', 'Q', ck ? 'Q' : 'q', 'q', 'q'][Math.max(0, Math.min(5, i))];
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
-    const [xi, xo, tt] = shellEdges(y);
+    const [xi, xo0, tt] = shellEdges(y), fo = (tt * SH_TIERS) % 1, xo = xo0 + (tt > 0.16 && tt < 0.9 ? 7 * Math.pow(fo, 5) : 0);   // 羽根先の鋸歯
     for (let x = xi; x <= xo; x += 0.25) {
-      const lx = s > 0 ? (x - xi) / Math.max(0.5, xo - xi) : (xo - x) / Math.max(0.5, xo - xi), dOut = xo - x, dIn = x - xi;
+      const u = (x - xi) / Math.max(0.5, xo0 - xi), lx = s > 0 ? u : 1 - u, dIn = x - xi, f = tt * SH_TIERS + 1.15 * (1 - Math.min(1, u)), fr = f % 1, ck = (Math.round(s * x) + Math.round(y)) % 2 === 0;
       let c;
       if (tt > 0.94) c = lx < 0.4 ? 'G' : 'Y';                                                         // 牙の先の金
       else if (tt < 0.035) c = 'f';
-      else if (dOut >= 7 && dOut < 9.8 && tt > 0.07 && tt < 0.9) c = lx < 0.5 ? 'R' : 'r';             // 外の縁に沿う深紅の帯
-      else if (dOut >= 9.8 && dOut < 10.8 && tt > 0.07 && tt < 0.9) c = 'k';
       else if (dIn < 3.4) c = lx < 0.5 ? 'f' : 'm';                                                    // 内の縁の鋼の枠
       else if (dIn < 4.3) c = 'k';
-      else if ([0.3, 0.56].some((pt) => Math.abs(tt - pt) < 0.0028)) c = 'k';                          // 装甲の継ぎ目
-      else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = dIn < 5.3 ? 'm' : (Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j');                          // 黒い内板（放熱の横溝）
+      else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = dIn < 5.3 ? 'm' : (Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j');   // 黒い内板（放熱の横溝）
       else if (dIn < 14 && tt > 0.1 && tt < 0.86) c = 'k';
-      else { const ck = (Math.round(s * x) + Math.round(y)) % 2 === 0; c = lx < 0.04 ? 'P' : lx < 0.2 ? (ck ? 'P' : 'Q') : lx < 0.22 ? 'Q' : lx < 0.5 ? 'Q' : lx < 0.62 ? (ck ? 'Q' : 'q') : lx < 0.93 ? 'q' : 'k'; }   // 紺の曲面（市松でなじませた三階調）
+      else if (f > 1.2 && fr < 0.05) c = lx < 0.55 ? 'A' : 'R';                                        // 段の隙間から漏れる炉の光
+      else if (f > 1.2 && fr < 0.1) c = 'r';
+      else if (f > 1.2 && fr < 0.17) c = 'k';                                                          // 上の段が落とす影
+      else if (fr > 0.94 && f < SH_TIERS * 0.93) c = lx < 0.5 ? 'G' : 'Y';                             // 段の下縁の金一筋
+      else c = tone((lx < 0.05 ? 0 : lx < 0.2 ? 1 : lx < 0.48 ? 2 : lx < 0.62 ? 3 : 4) + (fr > 0.62 ? 1 : 0), ck);   // 紺の曲面（段ごとに下が暗い）
       P(G, X(s * x), Y(y), c);
     }
   }
-  for (let tt = 0.14; tt <= 0.8; tt += 0.11) { const y = SH_TOP + SH_LEN * tt, [, xo] = shellEdges(y); DISC(G, X(s * (xo - 3.6)), Y(y), 2.0, 'y'); DISC(G, X(s * (xo - 3.6)), Y(y), 1.3, 'G'); }   // バーニア
-  { const y0 = -84, [xi, xo] = shellEdges(y0), xc = (xi + xo) / 2 + 4; for (let r = 0; r < 2; r++) for (let q = 0; q < 3; q++) for (let dy = 0; dy < 4.4; dy += 0.5) for (let dx = 0; dx < 5.4; dx += 0.5) P(G, X(s * (xc - 9 + q * 7)) + dx * 1, Y(y0 + r * 6.4) + dy, dy < 0.5 || dx < 0.5 ? 'm' : 'k'); }   // ミサイルの蓋の列＝巨大さの手がかり
   OUTLINE(G);
   return R(G);
 }
@@ -1571,9 +1574,9 @@ const TORSO4 = (() => {
       P(G, X(x), Y(y), c);
     }
   }
-  const cx = X(0), cy = Y(-17);
-  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 - Math.PI / 2, pt = mkSlab(G, cx + Math.cos(a) * 9.5, cy + Math.sin(a) * 9.5, cx + Math.cos(a) * 16.5, cy + Math.sin(a) * 16.5); pt.slab(0, 1, (u) => 2.7 * Math.sin(Math.PI * Math.min(1, u + 0.3)) + 0.3, goldCol); }   // 金の蓮弁
-  DISC(G, cx, cy, 11.2, 'y'); DISC(G, cx, cy, 10.2, 'Y'); DISC(G, cx, cy, 9, 'k'); DISC(G, cx, cy, 7.6, 'r'); DISC(G, cx, cy, 6, 'R'); DISC(G, cx, cy, 4.2, 'A'); DISC(G, cx, cy, 2.2, 'W');   // 砲口＝充填中
+  // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
+  for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
+  for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
   OUTLINE(G);
   return R(G);
 })();
@@ -1615,19 +1618,42 @@ const HANDS4 = (() => {
   return R(G);
 })();
 
-const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩、その間に沈む鋼の頭と深紅のモノアイ。有線の両手は仏の印を結ぶが五指の先は砲口で、胸の金の蓮華の中心も大口径の砲口。背に日蝕の輪、下へ四本の光刃、逆さの扇の下半身で浮く。';
+// 第21稿：FB「仏の印の手は不要。創造して」「四本の光刃がそぐわない。浮いている。ただ四本の光刃はいれたい。ノイエ・ジールを参考に」＝二つを一つに統合。
+//   ノイエ・ジールの光刃は、バインダーの中から出る装甲の腕の爪の中心から出る。細い骨の副腕（第一案の語彙＝浮いた原因）をやめ、**紺の装甲の腕四本が肩の装甲の陰から現れ、爪の中心から太い光刃を下へ抜く**＝これが両腕を兼ねる（四本腕の闘神）。
+//   深度は肩の装甲より奥（rig で shell の前に置く）＝腕は装甲の外の輪郭から生える
+const ARM4_W = 328, ARM4_H = 204, ARM4_O = [164, 32];
+const ARMS4 = (() => {
+  const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
+  const one = (s, root, elbow, wrist, deg, L) => {
+    const pts = [root, elbow, wrist].map(([x, y]) => [X(s * x), Y(y)]);
+    mechArm(G, pts, 6.2);
+    const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
+    fa.slab(0.22, 0.9, 8.2, (v) => (v < -0.86 ? 'P' : v < -0.1 ? 'Q' : v < 0.8 ? 'q' : 'k')); fa.slab(0.22, 0.29, 8.8, goldCol); fa.slab(0.83, 0.9, 8.8, goldCol);   // 前腕の紺の装甲と金の輪
+    fa.slab(0.4, 0.72, 2.2, (v) => (v < 0 ? 'R' : 'r'));
+    const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
+    const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 7, W0[1] + dy * 7); un.slab(0, 1, 6.4, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));              // 爪の基部
+    const S0 = [W0[0] + dx * 8, W0[1] + dy * 8], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
+    bl.slab(0, 1, (u) => 4.6 * Math.pow(1 - u, 1.1) + 1.0, () => 'r');
+    bl.slab(0, 1, (u) => 3.1 * Math.pow(1 - u, 1.1) + 0.35, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.64 ? 'A' : 'R'));
+    for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 5 + Math.cos(ca) * 14, W0[1] + dy * 5 + Math.sin(ca) * 14); cl.slab(0, 1, (u) => 3.2 * (1 - u) + 0.4, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 爪二本
+    const em = mkSlab(G, S0[0] - dx * 1.5, S0[1] - dy * 1.5, S0[0] + dx * 2, S0[1] + dy * 2); em.slab(0, 1, 4.4, goldCol);                                                  // 発振器の金の輪
+  };
+  for (const s of [-1, 1]) { one(s, [42, -14], [76, 4], [100, 30], 62, 100); one(s, [34, 10], [60, 32], [82, 54], 80, 104); }
+  OUTLINE(G);
+  return R(G);
+})();
+
+const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
 function build4() {
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(ECLIPSE), pedestal: P7(SKIRT), shellL: P7(shell(-1)), shellR: P7(shell(1)), beam: P7(BEAM), beam2: P7(BEAM2), torso: P7(TORSO4), head: P7(HEAD4), hands: P7(HANDS4) };
+  const sprites = { eclipse: P7(ECLIPSE), pedestal: P7(SKIRT), shellL: P7(shell(-1)), shellR: P7(shell(1)), arms: P7(ARMS4), torso: P7(TORSO4), head: P7(HEAD4) };
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
+    { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 肩の装甲より奥
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
-    { role: 'wingR', tex: 'beam', ox: 70, oy: -6, origin: [6 / BEAM_W, 6 / BEAM_H] }, { role: 'wingL', tex: 'beam', ox: -70, oy: -6, origin: [6 / BEAM_W, 6 / BEAM_H], mirror: true },
-    { role: 'wingR', tex: 'beam2', ox: 76, oy: -18, origin: [6 / BEAM2_W, 6 / BEAM2_H] }, { role: 'wingL', tex: 'beam2', ox: -76, oy: -18, origin: [6 / BEAM2_W, 6 / BEAM2_H], mirror: true },
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
-    { role: 'armR', tex: 'hands', ox: 0, oy: 0, origin: [HAND4_O[0] / HAND4_W, HAND4_O[1] / HAND4_H] },
   ];
   return { id: 'gaika4', name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#8a1622', glowInner: '#ff7a3a' } };
 }
