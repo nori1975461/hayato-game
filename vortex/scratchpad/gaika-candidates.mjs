@@ -1152,15 +1152,51 @@ const SKIRT = (() => {
   return R(G);
 })();
 
+// =====================================================================
+// 【第二案 第11稿】ノイエ・ジールの方向（FB＝参考画像つき「この方向性で書き直して。破滅的な要素をふんだんに」）
+//   骨格の読み＝①頭より高く跳ね上がる巨大な肩のバインダー ②細い胴が一本へ絞られる下半身（＝合格済みの逆さ扇がそのまま当たる）③細い副腕から放射状に伸びる長い光刃 ④黒い推進面
+//   バインダーは月牙より**後ろ**（深度7の先頭）＝黒い殻が月牙の地になり、外した光背の役を機械の翼が継ぐ。語彙は逆さ扇と同じ（黒・稜線一本・縁の深紅の刺繍・切っ先の金）＋下面に灼けた排気の溝と噴射
+// =====================================================================
+const BIND_W = 78, BIND_H = 126;   // 2回目：殻を大きく（上の切っ先 −84→−98）・鋼の明るさへ＝1回目は黒い殻が背景に沈み月牙まで埋もれた
+const binder = (s) => {
+  const G = g(BIND_W, BIND_H), LX = (wx) => (s > 0 ? wx - 8 : wx + 84), LY = (wy) => wy + 104;
+  const q = [[14, -10], [16, -98], [58, -66], [76, -6], [30, 0]].map(([x, y]) => [LX(s * x), LY(y)]);   // 付け根・上の切っ先・外の肩・外下の切っ先・内下
+  const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), dist = (a, b, x, y) => Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1]);
+  for (const t of [0.2, 0.5, 0.8]) { const bx = q[3][0] + (q[4][0] - q[3][0]) * t, by = q[3][1] + (q[4][1] - q[3][1]) * t; for (let y = 0; y <= 14; y += 0.25) { const u = y / 14, hw = 3.6 * Math.pow(1 - u, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + u * 0.5; P(G, bx + x, by + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); } } }   // 下面の噴射
+  const outerSign = Math.sign(cr(q[1], q[3], q[2][0], q[2][1])), eL = Math.hypot(q[4][0] - q[3][0], q[4][1] - q[3][1]);
+  for (let y = 0; y < BIND_H; y += 0.25) for (let x = 0; x < BIND_W; x += 0.25) {
+    const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % 5], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
+    const hem = Math.min(dist(q[1], q[2], x, y), dist(q[2], q[3], x, y), dist(q[3], q[4], x, y)), side = cr(q[1], q[3], x, y), outer = Math.sign(side) === outerSign, dR = dist(q[1], q[3], x, y), dl = dist(q[3], q[4], x, y);
+    const tt = ((x - q[3][0]) * (q[4][0] - q[3][0]) + (y - q[3][1]) * (q[4][1] - q[3][1])) / (eL * eL), tip = Math.min(Math.hypot(x - q[1][0], y - q[1][1]), Math.hypot(x - q[3][0], y - q[3][1]));
+    const vent = !outer && [7, 10.5, 14].some((d) => Math.abs(dl - d) < 0.7) && tt > 0.12 && tt < 0.8 && dR > 3;
+    P(G, x, y, tip < 5.5 ? (outer ? 'Y' : 'y') : vent ? (tt > 0.36 && tt < 0.56 ? 'A' : 'R') : hem >= 1.6 && hem < 2.8 ? 'R' : dR < 0.6 ? 's' : outer && Math.abs(dR - 10) < 0.45 ? 'j' : outer ? (dist(q[1], q[2], x, y) < 6 && s < 0 ? 'f' : 'm') : dl < 17.5 ? 'k' : 'j');   // 外の面＝鋼 m（左の殻は上の縁が f）・内の面＝j・下面の推進面だけ黒
+  }
+  OUTLINE(G);
+  return R(G);
+};
+// 光刃の副腕（深度7・月牙の手前）。バインダーの外下の切っ先から細い支柱が下がり、金の柄から深紅の光刃が放射状に落ちる。右は rig の mirror
+const BEAM_W = 66, BEAM_H = 112;
+const BEAM = (() => {
+  const G = g(BEAM_W, BEAM_H), LX = (wx) => wx - 60, LY = (wy) => wy + 18;
+  arm(G, [[LX(66), LY(-12)], [LX(84), LY(4)], [LX(88), LY(18)]], 2.2, 1.7); dimBone(G);
+  const { slab } = mkSlab(G, LX(88), LY(18), LX(118), LY(86));
+  slab(0, 1, (u) => 3.6 * Math.pow(1 - u, 0.5) + 1.2, () => 'r');
+  slab(0, 1, (u) => 2.4 * Math.pow(1 - u, 0.5) + 0.5, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.65 ? 'A' : 'R'));
+  slab(-0.08, 0.02, 2.6, goldCol);
+  OUTLINE(G);
+  return R(G);
+})();
+
 // 【第二案】第一案の六本腕と持ち物（錫杖・梵鐘の金棒・香炉・神核の雛形・曲刀・月牙を握る腕）を全部外し、月牙の機械腕を画面左に三本・画面右に二本（mirror）＋梵鐘のガトリング「百八」
 const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
   + '【第二案】腕は持ち物ごと全て外した。右半身（画面左）に逆三日月の機械腕が上下に三本、左半身（画面右）に三日月の機械腕が二本＝刃そのものが腕（深紅の縁・蒼硝子の身・深紅の玉）。'
   + '自前の両腕は梵鐘のガトリング「百八」を腰だめに構える＝黒鉄の胴・黒石の砲身の束・砲口がそのまま金の梵鐘。'
-  + '【第8稿】三神の環は無い。背に二丁の長砲（月牙の後ろを斜めに貫き右上へ砲口が突き出る）・腰の左にパルスレーザー（ガトリングと八の字）。座らない＝腰から下は五枚の黒い刃が逆さの扇に開き、深紅の噴射で浮く。神自身は無傷のまま。';
+  + '【第8稿】三神の環は無い。背に二丁の長砲（月牙の後ろを斜めに貫き右上へ砲口が突き出る）・腰の左にパルスレーザー（ガトリングと八の字）。座らない＝腰から下は五枚の黒い刃が逆さの扇に開き、深紅の噴射で浮く。神自身は無傷のまま。'
+  + '【第11稿】骨格はノイエ・ジールの方向＝頭より高く跳ね上がる黒い肩のバインダー（下面に灼けた排気の溝と噴射）が月牙の地になり、外下の切っ先から細い副腕が下がって深紅の光刃が放射状に落ちる。';
 function build2(opts = {}) {
   const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), pulse: P7(PULSE),   // 第8稿：三神の環を外す・蓮華座→刃の裳
+    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), pulse: P7(PULSE), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
     torso: P7(TORSO), crown: P7(CROWN), lotus: P7(LOTUS), stackR: P7(STACK_R), stackL: P7(STACK_L), suzu: P7(SUZU), cables: P7(CABLES), seed: P7(SEED),
     moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), gatling: P7(GATLING),
   };
@@ -1168,7 +1204,9 @@ function build2(opts = {}) {
   const rig = [
     { role: 'thruster', tex: 'cannons', ox: -8, oy: -2, origin: [(CAN_O[0] - 8) / CAN_W, (CAN_O[1] - 2) / CAN_H] },
     ...(noMan ? [] : [{ role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] }]),
+    { role: 'trackL', tex: 'binderL', ox: -84, oy: -104, origin: [0, 0] }, { role: 'trackR', tex: 'binderR', ox: 8, oy: -104, origin: [0, 0] },   // 第11稿：バインダーは月牙の後ろ
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),
+    { role: 'wingR', tex: 'beam', ox: 72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H] }, { role: 'wingL', tex: 'beam', ox: -72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H], mirror: true },   // 光刃の副腕は月牙の手前
     { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
     { role: 'trackR', tex: 'stackR', ox: 13, oy: -34, origin: [0, 0] },
     { role: 'trackL', tex: 'stackL', ox: -13, oy: -34, origin: [1, 0] },
