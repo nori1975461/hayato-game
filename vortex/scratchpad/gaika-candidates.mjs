@@ -1175,24 +1175,35 @@ function shoulderBoxes(G, X, Y) {
 // 第15稿：FB「顔がダメ。破滅的なイメージとスタイリッシュさを併せ持った顔に」＝第14稿（炉の裂け目と牙の格子・内へ曲がる短い角）は禍々しいが鈍重で洒落ていなかった。
 //   直し＝**線を減らす**。下へ長く尖る鋼の頭巾（嘴）・V 字の黒い溝を走る**蒼い単眼**（灼ける機体のなかで唯一冷たい光＝蒼神の名。画面左＝放った月牙の方を睨む）・外上へ真っ直ぐ払う長い黒い刃の角二本（内の縁が深紅）。
 //   金の立物と赤い目は置かない（第13稿の「仮面ライダー」の原因）。世界→スプライトは (+32,+HEAD2_OY)
-const HEAD2_W = 72, HEAD2_H = 72, HEAD2_OY = 86;   // 2回目：角は黒だとバインダーの内の面（j）に沈んだ＝鋼へ。耳に見えないよう広い V に開く
+// 第16稿：FB「顔と頭がだめ。長い角が全然だめ。ノイエ・ジールの顔を拡大した資料を参考に作り直して。四神柱最強の神であることを忘れないで。破滅的要素と荘厳さを併せ持って」
+//   資料（約75pxの正面）から読めた骨格＝角も棘も無い・**白く滑らかな丸い峰が三つ**（中央が高い鶏冠・左右が低い）・頭は肩の間に低く沈む・峰の下は暗い溝で顔の造作が無い。
+//   置き換え＝三つの峰は**骨白の蓮弁の冠**（荘厳＝黒と深紅の機体のなかで唯一の白・縁に金一筋）、その下の闇に**蒼い単眼が一つ**（破滅＝顔が無い）。顎は黒い楔で襟の刃に溶ける。角は全廃。世界→スプライトは (+36,+HEAD2_OY)
+const HEAD2_W = 72, HEAD2_H = 72, HEAD2_OY = 86;
 const HEAD2 = (() => {
   const G = g(HEAD2_W, HEAD2_H), X = (x) => x + 36, Y = (y) => y + HEAD2_OY;
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), dist = (a, b, x, y) => Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1]);
   const fillPoly = (pts, col) => { const q = pts.map(([x, y]) => [X(x), Y(y)]), N = q.length; for (let y = 0; y < HEAD2_H; y += 0.25) for (let x = 0; x < HEAD2_W; x += 0.25) { const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue; P(G, x, y, col(x - X(0), y - Y(0), (i) => dist(q[i], q[(i + 1) % N], x, y))); } };
-  const segD = (ax, ay, bx, by, x, y) => { const vx = bx - ax, vy = by - ay, u = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy))); return Math.hypot(x - ax - vx * u, y - ay - vy * u); };
-  for (const s of [-1, 1]) fillPoly([[s * 6, -24], [s * 15, -48], [s * 22, -36], [s * 14, -21]], (x, y, d) => (d(0) < 0.8 ? 'm' : Math.min(d(0), d(1)) >= 1.3 && Math.min(d(0), d(1)) < 2.3 ? 'R' : 'j'));   // 襟の刃
-  for (const s of [-1, 1]) geoSlab(G, X(s * 5.5), Y(-45), X(s * 12.5), Y(-85), (u) => 2.6 * (1 - u) + 0.3, (u) => 2.6 * (1 - u) + 0.3,   /* 3回目：広い V は月牙の円盤を横切って両方を損ねた＝バインダーの間の隙間（|x|<14）に収まる急な細い V へ */ (k, u, a) => { const e = (k * s) / a; return e < -0.5 ? 'A' : e < -0.1 ? 'R' : e > 0.5 ? (s < 0 ? 's' : 'm') : s < 0 ? 'f' : 'm'; });   // 角＝外上へ払う長い刃（内の縁が灼ける）
-  const EYE = [-5.4, -33.6];
-  fillPoly([[-15, -41], [-5, -47], [5, -47], [15, -41], [11, -33], [0, -17], [-11, -33]], (x, y, d) => {
-    const de = Math.hypot(x - EYE[0], y - EYE[1]), dv = Math.min(segD(0, -30, -12, -38, x, y), segD(0, -30, 12, -38, x, y));
-    if (de < 1.2) return 'C'; if (de < 2.2) return 'N'; if (de < 3.0) return 'P';
-    if (dv < 0.6) return 'Q'; if (dv < 1.8) return 'k';                                          // V 字の溝と単眼の軌条
-    const ch = Math.min(d(4), d(5)); if (y > -29 && ch >= 1.2 && ch < 2.5) return 'R';           // 嘴の縁の刺繍
-    if (y > -20.5) return 'Y';
-    if (Math.abs(x) < 0.5 && y > -27.5) return 's';                                              // 嘴の稜線
-    if (y < -42.5) return x < 0 ? 's' : 'f';
-    return x < -6 ? 'm' : x < 0 ? 'f' : d(3) < 0.8 || d(4) < 0.8 ? 'k' : x < 6 ? 'm' : 'j';   // 四つの面（右の外だけ j）
+  for (const s of [-1, 1]) fillPoly([[s * 6, -24], [s * 15, -48], [s * 22, -36], [s * 14, -21]], (x, y, d) => (d(0) < 0.8 ? 'm' : Math.min(d(0), d(1)) >= 1.3 && Math.min(d(0), d(1)) < 2.3 ? 'R' : 'j'));   // 襟の刃（第14稿から）
+  fillPoly([[-14, -29], [14, -29], [6, -19], [0, -14], [-6, -19]], (x, y, d) => { const e = Math.min(d(1), d(2), d(3), d(4)); return e >= 1.2 && e < 2.2 ? 'R' : x < 0 && e < 0.8 ? 'm' : 'j'; });   // 顎＝黒い楔
+  // 蓮弁：先は丸く尖り、胴で張り、根で少し締まる。tilt＝上へ行くほど外へ倒れる
+  const petal = (cx, yb, yt, W, tilt, dark) => {
+    for (let y = yt; y <= yb; y += 0.25) {
+      const tt = (y - yt) / (yb - yt), w = W * Math.pow(Math.min(1, tt * 1.6), 0.42) * (1.12 - 0.2 * tt)   /* 2回目：1回目（0.55 乗・細い）は三本の棘の冠に見えた＝肩の張った丸い峰へ */, c0 = cx + tilt * (1 - tt);
+      for (let dx = -w; dx <= w; dx += 0.25) {
+        const nx = dx / Math.max(0.5, w), rim = false;   // 2回目：金の縁取りは王冠の玩具に見えた＝白い塊のまま見せる（金は眉庇の一筋だけ）
+        const sh = nx < -0.5 ? 'n' : nx < 0.15 ? 's' : nx < 0.62 ? 'f' : 'm';
+        P(G, X(c0 + dx), Y(y), rim ? 'Y' : dark ? ({ n: 's', s: 'f', f: 'm', m: 'j' })[sh] : sh);
+      }
+    }
+  };
+  for (const s of [-1, 1]) petal(s * 11.5, -35, -56, 8, s * 1.2, true);                                 // 左右の低い峰（一段暗く＝奥）
+  petal(0, -35, -70, 9, 0, false);                                                                     // 中央の高い峰
+  for (let y = -62; y <= -40; y += 0.25) P(G, X(0.6), Y(y), 'f');                                        // 峰の稜線（資料の鶏冠の縦の継ぎ目）
+  fillPoly([[-20.5, -39], [20.5, -39], [15, -28], [-15, -28]], (x, y) => {                                   // 眉庇と闇の溝
+    if (y < -35.6) return y > -36.5 ? 'Y' : x < -4 ? 's' : x < 8 ? 'f' : 'm';
+    const de = Math.hypot(x + 4.2, y + 32);
+    if (de < 1.2) return 'C'; if (de < 2.1) return 'N'; if (de < 2.9) return 'P';
+    return Math.abs(y + 32) < 0.5 && Math.abs(x) < 14 ? 'Q' : 'k';
   });
   OUTLINE(G);
   return R(G);
