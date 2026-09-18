@@ -1201,37 +1201,31 @@ const HEAD2 = (() => {
 // 【第二案 第12稿→第13稿】機械の腕（armR・深度11）。FB「ガトリングとパルスレーザー、どちらもはずそう」＝持ち物なし。肘を外へ張り、三本の鉤爪を下へ開いて構える（ノイエ・ジールの爪の腕）
 // 第15稿：FB「腕の武器はもっと禍々しさをだす武器で。ノイエ・ジールのサーベルのように長く」＝第14稿の三本の鉤爪と掌の砲は短く、武器として弱かった。
 //   直し＝爪は二本の顎に縮めて**発振器**にし、掌から**逆棘の灼刃**（長さ 108）を抜く。黒い刃の身に鋼の稜線一本・外の刃側は白熱→深紅の炎が銛の返しの形に逆立つ（返しは手元へ向く＝刺さったら抜けない）。
-//   両腕を開いて下ろすと身体を挟む巨大な Λ になる。細い光刃の副腕（BEAM）は同じ向きで重なるので rig から外した（定義は残す）
-const ARM2_W = 264, ARM2_H = 200, ARM2_O = [132, 52], SABER_L = 108;
+//   両腕を開いて下ろすと身体を挟む巨大な Λ になる。細い光刃の副腕（BEAM）は第15稿でいったん外したが FB「いいアイデアなので復活」で第16稿に戻した＝灼刃の外にもう一本の Λ
+// 第16稿：FB「腕の武器も作り直して。光刃と喧嘩しない近代兵器を創造して」＝第15稿の逆棘の灼刃は副腕の光刃と同じ「細く長い深紅の斜線」で、並ぶと互いを消した。
+//   直し＝光刃の逆の性質へ：**短く・太く・黒鉄の塊・光は冷たい蒼**。前腕そのものが**電磁加速砲（双軌の砲）**＝鋼の機関部（蒼い充填の窓）から黒い軌条二本が伸び、軌条の間を蒼い電荷が砲口へ向かって白熱していく。砲口に充填の光球。
+//   機関部の外側に放熱の刃三枚（刃の語彙）。腕には深紅を置かない＝深紅は光刃と月牙と噴射、蒼は胸の蓮華と両腕の三角。手は無い（腕が武器そのもの）
+const ARM2_W = 212, ARM2_H = 128, ARM2_O = [106, 50], RAIL_L = 76;   // 2回目：1回目（64・機関部 11.5）は最強の神の武器として細かった＝2割太く長く
 const ARMS2 = (() => {
   const G = g(ARM2_W, ARM2_H), X = (x) => x + ARM2_O[0], Y = (y) => y + ARM2_O[1];
   for (const s of [-1, 1]) {
     const E = [X(s * 44), Y(-2)], Wr = [X(s * 62), Y(30)];
     mechArm(G, [[X(s * 20), Y(-16)], E], 5.4);
-    const ax = mkSlab(G, E[0], E[1], Wr[0], Wr[1]);
-    ax.slab(-0.12, 0, 5, (v) => (v < 0 ? 'j' : 'k'));
-    ax.slab(0, 1, 9.5, (v) => (v < -0.8 ? 'f' : v < -0.3 ? 'm' : v < 0.5 ? 'j' : 'k'));                                    // 前腕の装甲
-    ax.slab(0, 0.05, 10, goldCol); ax.slab(0.93, 1, 10, goldCol);
-    for (const u of [0.25, 0.4, 0.55]) ax.slab(u, u + 1.4 / ax.L, 6, (v) => (Math.abs(v) < 0.4 ? 'A' : 'R'));              // 灼けた溝
-    ax.slab(0.72, 0.72 + 1 / ax.L, 9.5, () => 'k');
-    const base = Math.atan2(Wr[1] - E[1], Wr[0] - E[0]), cx = Math.cos(base), cy = Math.sin(base);
-    const B0 = [Wr[0] + cx * 5, Wr[1] + cy * 5], B1 = [B0[0] + cx * SABER_L, B0[1] + cy * SABER_L];
-    const spine = (u) => 3.4 * Math.pow(1 - u, 0.7) + 0.4;
-    const edge = (u) => 5.6 * Math.pow(1 - u, 0.5) + 0.6 + (u > 0.06 ? 7 * Math.pow(1 - u, 0.35) * (1 - ((u * SABER_L) % 15.5) / 15.5) : 0);   // 2回目：返し 3.6→7・周期 12→15.5（等倍で鋸歯が読めなかった）   // 返し＝手元側が切り立つ鋸歯
-    geoSlab(G, B0[0], B0[1], B1[0], B1[1], s > 0 ? edge : spine, s > 0 ? spine : edge, (k, u, a, b) => {
-      const e = -k * s, ew = s > 0 ? a : b, sw = s > 0 ? b : a;
-      if (u > 0.94) return 'A';
-      if (e < 0) return -e > sw - 0.7 ? 'k' : 'j';
-      if (e < 0.6) return 'm'; if (e < 1.5) return 'j';
-      const t = (e - 1.5) / Math.max(0.01, ew - 1.5);
-      return t < 0.2 ? 'W' : t < 0.48 ? 'A' : t < 0.82 ? 'R' : 'r';
-    });
-    DISC(G, B0[0], B0[1], 5.6, 'r'); DISC(G, B0[0], B0[1], 4.2, 'R'); DISC(G, B0[0], B0[1], 2.6, 'A');                   // 掌の発振器
-    const gd = mkSlab(G, B0[0], B0[1], B1[0], B1[1]); gd.slab(0.025, 0.07, 7.4, goldCol);                                  // 鍔
-    for (const [da, len] of [[-0.55 * s, 25], [0.52 * s, 21]]) {                                                          // 顎の爪二本（外・内）
-      const a = base + da, fg = mkSlab(G, Wr[0] + Math.cos(a) * 3, Wr[1] + Math.sin(a) * 3, Wr[0] + Math.cos(a) * len, Wr[1] + Math.sin(a) * len);
-      fg.slab(0, 1, (u) => 4.2 * (1 - u) + 0.45, (v, u) => (u > 0.86 ? 'Y' : v > 0.5 ? 'R' : v < -0.3 ? 'm' : 'j'));
+    const base = Math.atan2(Wr[1] - E[1], Wr[0] - E[0]), ux = Math.cos(base), uy = Math.sin(base), ox = s * uy, oy = -s * ux;   // (ox,oy)＝外向きの法線
+    const M = [E[0] + ux * RAIL_L, E[1] + uy * RAIL_L], ax = mkSlab(G, E[0], E[1], M[0], M[1]);
+    for (const fu of [0.06, 0.18, 0.3]) {                                                                                   // 放熱の刃（先に描く＝機関部の後ろから生える）
+      const rx = E[0] + ux * RAIL_L * fu + ox * 11, ry = E[1] + uy * RAIL_L * fu + oy * 11, fin = mkSlab(G, rx, ry, rx + ox * 14 - ux * 10, ry + oy * 14 - uy * 10);
+      fin.slab(0, 1, (u) => 2.8 * (1 - u) + 0.35, (v) => (v < 0 ? 'f' : 'm'));
     }
+    ax.slab(-0.1, 0, 5, (v) => (v < 0 ? 'j' : 'k'));
+    ax.slab(0.4, 1, 3.9, (v) => (v < -0.5 ? 'm' : v > 0.6 ? 'k' : 'j'), 7.6); ax.slab(0.4, 1, 3.9, (v) => (v < -0.5 ? 'm' : v > 0.6 ? 'k' : 'j'), -7.6);   // 軌条二本
+    ax.slab(0.4, 0.985, 3.8, (v, u) => { const c = Math.abs(v), hot = (u - 0.4) / 0.6; return c < 0.22 + 0.2 * hot ? (hot > 0.55 ? 'C' : 'N') : c < 0.6 ? 'P' : 'Q'; });   // 軌条の間の電荷
+    for (const bu of [0.56, 0.72, 0.88]) ax.slab(bu, bu + 1.6 / RAIL_L, 11.6, (v) => (Math.abs(v) < 0.3 ? null : v < 0 ? 'f' : 'm'));   // 軌条を束ねる枷（中央は電荷を通す）
+    ax.slab(0, 0.42, 13.5, (v) => (v < -0.82 ? 's' : v < -0.4 ? 'f' : v < 0.35 ? 'm' : v < 0.8 ? 'j' : 'k'));                 // 機関部
+    ax.slab(0.1, 0.34, 2.8, (v, u) => (Math.abs(v) > 0.6 ? 'k' : u > 0.27 ? 'Q' : u > 0.2 ? 'P' : 'N'));                        // 充填の窓
+    ax.slab(0, 0.045, 14, goldCol); ax.slab(0.385, 0.43, 14, goldCol);
+    ax.slab(0.955, 1, 4.2, goldCol, 7.6); ax.slab(0.955, 1, 4.2, goldCol, -7.6);                                              // 砲口の金
+    const ob = [M[0] + ux * 2.5, M[1] + uy * 2.5]; DISC(G, ob[0], ob[1], 5.6, 'Q'); DISC(G, ob[0], ob[1], 4.3, 'P'); DISC(G, ob[0], ob[1], 2.9, 'N'); DISC(G, ob[0], ob[1], 1.6, 'C');   // 充填の光球
     DISC(G, E[0], E[1], 6.6, 'k'); DISC(G, E[0], E[1], 5.8, 'm'); DISC(G, E[0], E[1], 4, 'k'); DISC(G, E[0], E[1], 3.2, 'f'); for (const [bx, by] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) P(G, E[0] + bx, E[1] + by, 'k');
   }
   shoulderBoxes(G, X, Y);
@@ -1265,13 +1259,13 @@ const binder = (s) => {
   return R(G);
 };
 // 光刃の副腕（深度7・月牙の手前）。バインダーの外下の切っ先から細い支柱が下がり、金の柄から深紅の光刃が放射状に落ちる。右は rig の mirror
-const BEAM_W = 66, BEAM_H = 112;
+const BEAM_W = 88, BEAM_H = 158;   // 第16稿：FB「副腕の光刃はいいアイデアなので復活。もっと刃先を細く長く」＝長さ 74→125・先細りを (1-u)^1.25 の凹に（針のように抜ける）
 const BEAM = (() => {
   const G = g(BEAM_W, BEAM_H), LX = (wx) => wx - 60, LY = (wy) => wy + 18;
   arm(G, [[LX(66), LY(-12)], [LX(84), LY(4)], [LX(88), LY(18)]], 2.2, 1.7); dimBone(G);
-  const { slab } = mkSlab(G, LX(88), LY(18), LX(118), LY(86));
-  slab(0, 1, (u) => 3.6 * Math.pow(1 - u, 0.5) + 1.2, () => 'r');
-  slab(0, 1, (u) => 2.4 * Math.pow(1 - u, 0.5) + 0.5, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.65 ? 'A' : 'R'));
+  const { slab } = mkSlab(G, LX(88), LY(18), LX(139), LY(132));
+  slab(0, 1, (u) => 3.4 * Math.pow(1 - u, 1.25) + 0.9, () => 'r');
+  slab(0, 1, (u) => 2.4 * Math.pow(1 - u, 1.25) + 0.3, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.65 ? 'A' : 'R'));
   slab(-0.08, 0.02, 2.6, goldCol);
   OUTLINE(G);
   return R(G);
@@ -1289,7 +1283,7 @@ const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
 function build2(opts = {}) {
   const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)),   // 第8稿：三神の環を外す・蓮華座→刃の裳
+    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
     torso: P7(TORSO), head: P7(HEAD2), lotus: P7(LOTUS), seed: P7(SEED),   // 第13稿：冕冠・排気管・鈴・配線を外し機械の頭へ
     moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), arms: P7(ARMS2),   // 第12稿：ガトリング（GATLING）とパルスレーザー（PULSE）は定義だけ残して外した
   };
@@ -1299,6 +1293,7 @@ function build2(opts = {}) {
     ...(noMan ? [] : [{ role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] }]),
     { role: 'trackL', tex: 'binderL', ox: -84, oy: -104, origin: [0, 0] }, { role: 'trackR', tex: 'binderR', ox: 8, oy: -104, origin: [0, 0] },   // 第11稿：バインダーは月牙の後ろ
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),
+    { role: 'wingR', tex: 'beam', ox: 72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H] }, { role: 'wingL', tex: 'beam', ox: -72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H], mirror: true },   // 光刃の副腕は月牙の手前（第16稿で復活）
     { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'body', tex: 'torso', ox: 0, oy: -24, origin: [0.5, 0] },
