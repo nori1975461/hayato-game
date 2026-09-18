@@ -150,6 +150,11 @@
 //   ㊼腰の帯＝**4 行→3 行**（金の縁二筋＋深紅の地一行だけ）・菱は 10→14 ドットおき。裳の襴＝**5 行→3 行**・菱は 12→16 ドットおきの点。
 //   ㊼金襴の地文＝格子 8×10→**11×13**（数がおよそ半分）・菱を 5 ドット→4 ドット・色を `Y`＋`y` から**鈍い金 `y` だけ**へ。肩の縁飾り＝金二筋＋深紅→**鈍い金の一筋だけ**。
 //   ㊼**肩を布にしたこと自体（`s/f/m/j`→`f/m/j/k`）は残してある**＝FB は刺繍の量についてで、肩の材質には触れられていない。
+// 第28案改への FB（09-18 19:48）「**なしとおさえた版の中間で**」「**胴体が少し長すぎる。胴体の面積を少し減らして**」→ 第28案改２：
+//   ㊽刺繍をもう一段落とす＝縦の襴 幅 4.8→**3.0**・周期 10→14 行・菱は点ひとつ／腰の帯 3→**2 行**（深紅一行＋金の縁一筋）・点は 14→20 ドットおき／裳の襴 3→**2 行**・点は 16→22 ドットおき／地文の格子 11×13→**15×17**（数がまた半分）。肩の一筋は据え置き。
+//   ㊽**胴を 64→58（TORSO_EXT 24→18＝面積 −9.4%）**。⚠️これは**比率の指示と逆向き**で、身体（錫杖を除く塗り）は 142×147＝**0.966 → 142×141＝1.007** になる。「太って見える」の指摘に戻る可能性があるので、数字を明示してユーザーに返す。
+//   ㊽縮めたぶんの送り＝**上（肩から上）は +2・下（座と環）は −4**（第27案で E 0→24 のときに上 −10／下 +14 だったので、その 18/24 ぶんを戻す）。錫杖 `B0/B1` −82/−87→**−76/−81**（石突きは座の下の地のまま）・配線 `CAB_H` 60→**54**・近侍の立ち位置は `render-gaika.mjs` の 66,66→**66,62**。
+//   ㊽**刺繍の行番号は E に相対で書いてあるので胴を縮めても位置は自動で追従する**（腰の帯 18+E・裳は座の 14〜15 行）。世界座標の見える下限も座が 4 上がったぶん +21→+17 へ動くが、帯は +10〜+12 なので入ったまま。
 //
 // 第6案への FB（09-16 20:33）：「花弁を正面向きの骸にする」と「左右1枚ずつを本体の外へ出して全身見せる」を **両方やって**、それぞれ画像に。進める際の指示2つ：
 //   ①「荘厳さと退廃さを両立して」の退廃の見せ方に問題あり。腐食や錆、故障部分を見せることが退廃だと考えているなら間違い。
@@ -447,13 +452,13 @@ const PEDESTAL = (() => {
     P(G, x, y, 'k'); P(G, x, y + 1, x < cx - 2 ? 'm' : 'f');
   }
   for (const dx of [26, 30]) for (let y = 1; y <= 22 + D; y++) { P(G, cx - dx, y, 'k'); P(G, cx - dx + 1, y, 'm'); P(G, cx + dx, y, 'k'); P(G, cx + dx - 1, y, 'f'); }   // 膝の外＝縦の襞
-  for (let y = 13 + D; y <= 15 + D; y++) {                                                                                                          // 裳の襴＝胴の打ち合わせと同じ「深紅の地に金の菱」。衣装全体を一枚の法衣にまとめる。これより下は環と仰蓮に隠れる
-    const hw = 20 + 12 * (y / (23 + D)), r = y - 13 - D;
+  for (let y = 14 + D; y <= 15 + D; y++) {                                                                                                          // 裳の襴＝胴の打ち合わせと同じ「深紅の地に金の菱」。衣装全体を一枚の法衣にまとめる。これより下は環と仰蓮に隠れる
+    const hw = 20 + 12 * (y / (23 + D)), r = y - 14 - D;
     for (let x = Math.ceil(cx - hw); x <= Math.floor(cx + hw); x++) {
-      const s = Math.abs(((x - cx + 408) % 16) - 8);
+      const s = Math.abs(((x - cx + 411) % 22) - 11);
       let ch = 'r';                                                                                                                                 // 地は深紅のまま残す＝行ごと金で埋めると刺繍でなく金の棒になる
-      if (r !== 1) ch = 'y';                                                                                                                        // 帯の上下の縁＝鈍い金の一筋。3 行だけ（第28案は 5 行）
-      else if (s < 1.2) ch = 'Y';                                                                                                                   // 連珠＝16 ドットごとの小さな金の点（第28案は 12 ドットごとの菱）
+      if (r === 1) ch = 'y';                                                                                                                        // 帯の下の縁＝鈍い金の一筋だけ。2 行（第28案改は 3 行・第28案は 5 行）
+      else if (s < 1) ch = 'Y';                                                                                                                     // 連珠＝22 ドットごとの小さな金の点
       P(G, x, y, ch);
     }
   }
@@ -470,7 +475,7 @@ const PEDESTAL = (() => {
 // =====================================================================
 // ④ 本体（body）46×40。上端＝襟（世界 -16）・下端＝膝（+23）。黒鉄の鎧（板の継ぎ目・金の縁・鋲）・帯（深紅の玉）・通気口。左右の肩当てに牙
 // =====================================================================
-const TORSO_EXT = 24;                                                                                         // 第27案：骸華自身の胴を縦に伸ばす（+24）。幅（46）は 1 ドットも動かさない
+const TORSO_EXT = 18;                                                                                         // 第27案：骸華自身の胴を縦に伸ばす（+24）。幅（46）は 1 ドットも動かさない
 const TORSO_W = 46, TORSO_H = 40 + TORSO_EXT;
 // 第27案改（09-18 18:41 FB「大鎧はやめて。安易すぎる。ただの武者にしかみえない。鎧ではなく現代的でスタイリッシュな服装を」）：
 //   札の段・赤糸縅・鋲・引合＝**すべて撤去**。胴は継ぎ目のない一枚の黒い面にして、線は三本だけに絞る＝現代の服は線の少なさで格を出す。
@@ -494,27 +499,27 @@ const TORSO = (() => {
       if (y >= LAP0 && y <= LAP1) {
         const d = x - lapX(y);
         if (d >= 0) ch = u < -0.62 ? 'm' : u < 0.42 ? 'j' : 'k';                                                // 上前＝布が一枚重なるぶん沈む
-        if (d >= 0 && d < 4.8) {                                                                                // 襴（らん）＝打ち合わせに沿う刺繍の帯。深紅の地に金の連珠。荘厳は縁飾りの幅で出る
-          const w = d, s = (y - LAP0) % 10, dw = Math.abs(w - 2.4), ds = Math.abs(s - 4.5);
+        if (d >= 0 && d < 3.0) {                                                                                // 襴（らん）＝打ち合わせに沿う刺繍の帯。深紅の地に金の連珠。荘厳は縁飾りの幅で出る
+          const w = d, s = (y - LAP0) % 14, dw = Math.abs(w - 1.5), ds = Math.abs(s - 6.5);
           ch = 'r';                                                                                             // 地は深紅。金の糸を縦に通すと珠がつながって「金の棒」になるので通さない
-          if (w < 0.8 || w > 4.1) ch = 'y';                                                                     // 帯の両縁＝鈍い金の一筋
-          if (dw * 1.6 + ds < 1.6) ch = dw * 1.6 + ds < 0.8 ? 'Y' : 'y';                                        // 連珠＝10 行ごとに離して並ぶ小さな金の菱（第28案の 7 行・幅 7.2・`G` からおさえた）
+          if (w < 0.6 || w > 2.4) ch = 'y';                                                                     // 帯の両縁＝鈍い金の一筋
+          if (dw * 2 + ds < 1.2) ch = 'Y';                                                                      // 連珠＝14 行ごとの小さな金の点（無しと第28案改の中間）
         }
         if (d >= -1.4 && d < 0) ch = 'k';                                                                       // 帯が下前に落とす影
         if (d >= -2.6 && d < -1.4) ch = y < 26 ? 'R' : 'r';                                                     // その下から覗く深紅の裏地。襟の下に回すと赤い弧が「口」になったのでここへ移した
       }
-      if (y >= 17 + E && y <= 19 + E) {                                                                         // 腰の帯＝縦の襴と直角に交わる横の襴。位置は「見える範囲の下端」＝これより下は蓮華座と環に隠れる
-        const r = y - 17 - E, s = Math.abs(((x - cx + 407) % 14) - 7), dv = Math.abs(r - 1);
-        ch = r === 1 ? (s + dv * 2 < 1.6 ? 'Y' : 'r') : 'y';                                                    // 3 行（金の縁二筋＋深紅の地一行）だけ。菱は 14 ドットおき＝第28案の 4 行・10 ドットおきからおさえた
+      if (y >= 18 + E && y <= 19 + E) {                                                                         // 腰の帯＝縦の襴と直角に交わる横の襴。位置は「見える範囲の下端」＝これより下は蓮華座と環に隠れる
+        const s = Math.abs(((x - cx + 410) % 20) - 10);
+        ch = y === 19 + E ? 'y' : s < 1 ? 'Y' : 'r';                                                            // 2 行（深紅の地一行＋金の縁一筋）だけ。点は 20 ドットおき＝第28案改の 3 行・14 ドットおきからさらに落とした
       }
       P(G, x, y, ch);
     }
   }
   for (let y = 30; y <= 24 + E; y += 0.25) { const fx = cx + 7.5 + (y - 30) * 0.14; P(G, fx, y, 'k'); P(G, fx - 1, y, 'm'); }   // 留め具から落ちる布の襞（一本だけ）
-  for (let gy = 13; gy <= 21 + E; gy += 11) for (let gx = -18; gx <= 18; gx += 13) {                            // 金襴の地文＝黒地に散る金の菱（刺繍）。輪に芯を入れると「目」になるので中は詰めず輪郭だけ
-    const mx = cx + gx + (((gy - 13) / 11) % 2 ? 6.5 : 0);
-    if (Math.abs(mx - lapX(gy)) < 8 || Math.abs(mx - cx) > hwAt(gy) - 3) continue;
-    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) P(G, mx + ox, gy + oy, 'y');                      // 鈍い金のみ・4 ドットの菱。第28案の 5 ドット＋`Y` からおさえた
+  for (let gy = 14; gy <= 21 + E; gy += 15) for (let gx = -18; gx <= 18; gx += 17) {                            // 金襴の地文＝黒地に散る金の菱（刺繍）。輪に芯を入れると「目」になるので中は詰めず輪郭だけ
+    const mx = cx + gx + (((gy - 14) / 15) % 2 ? 8.5 : 0);
+    if (Math.abs(mx - lapX(gy)) < 7 || Math.abs(mx - cx) > hwAt(gy) - 3) continue;
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) P(G, mx + ox, gy + oy, 'y');                      // 鈍い金のみ・4 ドットの菱。格子を 11×13→15×17 に広げて数をさらに半分へ
   }
   for (let y = 27 + E; y <= 29 + E; y++) for (let x = cx - 6; x <= cx + 6; x++) P(G, x, y, y === 28 + E ? 'k' : 'm');   // 通気口（帯の下）
   for (const x of [cx - 3, cx + 3]) for (let y = 27 + E; y <= 29 + E; y++) P(G, x, y, 'k');
@@ -665,7 +670,7 @@ const HEADS = {
     [-4, 'YYYYYYYY'], [-4, 'GmjjjjmY'], [-4, 'YYYYYYYY']] };                        // 基壇＝上框・束・下框
 const armL = (rod) => {
   const G = g(ARML_W, ARML_H), key = HEADS[rod] ? rod : ROD_DEFAULT, H = HEADS[key];
-  const CX = 10, FY = 96, TOP = 83, B0 = -82, B1 = -87;                              // 柄の中心 x・拳の y／棒の頂／柄の下端と石突きの下端（s＝拳から上）。第27案：身体が縦に 24 伸びた（肩が 10 上がり地が 14 下がった）ぶん柄も伸ばす＝石突きは座の下の地（世界 +74）のまま
+  const CX = 10, FY = 96, TOP = 83, B0 = -76, B1 = -81;                              // 柄の中心 x・拳の y／棒の頂／柄の下端と石突きの下端（s＝拳から上）。第27案：身体が縦に 24 伸びた（肩が 10 上がり地が 14 下がった）ぶん柄も伸ばす＝石突きは座の下の地（世界 +74）のまま
   const put = (s, dx, ch) => P(G, CX + dx, FY - s, ch);
   const line = (s, x0, cols) => { for (let i = 0; i < cols.length; i++) if (cols[i] !== '.') put(s, x0 + i, cols[i]); };
   H.forEach(([x0, cols], i) => line(TOP - i, x0, cols));
@@ -821,7 +826,7 @@ const SUZU = (() => {
 // =====================================================================
 // ⑬ 配線（qlegBL・深度7）16×44：左肩の後ろ（世界 -19,-14）から垂れて座の継ぎ口（+28）に刺さる。3本。1本は神経光の導管（連続線）
 // =====================================================================
-const CAB_W = 16, CAB_H = 60;                                                                        // 第27案：胴が 24 伸びて肩と座が離れたぶん配線も伸ばす（44→60）
+const CAB_W = 16, CAB_H = 54;                                                                        // 第27案：胴が 24 伸びて肩と座が離れたぶん配線も伸ばす（44→60）
 const CABLES = (() => {
   const G = g(CAB_W, CAB_H);
   const cable = (pts, ch) => { for (let i = 0; i + 1 < pts.length; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; for (let u = 0; u <= 1; u += 0.02) { const x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u; P(G, x - 0.9, y, 'k'); P(G, x, y, ch); P(G, x + 0.9, y, 'k'); } } };
@@ -949,27 +954,27 @@ function build(opts = {}) {   // opts.sword＝曲刀の中の左手（baseR）�
   // 深度は boss.js / render-boss-rig の PART_DEPTH：thruster 6 < wing/base/qleg/track/pod/leg 7（並び順で後が上）< body 8 < dome/rack 9 < cannon 10 < arm 11 < core 12
   const rig = [
     // 第27案＝身体を縦に 24 伸ばす。肩から上は 10 上げ（-10）・腰から下は 6 下げ（+6）・裳の伸び 8 は蓮華座の中で吸う。横（ox）は 1 ドットも動かさない
-    { role: 'thruster', tex: 'ringsB', ox: 0, oy: 0, origin: [0.5, 0] },
-    { role: 'thruster', tex: 'mandorla', ox: 0, oy: -56, origin: [0.5, 0] },
-    { role: 'wingL', tex: 'wingL', ox: -10, oy: -26, origin: [38 / WINGL_W, 53 / WINGL_H] },
-    ...(opts.sword ? [{ role: 'baseR', tex: 'baseR', ox: 14, oy: -2, origin: [2 / BASER_W, 30 / BASER_H] }] : []),
-    { role: 'baseL', tex: 'baseL', ox: -14, oy: -2, origin: [26 / BASEL_W, 17 / BASEL_H] },
-    { role: 'qlegFR', tex: 'qlegR', ox: 12, oy: 20, origin: [2 / QR_W, 26 / QR_H] },
-    { role: 'podL', tex: 'halo', ox: 0, oy: -32, origin: [0.5, 0.5] },
-    { role: 'trackR', tex: 'stackR', ox: 13, oy: -36, origin: [0, 0] },
-    { role: 'trackL', tex: 'stackL', ox: -13, oy: -36, origin: [1, 0] },
-    { role: 'legL', tex: 'pedestal', ox: 0, oy: 34, origin: [0.5, 0] },
-    { role: 'qlegBL', tex: 'cables', ox: -19, oy: -24, origin: [12 / CAB_W, 0] },
-    { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 20, origin: [28 / QL_W, 24 / QL_H] },
-    { role: 'body', tex: 'torso', ox: 0, oy: -26, origin: [0.5, 0] },
-    { role: 'dome', tex: 'crown', ox: 0, oy: -50, origin: [0.5, 0] },
-    { role: 'dome', tex: 'suzu', ox: 21.5, oy: -28, origin: [1 / SUZU_W, 1 / SUZU_H] },
-    { role: 'rack', tex: 'lotus', ox: 0, oy: -6 },
-    { role: 'cannon', tex: 'ringsF', ox: 0, oy: 0, origin: [0.5, 0] },
-    { role: 'cannon', tex: 'seal', ox: 0, oy: 21, origin: [0.5, 0] },
-    { role: 'armR', tex: 'armR', ox: 17, oy: -19, origin: [5 / ARMR_W, 4 / ARMR_H] },
-    { role: 'armL', tex: 'armL', ox: -17, oy: -19, origin: [45 / ARML_W, 90 / ARML_H] },
-    { role: 'core', tex: 'seed', ox: 0, oy: -6 },
+    { role: 'thruster', tex: 'ringsB', ox: 0, oy: -4, origin: [0.5, 0] },
+    { role: 'thruster', tex: 'mandorla', ox: 0, oy: -54, origin: [0.5, 0] },
+    { role: 'wingL', tex: 'wingL', ox: -10, oy: -24, origin: [38 / WINGL_W, 53 / WINGL_H] },
+    ...(opts.sword ? [{ role: 'baseR', tex: 'baseR', ox: 14, oy: -3, origin: [2 / BASER_W, 30 / BASER_H] }] : []),
+    { role: 'baseL', tex: 'baseL', ox: -14, oy: -3, origin: [26 / BASEL_W, 17 / BASEL_H] },
+    { role: 'qlegFR', tex: 'qlegR', ox: 12, oy: 16, origin: [2 / QR_W, 26 / QR_H] },
+    { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
+    { role: 'trackR', tex: 'stackR', ox: 13, oy: -34, origin: [0, 0] },
+    { role: 'trackL', tex: 'stackL', ox: -13, oy: -34, origin: [1, 0] },
+    { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
+    { role: 'qlegBL', tex: 'cables', ox: -19, oy: -22, origin: [12 / CAB_W, 0] },
+    { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 16, origin: [28 / QL_W, 24 / QL_H] },
+    { role: 'body', tex: 'torso', ox: 0, oy: -24, origin: [0.5, 0] },
+    { role: 'dome', tex: 'crown', ox: 0, oy: -48, origin: [0.5, 0] },
+    { role: 'dome', tex: 'suzu', ox: 21.5, oy: -26, origin: [1 / SUZU_W, 1 / SUZU_H] },
+    { role: 'rack', tex: 'lotus', ox: 0, oy: -4 },
+    { role: 'cannon', tex: 'ringsF', ox: 0, oy: -4, origin: [0.5, 0] },
+    { role: 'cannon', tex: 'seal', ox: 0, oy: 17, origin: [0.5, 0] },
+    { role: 'armR', tex: 'armR', ox: 17, oy: -17, origin: [5 / ARMR_W, 4 / ARMR_H] },
+    { role: 'armL', tex: 'armL', ox: -17, oy: -17, origin: [45 / ARML_W, 90 / ARML_H] },
+    { role: 'core', tex: 'seed', ox: 0, oy: -4 },
   ];
   return { id: opts.sword ? 'gaika-sword' : 'gaika', name: '蒼神骸華', concept: CONCEPT, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#2f8fd8', glowInner: '#ffedb0' } };
 }
