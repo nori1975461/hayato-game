@@ -1527,35 +1527,41 @@ export const GAIKA2_V19 = build3();   // 第19稿（全否決「正義のスー�
 //   胸＝金の蓮華の中心が大口径砲の砲口。背後に日蝕の輪。副腕の光刃四本は下向き（第18稿の BEAM／BEAM2 を流用）
 // =====================================================================
 const SH_W = 102, SH_H = 208, SH_TOP = -134, SH_LEN = 186;   // 2回目：1回目（膨らみ 76・丸い頂・牙が y+72 まで）は青い卵に見え、逆さ扇⭐を隠した＝頂を角のように尖らせ・膨らみ 64・牙は短く外へ流す
-const shellEdges = (y) => { const tt = (y - SH_TOP) / SH_LEN; const sn = Math.sin(Math.PI * Math.pow(tt, 0.72)), drift = 22 * Math.pow(tt, 3) - 8 * Math.pow(1 - tt, 4); return [30 + drift - 14 * Math.pow(Math.sin(Math.PI * Math.pow(tt, 0.9)), 0.7), 30 + drift + 64 * Math.pow(sn, tt < 0.36 ? 1.45 : 0.9), tt]; };
-// 第21稿：FB「二枚の巨大な紺の装甲に、もっと荘厳さと破滅的要素を」＝荘厳＝翼の羽根のように重なる段の装甲（各段の下縁に金一筋）／破滅＝段の隙間から漏れる炉の光（深紅）と、外の輪郭に逆立つ羽根先の鋸歯。
-//   深紅の帯・金のバーニア・ミサイルの蓋は外した（段と金と炉の光で足りる＝線を増やさない）
-const SH_TIERS = 5.5;
+// 第22稿：FB「二枚の紺の装甲がよくない。ひとめですごく目立つ。浮いて見える」「昔のロボットアニメのヒーロー風な感じが強い。12稿の方が悪神的な破滅的要素があった」
+//   診断＝ヒーロー感の正体は①彩度の高い青＋赤＋金の三原色 ②滑らかな曲線に等間隔の金の縞。第12稿の悪神らしさ＝黒鉄と深紅・鋭角の面・月牙の深紅の曲線・左右の非対称。
+//   直し＝輪郭を折れ線の鋭角へ・紺をやめ黒鉄と鋼（稜線で割った二面）・段は三枚で隙間から炉の光・外の縁は逆さ扇⭐と同じ「縁から入った深紅の刺繍」・金は牙の先だけ。月牙は build4 の rig で戻す
+const SH_IN = [[22, -134], [15, -70], [17, -6], [52, 52]], SH_OUT = [[22, -134], [66, -108], [97, -44], [86, 8], [52, 52]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [52, 52]];
+const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
+const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
 function shell(s) {
   const G = g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
-  const tone = (i, ck) => ['P', ck ? 'P' : 'Q', 'Q', ck ? 'Q' : 'q', 'q', 'q'][Math.max(0, Math.min(5, i))];
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
-    const [xi, xo0, tt] = shellEdges(y), fo = (tt * SH_TIERS) % 1, xo = xo0 + (tt > 0.16 && tt < 0.9 ? 7 * Math.pow(fo, 5) : 0);   // 羽根先の鋸歯
+    const [xi, xo0, tt] = shellEdges(y), fo = ((y - SH_TOP) / 16) % 1, xo = xo0 + (y > -104 && y < 36 ? 6.5 * Math.pow(fo, 4) : 0), xr = polyX(SH_RIDGE, y);   // 外の縁の鋸歯＝下へ逆立つ刃先
     for (let x = xi; x <= xo; x += 0.25) {
-      const u = (x - xi) / Math.max(0.5, xo0 - xi), lx = s > 0 ? u : 1 - u, dIn = x - xi, f = tt * SH_TIERS + 1.15 * (1 - Math.min(1, u)), fr = f % 1, ck = (Math.round(s * x) + Math.round(y)) % 2 === 0;
+      const u = (x - xi) / Math.max(0.5, xo0 - xi), lit = s < 0 ? x > xr : x < xr, dIn = x - xi, dOut = xo - x, f = (y - SH_TOP) / 62 + 0.4 * (1 - Math.min(1, u)), fr = f % 1;
       let c;
-      if (tt > 0.94) c = lx < 0.4 ? 'G' : 'Y';                                                         // 牙の先の金
-      else if (tt < 0.035) c = 'f';
-      else if (dIn < 3.4) c = lx < 0.5 ? 'f' : 'm';                                                    // 内の縁の鋼の枠
+      if (tt > 0.94) c = lit ? 'G' : 'Y';                                                              // 牙の先の金
+      else if (tt < 0.04) c = 'f';
+      else if (dIn < 3.4) c = s < 0 ? 'm' : 'f';                                                       // 内の縁の鋼の枠
       else if (dIn < 4.3) c = 'k';
-      else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = dIn < 5.3 ? 'm' : (Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j');   // 黒い内板（放熱の横溝）
-      else if (dIn < 14 && tt > 0.1 && tt < 0.86) c = 'k';
-      else if (f > 1.2 && fr < 0.05) c = lx < 0.55 ? 'A' : 'R';                                        // 段の隙間から漏れる炉の光
-      else if (f > 1.2 && fr < 0.1) c = 'r';
-      else if (f > 1.2 && fr < 0.17) c = 'k';                                                          // 上の段が落とす影
-      else if (fr > 0.94 && f < SH_TIERS * 0.93) c = lx < 0.5 ? 'G' : 'Y';                             // 段の下縁の金一筋
-      else c = tone((lx < 0.05 ? 0 : lx < 0.2 ? 1 : lx < 0.48 ? 2 : lx < 0.62 ? 3 : 4) + (fr > 0.62 ? 1 : 0), ck);   // 紺の曲面（段ごとに下が暗い）
+      else if (dIn < 12 && tt > 0.1 && tt < 0.86) c = Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j';       // 黒い内板（放熱の横溝）
+      else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = 'k';
+      else if (f > 0.9 && fr < 0.04) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
+      else if (f > 0.9 && fr < 0.085) c = 'r';
+      else if (f > 0.9 && fr < 0.15) c = 'k';
+      else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = 'R';                                        // 縁から入った深紅の刺繍（逆さ扇と同じ語彙）
+      else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
+      else c = lit ? (fr > 0.9 ? 'f' : 'm') : dOut < 1.2 || fr > 0.93 ? 'k' : 'j';                     // 黒鉄の二面（光の面は鋼）
       P(G, X(s * x), Y(y), c);
     }
   }
+  if (s < 0) { DISC(G, X(-78), Y(-30), 5.2, 'k'); DISC(G, X(-78), Y(-30), 4.2, 'm'); DISC(G, X(-78), Y(-30), 3.2, 'k'); DISC(G, X(-78), Y(-30), 2.0, 'Q'); DISC(G, X(-78), Y(-30), 1.0, 'N'); }   // 空の発射架（蒼く灯る）
   OUTLINE(G);
   return R(G);
 }
+// 月牙（第二案の最初の指示＝右半身に三本・左半身に二本）。肩の面に格納二枚ずつ、画面左の一枚は発射済みで有線で輪の外に浮く
+const MOONS4 = [{ c: [-52, -82], root: [-52, -82], mode: 'dock' }, { c: [-68, -40], root: [-68, -40], mode: 'dock' }, { c: [-132, -68], root: [-78, -30], mode: 'wire' }]
+  .map((m) => { const off = [m.root[0] - m.c[0], m.root[1] - m.c[1]]; return { ...m, rows: moonArm(off, [10, 21], m.mode), origin: [(MOON_C[0] + off[0]) / MOON_W, (MOON_C[1] + off[1]) / MOON_H] }; });
 
 const TOR4_W = 76, TOR4_H = 98, TOR4_OY = 58;
 const TORSO4 = (() => {
@@ -1567,13 +1573,14 @@ const TORSO4 = (() => {
       const lx = (x + w) / (2 * w);
       let c;
       if (y < -33) c = lx < 0.3 ? 'm' : 'j';
-      else if (y < -3) c = y > -4.6 ? 'Y' : Math.abs(Math.abs(x) - 16) < 0.5 ? 'k' : Math.abs(x) > 17.5 && Math.abs(x) < 24.5 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55) ? 'k' : lx < 0.05 ? 'P' : lx < 0.5 ? 'Q' : lx < 0.94 ? 'q' : 'k';                   // 紺の胸（分割線・吸気の溝・下の縁に金）
+      else if (y < -3) c = y > -4.6 ? 'R' : Math.abs(Math.abs(x) - 16) < 0.5 ? 'k' : Math.abs(x) > 17.5 && Math.abs(x) < 24.5 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55) ? 'k' : lx < 0.05 ? 'f' : lx < 0.42 ? 'm' : lx < 0.94 ? 'j' : 'k';                   // 紺の胸（分割線・吸気の溝・下の縁に金）
       else if (y < 18) c = Math.abs(((y + 3) % 5.2) - 0.3) < 0.5 ? 'k' : lx < 0.12 ? 'm' : lx < 0.6 ? 'j' : 'k';   // 節のある黒い腹
-      else if (y < 22) c = y < 19.2 ? 'G' : y < 21 ? 'Y' : 'y';                                        // 金の帯
-      else c = y > 36.6 ? 'Y' : lx < 0.05 ? 'P' : lx < 0.5 ? 'Q' : 'q';                                // 腰
+      else if (y < 22) c = y < 19 ? 'Y' : 'y';   // くすんだ金の帯
+      else c = y > 36.4 ? 'R' : lx < 0.05 ? 'f' : lx < 0.4 ? 'm' : lx < 0.92 ? 'j' : 'k';   // 腰
       P(G, X(x), Y(y), c);
     }
   }
+  for (const s of [-1, 1]) { DISC(G, X(s * 30.5), Y(-27), 6.6, 'k'); DISC(G, X(s * 30.5), Y(-27), 5.7, 'm'); DISC(G, X(s * 30.5), Y(-27), 3.8, 'k'); DISC(G, X(s * 30.5), Y(-27), 2.8, s < 0 ? 'f' : 'm'); }   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
   // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
   for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
   for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
@@ -1628,7 +1635,7 @@ const ARMS4 = (() => {
     const pts = [root, elbow, wrist].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 6.2);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    fa.slab(0.22, 0.9, 8.2, (v) => (v < -0.86 ? 'P' : v < -0.1 ? 'Q' : v < 0.8 ? 'q' : 'k')); fa.slab(0.22, 0.29, 8.8, goldCol); fa.slab(0.83, 0.9, 8.8, goldCol);   // 前腕の紺の装甲と金の輪
+    fa.slab(0.22, 0.9, 8.2, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k')); fa.slab(0.22, 0.29, 8.8, goldCol); fa.slab(0.83, 0.9, 8.8, goldCol);   // 前腕の紺の装甲と金の輪
     fa.slab(0.4, 0.72, 2.2, (v) => (v < 0 ? 'R' : 'r'));
     const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 7, W0[1] + dy * 7); un.slab(0, 1, 6.4, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));              // 爪の基部
@@ -1646,12 +1653,14 @@ const ARMS4 = (() => {
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
 function build4() {
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(ECLIPSE), pedestal: P7(SKIRT), shellL: P7(shell(-1)), shellR: P7(shell(1)), arms: P7(ARMS4), torso: P7(TORSO4), head: P7(HEAD4) };
+  const sprites = { eclipse: P7(ECLIPSE), pedestal: P7(SKIRT), shellL: P7(shell(-1)), shellR: P7(shell(1)), arms: P7(ARMS4), torso: P7(TORSO4), head: P7(HEAD4), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonB: P7(MOONS4[2].rows) };
+  const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 肩の装甲より奥
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
+    moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),   // 第22稿：月牙を戻す（3対2）
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
   ];
