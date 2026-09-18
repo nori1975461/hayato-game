@@ -24,7 +24,7 @@ const capz = keys.map((k) => crop(GAIKA_RODS[k], -66, -101, 26, 40, 3));        
 const gap = 14, cw = full[0].w, chh = full[0].h, zw = capz[0].w, zh = capz[0].h;
 const sheetW = gap + keys.length * (cw + gap), sheetH = 56 + chh + 40 + zh + 20;
 const cv = makeCanvas(sheetW, sheetH); rect(cv, 0, 0, sheetW, sheetH, BGC);
-text(cv, 'SOUSHIN GAIKA / 28TH PLAN REV3 - ARMS REBALANCED (BODY 1.007 W/H) + 4 IDEAS FOR THE HEAD / IN GAME SCALE 4.2', gap, 10, WHITE, 2);
+text(cv, 'SOUSHIN GAIKA / 28TH PLAN REV4 - SWORD ARM ADOPTED (BODY 1.007 W/H) + 4 IDEAS FOR THE HEAD / IN GAME SCALE 4.2', gap, 10, WHITE, 2);
 keys.forEach((k, i) => { const x = gap + i * (cw + gap); text(cv, LABEL[k], x, 34, DIM, 2); paste(cv, full[i], x, 52); frame(cv, x, 52, cw, chh, FR);
   const zx = x + Math.floor((cw - zw) / 2); text(cv, k + ': HEAD X3', zx, 52 + chh + 18, DIM, 2); paste(cv, capz[i], zx, 52 + chh + 36); frame(cv, zx, 52 + chh + 36, zw, zh, FR); });
 writePng(cv, path.join(HERE, 'gaika-rods.png'));

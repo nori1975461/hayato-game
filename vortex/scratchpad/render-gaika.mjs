@@ -16,11 +16,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CATH = { id: 'cathedral', sprites: CATHEDRAL.sprites, rig: CATHEDRAL.rig, tier: CATH_DRAFT.tier };
 const S = 4.2;   // 骸華の spriteScale。近侍は座の両脇 (±66,+66) units＝第27案で座の下端が +54→+68 に下りたので侍も下げて同じ地面に立たせる（第13案：大きい鐘が斜め下へ出るぶん外へ。幅は採用時の scale で収める）
 
-sheet(GAIKA, "SOUSHIN GAIKA / 28TH PLAN REV3 - ARMS REBALANCED", path.join(HERE, "gaika-sheet.png"));
+sheet(GAIKA, "SOUSHIN GAIKA / 28TH PLAN REV4 - SWORD ARM ADOPTED", path.join(HERE, "gaika-sheet.png"));
 sheet(RETAINER_R, "NANASHI (R) / RETAINER", path.join(HERE, "gaika-retainer-sheet.png"));
 formationSheet([[GAIKA, 0, 0], [RETAINER_R, 66 * S, 62 * S], [RETAINER_L, -66 * S, 62 * S]], "SOUSHIN GAIKA + 2 NANASHI / BATTLE FORMATION", path.join(HERE, "gaika-battle.png"), { fh: 820 });
 grid4([[CATH, 'DATEN NO DAISEIDOU'], [THRONE, 'FUSHOKU NO GYOKUZA'], [GODCORE, 'KIDOU SHINKAKU'], [GAIKA, 'SOUSHIN GAIKA']], path.join(HERE, 'gaika-four.png'), { cellH: 820 });
 partsSheet(GAIKA, path.join(HERE, 'gaika-parts.png'));
 grid2([[GAIKA, 'A: NO SWORD ARM (14TH PLAN REV)'], [GAIKA_SWORD, 'B: WITH SWORD ARM']], path.join(HERE, 'gaika-compare.png'), { cellH: 820 });
-formationSheet([[GAIKA_SWORD, 0, 0], [RETAINER_R, 66 * S, 62 * S], [RETAINER_L, -66 * S, 62 * S]], "SOUSHIN GAIKA (B: WITH SWORD ARM) + 2 NANASHI", path.join(HERE, "gaika-battle-sword.png"), { fh: 820 });
+formationSheet([[GAIKA_SWORD, 0, 0], [RETAINER_R, 66 * S, 62 * S], [RETAINER_L, -66 * S, 62 * S]], "SOUSHIN GAIKA (B: WITHOUT SWORD ARM) + 2 NANASHI", path.join(HERE, "gaika-battle-sword.png"), { fh: 820 });
 report([['大聖堂', CATH], ['腐蝕の玉座', THRONE], ['軌道神核', GODCORE], ['マオウレクス', MAOU1], ['蒼神骸華', GAIKA], ['名無し 右', RETAINER_R], ['名無し 左', RETAINER_L]]);
