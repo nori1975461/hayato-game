@@ -781,6 +781,24 @@ const MOONS = [   // [刃の中心（世界）, 付け根（世界）, 肘（中
   { c: [-64, 3], root: [-14, -4], elbow: [10, 21] },   // 第2稿：支柱を 39→52 に伸ばし下向きに（FB「もう少し長く・少し下向き」）
 ].map((m) => { const off = [m.root[0] - m.c[0], m.root[1] - m.c[1]]; return { ...m, rows: moonArm(off, m.elbow), origin: [(MOON_C[0] + off[0]) / MOON_W, (MOON_C[1] + off[1]) / MOON_H] }; });
 
+// 【第二案 第9稿】機械の腕（FB「腕が生身の腕っぽい。機械的な無機質な腕に」）＝骨の先細りと握り拳をやめる。太さ一定の装甲の筒・分割線・神経光の細い窓・外付けの油圧・関節は黒鉄の円盤・手は角ばった箱
+function mechArm(G, pts, hw) {
+  const tone = (v) => (v < -0.82 ? 'm' : v < -0.62 ? 's' : v < -0.25 ? 'f' : v < 0.35 ? 'm' : 'j'), plate = (v) => (v < -0.8 ? 'f' : v < -0.3 ? 'm' : v < 0.5 ? 'j' : 'k');
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const { slab, L } = mkSlab(G, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+    slab(0.08, 0.92, 0.9, (v, u) => (u < 0.5 ? 'j' : 'n'), hw + 1.3);                                                     // 外付けの油圧（筒と光る棒）
+    slab(0, 1, hw * 0.6, tone);                                                                                           // 芯の円筒
+    slab(0.18, 0.80, hw, plate);                                                                                          // 装甲の筒＝先細りしない
+    for (const u of [0.18, 0.47, 0.80 - 1 / L]) slab(u, u + 0.9 / L, hw, () => 'k');                                       // 端と分割線
+    slab(0.56, 0.72, 0.5, () => 'c', -hw * 0.35);                                                                         // 神経光の細い窓
+  }
+  for (let i = 1; i + 1 < pts.length; i++) { const [jx, jy] = pts[i]; DISC(G, jx, jy, hw + 1.2, 'k'); DISC(G, jx, jy, hw + 0.4, 'm'); DISC(G, jx, jy, hw - 1.4, 'k'); DISC(G, jx, jy, hw - 2.2, 'f'); for (const [ax, ay] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) P(G, jx + ax, jy + ay, 'k'); }
+}
+function mechHand(G, px, py) {   // 角ばった箱の手（指の溝二本）
+  for (let y = -4.4; y <= 4.4; y += 0.5) for (let x = -5.2; x <= 5.2; x += 0.5) P(G, px + x, py + y, Math.abs(x) > 4.6 || Math.abs(y) > 3.8 ? 'k' : y < -2.8 ? 'f' : x < -2.5 ? 'f' : x < 2 ? 'm' : 'j');
+  for (const dy of [-1.2, 1.4]) for (let x = -2.5; x <= 4.6; x += 0.5) P(G, px + x, py + dy, 'k');
+}
+
 // =====================================================================
 // 【第二案】梵鐘のガトリング「百八」（armR・深度11）。自前の両腕で腰だめに構える。世界→スプライトは (+GAT_OX,+GAT_OY)。第2稿：腕を野太く（3.4→6.0・拳 3.3→5.2＝FB「これだけ巨大なガトリングは細い腕では持てない」）・肩は ±20 へ・上腕に金の腕輪
 //   後ろ＝黒鉄の胴（マニ車＝回すことが祈り）・中＝黒石の砲身の束（見えるのは四本）と金の箍二つ・先＝砲口がそのまま金の梵鐘（見えるのは三口）
@@ -789,7 +807,7 @@ const MOONS = [   // [刃の中心（世界）, 付け根（世界）, 肘（中
 const GAT_W = 122, GAT_H = 94, GAT_K = 1.25, GAT_OX = 38, GAT_OY = 32;   // GAT_K＝太さの倍率（1回目は体に対して小さかった）
 const GATLING = (() => {
   const G = g(GAT_W, GAT_H), X = (x) => x + GAT_OX, Y = (y) => y + GAT_OY;
-  arm(G, [[X(-20), Y(-16)], [X(-29), Y(-1)], [X(-11), Y(1)]], 6.0, 4.8); armlet(G, [X(-20), Y(-16)], [X(-29), Y(-1)], 0.5, 6.0, true);                                                   // 骸華の右手（画面左）＝後ろの握り
+  mechArm(G, [[X(-20), Y(-16)], [X(-29), Y(-1)], [X(-11), Y(1)]], 5.4);                                                   // 骸華の右手（画面左）＝後ろの握り
   const ax0 = X(-6), ay0 = Y(4), dx = 68, dy = 38, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;  // n は左下向き＝k<0 が光の当たる上側
   const slab = (u0, u1, hw, col, kc = 0) => { for (let u = u0; u <= u1; u += 0.2 / L) { const h = (typeof hw === 'function' ? hw(u) : hw) * GAT_K, kk = kc * GAT_K; for (let k = -h; k <= h; k += 0.25) { const c = col(k / h, u); if (c) P(G, ax0 + ux * L * u + nx * (k + kk), ay0 + uy * L * u + ny * (k + kk), c); } } };
   const gold = (v) => (v < -0.55 ? 'G' : v < 0.3 ? 'Y' : 'y');
@@ -809,8 +827,8 @@ const GATLING = (() => {
   for (const u of [0.34, 0.58]) for (let k = -11 * GAT_K; k <= -6.4 * GAT_K; k += 0.25) for (let j = -0.8; j <= 0.8; j += 0.25) P(G, ax0 + ux * (L * u + j) + nx * k, ay0 + uy * (L * u + j) + ny * k, 'm');   // 提げ手の脚
   slab(0.32, 0.60, 1.2, (v) => (v < 0 ? 'f' : 'm'), -11);                                                                 // 提げ手
   const hx = ax0 + ux * L * 0.46 + nx * -11 * GAT_K, hy = ay0 + uy * L * 0.46 + ny * -11 * GAT_K;
-  arm(G, [[X(20), Y(-16)], [X(37), Y(-3)], [hx, hy]], 6.0, 4.8); armlet(G, [X(20), Y(-16)], [X(37), Y(-3)], 0.5, 6.0, true); fist(G, hx, hy, 5.2, 4.6);                               // 骸華の左手（画面右）＝提げ手を握る
-  fist(G, X(-11), Y(1), 5.2, 4.6);
+  mechArm(G, [[X(20), Y(-16)], [X(37), Y(-3)], [hx, hy]], 5.4); mechHand(G, hx, hy);                               // 骸華の左手（画面右）＝提げ手を握る
+  mechHand(G, X(-11), Y(1));
   // 第4稿：肩のプロテクター＝深紅の鋭角の一枚板（FB「赤にして・丸くてダサい・もっとスタイリッシュに」）。四辺形を稜線一本で二面に割る＝上面 R・下面 r・上の縁に光 A 一筋・下の縁に金一筋。切っ先は外上へ跳ねる
   for (const s of [-1, 1]) {
     const q = [[-4, -4], [10, -8], [6, 3], [-4, 2]].map(([o, y]) => [X(s * (20 + o)), Y(-17 + y)]);   // [外向きの距離, y]：内上・切っ先・外下・内下
@@ -1104,10 +1122,10 @@ const PULSE = (() => {
 })();
 // 刃の裳（legL・蓮華座の置き換え）132×78＝世界 y +30〜+108。座らない＝腰から下は五枚の黒い刃（中央一・内二・外二）が逆さの扇に開き、刃の間から深紅の噴射が落ちて浮く。
 //   輪郭は逆三角＝上（月牙・長砲）が広く下が一点に尖る不安定さ。刃は肩のプロテクターと同じ語彙（黒・稜線一本・縁から入った深紅の刺繍一筋）＋切っ先に金
-const SK_W = 132, SK_H = 78;
+const SK_W = 132, SK_H = 86;
 const SKIRT = (() => {
   const G = g(SK_W, SK_H), cx = 65.5;
-  for (const [jx, y0, len, w] of [[-42, 12, 44, 5], [42, 12, 44, 5], [-15, 8, 58, 5.5], [15, 8, 58, 5.5]]) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ）
+  for (const [jx, y0, len, w] of [[-42, 12, 44, 5], [42, 12, 44, 5], [-27, 64, 20, 8], [27, 64, 20, 8]]) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ）
     const t = y / len, hw = w * Math.pow(1 - t, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + t * 0.5; P(G, cx + jx + x, y0 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); }
   }
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
@@ -1123,6 +1141,15 @@ const SKIRT = (() => {
   };
   for (const s of [-1, 1]) blade([[s * 20, 0], [s * 36, 0], [s * 64, 38], [s * 40, 22]], 2);                               // 外の刃
   for (const s of [-1, 1]) blade([[s * 8, 0], [s * 24, 0], [s * 36, 20], [s * 30, 58], [s * 14, 22]], 3);                  // 内の刃
+  for (const s of [-1, 1]) {   // 第9稿：ドム風の太い脚（FB「太い足が逆さ扇から見えるように」）＝腿は細く、膝の装甲から裾へ釣鐘に広がる。足の裏から噴射
+    const { slab, pt } = mkSlab(G, cx + s * 12, 2, cx + s * 26, 60), legCol = (v) => (v < -0.8 ? 'm' : v < -0.6 ? 'f' : v < -0.15 ? 'm' : v < 0.45 ? 'j' : 'k'), flare = (u) => 6 + 6.2 * Math.pow((u - 0.46) / 0.54, 1.4);
+    slab(0, 0.40, 6.5, legCol);
+    slab(0.46, 1.0, flare, legCol);
+    slab(0.34, 0.48, 7.8, (v) => (v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j')); slab(0.34, 0.355, 7.8, () => 'k'); slab(0.465, 0.48, 7.8, () => 'k');   // 膝の装甲
+    slab(0.60, 0.97, 0.4, () => 'k');                                                                                     // 脛の分割線
+    slab(0.90, 0.93, flare, (v) => (v < 0 ? 'R' : 'r'));                                                                  // 裾の深紅の帯
+    const [fx, fy] = pt(1.0, 0); for (let y = -1; y <= 5; y++) for (let x = -12.5; x <= 12.5; x += 0.5) P(G, fx + x, fy + y, y === -1 ? 'Y' : y === 0 ? 'y' : y === 5 ? 'k' : x < -5 ? 'm' : x < 6 ? 'j' : 'k');   // 裾の金と足
+  }
   blade([[-11, 0], [11, 0], [13, 16], [0, 74], [-13, 16]], 3);                                                             // 中央の刃
   OUTLINE(G);
   return R(G);
