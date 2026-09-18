@@ -1167,31 +1167,42 @@ const SKIRT4 = skirtTex([[-27, 12, 92, 11.5, 11.5], [27, 12, 92, 11.5, 11.5], [-
 // 第25稿：ユーザーの資料（ネオ・ジオングの二つの版）＝下半身を「腰の扇」と「脚」に分け、脚を二通り作る
 const SK_BLADES = skirtTex([], [], SK_H);   // 逆さ扇⭐の刃だけ（噴射口は脚の側が持つ）
 
-// 版A＝ロケットブースター（資料の左）。等径の太い円筒が二本・下寄りに明るい帯が二本・先端に金の口縁と灼け
-const BOOST_W = 130, BOOST_H = 192, BOOST_CX = 65, BOOST_Y1 = 120;
+// 第27稿：FB「25稿のブースターはよくない。あらたなブースターを創造して」＝資料の円筒の模写をやめ、骸華の語彙（段・炉の光・金一筋・鋸歯）で組む
+//   三段の装甲が重なり、段の境目から炉の光が漏れる。縦のリブで面を割り、口の手前に下向きの牙。口縁は金・その奥に内筒が見えて灼ける
+const BOOST_W = 150, BOOST_H = 168, BOOST_CX = 75, BOOST_MOUTH = 104;
 const BOOST = (() => {
   const G = g(BOOST_W, BOOST_H), cx = BOOST_CX;
+  const TIER = [[0, 40, 18.0, 16.2], [38, 80, 16.8, 14.4], [78, BOOST_MOUTH, 15.4, 17.4]];
   for (const s of [-1, 1]) {
-    const bx = s * 25, hw = 14;
-    for (let y = 0; y <= BOOST_Y1; y += 0.5) {
-      const lip = y > BOOST_Y1 - 6, band = (y > 86 && y < 91.5) || (y > 96 && y < 101.5), half = lip ? hw + 2.6 : hw;
-      for (let x = -half; x <= half; x += 0.5) {
-        const v = x / half;
-        let c;
-        if (lip) c = y > BOOST_Y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.abs(v) > 0.88 ? 'k' : v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j';
-        else if (band) c = Math.abs(v) > 0.9 ? 'k' : v < -0.45 ? 'n' : v < 0.35 ? 's' : 'f';
-        else c = Math.abs(v) > 0.93 ? 'k' : v < -0.68 ? 'm' : v < -0.22 ? 'f' : v < 0.5 ? 'm' : 'j';
-        P(G, cx + bx + x, y, c);
+    const bx = s * 27;
+    TIER.forEach(([y0, y1, w0, w1], i) => {
+      for (let y = y0; y <= y1; y += 0.5) {
+        const u = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * u;
+        for (let x = -hw; x <= hw; x += 0.5) {
+          const v = x / hw;
+          let c;
+          if (i > 0 && y < y0 + 1.5) c = 'k';
+          else if (i > 0 && y < y0 + 4.2) c = v < 0 ? 'A' : 'R';
+          else if (i > 0 && y < y0 + 5.4) c = 'r';
+          else if (y > y1 - 1.7 && i < 2) c = v < 0 ? 'Y' : 'y';
+          else if (Math.abs(Math.abs(v) - 0.56) < 0.05) c = 'k';
+          else c = Math.abs(v) > 0.93 ? 'k' : v < -0.68 ? 'm' : v < -0.22 ? 'f' : v < 0.52 ? 'm' : 'j';
+          P(G, cx + bx + x, y, c);
+        }
       }
+    });
+    for (const o of [-1.02, -0.66, 0.66, 1.02]) {   // 口の手前の牙（肩の鋸歯と同じ語彙）
+      const fx = o * 17.4;
+      for (let y = 0; y <= 17; y += 0.5) { const hw = 4.8 * (1 - y / 17); for (let x = -hw; x <= hw; x += 0.5) P(G, cx + bx + fx + x, BOOST_MOUTH - 3 + y, y > 13 ? 'Y' : x < -hw * 0.3 ? 'm' : x < hw * 0.5 ? 'j' : 'k'); }
     }
-    for (let x = -hw + 1; x <= hw - 1; x += 0.5) for (let y = 0; y <= 3.5; y += 0.5) P(G, cx + bx + x, BOOST_Y1 - 4 + y, Math.abs(x) < hw * 0.4 ? 'G' : Math.abs(x) < hw * 0.75 ? 'A' : 'R');
-    for (let y = 0; y <= 58; y += 0.25) { const tt = y / 58, w = 11.5 * Math.pow(1 - tt, 0.7) + 0.3; for (let x = -w; x <= w; x += 0.25) { const a = Math.abs(x) / w + tt * 0.5; P(G, cx + bx + x, BOOST_Y1 + 3 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); } }
+    for (let y = BOOST_MOUTH - 4; y <= BOOST_MOUTH + 2; y += 0.5) for (let x = -18.6; x <= 18.6; x += 0.5) { const v = x / 18.6; P(G, cx + bx + x, y, Math.abs(v) > 0.94 ? 'k' : y > BOOST_MOUTH - 1.4 ? (v < 0 ? 'Y' : 'y') : v < -0.5 ? 'f' : v < 0.2 ? 'm' : 'j'); }   // 口縁
+    for (let y = 0; y <= 14; y += 0.5) { const hw = 12.6 - y * 0.18; for (let x = -hw; x <= hw; x += 0.5) { const v = Math.abs(x) / hw, d = y / 14; P(G, cx + bx + x, BOOST_MOUTH - 2 + y, v > 0.9 ? 'k' : d < 0.3 ? (v > 0.6 ? 'k' : 'j') : v < 0.34 ? 'G' : v < 0.68 ? 'A' : v < 0.9 ? 'R' : 'r'); } }   // 内筒と灼け
+    for (let y = 0; y <= 44; y += 0.25) { const tt = y / 44, w = 12.5 * Math.pow(1 - tt, 0.7) + 0.3; for (let x = -w; x <= w; x += 0.25) { const a = Math.abs(x) / w + tt * 0.5; P(G, cx + bx + x, BOOST_MOUTH + 11 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); } }
   }
   OUTLINE(G);
   return R(G);
 })();
-
-// 版B＝脚（資料の右）。腿・膝・脛・足の四節。膝と足の縁に金・脛に深紅の一筋
+// 版B＝脚（第25稿・09-19 06:06 に「足は不要。ブースターにしよう」で却下。定義だけ残す）。腿・膝・脛・足の四節。膝と足の縁に金・脛に深紅の一筋
 const LEG_W = 160, LEG_H = 178, LEG_CX = 80;
 const LEGS = (() => {
   const G = g(LEG_W, LEG_H), cx = LEG_CX;
@@ -1699,28 +1710,44 @@ const HANDS4 = (() => {
   return R(G);
 })();
 
-// 第21稿：FB「仏の印の手は不要。創造して」「四本の光刃がそぐわない。浮いている。ただ四本の光刃はいれたい。ノイエ・ジールを参考に」＝二つを一つに統合。
-//   ノイエ・ジールの光刃は、バインダーの中から出る装甲の腕の爪の中心から出る。細い骨の副腕（第一案の語彙＝浮いた原因）をやめ、**紺の装甲の腕四本が肩の装甲の陰から現れ、爪の中心から太い光刃を下へ抜く**＝これが両腕を兼ねる（四本腕の闘神）。
-//   深度は肩の装甲より奥（rig で shell の前に置く）＝腕は装甲の外の輪郭から生える
-const ARM4_W = 328, ARM4_H = 260, ARM4_O = [164, 48];   // 第25稿：付け根を肩の関節へ上げたぶん原点を下げ、下へ垂らした腕が入るよう縦を伸ばす
-function arms4(sb) {   // sb＝光刃の色 {core, a, b, c}
+// 第27稿：FB「四本の腕のバランスがわるい。蒼神骸華の腕が二本内側にあり、その外側に副腕があるという設計で。ノイエ・ジールのパターン。主要な腕と副腕できちんと描き分けて」
+//   主腕＝太い・肩の関節から真下へ垂れる・大きな装甲と深紅の帯・先に鋼の手（四本の指）。副腕＝細い・外へ広がる・薄い装甲とマゼンタの帯・爪の中心から光刃
+const ARM4_W = 328, ARM4_H = 260, ARM4_O = [164, 48];
+function arms4(sb) {
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
-  const one = (s, root, elbow, wrist, deg, L) => {
-    const pts = [root, elbow, wrist].map(([x, y]) => [X(s * x), Y(y)]);
-    mechArm(G, pts, 6.2);
+  const main = (s) => {   // 主腕（内側）
+    const pts = [[33, -28], [48, 6], [57, 42]].map(([x, y]) => [X(s * x), Y(y)]);
+    mechArm(G, pts, 7.2);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
-    fa.slab(0.22, 0.9, 8.2, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k')); fa.slab(0.22, 0.29, 8.8, goldCol); fa.slab(0.83, 0.9, 8.8, goldCol);   // 前腕の紺の装甲と金の輪
-    fa.slab(0.4, 0.72, 2.2, (v) => (v < 0 ? sb.b : sb.c));
-    const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
-    const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 7, W0[1] + dy * 7); un.slab(0, 1, 6.4, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));              // 爪の基部
-    const S0 = [W0[0] + dx * 8, W0[1] + dy * 8], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
-    bl.slab(0, 1, (u) => 4.6 * Math.pow(1 - u, 1.1) + 1.0, () => sb.c);
-    bl.slab(0, 1, (u) => 3.1 * Math.pow(1 - u, 1.1) + 0.35, (v) => (Math.abs(v) < 0.3 ? sb.core : Math.abs(v) < 0.64 ? sb.a : sb.b));
-    for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 5 + Math.cos(ca) * 14, W0[1] + dy * 5 + Math.sin(ca) * 14); cl.slab(0, 1, (u) => 3.2 * (1 - u) + 0.4, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 爪二本
-    const em = mkSlab(G, S0[0] - dx * 1.5, S0[1] - dy * 1.5, S0[0] + dx * 2, S0[1] + dy * 2); em.slab(0, 1, 4.4, goldCol);                                                  // 発振器の金の輪
+    fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k'));
+    fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
+    fa.slab(0.42, 0.75, 2.8, (v) => (v < 0 ? 'R' : 'r'));
+    const W0 = pts[2], dx = s * 0.26, dy = 0.966;
+    const pm = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 16, W0[1] + dy * 16);
+    pm.slab(0, 1, 8.4, (v) => (v < -0.6 ? 'f' : v < 0.15 ? 'm' : v < 0.85 ? 'j' : 'k'));   // 掌
+    pm.slab(0, 0.22, 9.0, goldCol);
+    for (const o of [-5.8, -1.95, 1.95, 5.8]) {   // 四本の指
+      const fx = W0[0] + dx * 16 - dy * o, fy = W0[1] + dy * 16 + dx * o;
+      const fg = mkSlab(G, fx, fy, fx + dx * 14, fy + dy * 14);
+      fg.slab(0, 1, (u) => 2.5 * (1 - u * 0.5), (v, u) => (u > 0.84 ? 'Y' : Math.abs(v) > 0.88 ? 'k' : v < -0.4 ? 'f' : v < 0.4 ? 'm' : 'j'));
+    }
   };
-  // 第25稿：FB「腕が下過ぎ。腕の付け根が宙に浮いてる？」＝根を胴の肩の関節の円盤（上 ±30.5,−27／下 ±32,−7）に合わせ、全体を上へ
-  for (const s of [-1, 1]) { one(s, [36, -28], [70, -4], [92, 26], 62, 100); one(s, [37, -6], [64, 20], [82, 48], 80, 104); }   // 根は肩の関節・肘から先は下へ垂らす（刃は下外向き）
+  const sub = (s) => {   // 副腕（外側）
+    const pts = [[52, -30], [86, -2], [104, 26]].map(([x, y]) => [X(s * x), Y(y)]);
+    mechArm(G, pts, 4.4);
+    const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
+    fa.slab(0.22, 0.9, 6.2, (v) => (v < -0.86 ? 'f' : v < -0.2 ? 'm' : v < 0.8 ? 'j' : 'k'));
+    fa.slab(0.22, 0.3, 6.8, goldCol); fa.slab(0.82, 0.9, 6.8, goldCol);
+    fa.slab(0.4, 0.72, 1.7, (v) => (v < 0 ? sb.b : sb.c));
+    const a = (62 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
+    const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 6, W0[1] + dy * 6); un.slab(0, 1, 4.8, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));
+    const S0 = [W0[0] + dx * 7, W0[1] + dy * 7], L = 105, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
+    bl.slab(0, 1, (u) => 3.8 * Math.pow(1 - u, 1.1) + 0.9, () => sb.c);
+    bl.slab(0, 1, (u) => 2.5 * Math.pow(1 - u, 1.1) + 0.3, (v) => (Math.abs(v) < 0.3 ? sb.core : Math.abs(v) < 0.64 ? sb.a : sb.b));
+    for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
+    const em = mkSlab(G, S0[0] - dx * 1.2, S0[1] - dy * 1.2, S0[0] + dx * 1.8, S0[1] + dy * 1.8); em.slab(0, 1, 3.4, goldCol);
+  };
+  for (const s of [-1, 1]) { sub(s); main(s); }   // 主腕を後に描く＝内側が手前
   OUTLINE(G);
   return R(G);
 }
