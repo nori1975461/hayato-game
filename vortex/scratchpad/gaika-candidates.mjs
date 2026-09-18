@@ -1178,32 +1178,37 @@ function shoulderBoxes(G, X, Y) {
 // 第16稿：FB「顔と頭がだめ。長い角が全然だめ。ノイエ・ジールの顔を拡大した資料を参考に作り直して。四神柱最強の神であることを忘れないで。破滅的要素と荘厳さを併せ持って」
 //   資料（約75pxの正面）から読めた骨格＝角も棘も無い・**白く滑らかな丸い峰が三つ**（中央が高い鶏冠・左右が低い）・頭は肩の間に低く沈む・峰の下は暗い溝で顔の造作が無い。
 //   置き換え＝三つの峰は**骨白の蓮弁の冠**（荘厳＝黒と深紅の機体のなかで唯一の白・縁に金一筋）、その下の闇に**蒼い単眼が一つ**（破滅＝顔が無い）。顎は黒い楔で襟の刃に溶ける。角は全廃。世界→スプライトは (+36,+HEAD2_OY)
+// 第17稿：FB「頭部は小さくして。色は身体と同じ黒かな。顔はガンダムのゲルググとかも参考にして。大きさはそんなに大きくしなくていい」
+//   直し＝第16稿の三つの峰の骨格は残し、約 0.72 倍・**身体と同じ黒（j/k・光の縁だけ m/f）**・中央の峰に外套と同じ深紅の刺繍一筋。
+//   ゲルググから借りたもの＝①両端が下がる幅広の闇の溝とその中の単眼 ②溝の下へ突き出す**吻（鼻先の装甲）と横の通気溝二本** ③頭頂を前後に走る稜線。顔の造作は置かない（溝の下は通気口であって口ではない＝赤くしない）
 const HEAD2_W = 72, HEAD2_H = 72, HEAD2_OY = 86;
 const HEAD2 = (() => {
   const G = g(HEAD2_W, HEAD2_H), X = (x) => x + 36, Y = (y) => y + HEAD2_OY;
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), dist = (a, b, x, y) => Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1]);
   const fillPoly = (pts, col) => { const q = pts.map(([x, y]) => [X(x), Y(y)]), N = q.length; for (let y = 0; y < HEAD2_H; y += 0.25) for (let x = 0; x < HEAD2_W; x += 0.25) { const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue; P(G, x, y, col(x - X(0), y - Y(0), (i) => dist(q[i], q[(i + 1) % N], x, y))); } };
   for (const s of [-1, 1]) fillPoly([[s * 6, -24], [s * 15, -48], [s * 22, -36], [s * 14, -21]], (x, y, d) => (d(0) < 0.8 ? 'm' : Math.min(d(0), d(1)) >= 1.3 && Math.min(d(0), d(1)) < 2.3 ? 'R' : 'j'));   // 襟の刃（第14稿から）
-  fillPoly([[-14, -29], [14, -29], [6, -19], [0, -14], [-6, -19]], (x, y, d) => { const e = Math.min(d(1), d(2), d(3), d(4)); return e >= 1.2 && e < 2.2 ? 'R' : x < 0 && e < 0.8 ? 'm' : 'j'; });   // 顎＝黒い楔
-  // 蓮弁：先は丸く尖り、胴で張り、根で少し締まる。tilt＝上へ行くほど外へ倒れる
-  const petal = (cx, yb, yt, W, tilt, dark) => {
+  const petal = (cx, yb, yt, W, tilt, back) => {
     for (let y = yt; y <= yb; y += 0.25) {
-      const tt = (y - yt) / (yb - yt), w = W * Math.pow(Math.min(1, tt * 1.6), 0.42) * (1.12 - 0.2 * tt)   /* 2回目：1回目（0.55 乗・細い）は三本の棘の冠に見えた＝肩の張った丸い峰へ */, c0 = cx + tilt * (1 - tt);
+      const tt = (y - yt) / (yb - yt), w = W * Math.pow(Math.min(1, tt * 1.6), 0.42) * (1.12 - 0.2 * tt), c0 = cx + tilt * (1 - tt);
       for (let dx = -w; dx <= w; dx += 0.25) {
-        const nx = dx / Math.max(0.5, w), rim = false;   // 2回目：金の縁取りは王冠の玩具に見えた＝白い塊のまま見せる（金は眉庇の一筋だけ）
-        const sh = nx < -0.5 ? 'n' : nx < 0.15 ? 's' : nx < 0.62 ? 'f' : 'm';
-        P(G, X(c0 + dx), Y(y), rim ? 'Y' : dark ? ({ n: 's', s: 'f', f: 'm', m: 'j' })[sh] : sh);
+        const nx = dx / Math.max(0.5, w), in_ = w - Math.abs(dx);
+        P(G, X(c0 + dx), Y(y), !back && in_ >= 1.5 && in_ < 2.4 && tt > 0.12 ? 'R' : nx < -0.72 ? 'f' : nx < -0.35 ? 'm' : nx < 0.5 ? 'j' : 'k');
       }
     }
   };
-  for (const s of [-1, 1]) petal(s * 11.5, -35, -56, 8, s * 1.2, true);                                 // 左右の低い峰（一段暗く＝奥）
-  petal(0, -35, -70, 9, 0, false);                                                                     // 中央の高い峰
-  for (let y = -62; y <= -40; y += 0.25) P(G, X(0.6), Y(y), 'f');                                        // 峰の稜線（資料の鶏冠の縦の継ぎ目）
-  fillPoly([[-20.5, -39], [20.5, -39], [15, -28], [-15, -28]], (x, y) => {                                   // 眉庇と闇の溝
-    if (y < -35.6) return y > -36.5 ? 'Y' : x < -4 ? 's' : x < 8 ? 'f' : 'm';
-    const de = Math.hypot(x + 4.2, y + 32);
-    if (de < 1.2) return 'C'; if (de < 2.1) return 'N'; if (de < 2.9) return 'P';
-    return Math.abs(y + 32) < 0.5 && Math.abs(x) < 14 ? 'Q' : 'k';
+  for (const s of [-1, 1]) petal(s * 8.2, -36, -50, 5.6, s * 0.9, true);                                 // 左右の低い峰
+  petal(0, -36, -59, 6.4, 0, false);                                                                     // 中央の峰
+  for (let y = -55; y <= -41; y += 0.25) P(G, X(0), Y(y), 'm');                                          // 頭頂の稜線
+  fillPoly([[-14.5, -39.5], [14.5, -39.5], [15.5, -33], [10.5, -30.5], [-10.5, -30.5], [-15.5, -33]], (x, y) => {   // 眉庇と闇の溝（両端が下がる）
+    if (y < -37) return y > -37.8 ? 'Y' : x < -3 ? 'm' : 'j';
+    const de = Math.hypot(x + 3.4, y + 34);
+    if (de < 1.0) return 'C'; if (de < 1.8) return 'N'; if (de < 2.5) return 'P';
+    return Math.abs(y + 34) < 0.45 && Math.abs(x) < 12 ? 'Q' : 'k';
+  });
+  fillPoly([[-8.5, -30.5], [8.5, -30.5], [6, -22.5], [0, -19.5], [-6, -22.5]], (x, y, d) => {           // 吻＝鼻先の装甲と通気溝
+    if ((Math.abs(y + 27.6) < 0.5 || Math.abs(y + 25) < 0.5) && Math.abs(x) < 5.2 - (y + 28) * 0.5 && Math.abs(x) > 0.9) return 'k';
+    if (Math.abs(x) < 0.5) return 'f';
+    return Math.min(d(1), d(2), d(3), d(4)) < 0.8 ? (x < 0 ? 'f' : 'k') : x < 0 ? 'm' : 'j';
   });
   OUTLINE(G);
   return R(G);
@@ -1282,6 +1287,20 @@ const BEAM = (() => {
   return R(G);
 })();
 
+// 第17稿：FB「副腕は4本にして」＝上の一対を足す。バインダーの外上の縁 (±60,−62) から外上へ抜ける短めの光刃（長さ 62＝下の一対の半分）。下の一対と合わせて身体の四隅へ X 字に放射する＝外した光背の役
+//   画面右は二丁の長砲（約 48°）の外を約 40° で抜ける。画面左は放った月牙 B (−104,−32) の上を通る＝どちらにも重ならない
+const BEAM2_W = 92, BEAM2_H = 52;   // 2回目：1回目（約 40°・根 (60,−62)）は画面右で長砲の砲口に重なった＝根を外下 (64,−48) へ・約 24° に寝かせる
+const BEAM2 = (() => {
+  const G = g(BEAM2_W, BEAM2_H), LX = (wx) => wx - 58, LY = (wy) => wy + 91;
+  arm(G, [[LX(64), LY(-48)], [LX(78), LY(-54)], [LX(86), LY(-60)]], 2.2, 1.7); dimBone(G);
+  const { slab } = mkSlab(G, LX(86), LY(-60), LX(143), LY(-85));
+  slab(0, 1, (u) => 3.0 * Math.pow(1 - u, 1.25) + 0.9, () => 'r');
+  slab(0, 1, (u) => 2.1 * Math.pow(1 - u, 1.25) + 0.3, (v) => (Math.abs(v) < 0.3 ? 'W' : Math.abs(v) < 0.65 ? 'A' : 'R'));
+  slab(-0.1, 0.03, 2.6, goldCol);
+  OUTLINE(G);
+  return R(G);
+})();
+
 // 【第二案】第一案の六本腕と持ち物（錫杖・梵鐘の金棒・香炉・神核の雛形・曲刀・月牙を握る腕）を全部外し、月牙の機械腕を画面左に三本・画面右に二本（mirror）＋梵鐘のガトリング「百八」
 const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
   + '【第二案】腕は持ち物ごと全て外した。右半身（画面左）に逆三日月の機械腕が上下に三本、左半身（画面右）に三日月の機械腕が二本＝刃そのものが腕（深紅の縁・蒼硝子の身・深紅の玉）。'
@@ -1294,7 +1313,7 @@ const CONCEPT2 = CONCEPT_BASE.split('六本の骨の腕')[0]
 function build2(opts = {}) {
   const P7 = (rows) => ({ rows, palette: PAL }), noMan = !opts.mandorla;   // 第2稿：光背は既定で外す（FB「一旦光背を外そう」）
   const sprites = {
-    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM),   // 第8稿：三神の環を外す・蓮華座→刃の裳
+    ...(noMan ? {} : { mandorla: P7(mandorla('A')) }), seal: P7(SEAL), halo: P7(HALO), pedestal: P7(SKIRT), cannons: P7(CANNONS), binderL: P7(binder(-1)), binderR: P7(binder(1)), beam: P7(BEAM), beam2: P7(BEAM2),   // 第8稿：三神の環を外す・蓮華座→刃の裳
     torso: P7(TORSO), head: P7(HEAD2), lotus: P7(LOTUS), seed: P7(SEED),   // 第13稿：冕冠・排気管・鈴・配線を外し機械の頭へ
     moonT: P7(MOONS[0].rows), moonM: P7(MOONS[1].rows), moonB: P7(MOONS[2].rows), arms: P7(ARMS2),   // 第12稿：ガトリング（GATLING）とパルスレーザー（PULSE）は定義だけ残して外した
   };
@@ -1305,6 +1324,7 @@ function build2(opts = {}) {
     { role: 'trackL', tex: 'binderL', ox: -84, oy: -104, origin: [0, 0] }, { role: 'trackR', tex: 'binderR', ox: 8, oy: -104, origin: [0, 0] },   // 第11稿：バインダーは月牙の後ろ
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('qlegFL', 2, false),
     { role: 'wingR', tex: 'beam', ox: 72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H] }, { role: 'wingL', tex: 'beam', ox: -72, oy: -10, origin: [6 / BEAM_W, 6 / BEAM_H], mirror: true },   // 光刃の副腕は月牙の手前（第16稿で復活）
+    { role: 'wingR', tex: 'beam2', ox: 64, oy: -48, origin: [6 / BEAM2_W, 43 / BEAM2_H] }, { role: 'wingL', tex: 'beam2', ox: -64, oy: -48, origin: [6 / BEAM2_W, 43 / BEAM2_H], mirror: true },   // 第17稿：上の一対
     { role: 'podL', tex: 'halo', ox: 0, oy: -30, origin: [0.5, 0.5] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
     { role: 'body', tex: 'torso', ox: 0, oy: -24, origin: [0.5, 0] },
