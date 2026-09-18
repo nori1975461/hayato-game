@@ -1150,9 +1150,10 @@ function skirtTex(NZ, JT, H, style = 'taper', W = SK_W, KX = SK_KX, KY = SK_KY) 
       const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))); const ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
       let hem = 1e9; for (let i = 1; i < N; i++) { const a = q[i], b = q[(i + 1) % N]; hem = Math.min(hem, Math.abs(cr(a, b, x, y)) / Math.hypot(b[0] - a[0], b[1] - a[1])); }
       const side = cr(top, tip, x, y), dTip = Math.hypot(x - tip[0], y - tip[1]);
-      P(G, x, y, dTip < 5.5 ? (side > 0 ? 'Y' : 'y') : hem >= 1.4 && hem < 2.4 ? 'R' : Math.abs(side) / Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 0.5 ? 'm' : side > 0 ? 'j' : 'k');
+      P(G, x, y, dTip < 5.5 ? (side > 0 ? 'Y' : 'y') : hem >= 1.4 && hem < 2.4 ? 'R' : Math.abs(side) / Math.hypot(tip[0] - top[0], tip[1] - top[1]) < 0.52 ? 'f' : side > 0 ? 'm' : 'j');
     }
   };
+  if (style === 'taper' && NZ.length) { for (let y = -9; y <= 7; y += 0.5) for (let x = -34; x <= 34; x += 0.5) { const v = x / 34; P(G, cx + x, y, y > 5.2 ? (v < 0 ? 'Y' : 'y') : Math.abs(v) > 0.95 ? 'k' : v < -0.6 ? 'f' : v < 0.1 ? 'm' : 'j'); } }   // 第32稿：腰とスカートを繋ぐ帯（切れて宙に浮いて見えた）
   for (const s of [-1, 1]) blade([[s * 20, 0], [s * 36, 0], [s * 64, 38], [s * 40, 22]], 2);                               // 外の刃
   for (const s of [-1, 1]) blade([[s * 8, 0], [s * 24, 0], [s * 36, 20], [s * 30, 58], [s * 14, 22]], 3);                  // 内の刃
   blade([[-11, 0], [11, 0], [13, 16], [0, 74], [-13, 16]], 3);                                                             // 中央の刃
@@ -1169,7 +1170,8 @@ const SK_BLADES = skirtTex([], [], SK_H);   // 逆さ扇⭐の刃だけ（噴射
 // 第30稿：FB「下半身のスカートをもっと広く長くして」＝刃の倍率を 1.30/1.35 → 1.52/1.66 へ。噴射口と噴射も同じだけ外へ広げる
 const SKB_W = 216, SKB_H = 150, SKB_KX = 1.52, SKB_KY = 1.66;
 // 第31稿：FB「ロケット・ノズルをもう少し下に伸ばして。ノズルは太いままで」＝口の位置を 60→84／52→74 へ下げ、根元の太さを 6→9／4.5→7 に上げて痩せないようにする
-const SKIRT_BIG = skirtTex([[-32, 12, 84, 9, 15], [32, 12, 84, 9, 15], [-60, 24, 74, 7, 10.5], [60, 24, 74, 7, 10.5]], [[-60, 76, 44, 7.5], [60, 76, 44, 7.5], [-32, 86, 60, 10.5], [32, 86, 60, 10.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY);
+// 第32稿：FB「奥のノズル2本は短くして」＝中央寄り（±32・外の刃の陰で奥に見える）を 84→64 へ。外の二本はそのまま
+const SKIRT_BIG = skirtTex([[-32, 12, 64, 9, 13], [32, 12, 64, 9, 13], [-60, 24, 74, 7, 10.5], [60, 24, 74, 7, 10.5]], [[-32, 66, 42, 9], [32, 66, 42, 9], [-60, 76, 52, 7.5], [60, 76, 52, 7.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY);
 
 // 第27稿：FB「25稿のブースターはよくない。あらたなブースターを創造して」＝資料の円筒の模写をやめ、骸華の語彙（段・炉の光・金一筋・鋸歯）で組む
 //   三段の装甲が重なり、段の境目から炉の光が漏れる。縦のリブで面を割り、口の手前に下向きの牙。口縁は金・その奥に内筒が見えて灼ける
@@ -1698,7 +1700,9 @@ const HEAD4 = (() => {
   }
   for (let x = -12; x <= 12; x += 0.25) { const droop = Math.abs(x) > 8 ? (Math.abs(x) - 8) * 0.45 : 0; for (let y = -50.6 + droop; y <= -44.8 + droop; y += 0.25) P(G, X(x), Y(y), Math.abs(y - (-47.7 + droop)) < 0.45 ? 'r' : 'k'); }   // 黒い溝とモノアイの軌条
   for (const [bx, h] of [[-8.6, 4.6], [-4.4, 7.2], [0, 9.2], [4.4, 7.2], [8.6, 4.6]]) for (let y = 0; y <= h; y += 0.25) { const hw = 1.65 * (1 - y / h); for (let x = -hw; x <= hw; x += 0.25) P(G, X(bx + x), Y(-56.5 - y), y > h * 0.66 ? 'G' : x < 0 ? 'Y' : 'y'); }   // 冠の牙（第12稿）
-  DISC(G, X(-3.6), Y(-47.7), 3.0, 'r'); DISC(G, X(-3.6), Y(-47.7), 2.3, 'A'); DISC(G, X(-3.9), Y(-48), 1.0, 'W');                  // 深紅のモノアイ
+  for (let x = -14; x <= 14; x += 0.25) { const d = Math.abs(x) / 14, yy = -53.6 + d * d * 2.4; for (let y = 0; y <= 2.3; y += 0.25) P(G, X(x), Y(yy + y), y < 0.8 ? (x < 0 ? 'f' : 'm') : y < 1.6 ? (x < 0 ? 'm' : 'j') : 'k'); }   // 第32稿：兜の庇（モノアイの上へ張り出す）
+  for (let y = -61; y <= -53; y += 0.25) for (let x = -1.3; x <= 1.3; x += 0.25) P(G, X(x), Y(y), Math.abs(x) < 0.45 ? 'f' : 'm');   // 鉢の中心の鎬
+  DISC(G, X(-3.6), Y(-47.7), 3.5, 'r'); DISC(G, X(-3.6), Y(-47.7), 2.7, 'A'); DISC(G, X(-3.9), Y(-48), 1.2, 'W');                  // 深紅のモノアイ
   OUTLINE(G);
   return R(G);
 })();
@@ -1779,10 +1783,13 @@ function arms4(sb) {
     const a = (62 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 6, W0[1] + dy * 6); un.slab(0, 1, 4.8, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));
     const S0 = [W0[0] + dx * 7, W0[1] + dy * 7], L = 96, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
-    bl.slab(0, 1, (u) => 3.8 * Math.pow(1 - u, 1.1) + 0.9, () => sb.c);
-    bl.slab(0, 1, (u) => 2.5 * Math.pow(1 - u, 1.1) + 0.3, (v) => (Math.abs(v) < 0.3 ? sb.core : Math.abs(v) < 0.64 ? sb.a : sb.b));
+    // 第32稿：FB「光刃の色を鉄黒に。形をスターウォーズのライトセーバーのようにスタイリッシュに」＝根元から先まで等幅・先端は丸・色は鉄黒（中央に鎬の光）
+    bl.slab(0, 1, () => 3.6, () => 'k');
+    bl.slab(0, 1, () => 2.8, (v) => (v < -0.74 ? 'm' : v < -0.38 ? 'j' : v < 0.5 ? 'k' : 'j'));
+    DISC(G, T[0], T[1], 3.6, 'k'); DISC(G, T[0], T[1], 2.8, 'j'); DISC(G, T[0] - dx * 1.2, T[1] - dy * 1.2, 1.2, 'm');
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
-    const em = mkSlab(G, S0[0] - dx * 1.2, S0[1] - dy * 1.2, S0[0] + dx * 1.8, S0[1] + dy * 1.8); em.slab(0, 1, 3.4, goldCol);
+    const em = mkSlab(G, S0[0] - dx * 4.2, S0[1] - dy * 4.2, S0[0] + dx * 3.4, S0[1] + dy * 3.4);   // 柄＝黒い筒に金の環二本（ライトセーバーの握り）
+    em.slab(0, 1, 4.4, (v) => (v < -0.6 ? 'j' : 'k')); em.slab(0, 0.22, 4.9, goldCol); em.slab(0.78, 1, 4.9, goldCol);
   };
   for (const s of [-1, 1]) { sub(s); main(s); }   // 主腕を後に描く＝内側が手前
   OUTLINE(G);
