@@ -1167,8 +1167,9 @@ const SKIRT4 = skirtTex([[-27, 12, 92, 11.5, 11.5], [27, 12, 92, 11.5, 11.5], [-
 // 第25稿：ユーザーの資料（ネオ・ジオングの二つの版）＝下半身を「腰の扇」と「脚」に分け、脚を二通り作る
 const SK_BLADES = skirtTex([], [], SK_H);   // 逆さ扇⭐の刃だけ（噴射口は脚の側が持つ）
 // 第30稿：FB「下半身のスカートをもっと広く長くして」＝刃の倍率を 1.30/1.35 → 1.52/1.66 へ。噴射口と噴射も同じだけ外へ広げる
-const SKB_W = 216, SKB_H = 152, SKB_KX = 1.52, SKB_KY = 1.66;
-const SKIRT_BIG = skirtTex([[-32, 12, 60, 6, 15], [32, 12, 60, 6, 15], [-60, 24, 52, 4.5, 10.5], [60, 24, 52, 4.5, 10.5]], [[-60, 54, 44, 7.5], [60, 54, 44, 7.5], [-32, 62, 60, 10.5], [32, 62, 60, 10.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY);
+const SKB_W = 216, SKB_H = 150, SKB_KX = 1.52, SKB_KY = 1.66;
+// 第31稿：FB「ロケット・ノズルをもう少し下に伸ばして。ノズルは太いままで」＝口の位置を 60→84／52→74 へ下げ、根元の太さを 6→9／4.5→7 に上げて痩せないようにする
+const SKIRT_BIG = skirtTex([[-32, 12, 84, 9, 15], [32, 12, 84, 9, 15], [-60, 24, 74, 7, 10.5], [60, 24, 74, 7, 10.5]], [[-60, 76, 44, 7.5], [60, 76, 44, 7.5], [-32, 86, 60, 10.5], [32, 86, 60, 10.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY);
 
 // 第27稿：FB「25稿のブースターはよくない。あらたなブースターを創造して」＝資料の円筒の模写をやめ、骸華の語彙（段・炉の光・金一筋・鋸歯）で組む
 //   三段の装甲が重なり、段の境目から炉の光が漏れる。縦のリブで面を割り、口の手前に下向きの牙。口縁は金・その奥に内筒が見えて灼ける
@@ -1614,26 +1615,34 @@ export const GAIKA2_V19 = build3();   // 第19稿（全否決「正義のスー�
 //   顔＝肩の間に沈む鋼のドーム・黒い溝の深紅のモノアイ・吻と動力パイプ。闘神＝ジオングの有線の手を**仏の印（施無畏印と与願印）**で掲げるが、五指の先はメガ粒子砲で充填中＝祝福の仕草が破滅の予告。
 //   胸＝金の蓮華の中心が大口径砲の砲口。背後に日蝕の輪。副腕の光刃四本は下向き（第18稿の BEAM／BEAM2 を流用）
 // =====================================================================
-const SH_W = 102, SH_H = 208, SH_TOP = -134, SH_LEN = 186;   // 2回目：1回目（膨らみ 76・丸い頂・牙が y+72 まで）は青い卵に見え、逆さ扇⭐を隠した＝頂を角のように尖らせ・膨らみ 64・牙は短く外へ流す
+const SH_W = 102, SH_H = 216, SH_TOP = -134, SH_LEN = 192;   // 第31稿：下端の牙を伸ばす   // 2回目：1回目（膨らみ 76・丸い頂・牙が y+72 まで）は青い卵に見え、逆さ扇⭐を隠した＝頂を角のように尖らせ・膨らみ 64・牙は短く外へ流す
 // 第22稿：FB「二枚の紺の装甲がよくない。ひとめですごく目立つ。浮いて見える」「昔のロボットアニメのヒーロー風な感じが強い。12稿の方が悪神的な破滅的要素があった」
 //   診断＝ヒーロー感の正体は①彩度の高い青＋赤＋金の三原色 ②滑らかな曲線に等間隔の金の縞。第12稿の悪神らしさ＝黒鉄と深紅・鋭角の面・月牙の深紅の曲線・左右の非対称。
 //   直し＝輪郭を折れ線の鋭角へ・紺をやめ黒鉄と鋼（稜線で割った二面）・段は三枚で隙間から炉の光・外の縁は逆さ扇⭐と同じ「縁から入った深紅の刺繍」・金は牙の先だけ。月牙は build4 の rig で戻す
-const SH_IN = [[22, -134], [15, -70], [17, -6], [52, 52]], SH_OUT = [[22, -134], [52, -100], [84, -46], [88, 6], [52, 52]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [52, 52]];
+const SH_IN = [[22, -134], [15, -70], [17, -6], [46, 34], [54, 58]], SH_OUT = [[22, -134], [52, -100], [84, -46], [88, 6], [66, 36], [54, 58]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [54, 58]];
+// 第31稿：FB「背中の紺の装甲は蒼神骸華の最も特徴的な武器となる。スタイリッシュでありながら荘厳さと破滅的な要素を。ノイエ・ジールやクシャトリヤを参考に」
+//   ＝両者のバインダーは「装甲の内側に兵装を整列して抱える架」。骸華は月牙の発射架なので、月牙の座に凹みの座（ハッチ）を彫り、金の枠と炉の光を回す。
+//   外縁の鋸歯は消して縁そのものを刃に（最外一筋を白銀に光らせる＝線を減らして格を上げる）。下端の牙は一段長く鋭く
+const SH_HATCH = [[50, -86], [64, -46], [72, -8]];   // 月牙の座（shell のローカル座標＝MOONS4 の root と同じ）
 const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
 const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
 function shell(s, trim = ['R', 'R']) {
   const G = g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
-    const [xi, xo0, tt] = shellEdges(y), fo = ((y - SH_TOP) / 16) % 1, xo = xo0 + (y > -104 && y < 36 ? 6.5 * Math.pow(fo, 4) : 0), xr = polyX(SH_RIDGE, y);   // 外の縁の鋸歯＝下へ逆立つ刃先
+    const [xi, xo0, tt] = shellEdges(y), xo = xo0, xr = polyX(SH_RIDGE, y);
     for (let x = xi; x <= xo; x += 0.25) {
       const u = (x - xi) / Math.max(0.5, xo0 - xi), lit = s < 0 ? x > xr : x < xr, dIn = x - xi, dOut = xo - x, f = (y - SH_TOP) / 62 + 0.4 * (1 - Math.min(1, u)), fr = f % 1;
-      let c;
+      let c, hd = 9;
+      for (const [hx, hy] of SH_HATCH) { const dx = Math.abs(x - hx) / 18, dy = Math.abs(y - hy) / 14, d = Math.pow(Math.pow(dx, 8) + Math.pow(dy, 8), 0.125); if (d < hd) hd = d; }
       if (tt > 0.94) c = lit ? 'G' : 'Y';                                                              // 牙の先の金
       else if (tt < 0.04) c = 'f';
       else if (dIn < 3.4) c = s < 0 ? 'm' : 'f';                                                       // 内の縁の鋼の枠
       else if (dIn < 4.3) c = 'k';
       else if (dIn < 12 && tt > 0.1 && tt < 0.86) c = Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j';       // 黒い内板（放熱の横溝）
       else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = 'k';
+      else if (hd < 0.92) c = 'k';                                                                       // 月牙の座＝装甲に彫られた開口（奥は闇）
+      else if (hd < 1.0) c = lit ? 'r' : 'k';                                                          // 開口の縁（炉の残り火だけ）
+      else if (dOut < 1.1 && tt > 0.06) c = lit ? 's' : 'f';                                            // 縁そのものが刃（最外一筋の白銀）
       else if (f > 0.9 && fr < 0.075) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
       else if (f > 0.9 && fr < 0.15) c = 'r';
       else if (f > 0.9 && fr < 0.22) c = 'k';
@@ -1695,11 +1704,11 @@ const HEAD4 = (() => {
 })();
 
 // 第30稿：FB「肩にアーマープロテクターをつけて」＝胴の肩の関節を覆う角ばった肩当て。外へ向けて下がり、上面に金の縁・面に深紅の一筋・裾に牙
-const SHLD_W = 60, SHLD_H = 46;
+const SHLD_W = 48, SHLD_H = 38;   // 第31稿：FB「肩のプロテクターをもう少し小さくして。主張強すぎ」
 const shoulder = (s) => {
-  const G = g(SHLD_W, SHLD_H), X = (x) => x + 30, Y = (y) => y + 23;
+  const G = g(SHLD_W, SHLD_H), X = (x) => x + 24, Y = (y) => y + 19;
   for (let y = -15; y <= 13; y += 0.25) {
-    const u = (y + 15) / 28, w = 10.5 + 15 * Math.pow(u, 0.72), sk = s * 4.2 * u;
+    const u = (y + 15) / 28, w = 8 + 11 * Math.pow(u, 0.72), sk = s * 3.4 * u;
     for (let x = -w; x <= w; x += 0.25) {
       const v = s > 0 ? x / w : -x / w;
       let c;
@@ -1709,7 +1718,7 @@ const shoulder = (s) => {
       P(G, X(x + sk), Y(y), c);
     }
   }
-  for (const o of [-0.72, -0.24, 0.24, 0.72]) { const bx = o * 21 + s * 3.2, hh = 6.5 - Math.abs(o) * 2.2; for (let y = 0; y <= hh; y += 0.25) { const hw = 2.6 * (1 - y / hh); for (let x = -hw; x <= hw; x += 0.25) P(G, X(bx + x), Y(12.5 + y), y > hh * 0.72 ? 'Y' : x < 0 ? 'm' : 'k'); } }
+  for (const o of [-0.72, -0.24, 0.24, 0.72]) { const bx = o * 16 + s * 3.4, hh = 5 - Math.abs(o) * 1.7; for (let y = 0; y <= hh; y += 0.25) { const hw = 2.6 * (1 - y / hh); for (let x = -hw; x <= hw; x += 0.25) P(G, X(bx + x), Y(12.5 + y), y > hh * 0.72 ? 'Y' : x < 0 ? 'm' : 'k'); } }
   OUTLINE(G);
   return R(G);
 };
@@ -1746,11 +1755,14 @@ function arms4(sb) {
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
     fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
-    fa.slab(0.42, 0.75, 2.8, (v) => (v < 0 ? 'R' : 'r'));
+    fa.slab(0.3, 0.84, 4.6, () => 'k');
+    fa.slab(0.34, 0.8, 3.4, (v) => (Math.abs(v) < 0.32 ? 'A' : Math.abs(v) < 0.68 ? 'R' : 'r'));   // 第31稿：前腕の装甲が二枚に割れ、隙間から炉が覗く（肩の段と同じ語彙）
     const W0 = pts[2], dx = s * 0.26, dy = 0.966;
     const pm = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 16, W0[1] + dy * 16);
     pm.slab(0, 1, 8.4, (v) => (v < -0.6 ? 'f' : v < 0.15 ? 'm' : v < 0.85 ? 'j' : 'k'));   // 掌
     pm.slab(0, 0.22, 9.0, goldCol);
+    pm.slab(0.3, 0.86, 5.4, () => 'k');
+    pm.slab(0.36, 0.8, 4.2, (v) => (Math.abs(v) < 0.36 ? 'G' : Math.abs(v) < 0.72 ? 'A' : 'R'));   // 掌の中心の炉の口（掴んで灼く手）
     for (const o of [-5.8, -1.95, 1.95, 5.8]) {   // 四本の指
       const fx = W0[0] + dx * 16 - dy * o, fy = W0[1] + dy * 16 + dx * o;
       const fg = mkSlab(G, fx, fy, fx + dx * 14, fy + dy * 14);
@@ -1803,7 +1815,7 @@ function build4(o = {}) {
     moon('wingL', 0, false), moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
-    { role: 'rack', tex: 'shldL', ox: -48, oy: -28, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 48, oy: -28, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
+    { role: 'rack', tex: 'shldL', ox: -45, oy: -27, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 45, oy: -27, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
   ];
   return { id: 'gaika4' + (o.tag || ''), name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: glow[0], glowInner: glow[1] } };
