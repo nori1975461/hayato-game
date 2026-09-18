@@ -1342,7 +1342,183 @@ function build2(opts = {}) {
   ];
   return { id: 'gaika2' + (noMan ? '' : '-mandorla'), name: '蒼神骸華', concept: CONCEPT2, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#8a1622', glowInner: '#ff7a3a' } };   // 第7稿：後光を蒼から深紅へ
 }
-export const GAIKA2 = build2();
+// =====================================================================
+// 【第二案 第19稿】全面の作り直し（build3）。FB「顔がイメージと違う。ガンダムは一目見てかっこいいと思わせる要素がある。制約で縛らないので、あなたがいいと思う全体像を。
+//   注文はふたつ＝四神柱最強の悪神であり闘いの神／荘厳さと破滅的要素を併せ持つ」
+//   診断＝第18稿までは①全身が黒で赤は細い線だけ（大きな色面が無い）②要素が並列で主役が無い③顔が小さく焦点の図形が無い。
+//   骨子＝**刃の華を背負い、日蝕を戴く闘神**。色面で読ませる（黒の機体・深紅の装甲面・金の前立と帯・蒼は眼と核と砲だけ）。
+//   背に六枚の刃が上へ咲く（骸華＝月牙の語彙を一つの主役へ統合・先が内へ反る＝火焔光背の形）。右手に破滅の大剣・左腕は蒼の電磁加速砲＝紅と蒼の非対称。逆さ扇⭐と日蝕の輪は残す
+// =====================================================================
+function polyFill(G, q, col) {   // q＝キャンバス座標の凸多角形。col(x, y, d) の d(i)＝辺 i までの距離
+  const N = q.length, cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+  const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+  for (let y = Math.min(...ys) - 1; y <= Math.max(...ys) + 1; y += 0.25) for (let x = Math.min(...xs) - 1; x <= Math.max(...xs) + 1; x += 0.25) {
+    const sg = q.map((p, i) => Math.sign(cr(p, q[(i + 1) % N], x, y))), ref = sg.find((w) => w); if (sg.some((v) => v && v !== ref)) continue;
+    const c = col(x, y, (i) => Math.abs(cr(q[i], q[(i + 1) % N], x, y)) / Math.hypot(q[(i + 1) % N][0] - q[i][0], q[(i + 1) % N][1] - q[i][1])); if (c) P(G, x, y, c);
+  }
+}
+const segDist = (ax, ay, bx, by, x, y) => { const vx = bx - ax, vy = by - ay, u = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy))); return Math.hypot(x - ax - vx * u, y - ay - vy * u); };
+
+// 日蝕の輪（放射は控えめ＝放射の役は刃の華が担う）
+const ECL3_R = 102, ECL3_S = 234;   // 2回目：輪 116→102・刃 ×0.86（1回目は輪と刃が勝って機体が細く見えた）
+const ECLIPSE3 = (() => {
+  const G = g(ECL3_S, ECL3_S), c = ECL3_S / 2;
+  for (let y = 0; y < ECL3_S; y++) for (let x = 0; x < ECL3_S; x++) {
+    const dx = x - c + 0.5, dy = y - c + 0.5, d = Math.hypot(dx, dy) - ECL3_R, th = Math.atan2(dx, -dy), tongue = 2.4 + 4 * Math.pow(Math.abs(Math.cos(th * 18)), 30);
+    const ch = d >= -6.4 && d < -5.2 ? (dx + dy < 0 ? 'G' : 'Y') : d >= -3.2 && d < -2.2 ? 'R' : d >= -2.2 && d < -1.2 ? 'A' : d >= -1.2 && d < 0.4 ? 'W' : d >= 0.4 && d < 1.6 ? 'A' : d >= 1.6 && d < 1.6 + tongue * 0.5 ? 'R' : d >= 1.6 && d < 1.6 + tongue ? 'r' : null;
+    if (ch) G[y][x] = ch;
+  }
+  return R(G);
+})();
+
+// 刃の華（最奥の一つ手前）。六枚＝鉛直から ±90°・±56°・±22°。蒼硝子の身・外（凸）の縁は灼けた深紅・根に金の金具と深紅の玉。先は内上へ反る
+const PETAL_S = 256, PETAL_DEF = [[90, 80], [56, 90], [22, 98]];
+const PETALS = (() => {
+  const G = g(PETAL_S, PETAL_S), c = PETAL_S / 2;
+  for (const [deg, L] of PETAL_DEF) for (const s of [-1, 1]) {
+    const a = (deg * Math.PI) / 180, dx = s * Math.sin(a), dy = -Math.cos(a);
+    let nx = -dy, ny = dx; if (ny > 0 || (Math.abs(ny) < 1e-6 && nx * s > 0)) { nx = -nx; ny = -ny; }                    // 法線は上（内）向き
+    const r0 = 22, B = 18;
+    { const st = mkSlab(G, c + dx * 8, c + dy * 8, c + dx * (r0 + 4), c + dy * (r0 + 4)); st.slab(0, 1, 2.6, (v) => (v < 0 ? 'm' : 'j')); }   // 支柱
+    for (let u = 0; u <= 1; u += 0.15 / L) {
+      const hw = 13 * Math.pow(Math.sin(Math.PI * Math.pow(u, 0.72)), 0.8) + 0.4, off = B * u * u;
+      const px = c + dx * (r0 + L * u) + nx * off, py = c + dy * (r0 + L * u) + ny * off;
+      for (let k = -hw; k <= hw; k += 0.25) {
+        const v = k / hw;   // v>0＝内（上）・v<0＝外（凸＝刃）
+        const ch = u < 0.07 ? (v < -0.2 ? 'G' : v < 0.5 ? 'Y' : 'y') : v < -0.82 ? 'A' : v < -0.5 ? 'R' : v < -0.38 ? 'r' : v < 0.08 ? 'Q' : v < 0.2 ? 'P' : v < 0.8 ? 'q' : 'm';
+        P(G, px + nx * k, py + ny * k, ch);
+      }
+    }
+    DISC(G, c + dx * (r0 + L * 0.12) + nx * 0.3, c + dy * (r0 + L * 0.12) + ny * 0.3, 2.4, 'r'); DISC(G, c + dx * (r0 + L * 0.12) + nx * 0.3, c + dy * (r0 + L * 0.12) + ny * 0.3, 1.5, 'A');
+  }
+  OUTLINE(G);
+  return R(G);
+})();
+
+// 頭（dome）。金の二重 V の前立・額の深紅の宝珠・黒い眉庇の奥で吊り上がる蒼い双眼・深紅の顎。世界→スプライトは (+38,+HEAD3_OY)
+const HEAD3_W = 76, HEAD3_H = 66, HEAD3_OY = 94;
+const HEAD3 = (() => {
+  const G = g(HEAD3_W, HEAD3_H), X = (x) => x + 38, Y = (y) => y + HEAD3_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
+  for (const s of [-1, 1]) {
+    const f2 = mkSlab(G, X(s * 5), Y(-58), X(s * 25), Y(-67)); f2.slab(0, 1, (u) => 2.3 * (1 - u) + 0.35, goldCol);             // 前立の下の一対
+    const f1 = mkSlab(G, X(s * 2.5), Y(-60), X(s * 29), Y(-90)); f1.slab(0, 1, (u) => 3.6 * (1 - u) + 0.45, goldCol);           // 前立の上の一対
+    polyFill(G, Q([[s * 12, -58], [s * 18.5, -61], [s * 17.5, -46], [s * 12, -43]]), (x, y, d) => (d(1) < 0.9 ? 'Y' : s < 0 ? 'm' : 'j'));   // 頬当て
+  }
+  polyFill(G, Q([[-11, -60], [-7, -67], [7, -67], [11, -60], [12.5, -50], [8, -40], [0, -32.5], [-8, -40], [-12.5, -50]]), (cx, cy, d) => {   // 2回目：四角い兜→顎へ絞る・面は骸の白（黒い兜と金の前立の間の焦点）
+    const x = cx - X(0), y = cy - Y(0), ax = Math.abs(x);
+    const de = segDist(10.4, -55.6, 2.8, -51.4, ax, y);
+    if (de < 1.05) return 'C'; if (de < 1.9) return 'N';
+    if (de < 3.3 || (ax < 3.6 && y > -55.5 && y < -50.2)) return 'k';                                                           // 眉庇の闇
+    if (y < -57) return d(1) < 0.8 ? 'f' : x < -1 ? 'm' : 'j';
+    const side = Math.min(d(3), d(4), d(7), d(8));
+    if (y > -50.4 && side < 2.3) return x < 0 ? 'm' : 'k';                                                                          // 兜の頬
+    if (y > -39.6) return x < -1 ? 'R' : 'r';                                                                                       // 深紅の顎
+    if (ax < 0.6) return 'n';                                                                                                    // 面の稜線
+    if (ax > 2.6 && ax < 7.4 && (Math.abs(y + 46.6) < 0.5 || Math.abs(y + 44) < 0.5)) return 'm';                               // 頬の通気溝
+    return x < 0 ? 's' : 'f';                                                                                                    // 骸の白い面
+  });
+  DISC(G, X(0), Y(-61.5), 3.0, 'Y'); DISC(G, X(0), Y(-61.5), 2.1, 'A'); DISC(G, X(-0.4), Y(-61.9), 0.9, 'W');                    // 額の宝珠
+  OUTLINE(G);
+  return R(G);
+})();
+
+// 胴（body）。深紅の胸甲二枚・金の襟と帯・節のある黒い腹・腰の装甲。胸の核（蓮華と種）は別パーツで上に載る。世界→スプライトは (+40,+CHEST3_OY)
+const CHEST3_W = 80, CHEST3_H = 84, CHEST3_OY = 44;
+const CHEST3 = (() => {
+  const G = g(CHEST3_W, CHEST3_H), X = (x) => x + 40, Y = (y) => y + CHEST3_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
+  polyFill(G, Q([[-5, -43], [5, -43], [6, -35], [-6, -35]]), (x) => (x - X(0) < -2 ? 'm' : x - X(0) < 2.5 ? 'j' : 'k'));          // 首
+  polyFill(G, Q([[-27, -38], [27, -38], [35, -24], [16, 16], [-16, 16], [-35, -24]]), (cx, cy, d) => {
+    const x = cx - X(0), y = cy - Y(0);
+    if (d(4) < 1.1 || d(5) < 1.1) return 'm'; if (d(1) < 1.0 || d(2) < 1.0) return 'k';
+    if (y > 2 && [5, 10.5].some((ly) => Math.abs(y - ly) < 0.5)) return 'k';                                                    // 腹の節
+    if (y > 2 && Math.abs(x) < 0.5) return 'k';
+    return x < -4 ? 'j' : x < 6 ? 'j' : 'k';
+  });
+  for (const s of [-1, 1]) polyFill(G, Q([[s * 2.5, -35], [s * 28, -36.5], [s * 33.5, -24], [s * 6, -8.5]]), (cx, cy, d) => {       // 胸甲（2回目：明るい赤の面は正義の味方に見えた＝地は血の色 r・上の帯だけ R）
+    if (d(2) < 1.3) return 'Y'; if (d(0) < 0.9) return s < 0 ? 'A' : 'R';
+    if (d(2) >= 2.6 && d(2) < 3.3) return 'k';
+    return d(0) < 4.2 && s < 0 ? 'R' : 'r';
+  });
+  for (const s of [-1, 1]) { const cl = mkSlab(G, X(s * 13), Y(-40), X(0), Y(-30)); cl.slab(0, 1, 1.7, goldCol); }               // 金の襟
+  polyFill(G, Q([[-18, 16], [18, 16], [18, 21.5], [-18, 21.5]]), (cx, cy) => { const y = cy - Y(0); return y < 17.2 ? 'G' : y < 20 ? 'Y' : 'y'; });   // 金の帯
+  DISC(G, X(0), Y(18.7), 3.0, 'k'); DISC(G, X(0), Y(18.7), 2.2, 'A'); DISC(G, X(-0.4), Y(18.3), 0.8, 'W');
+  polyFill(G, Q([[-18, 21.5], [18, 21.5], [25, 35], [-25, 35]]), (cx, cy, d) => { const x = cx - X(0); const e = Math.min(d(1), d(2), d(3)); return e >= 1.3 && e < 2.2 ? 'R' : Math.abs(x) < 0.5 ? 'k' : d(3) < 0.9 ? 'm' : x < 0 ? 'j' : 'k'; });   // 腰の装甲
+  OUTLINE(G);
+  return R(G);
+})();
+
+// 腕と武器と肩（armR・深度11）。画面左＝破滅の大剣（黒い身・白熱の両刃・金の鍔）／画面右＝前腕そのものが蒼の電磁加速砲／肩＝深紅の上面と黒い前面の巨大な楔
+const ARM3_W = 304, ARM3_H = 256, ARM3_O = [152, 84], SWORD_L = 116, RAIL3_L = 92;
+const ARMS3 = (() => {
+  const G = g(ARM3_W, ARM3_H), X = (x) => x + ARM3_O[0], Y = (y) => y + ARM3_O[1];
+  const armor = (ax) => { ax.slab(-0.12, 0, 5.4, (v) => (v < 0 ? 'j' : 'k')); ax.slab(0, 1, 10.6, (v) => (v < -0.8 ? 'f' : v < -0.3 ? 'm' : v < 0.5 ? 'j' : 'k')); ax.slab(0.22, 0.78, 3, (v) => (v < -0.3 ? 'R' : 'r')); ax.slab(0, 0.06, 11.2, goldCol); ax.slab(0.92, 1, 11.2, goldCol); };
+  { // ---- 画面左：大剣
+    const s = -1, E = [X(s * 61), Y(8)], Wr = [X(s * 74), Y(40)];
+    mechArm(G, [[X(s * 45), Y(-24)], E], 8);
+    const L0 = Math.hypot(Wr[0] - E[0], Wr[1] - E[1]), ux = (Wr[0] - E[0]) / L0, uy = (Wr[1] - E[1]) / L0, H = [Wr[0] + ux * 5, Wr[1] + uy * 5];
+    const G0 = [H[0] + ux * 10, H[1] + uy * 10], T = [G0[0] + ux * SWORD_L, G0[1] + uy * SWORD_L];
+    const grip = mkSlab(G, H[0] - ux * 13, H[1] - uy * 13, G0[0], G0[1]); grip.slab(0, 1, 2.1, (v) => (v < 0 ? 'm' : 'k'));
+    DISC(G, H[0] - ux * 14, H[1] - uy * 14, 3.0, 'y'); DISC(G, H[0] - ux * 14, H[1] - uy * 14, 2.2, 'G');                       // 柄頭
+    const bl = mkSlab(G, G0[0], G0[1], T[0], T[1]), hw = (u) => (u < 0.84 ? 8.6 - 2.4 * u : (8.6 - 2.4 * 0.84) * (1 - (u - 0.84) / 0.16) + 0.3);
+    bl.slab(0.01, 1, (u) => hw(u) + 2.2, () => 'r');                                                                           // 灼けの暈
+    bl.slab(0.01, 1, hw, (v) => { const a = Math.abs(v); return a < 0.1 ? 'm' : a < 0.44 ? (v < 0 ? 'j' : 'k') : a < 0.62 ? 'R' : a < 0.84 ? 'A' : 'W'; });
+    const gd = mkSlab(G, G0[0] - ux * 2, G0[1] - uy * 2, G0[0] + ux * 2.4, G0[1] + uy * 2.4); gd.slab(0, 1, 14, goldCol);      // 鍔
+    DISC(G, G0[0], G0[1], 3.0, 'k'); DISC(G, G0[0], G0[1], 2.2, 'A'); DISC(G, G0[0] - 0.4, G0[1] - 0.4, 0.8, 'W');
+    armor(mkSlab(G, E[0], E[1], Wr[0], Wr[1]));
+    mechHand(G, H[0], H[1]);
+    DISC(G, E[0], E[1], 8.6, 'k'); DISC(G, E[0], E[1], 7.7, 'm'); DISC(G, E[0], E[1], 5.2, 'k'); DISC(G, E[0], E[1], 4.2, 'f');
+  }
+  { // ---- 画面右：電磁加速砲
+    const s = 1, E = [X(s * 61), Y(8)], Wr = [X(s * 74), Y(40)];
+    mechArm(G, [[X(s * 45), Y(-24)], E], 8);
+    const base = Math.atan2(Wr[1] - E[1], Wr[0] - E[0]), ux = Math.cos(base), uy = Math.sin(base), ox = s * uy, oy = -s * ux;
+    const M = [E[0] + ux * RAIL3_L, E[1] + uy * RAIL3_L], ax = mkSlab(G, E[0], E[1], M[0], M[1]);
+    for (const fu of [0.06, 0.16, 0.26]) { const rx = E[0] + ux * RAIL3_L * fu + ox * 12, ry = E[1] + uy * RAIL3_L * fu + oy * 12, fin = mkSlab(G, rx, ry, rx + ox * 14 - ux * 10, ry + oy * 14 - uy * 10); fin.slab(0, 1, (u) => 2.8 * (1 - u) + 0.35, (v) => (v < 0 ? 'f' : 'm')); }
+    ax.slab(-0.1, 0, 5.4, (v) => (v < 0 ? 'j' : 'k'));
+    for (const kc of [8, -8]) ax.slab(0.38, 1, 4.1, (v) => (v < -0.5 ? 'm' : v > 0.6 ? 'k' : 'j'), kc);
+    ax.slab(0.38, 0.985, 4.0, (v, u) => { const c = Math.abs(v), hot = (u - 0.38) / 0.62; return c < 0.22 + 0.2 * hot ? (hot > 0.55 ? 'C' : 'N') : c < 0.6 ? 'P' : 'Q'; });
+    for (const bu of [0.54, 0.7, 0.86]) ax.slab(bu, bu + 1.6 / RAIL3_L, 12.2, (v) => (Math.abs(v) < 0.3 ? null : v < 0 ? 'f' : 'm'));
+    ax.slab(0, 0.4, 14, (v) => (v < -0.82 ? 's' : v < -0.4 ? 'f' : v < 0.35 ? 'm' : v < 0.8 ? 'j' : 'k'));
+    ax.slab(0.09, 0.32, 2.9, (v, u) => (Math.abs(v) > 0.6 ? 'k' : u > 0.25 ? 'Q' : u > 0.18 ? 'P' : 'N'));
+    ax.slab(0, 0.04, 14.6, goldCol); ax.slab(0.37, 0.41, 14.6, goldCol);
+    for (const kc of [8, -8]) ax.slab(0.96, 1, 4.4, goldCol, kc);
+    const ob = [M[0] + ux * 3, M[1] + uy * 3]; DISC(G, ob[0], ob[1], 6, 'Q'); DISC(G, ob[0], ob[1], 4.6, 'P'); DISC(G, ob[0], ob[1], 3.1, 'N'); DISC(G, ob[0], ob[1], 1.7, 'C');
+    DISC(G, E[0], E[1], 8.6, 'k'); DISC(G, E[0], E[1], 7.7, 'm'); DISC(G, E[0], E[1], 5.2, 'k'); DISC(G, E[0], E[1], 4.2, 'f');
+  }
+  for (const s of [-1, 1]) {   // ---- 肩
+    const C0 = [s * 50, -33], rel = [[-16, 12], [-18, -6], [-5, -17], [27, -37], [22, 0], [12, 17]],   /* 2回目：平たい赤い板→黒い前面が主の塊・上面は血の色 */ q = rel.map(([o, y]) => [X(C0[0] + s * o), Y(C0[1] + y)]);
+    const A = [q[1][0], q[1][1] - 0], B = [X(C0[0] + s * 24), Y(C0[1] - 14)], cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), up = Math.sign(cr(A, B, q[2][0], q[2][1])), RL = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    polyFill(G, q, (x, y, d) => {
+      const dT = Math.hypot(x - q[3][0], y - q[3][1]), c = cr(A, B, x, y);
+      if (dT < 2) return 'G'; if (dT < 5) return 'Y';
+      if (Math.abs(c) / RL < 0.55) return 'k';
+      if (Math.sign(c) === up) return d(2) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 3.6 && s < 0 ? 'R' : 'r';   // 血の色の上面
+      return d(4) < 1.2 || d(5) < 1.2 ? 'Y' : d(0) < 1.0 ? (s < 0 ? 'm' : 'k') : s < 0 ? 'j' : 'k';                                       // 黒い前面・下の縁に金
+    });
+  }
+  OUTLINE(G);
+  return R(G);
+})();
+
+const CONCEPT3 = '刃の華を背負い、日蝕を戴く闘神。黒い機体に深紅の装甲と金の前立。背に六枚の刃が上へ咲き（骸華）、機体より大きい日蝕の輪が掛かる。右手に破滅の大剣、左腕は蒼の電磁加速砲。下半身は逆さの扇に開く五枚の刃と深紅の噴射。';
+function build3() {
+  const P7 = (rows) => ({ rows, palette: PAL });
+  const sprites = { eclipse: P7(ECLIPSE3), petals: P7(PETALS), pedestal: P7(SKIRT), torso: P7(CHEST3), head: P7(HEAD3), lotus: P7(LOTUS), seed: P7(SEED), arms: P7(ARMS3) };
+  const rig = [
+    { role: 'thruster', tex: 'eclipse', ox: 0, oy: -20, origin: [0.5, 0.5] },
+    { role: 'thruster', tex: 'petals', ox: 0, oy: -20, origin: [0.5, 0.5] },
+    { role: 'legL', tex: 'pedestal', ox: 0, oy: 30, origin: [0.5, 0] },
+    { role: 'body', tex: 'torso', ox: 0, oy: -CHEST3_OY, origin: [0.5, 0] },
+    { role: 'dome', tex: 'head', ox: 0, oy: -HEAD3_OY, origin: [0.5, 0] },
+    { role: 'rack', tex: 'lotus', ox: 0, oy: -3 },
+    { role: 'armR', tex: 'arms', ox: 0, oy: 0, origin: [ARM3_O[0] / ARM3_W, ARM3_O[1] / ARM3_H] },
+    { role: 'core', tex: 'seed', ox: 0, oy: -3 },
+  ];
+  return { id: 'gaika3', name: '蒼神骸華', concept: CONCEPT3, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: '#8a1622', glowInner: '#ff7a3a' } };
+}
+export const GAIKA2_V18 = build2();   // 第18稿まで（継ぎ足しの系統）＝比較用に残す
+export const GAIKA2 = build3();
+
 export const GAIKA2_MANDORLA = build2({ mandorla: true });   // 比較用＝光背あり（第1稿の姿）
 export const GAIKA = build();
 export const GAIKA_SWORD = build({ sword: false });   // 比較用の変種＝曲刀の腕なし（第14案改〜第28案改３までの姿）
