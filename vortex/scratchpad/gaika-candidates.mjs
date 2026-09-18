@@ -484,7 +484,49 @@ const TORSO_W = 46, TORSO_H = 40 + TORSO_EXT;
 //   ③留め具は胸の蓮華。そこから**布の襞が一本だけ**斜めに落ちる（鎧の継ぎ目でなく布の落ち）。襟の内側には**深紅の裏地**が一周覗く。
 // 第28案（09-18 19:30 FB「赤や金の刺繍を使い、荘厳さをだして」）：形は据え置きで**色だけ**足す。深紅の地に金の菱の襴を縦（打ち合わせ）と横（腰）に一本ずつ、
 //   黒地には金襴の地文を千鳥に散らす。刺繍は面を分割しないので「線は三本」を壊さない。位置は世界 y +21 より下が隠れることから決める。
-const TORSO = (() => {
+// 第28案改３（09-18 20:13 FB「肩まわりが寂しい。悪神の要素を。ただくどくならないようにわずかなワンポイントで」）：
+//   肩の一点を 3 案つくって比較する。どれも**片肩につき 1 つ・7×5 units 以内**（等倍で 29×21 px）＝それ以上は「くどい」側へ倒れる。
+//   A 封印の釘＝黒鉄の釘が肩に打ち込まれ、頭だけ金。下に紙垂が一枚。祟り神を鎮めた封印がまだ体に残っている（環の錠と紙垂の語彙をそのまま肩へ）。
+//   B 肩の眼＝頭の無い神が肩で見ている。黒い眼窩・深紅の虹彩・鈍い金の縁。冕冠の中が空なのと対になる（「見る場所がここではない」）。
+//   C 封じの錠＝深紅の錠が肩に打たれ、鎖が襟の下へ消える。三神の環の錠（深紅）と同じ色・同じ形を身体へ引く。
+//   ⚠️**肩当ての面には置けない**＝六本腕の肩（世界 x ±12〜±22・y −22〜−12）が肩当て（±9〜±20・−21〜−14）を丸ごと覆っている。
+//     胴のテクスチャに描いた 3 案は実測で一切見えなかった。そこで**腕の外上＝冕冠の脇の空き**（世界 ±26 あたり・y −38〜−22）へ別パーツとして置く。ここが「寂しい」と言われている場所そのもの。
+const MARK_W = 18, MARK_H = 30;
+function shoulderMarkTex(mark, dir) {                                                                               // dir −1＝画面左（光が当たる側）／+1＝画面右
+  const G = g(MARK_W, MARK_H), cx = 9, lit = dir < 0;
+  if (mark === 'A') {                                                                                               // 封印の釘＋紙垂
+    for (let t = 0; t <= 1; t += 0.03) {                                                                            // 釘の軸＝ほぼ真下へ打ち込まれている（腕の斜めと平行にすると腕の一部に見える）
+      const x = cx + 1.6 - 3.2 * t, y = 6.5 + 10.5 * t;
+      for (let s = -1.5; s <= 1.5; s += 0.25) P(G, x + s, y, s < -0.6 ? 's' : s < 0.5 ? 'j' : 'k');                  // 黒い軸に照りを一列＝暗い背景に溶けない
+    }
+    DISC(G, cx + 1.8, 5.2, 3.4, 'k'); DISC(G, cx + 1.8, 5.2, 2.4, 'Y'); DISC(G, cx + 1.8, 5.2, 1.2, lit ? 'G' : 'Y');
+    P(G, cx + 1.0, 4.4, 'W');                                                                                       // 釘の頭＝金
+    for (let i = 0; i < 4; i++) {                                                                                   // 紙垂＝一枚だけ。折りは 4 段＝細かく刻むと市松模様に見える
+      const dx = i % 2 ? -2.6 : 0.6, y0 = 15 + i * 2.6;
+      for (let y = y0; y < y0 + 2.6; y += 0.5) { P(G, cx + dx - 1.6, y, 'k'); for (let x = -1; x <= 1; x += 0.5) P(G, cx + dx + x, y, lit ? 'n' : 's'); P(G, cx + dx + 1.6, y, 'k'); }
+    }
+  } else if (mark === 'B') {                                                                                        // 肩の眼＝頭の無い神が肩で見ている。瞳は縦に裂けた獣のもの
+    const RX = 4.8, RY = 2.8, cy = 12;
+    for (let x = -RX; x <= RX; x += 0.25) {                                                                         // 尖った紡錘＝円にすると「輪」になって眼に見えない
+      const hh = RY * Math.pow(Math.max(0, 1 - (x / RX) ** 2), 0.62);
+      for (let y = -hh; y <= hh; y += 0.25) P(G, cx + x, cy + y, 'k');
+      P(G, cx + x, cy - hh - 0.6, lit ? 'Y' : 'y'); P(G, cx + x, cy + hh + 0.6, 'y');                                // 縁＝金の一筋だけ
+    }
+    const ex = cx - dir * 0.9;
+    DISC(G, ex, cy, 2.1, 'r'); DISC(G, ex, cy, 1.4, lit ? 'R' : 'r'); P(G, ex - 0.8, cy - 0.8, 'A');                 // 虹彩＝深紅
+    for (let y = -2.2; y <= 2.2; y += 0.25) P(G, ex, cy + y, 'k');                                                  // 縦の瞳孔
+    for (const [dy, ch] of [[4.2, 'r'], [5.6, 'r'], [6.8, 'v'], [8.0, 'v']]) P(G, ex + dir * dy * 0.22, cy + dy, ch);   // 眼から肩へ落ちる火の粉＝宙に浮いた眼を身体につなぐ
+  } else if (mark === 'C') {                                                                                        // 封じの錠＋鎖（三神の環の錠と同じ深紅）
+    chain(G, [[cx + dir * 3.5, 2], [cx + dir * 1.2, 5], [cx, 8]]);                                                  // 肩から来る鎖
+    for (let a = 200; a <= 340; a += 3) { const t = a * Math.PI / 180; P(G, cx + Math.cos(t) * 2.7, 11.6 + Math.sin(t) * 2.7, lit ? 'G' : 'Y'); P(G, cx + Math.cos(t) * 1.7, 11.6 + Math.sin(t) * 1.7, 'k'); }   // 鉉＝金
+    RECT(G, cx - 3.4, 11.4, cx + 3.4, 18.0, 'k'); RECT(G, cx - 2.5, 12.2, cx + 2.5, 17.2, lit ? 'R' : 'r');          // 錠の身＝深紅
+    P(G, cx - 2.0, 12.8, lit ? 'A' : 'R'); P(G, cx + 2.0, 16.6, 'r');
+    DISC(G, cx, 14.2, 1.1, 'k'); RECT(G, cx - 0.5, 14.2, cx + 0.5, 16.4, 'k');                                       // 鍵穴
+  }
+  OUTLINE(G);
+  return R(G);
+}
+const torsoTex = () => {
   const G = g(TORSO_W, TORSO_H), cx = 22.5, E = TORSO_EXT;
   const hwAt = (y) => (y <= 8 ? 8.5 + 10.5 * Math.sqrt(Math.max(0, (y - 1) / 7))                               // なで肩
     : y <= 22 + E ? 19 - 5.5 * Math.pow((y - 8) / (14 + E), 1.6)                                               // 胸から腰へ細る。伸ばした胴をまっすぐな側面のままにすると箱に見える
@@ -558,7 +600,8 @@ const TORSO = (() => {
   P(G, cx + 12, 13, 'N'); P(G, cx + 14, 10, 'C'); P(G, cx - 12, 13, 'N');                                            // 鎧の照り返し
   OUTLINE(G);
   return R(G);
-})();
+};
+const TORSO = torsoTex();   // 肩のワンポイントは胴でなく別パーツ（markL/markR）＝既定は無し。ユーザーが A/B/C を選ぶまで本体は据え置き
 
 // =====================================================================
 // ⑤ 角の冕冠（dome）40×26。row 0＝世界 -40。金の宝冠（帯 row 13..15）＋骨の角（左右対称に反る）＋玉の簾4本
@@ -633,9 +676,9 @@ const ARM_R = (() => {
   for (let s = -6.3; s <= 6.3; s += 0.25) for (let k = -1.2; k <= 1.2; k += 0.25) Q(B + 11.5 + k, s, k < 0 ? 'R' : 'r');                     // 胴の帯＝深紅一本
   for (let u = -1.9; u <= 1.9; u += 0.25) for (let s = -7.8; s <= 7.8; s += 0.25) if ((s / 7.8) ** 2 + (u / 1.9) ** 2 <= 1) Q(B + 23.5 + u, s, 'k');   // 口の中（斜め下から覗く空洞）
   { const [cx, cy] = W(B + 23.8, 0); DISC(G, cx, cy, 1.8, 'k'); DISC(G, cx, cy, 1.35, 'R'); P(G, cx - 0.5, cy - 0.5, 'A'); }   // 舌（深紅）
-  arm(G, [[5, 4], [13, 11], [16, 19]], 4.5, 3.4);                                                                          // 腕は柄の上に描く＝柄の上端を隠す。第13案：1/4 太く
-  armlet(G, [5, 4], [13, 11], 0.5, 4.5, true); armlet(G, [13, 11], [16, 19], 0.5, 3.9);                                    // 臂釧（深紅の玉）と腕釧＝金
-  fist(G, 16, 18.5, 4.0, 3.6);                                                                                              // 拳は柄の上＝握り
+  arm(G, [[5, 4], [16, 9], [16, 19]], 4.1, 3.3);                                                                           // 第28案改３：肘を外へ張り出して上腕を伸ばす＝合計 19.2→22・肘の曲がり 28°→66°（画面左の 63° と揃える）。拳は動かさない＝鐘の位置は据え置き
+  armlet(G, [5, 4], [16, 9], 0.5, 4.2, true); armlet(G, [16, 9], [16, 19], 0.5, 3.8);                                      // 臂釧（深紅の玉）と腕釧＝金
+  fist(G, 16, 18.5, 4.2, 3.6);                                                                                              // 拳は柄の上＝握り
   OUTLINE(G);
   return R(G);
 })();
@@ -683,9 +726,9 @@ const armL = (rod) => {
   line(H0 - 5, -2, 'YYYY'); line(B1 + 13, -2, 'YYYY');
   line(B1 + 5, -3, 'GGGGGG'); for (let s = B1; s <= B1 + 4; s++) line(s, -3, 'YYYYYY');
   // --- 腕（棒の上に描く＝拳が柄を握る）
-  arm(G, [[45, 90], [31, 105], [10, 97]], 4.5, 3.4);
-  armlet(G, [45, 90], [31, 105], 0.5, 4.6, true); armlet(G, [31, 105], [10, 97], 0.72, 3.9);                                    // 臂釧（深紅の玉）と腕釧＝金
-  fist(G, 10, 96, 4.4, 3.8);
+  arm(G, [[45, 90], [31, 104], [10, 97]], 4.8, 3.0);                                                                            // 第28案改３：長い腕は根元を太く先を細く＝同じ太さのまま伸ばすと間延びする。肘を 1 上げて曲がり 68°→63°
+  armlet(G, [45, 90], [31, 104], 0.5, 4.8, true); armlet(G, [31, 104], [10, 97], 0.72, 3.6);                                    // 臂釧（深紅の玉）と腕釧＝金
+  fist(G, 10, 96, 4.2, 3.6);
   OUTLINE(G);
   return R(G);
 };
@@ -775,9 +818,9 @@ const QLEG_R = (() => {
 const QL_W = 31, QL_H = 54;
 const QLEG_L = (() => {
   const G = g(QL_W, QL_H);
-  arm(G, [[28, 24], [10, 30], [7, 22]], 3.2, 2.4);
-  fist(G, 6, 20.5, 3.0, 2.8);
-  chain(G, [[5.5, 24], [7, 34], [9, 44]]);                                                              // 拳から垂れる鎖
+  arm(G, [[28, 24], [10, 30], [5, 19]], 3.2, 2.4);                                                      // 第28案改３：前腕 8.5→12.1・肘の曲がり 88°→84°＝画面右の下段（11.2・82°）と揃える
+  fist(G, 4.5, 17.5, 3.0, 2.8);
+  chain(G, [[4, 21], [6.5, 33], [9, 44]]);                                                              // 拳から垂れる鎖
   DISC(G, 9.5, 48.5, 3.9, 'k'); SPHERE(G, 9.5, 48.5, 3.4, ['y', 'Y', 'G', 'G', 'W'], [-0.5, -0.62, 0.6], 0.1);   // 香炉（金の球）
   for (const [dx, dy] of [[0, -1.6], [-1.4, -0.4], [1.4, -0.4], [0, 0.8], [-1.4, 2.0], [1.4, 2.0]]) P(G, 9.5 + dx, 48.5 + dy, 'R');   // 透かし（格子）から深紅の火が覗く
   for (let x = 7; x <= 12; x++) P(G, x, 52.5, 'y');                                                    // 台座
@@ -937,6 +980,8 @@ function build(opts = {}) {   // opts.sword＝曲刀の中の左手（baseR）�
     halo: { rows: HALO, palette: PAL },
     pedestal: { rows: PEDESTAL, palette: PAL },
     torso: { rows: TORSO, palette: PAL },
+    ...(opts.shoulder && opts.shoulder !== 'none'
+      ? { markL: { rows: shoulderMarkTex(opts.shoulder, -1), palette: PAL }, markR: { rows: shoulderMarkTex(opts.shoulder, 1), palette: PAL } } : {}),
     crown: { rows: CROWN, palette: PAL },
     lotus: { rows: LOTUS, palette: PAL },
     armR: { rows: ARM_R, palette: PAL },
@@ -967,6 +1012,9 @@ function build(opts = {}) {   // opts.sword＝曲刀の中の左手（baseR）�
     { role: 'qlegBL', tex: 'cables', ox: -19, oy: -22, origin: [12 / CAB_W, 0] },
     { role: 'qlegFL', tex: 'qlegL', ox: -12, oy: 16, origin: [28 / QL_W, 24 / QL_H] },
     { role: 'body', tex: 'torso', ox: 0, oy: -24, origin: [0.5, 0] },
+    ...(opts.shoulder && opts.shoulder !== 'none' ? [                                                // 肩のワンポイント＝腕の外上（冕冠の脇）。dome=深度9＝腕（11）より下だが位置が重ならないので隠れない
+      { role: 'dome', tex: 'markL', ox: -27, oy: -46, origin: [0.5, 0] },
+      { role: 'dome', tex: 'markR', ox: 27, oy: -46, origin: [0.5, 0] }] : []),
     { role: 'dome', tex: 'crown', ox: 0, oy: -48, origin: [0.5, 0] },
     { role: 'dome', tex: 'suzu', ox: 21.5, oy: -26, origin: [1 / SUZU_W, 1 / SUZU_H] },
     { role: 'rack', tex: 'lotus', ox: 0, oy: -4 },
@@ -990,6 +1038,8 @@ function buildRetainer(side) {
 export const GAIKA = build();
 export const GAIKA_SWORD = build({ sword: true });   // 比較用の変種＝曲刀の腕あり
 export const GAIKA_RODS = { A: build({ rod: 'A' }), B: build({ rod: 'B' }), C: build({ rod: 'C' }), D: build({ rod: 'D' }) };   // 第20案：棒の柄の仕上げ 4 種（形は同じ・比較用）
+export const GAIKA_SHOULDERS = { none: build({ shoulder: 'none' }), A: build({ shoulder: 'A' }), B: build({ shoulder: 'B' }), C: build({ shoulder: 'C' }) };   // 第28案改３：肩のワンポイント 4 種（比較用）
+export const GAIKA_SHOULDER_LABELS = { none: 'NONE (CURRENT)', A: 'A: SEALING NAIL + PAPER STREAMER', B: 'B: ONE EYE ON THE SHOULDER', C: 'C: CRIMSON LOCK + CHAIN' };
 export const RETAINER_R = buildRetainer(1);
 export const RETAINER_L = buildRetainer(-1);
 validate(GAIKA); validate(GAIKA_SWORD); validate(RETAINER_R); validate(RETAINER_L); Object.values(GAIKA_RODS).forEach(validate);
