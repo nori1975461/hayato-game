@@ -1986,9 +1986,13 @@ const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_V46 = [60, -12], WRIS
 // 第47稿：FB（添付つき）「主腕の両手とも、肘から下が外へ向いている。主腕の肘から下を、中央に少し向けてほしいだけ。手がスカートに少しかかってしまってもいい」
 //   ＝肩と肘は第45稿のまま。前腕＋掌をひとかたまりで、肘を軸に中央へ FORE4_DEF 度まわす（前腕は鉛直から外へ 43° → 23°）。手首は折らない・掌の造形はそのまま。
 //   スカートにかかる量＝開いた手 20%・握る手 6%（12°＝7%/0%・30°＝37%/18%＋胴の陰に 5px）。第45稿の腕は gaika2With({ foreTurn: 0 })
-const FORE4_DEF = 20;
+// 第48稿：FB（添付＝前腕がまっすぐ垂れ、指が内へゆるく巻いた手の素描）「添付資料のように主腕、肘、掌を書きなおして。ただし、直すのは蒼神骸華の左手だけ。右手は直さなくてよい」
+//   骸華の左手＝画面右（s>0）。添付は右手の絵なので左右を反転。肩と肘の位置は据え置き・前腕は肘からほぼ真下（FORE4_DEF[1] = 35＝鉛直から外へ 8°。真下 42.9 は親指の付け根が胴の陰に 14px 隠れる）・
+//   手は『握り潰す手（掌の蝕に指が折れる＝赤い輪の塊に見えた）』をやめ、鋼の手の甲＋外の高い拳頭から内の低い拳頭へ並ぶ四指が内へ巻く＋内の手前に垂れる親指。握り込んだ蝕は親指と人差し指の間の残り火だけ。
+//   骸華の右手（画面左＝開いた手）はコードを通らない＝1 ドットも変えない。第47稿の腕は gaika2With({ foreTurn: 20, handL: 'clench' })
+const FORE4_DEF = [20, 35], HANDL4_DEF = 'hang';
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
-function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
+function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
   //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
@@ -1998,7 +2002,8 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
   //   左右で動詞を分ける（悪神＝非対称）：画面左＝開いた手（引き寄せる）／画面右＝握り潰す手（指が蝕の上へ折れ、舌が指の間から漏れる）
   const main = (s) => {
     // 第47稿：肘から下（前腕＋掌）を、肘を軸に中央へ foreTurn 度まわす。wrist を明示したときは回さない（第46稿の否決された形の再現用）
-    const fth = wrist ? 0 : (foreTurn * Math.PI) / 180, frot = ([x, y]) => [x * Math.cos(fth) - y * Math.sin(fth), x * Math.sin(fth) + y * Math.cos(fth)];
+    const turn = Array.isArray(foreTurn) ? foreTurn[s < 0 ? 0 : 1] : foreTurn;   // 第48稿：[画面左, 画面右] で左右別に回せる
+    const fth = wrist ? 0 : (turn * Math.PI) / 180, frot = ([x, y]) => [x * Math.cos(fth) - y * Math.sin(fth), x * Math.sin(fth) + y * Math.cos(fth)];
     const fvec = frot([WRIST4_OUT[0] - ELBOW4_OUT[0], WRIST4_OUT[1] - ELBOW4_OUT[1]]), wr = wrist || [elbow[0] + fvec[0], elbow[1] + fvec[1]], hdir = frot([18, 20]);
     const pts = [[36, -26], elbow, wr].map(([x, y]) => [X(s * x), Y(y)]);
     { const hx = X(s * 38), hy = Y(-25); DISC(G, hx, hy, 9.4, 'k'); DISC(G, hx, hy, 8.2, 'm'); DISC(G, hx, hy, 6.2, 'k'); DISC(G, hx, hy, 5.0, 'j'); }
@@ -2010,12 +2015,13 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
     fa.slab(0.3, 0.84, 4.6, () => 'k');
     fa.slab(0.34, 0.8, 3.4, (v) => (Math.abs(v) < 0.32 ? 'A' : Math.abs(v) < 0.68 ? 'R' : 'r'));
-    const clench = s > 0;
+    const clench = s > 0, hang = clench && handL === 'hang';   // 第48稿：骸華の左手（画面右）だけ、垂らして指を内へ巻いた手に描き直す
     const W0 = pts[2], fl = Math.hypot(18, 20), dx = (s * hdir[0]) / fl, dy = hdir[1] / fl, nx = -s * dy, ny = s * dx;
     const at = (d, o) => [W0[0] + dx * d + nx * o, W0[1] + dy * d + ny * o];
     const dir = (th) => [dx * Math.cos(th) + nx * Math.sin(th), dy * Math.cos(th) + ny * Math.sin(th)];
     // 第43稿：FB「掌も大きすぎ。少し小さく」＝掌と蝕を HP 倍・指は太さと間隔を掌に合わせ長さは HF 倍
     const HP = 0.87, HF = 0.93;
+    if (!hang) {
     const pm = mkSlab(G, ...at(2 * HP, 0), ...at(21 * HP, 0));
     pm.slab(0, 1, (u) => (10 + 5 * Math.pow(u, 0.7)) * HP, (v) => (Math.abs(v) > 0.92 ? 'k' : v < -0.62 ? 'm' : v < 0.3 ? 'j' : 'k'));
     if (!wristBent) pm.slab(0, 0.12, 11.2 * HP, goldCol);
@@ -2028,6 +2034,7 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
       P(G, C0[0] + x, C0[1] + y, e < 0.34 ? 'A' : e < 0.7 ? 'R' : 'r');
     }
     DISC(G, C0[0] - dx * 1.4 * HP + nx * 0.9 * HP, C0[1] - dy * 1.4 * HP + ny * 0.9 * HP, r0, 'k');
+    }
     const bone = (v) => (Math.abs(v) > 0.86 ? 'k' : v < -0.3 ? 'f' : v < 0.35 ? 'm' : 'j');
     const claw = (v, u) => (u > 0.75 ? 'A' : u > 0.5 ? 'R' : u > 0.3 ? 'r' : Math.abs(v) > 0.82 ? 'k' : v < -0.2 ? 'f' : 'm');
     const finger = (b0, th1, L1, th2, L2) => {
@@ -2037,6 +2044,26 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
       DISC(G, j1[0], j1[1], 2.7 * HP, 'k'); DISC(G, j1[0], j1[1], 1.5 * HP, 'm');
     };
     // 第44稿：handFlip＝左右を入れ替えた手（親指が内）。FB「掌は左右の腕に逆についてない？」の見比べ用 → 第45稿：ユーザーが A/B を見比べて B（親指が内）を選んだ＝build4 の既定は handFlip: true（false を渡すと親指が外の旧版）
+    if (hang) {
+      // 親指側から見た「力を抜いて垂らした手」（添付の素描＝右手の絵を左右反転）。+o＝中央の側。
+      //   手の甲の塊（鋼・手首に金の輪）→ 握り込んだ蝕の残り火 → 巻いた指（薬指→中指→人差し指＝奥から手前。奥の指ほど深く巻く）→ 大きな拳頭 → 手前に垂れる親指
+      const fingerW = (b0, th1, L1, th2, L2, w) => {
+        const f1 = dir(th1), j1 = [b0[0] + f1[0] * L1, b0[1] + f1[1] * L1], f2 = dir(th2), t = [j1[0] + f2[0] * L2, j1[1] + f2[1] * L2];
+        mkSlab(G, b0[0], b0[1], j1[0], j1[1]).slab(0, 1, w, bone);
+        mkSlab(G, j1[0], j1[1], t[0], t[1]).slab(0, 1, (u) => (w - 0.3) * (1 - u) + 0.5, claw);
+        DISC(G, j1[0], j1[1], w - 0.4, 'k'); DISC(G, j1[0], j1[1], w - 1.6, 'm');
+      };
+      const hb = mkSlab(G, ...at(1.5, 0), ...at(15, 0));
+      hb.slab(0, 1, (u) => 9 + 1.6 * u, (v) => (Math.abs(v) > 0.9 ? 'k' : v < -0.5 ? 's' : v < -0.1 ? 'f' : v < 0.45 ? 'm' : 'j'));   // 手の甲＝鋼の板（暗いスカートの上で読める明るさ）
+      hb.slab(0.52, 0.58, 10, () => 'k');                                                     // 甲の板の継ぎ目
+      hb.slab(0, 0.16, 9.8, goldCol);                                                         // 手首の金の輪
+      { const [ex, ey] = at(20, 9); DISC(G, ex, ey, 3.4, 'r'); DISC(G, ex, ey, 2.1, 'R'); DISC(G, ex, ey, 0.9, 'A'); }   // 握り込んだ蝕の残り火（親指と人差し指の間から漏れる）
+      for (const [bu, bo, t1, l1, t2, l2, w] of [[12.5, -7.5, 0.25, 7.5, 1.7, 6, 2.9], [14, -3.5, 0.22, 9.5, 1.6, 7, 3.2], [15.5, 0.5, 0.2, 10.5, 1.5, 7.5, 3.4], [16.5, 4.5, 0.18, 9.5, 1.35, 8, 3.4]]) {   // 小指→人差し指（外の高い拳頭から内の低い拳頭へ）
+        const b = at(bu, bo); fingerW(b, t1, l1, t2, l2, w); DISC(G, b[0], b[1], w + 0.3, 'k'); DISC(G, b[0], b[1], w - 0.9, 'f');
+      }
+      fingerW(at(6, 8.5), 0.35, 8, -0.05, 7.5, 3.2);                                          // 親指（内の手前に垂れる）
+      return;
+    }
     const hs = handFlip ? -1 : 1;
     for (const [o, th, L1, L2] of [[-10.5, -0.3, 11, 11], [-3.5, -0.1, 13, 13], [3.5, 0.1, 13, 13], [10.5, 0.3, 10.5, 10]].map(([a, b, c, e]) => [hs * a, hs * b, c, e])) {
       if (clench) finger(at(21 * HP, o * HP), th, L1 * 0.5 * HF, th + Math.PI - Math.sign(th) * 0.25, L2 * 0.85 * HF);
@@ -2107,7 +2134,7 @@ function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
