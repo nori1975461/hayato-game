@@ -1720,7 +1720,7 @@ const TORSO4 = (() => {
   // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
   for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
   for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
-  for (const bx of [-21, -14, -7, 0, 7, 14, 21]) for (let y = 0; y <= 11; y += 0.5) { const hw = 3.2 * (1 - y / 11); for (let x = -hw; x <= hw; x += 0.5) P(G, X(bx + x), Y(38 + y), y > 8.4 ? 's' : x < -hw * 0.3 ? 'f' : x < hw * 0.5 ? 'm' : 'k'); }   // 第28稿：腰の牙の列（第12稿）
+  // 第37稿：腰の牙の列（第28稿）は撤去＝スカートの前面を空けて逆さ扇そのものを見せる
   OUTLINE(G);
   return R(G);
 })();
@@ -1909,9 +1909,10 @@ function build4(o = {}) {
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     ...(limbs === 'none' ? [] : [{ role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] }]),   // 第25稿：脚は腰の扇より奥
-    { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },   // 第33稿：腰のブロックが胴の裾の左右の穴を塞ぐところまで上げる
+    // 第37稿：スカートは殻の後ろへ移した（下の行）
     { role: 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
     { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
+    { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },   // 第33稿：腰のブロックが胴の裾の左右の穴を塞ぐところまで上げる
     moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
