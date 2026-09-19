@@ -209,6 +209,8 @@ export const PAL = {
   y: '#7a5a12', Y: '#c9971f', G: '#ffd23f', W: '#ffedb0',                 // 金（くすんだ金 Y/y が地・G/W は一筋）
   r: '#8a1622', R: '#e03040', A: '#ff7a6a',                               // 深紅（胎の胸・盃から流れる）
   x: '#6b0b3e', X: '#c41a72', z: '#ff5cb4', Z: '#ffe0f4',                // 第23稿：マゼンタ 4段（x→X→z→Z の順に明るい）＝敵側の機体の光刃の色。噴射の橙とも炉の深紅とも色相が離れる
+  // 第35稿：蒼の装甲の漆（q より一段明るく Q より暗い＝黒い胴と明度で分かれるが浮かない）
+  b: '#0c2a4e',
   e: '#1b3a30', E: '#5fbf95',                                             // 玉座の緑青（封印の結び目だけ）
   v: '#4a3b7d', V: '#c0aef5',                                             // 軌道神核の紫（封印の結び目だけ）
 };
@@ -1117,7 +1119,7 @@ const PULSE = (() => {
 //   第12稿：FB「逆さ扇をもっと大きく」＝刃の根（y=0）の幅はそのまま、先だけ横 1.3・縦 1.35 倍（根まで広げると腰の横に平らな上端が出る）
 //           FB「足をやめて他のアイデアを」＝**釣鐘形の噴射口**をいちばん奥に。隙間から裾の広がった鋼の塊が覗き、噴射はそこから落ちる＝火に出どころができた。機体の部品なので人の気配が消える
 const SK_KX = 1.3, SK_KY = 1.35, SK_W = 180, SK_H = 112;
-function skirtTex(NZ, JT, H, style = 'taper', W = SK_W, KX = SK_KX, KY = SK_KY, waist = false) {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がりの指数]・JT＝噴射 [x, y0, 長さ, 幅]。刃⭐は共通
+function skirtTex(NZ, JT, H, style = 'taper', W = SK_W, KX = SK_KX, KY = SK_KY, waist = false, jet = ['G', 'A', 'R', 'r', 'G', 'A']) {   // NZ＝噴射口 [x, y0, y1, w0, w1, 広がりの指数]・JT＝噴射 [x, y0, 長さ, 幅]。刃⭐は共通
   const G = g(W, H), cx = W / 2 - 0.5, sc = ([x, y]) => [y === 0 ? x : x * KX, y * KY];
   for (const [bx, y0, y1, w0, w1, pw = 1.3] of NZ) {   // 噴射口（刃と噴射の後ろ）
     if (style === 'tube') {   // 第24稿：FB「ネオ・ジオングのノズルをそのまま描写して」＝先が開く円錐をやめ、等径の長い円筒・側面に補強の輪・先端だけ一段太い口縁
@@ -1137,10 +1139,10 @@ function skirtTex(NZ, JT, H, style = 'taper', W = SK_W, KX = SK_KX, KY = SK_KY, 
       continue;
     }
     for (let y = y0; y <= y1; y += 0.5) { const t = (y - y0) / (y1 - y0), hw = w0 + (w1 - w0) * Math.pow(t, pw); for (let x = -hw; x <= hw; x += 0.5) { const v = x / hw; P(G, cx + bx + x, y, y > y1 - 2 ? (v < 0 ? 'Y' : 'y') : Math.round(y - y0) % 7 === 6 ? 'k' : v < -0.75 ? 'm' : v < -0.5 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'); } }
-    for (let x = -w1 + 1.5; x <= w1 - 1.5; x += 0.5) for (let y = 0; y <= 2; y += 0.5) P(G, cx + bx + x, y1 + 0.5 + y, Math.abs(x) < w1 * 0.45 ? 'G' : 'A');   // 口の中の灼け
+    for (let x = -w1 + 1.5; x <= w1 - 1.5; x += 0.5) for (let y = 0; y <= 2; y += 0.5) P(G, cx + bx + x, y1 + 0.5 + y, Math.abs(x) < w1 * 0.45 ? jet[4] : jet[5]);   // 口の中の灼け
   }
   for (const [jx, y0, len, w] of JT) for (let y = 0; y <= len; y += 0.25) {   // 噴射（刃の後ろ・噴射口の前）
-    const t = y / len, hw = w * Math.pow(1 - t, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + t * 0.5; P(G, cx + jx + x, y0 + y, a < 0.35 ? 'G' : a < 0.7 ? 'A' : a < 1.0 ? 'R' : 'r'); }
+    const t = y / len, hw = w * Math.pow(1 - t, 0.7) + 0.3; for (let x = -hw; x <= hw; x += 0.25) { const a = Math.abs(x) / hw + t * 0.5; P(G, cx + jx + x, y0 + y, a < 0.35 ? jet[0] : a < 0.7 ? jet[1] : a < 1.0 ? jet[2] : jet[3]); }
   }
   const cr = (a, b, x, y) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
   const blade = (pts, tipI) => {   // 凸多角形。辺 0（上端＝腰の中）には刺繍を入れない
@@ -1174,7 +1176,9 @@ const SKB_W = 216, SKB_H = 150, SKB_KX = 1.52, SKB_KY = 1.66;
 // 第31稿：FB「ロケット・ノズルをもう少し下に伸ばして。ノズルは太いままで」＝口の位置を 60→84／52→74 へ下げ、根元の太さを 6→9／4.5→7 に上げて痩せないようにする
 // 第32稿：FB「奥のノズル2本は短くして」＝中央寄り（±32・外の刃の陰で奥に見える）を 84→64 へ。外の二本はそのまま
 // 第33稿：FB「外側のノズル2つをもう少し内側に移動させて」＝±60 → ±48
-const SKIRT_BIG = skirtTex([[-32, 10, 90, 9.5, 13.5], [32, 10, 90, 9.5, 13.5], [-54, 24, 74, 7, 10.5], [54, 24, 74, 7, 10.5]], [[-32, 92, 48, 9.5], [32, 92, 48, 9.5], [-54, 76, 52, 7.5], [54, 76, 52, 7.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY, true);
+// 第35稿：FB「ロケット・ノズル4本をもう少し下に伸ばして。細くせずに」「ノズルからの炎を青色に」
+//   ＝口を 90→106／74→92 へ。長くなるぶん痩せて見えるので太さを一段上げる。噴射は短くして高さ 150 に収める（bbox を増やさない）
+const SKIRT_BIG = skirtTex([[-32, 10, 106, 10.5, 14.5], [32, 10, 106, 10.5, 14.5], [-54, 24, 92, 8, 11.5], [54, 24, 92, 8, 11.5]], [[-32, 108, 41, 10.5], [32, 108, 41, 10.5], [-54, 94, 46, 8.5], [54, 94, 46, 8.5]], SKB_H, 'taper', SKB_W, SKB_KX, SKB_KY, true, ['C', 'N', 'P', 'Q', 'C', 'N']);
 
 // 第27稿：FB「25稿のブースターはよくない。あらたなブースターを創造して」＝資料の円筒の模写をやめ、骸華の語彙（段・炉の光・金一筋・鋸歯）で組む
 //   三段の装甲が重なり、段の境目から炉の光が漏れる。縦のリブで面を割り、口の手前に下向きの牙。口縁は金・その奥に内筒が見えて灼ける
@@ -1624,7 +1628,9 @@ const SH_W = 102, SH_H = 216, SH_TOP = -134, SH_LEN = 192;   // 第31稿：下�
 // 第22稿：FB「二枚の紺の装甲がよくない。ひとめですごく目立つ。浮いて見える」「昔のロボットアニメのヒーロー風な感じが強い。12稿の方が悪神的な破滅的要素があった」
 //   診断＝ヒーロー感の正体は①彩度の高い青＋赤＋金の三原色 ②滑らかな曲線に等間隔の金の縞。第12稿の悪神らしさ＝黒鉄と深紅・鋭角の面・月牙の深紅の曲線・左右の非対称。
 //   直し＝輪郭を折れ線の鋭角へ・紺をやめ黒鉄と鋼（稜線で割った二面）・段は三枚で隙間から炉の光・外の縁は逆さ扇⭐と同じ「縁から入った深紅の刺繍」・金は牙の先だけ。月牙は build4 の rig で戻す
-const SH_IN = [[22, -134], [15, -70], [17, -6], [46, 34], [54, 58]], SH_OUT = [[22, -134], [52, -100], [84, -46], [88, 6], [66, 36], [54, 58]], SH_RIDGE = [[22, -134], [48, -64], [57, 0], [54, 58]];
+// 第35稿：FB「蒼の装甲を蒼神骸華の最重要ビジュアルに進化させたい。クシャトリヤの四枚装甲のように」＝第一歩は『板として見えること』。
+//   黒鉄の面が背景と胴に溶けて輪郭が消えていた → 面を蒼の漆（b／段の下唇 Q／陰 q）へ。彩度は上げず明度だけで分ける。上半分の張り出しを 84→92 へ
+const SH_IN = [[22, -134], [15, -70], [17, -6], [46, 34], [54, 58]], SH_OUT = [[22, -134], [56, -102], [92, -50], [95, 4], [68, 36], [54, 58]], SH_RIDGE = [[22, -134], [51, -66], [60, 0], [54, 58]];
 // 第31稿：FB「背中の紺の装甲は蒼神骸華の最も特徴的な武器となる。スタイリッシュでありながら荘厳さと破滅的な要素を。ノイエ・ジールやクシャトリヤを参考に」
 //   ＝両者のバインダーは「装甲の内側に兵装を整列して抱える架」。骸華は月牙の発射架なので、月牙の座に凹みの座（ハッチ）を彫り、金の枠と炉の光を回す。
 //   外縁の鋸歯は消して縁そのものを刃に（最外一筋を白銀に光らせる＝線を減らして格を上げる）。下端の牙は一段長く鋭く
@@ -1653,7 +1659,7 @@ function shell(s, trim = ['R', 'R']) {
       else if (f > 0.9 && fr < 0.22) c = 'k';
       else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
-      else c = lit ? (fr > 0.9 ? 'm' : 'j') : 'k';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
+      else c = lit ? (fr > 0.86 ? 'Q' : 'b') : 'q';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
       P(G, X(s * x), Y(y), c);
     }
   }
@@ -1718,19 +1724,19 @@ const HEAD4 = (() => {
 // 第30稿：FB「肩にアーマープロテクターをつけて」＝胴の肩の関節を覆う角ばった肩当て。外へ向けて下がり、上面に金の縁・面に深紅の一筋・裾に牙
 const SHLD_W = 48, SHLD_H = 38;   // 第31稿：FB「肩のプロテクターをもう少し小さくして。主張強すぎ」
 const shoulder = (s) => {
+  // 第35稿：FB「肩のプロテクターがうるさい。自己主張を抑えて」＝幅 38→30・高さ 33→21。深紅の帯と裾の牙四本を外し、黒鉄の一枚板に金の上縁だけ
   const G = g(SHLD_W, SHLD_H), X = (x) => x + 24, Y = (y) => y + 19;
-  for (let y = -15; y <= 13; y += 0.25) {
-    const u = (y + 15) / 28, w = 8 + 11 * Math.pow(u, 0.72), sk = s * 3.4 * u;
+  for (let y = -12; y <= 9; y += 0.25) {
+    const u = (y + 12) / 21, w = 7 + 8 * Math.pow(u, 0.72), sk = s * 2.6 * u;
     for (let x = -w; x <= w; x += 0.25) {
       const v = s > 0 ? x / w : -x / w;
       let c;
-      if (y < -13.4) c = Math.abs(v) > 0.62 ? 'k' : v < 0 ? 'Y' : 'y';
-      else if (Math.abs(y + 1.5) < 1.5) c = v < 0 ? 'R' : 'r';
+      if (y < -10.9) c = Math.abs(v) > 0.62 ? 'k' : v < 0 ? 'Y' : 'y';
+      else if (y > 7.6) c = 'k';
       else c = Math.abs(v) > 0.93 ? 'k' : v < -0.58 ? 'm' : v < 0.18 ? 'j' : 'k';
       P(G, X(x + sk), Y(y), c);
     }
   }
-  for (const o of [-0.72, -0.24, 0.24, 0.72]) { const bx = o * 16 + s * 3.4, hh = 5 - Math.abs(o) * 1.7; for (let y = 0; y <= hh; y += 0.25) { const hw = 2.6 * (1 - y / hh); for (let x = -hw; x <= hw; x += 0.25) P(G, X(bx + x), Y(12.5 + y), y > hh * 0.72 ? 'Y' : x < 0 ? 'm' : 'k'); } }
   OUTLINE(G);
   return R(G);
 };
@@ -1761,24 +1767,34 @@ const HANDS4 = (() => {
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb) {
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
-  const main = (s) => {   // 主腕（内側）
-    const pts = [[33, -26], [45, -1], [52, 27]].map(([x, y]) => [X(s * x), Y(y)]);   // 第30稿：FB「腕をもう少し短くして」
+  // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
+  //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
+  //   絵＝掌を正面へ開く。黒い円の下外側だけが深紅に灼ける（月牙と日蝕の輪と同じ「蝕」の形）。芯の点は打たない（金の輪に芯＝目の罠）
+  const main = (s) => {
+    const pts = [[33, -26], [47, -4], [66, 13]].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 7.2);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
     fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
     fa.slab(0.3, 0.84, 4.6, () => 'k');
-    fa.slab(0.34, 0.8, 3.4, (v) => (Math.abs(v) < 0.32 ? 'A' : Math.abs(v) < 0.68 ? 'R' : 'r'));   // 第31稿：前腕の装甲が二枚に割れ、隙間から炉が覗く（肩の段と同じ語彙）
-    const W0 = pts[2], dx = s * 0.26, dy = 0.966;
-    const pm = mkSlab(G, W0[0] + dx * 5, W0[1] + dy * 5, W0[0] + dx * 16, W0[1] + dy * 16);
-    pm.slab(0, 1, 8.4, (v) => (v < -0.6 ? 'f' : v < 0.15 ? 'm' : v < 0.85 ? 'j' : 'k'));   // 掌
-    pm.slab(0, 0.22, 9.0, goldCol);
-    pm.slab(0.3, 0.86, 5.4, () => 'k');
-    pm.slab(0.36, 0.8, 4.2, (v) => (Math.abs(v) < 0.36 ? 'G' : Math.abs(v) < 0.72 ? 'A' : 'R'));   // 掌の中心の炉の口（掴んで灼く手）
-    for (const o of [-5.8, -1.95, 1.95, 5.8]) {   // 四本の指
-      const fx = W0[0] + dx * 16 - dy * o, fy = W0[1] + dy * 16 + dx * o;
-      const fg = mkSlab(G, fx, fy, fx + dx * 14, fy + dy * 14);
-      fg.slab(0, 1, (u) => 2.5 * (1 - u * 0.5), (v, u) => (u > 0.84 ? 'Y' : Math.abs(v) > 0.88 ? 'k' : v < -0.4 ? 'f' : v < 0.4 ? 'm' : 'j'));
+    fa.slab(0.34, 0.8, 3.4, (v) => (Math.abs(v) < 0.32 ? 'A' : Math.abs(v) < 0.68 ? 'R' : 'r'));
+    const W0 = pts[2], fl = Math.hypot(19, 17), dx = (s * 19) / fl, dy = 17 / fl, nx = -s * dy, ny = s * dx;
+    const at = (d, o) => [W0[0] + dx * d + nx * o, W0[1] + dy * d + ny * o];
+    const pm = mkSlab(G, ...at(3, 0), ...at(17, 0));
+    pm.slab(0, 1, 13.2, (v) => (Math.abs(v) > 0.9 ? 'k' : v < -0.55 ? 'f' : v < 0.2 ? 'm' : 'j'));
+    pm.slab(0, 0.16, 13.8, goldCol);
+    const C0 = at(10.5, 0);
+    DISC(G, C0[0], C0[1], 5.3, 'k'); DISC(G, C0[0], C0[1], 4.6, 'R'); DISC(G, C0[0], C0[1], 3.8, 'A');
+    DISC(G, C0[0] - s * 1.5, C0[1] - 1.5, 4.0, 'k');
+    for (const [o, fan, L] of [[-5.0, -0.36, 11], [-1.7, -0.12, 13.5], [1.7, 0.12, 13.5], [5.0, 0.36, 11]]) {
+      const b0 = at(17, o), fx = dx * Math.cos(fan) + nx * Math.sin(fan), fy = dy * Math.cos(fan) + ny * Math.sin(fan);
+      const fg = mkSlab(G, b0[0], b0[1], b0[0] + fx * L, b0[1] + fy * L);
+      fg.slab(0, 1, (u) => 2.7 * (1 - u * 0.62), (v, u) => (u > 0.84 ? 'Y' : Math.abs(v) > 0.88 ? 'k' : v < -0.4 ? 'f' : v < 0.4 ? 'm' : 'j'));
+    }
+    {
+      const b0 = at(6, -6.4), fx = dx * Math.cos(0.95) - nx * Math.sin(0.95), fy = dy * Math.cos(0.95) - ny * Math.sin(0.95);
+      const th = mkSlab(G, b0[0], b0[1], b0[0] + fx * 9, b0[1] + fy * 9);
+      th.slab(0, 1, (u) => 2.9 * (1 - u * 0.6), (v, u) => (u > 0.84 ? 'Y' : Math.abs(v) > 0.88 ? 'k' : v < -0.4 ? 'f' : v < 0.4 ? 'm' : 'j'));
     }
   };
   const sub = (s) => {   // 副腕（外側）
@@ -1798,6 +1814,7 @@ function arms4(sb) {
     bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k');
     bl.slab(0, 1, (u) => BW(u), () => sb.c);
     bl.slab(0, 1, (u) => BW(u) * 0.55, () => sb.b);
+    bl.slab(0, 1, (u) => BW(u) * 0.3, () => sb.a);
     bl.slab(0, 1, (u) => BW(u) * 0.08, () => sb.core);
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
     const em = mkSlab(G, S0[0] - dx * 4.2, S0[1] - dy * 4.2, S0[0] + dx * 3.4, S0[1] + dy * 3.4);   // 柄＝黒い筒に金の環二本（ライトセーバーの握り）
@@ -1837,7 +1854,7 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。';
 function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
-  const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'deep'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
+  const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
   const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? SKIRT_BIG : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber)), torso: P7(TORSO4), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
