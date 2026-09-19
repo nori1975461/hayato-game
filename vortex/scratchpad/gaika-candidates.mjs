@@ -1994,7 +1994,8 @@ const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_V46 = [60, -12], WRIS
 //   電子パルス砲＝三本目の腕のメガランチャー。KIT4_DEF 'vulcan'＝三本目の腕が光刃を持つ（45°・長さ 96＝元の 62° のままだと下の台座を横切る／17° は長さ 70 しか入らず輪からほとんど出ない）＋副腕の場所にバルカン砲の台座（66°・砲身 36）。
 //   第48稿までの装備は gaika2With({ kit: 'launcher' })、第48稿の左手は { foreTurn: [20, 35] }
 const FORE4_DEF = [20, 20], HANDL4_DEF = 'hang', KIT4_DEF = 'vulcan';
-const SABER4_DEG = 45, SABER4_LEN = 96, VULCAN4_DEG = 66, VULCAN4_LEN = 36;
+// 第50稿：FB「光刃は D にして」＝17°・長さ 70（砲があったときと同じ向き。テクスチャの幅 ±164 に入る長さの上限＝先端 x 156）。第49稿の既定は { saberDeg: 45, saberLen: 96 }
+const SABER4_DEG = 17, SABER4_LEN = 70, VULCAN4_DEG = 66, VULCAN4_LEN = 36;
 let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulcanLen = VULCAN4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
