@@ -1981,7 +1981,8 @@ const HANDS4 = (() => {
 // 第46稿：FB「両肘が曲がるのを、外側ではなく内側に曲がるようにして」＝第35稿で私が手をスカートから離すために肘を外へ折った形（肘が肩と手首を結ぶ線の内側・前腕が外へ 43°）をやめる。
 //   肘を外上へ（肩当ての外下の角の陰）・手首を内上へ寄せ、前腕を内へ 16° 傾ける＝副腕と同じ「〈 〉」の形。掌の形と向きは 1 ドットも変えない（手首で外へ開く＝球の関節を置く）。
 //   縛り＝肘は x 60 まで（それより外は肘の円盤が三枚目の月牙の座 (±72,−8) を隠す＝check-gaika2-armmoon.mjs）・手首は (55,5) まで（それより内は開いた手の親指がスカートの付け根へ 2px＝check-gaika2-handskirt.mjs）
-const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_DEF = [60, -12], WRIST4_DEF = [55, 5];
+//   → ⚠️否決（09-20 00:43 FB「ちがう。全然おかしくなってる。まずもとに戻して」）＝既定を第45稿の腕へ戻した。否決された形は gaika2With({ elbow: ELBOW4_V46, wrist: WRIST4_V46 }) 相当＝[60,−12]／[55,5]（見比べ用にだけ残す）。「内側に曲がる」の意味を私が取り違えた＝次の指示を待つ（当て推量で描き直さない）
+const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_V46 = [60, -12], WRIST4_V46 = [55, 5], ELBOW4_DEF = ELBOW4_OUT, WRIST4_DEF = WRIST4_OUT;
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = WRIST4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
