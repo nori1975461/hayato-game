@@ -31,7 +31,7 @@ grab(/const SKIRT_BIG = skirtTex\(\[\[[^\n]{0,110}/, 'スカートとノズル')
 grab(/const third = \(s\) => \{[^\n]*\n\s*const pts = [^\n]{0,70}/, '三本目の腕（メガランチャー）の骨');
 { const m = src.match(/const third = \(s\) => \{[\s\S]{0,600}?const a = \((\d+) \* Math\.PI\)[\s\S]{0,200}?L = (\d+)/); console.log('  三本目の砲:', m ? '角度 ' + m[1] + '° / 長さ ' + m[2] : '(見つからない＝コードが変わった)'); }
 { const m = src.match(/const sub = \(s\) => \{[\s\S]{0,700}?const pts = (\[\[[^\n]{0,40}\]\])/); console.log('  副腕（殻の奥から生える）の骨:', m ? m[1] : '(見つからない＝コードが変わった)'); }
-{ const m = src.match(/ELBOW4_OUT = (\[[^\]]+\]), WRIST4_OUT = (\[[^\]]+\])/); console.log('  主腕の骨（肩の関節 (38,-25)）:', m ? '[[36, -26], 肘 ' + m[1] + ', 手首 ' + m[2] + ']（第45稿の腕のまま。⚠️第46稿の「肘が外・前腕が内へ 16°」＝gaika2With({ elbow: [60, -12], wrist: [55, 5] }) は 09-20 に否決＝「全然おかしくなってる」で戻した）' : '(見つからない＝コードが変わった)'); }
+{ const m = src.match(/ELBOW4_OUT = (\[[^\]]+\]), WRIST4_OUT = (\[[^\]]+\])/), t = src.match(/const FORE4_DEF = ([\d.]+);/); console.log('  主腕の骨（肩の関節 (38,-25)）:', m && t ? '[[36, -26], 肘 ' + m[1] + ', 手首 ' + m[2] + '] を、肘を軸に中央へ ' + t[1] + '° まわす（第47稿＝FB「肘から下を中央に少し向けて。手がスカートに少しかかってもいい」。第45稿の腕は gaika2With({ foreTurn: 0 })。⚠️第46稿の「肘を外へ出して前腕を内へ」＝{ elbow: [60, -12], wrist: [55, 5] } は否決）' : '(見つからない＝コードが変わった)'); }
 console.log('  描画順（リグの順＝奥→手前）:', b.rig.map((p) => p.tex).join(' > '));
 console.log('  月牙の枚数:', b.rig.filter((p) => /^moon/.test(p.tex)).length, '（六枚が正＝三枚ずつ・画面左の一番上は発射済みで座が空）');
 // 第40〜45稿：胴（第45稿からの既定＝ザク型のひねり／比較用の四版）と手
@@ -61,5 +61,5 @@ console.log('  腰の四版 node render-gaika2-waists.mjs（比較 1 枚＋版�
 console.log('  前後比較 git show HEAD:vortex/scratchpad/gaika-candidates.mjs > .gaika-prev.mjs → node render-gaika2-beforeafter.mjs [export 名] [倍率] [中心y] [中心x] [出力] [左の export 名]（撮ったら .gaika-prev.mjs を消す）');
 console.log('  ひねりの一覧 node render-gaika2-twists.mjs / 胴だけを並べる node render-gaika2-torsos.mjs <出力> <倍率> <候補の JSON か export 名>... / 候補を任意の場所で node render-gaika2-cand-at.mjs <出力> <倍率> <x> <y> <候補>');
 console.log('  両手     node render-gaika2-hands.mjs（上＝第44稿までの A・親指が外／下＝既定の B・親指が内）');
-console.log('  検査     手とスカート node check-gaika2-handskirt.mjs [export 名 | JSON] / 輪郭の幅 node check-gaika2-torso-width.mjs [候補] [基準] / 直前のコミットとの突き合わせ node check-gaika2-vs-prev.mjs / 主腕が月牙を隠す量 node check-gaika2-armmoon.mjs [候補...] / 肘の候補を並べる node render-gaika2-elbows.mjs [出力] [倍率] [中心y] [候補の JSON...]');
+console.log('  検査     手とスカート node check-gaika2-handskirt.mjs [export 名 | JSON] / 輪郭の幅 node check-gaika2-torso-width.mjs [候補] [基準] / 直前のコミットとの突き合わせ node check-gaika2-vs-prev.mjs / 主腕が月牙を隠す量 node check-gaika2-armmoon.mjs [候補...] / 腕の候補を並べる node render-gaika2-elbows.mjs [出力] [倍率] [中心y] [候補の JSON...]（例 {"foreTurn":12,"label":"TURN 12"} を引用符で囲んで渡す）');
 console.log('  任意の場所 node render-gaika2-at.mjs <倍率> <x> <y> / 胴の候補 node render-gaika2-chcand.mjs <倍率> <中心y> <出力名> <候補の JSON...>');

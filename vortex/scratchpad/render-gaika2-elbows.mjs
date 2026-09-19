@@ -9,7 +9,7 @@ const out = makeCanvas(640, 360); rect(out, 0, 0, 640, 360, [40, 42, 64]);
 cands.slice(0, 4).forEach((o, i) => {
   const d = M.gaika2With(o), PW = 319, PH = 179, cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);
   renderBoss(cv, d, { ...d.tier, spriteScale: S }, PW / 2, PH / 2 - wy * S, { glow: false });
-  text(cv, String.fromCharCode(65 + i) + '  ' + (o.label || JSON.stringify(o).replace(/"/g, '')), 5, 5, WHITE, 1);
+  text(cv, (o.label ? '' : String.fromCharCode(65 + i) + '  ') + (o.label || JSON.stringify(o).replace(/"/g, '')), 5, 5, WHITE, 1);
   const ox = (i % 2) * 321, oy = Math.floor(i / 2) * 181;
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) { const a = (y * PW + x) * 3, p = ((oy + y) * 640 + ox + x) * 3; out.px[p] = cv.px[a]; out.px[p + 1] = cv.px[a + 1]; out.px[p + 2] = cv.px[a + 2]; }
 });
