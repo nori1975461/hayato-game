@@ -1993,10 +1993,14 @@ const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_V46 = [60, -12], WRIS
 // 第49稿：FB「左手は D にして」（D＝垂らした手のまま前腕の角度は第47稿と同じ 20°）「電子パルス砲をなくして、その場所にマゼンタ色のビームサーベルを移動させる。ビームサーベルがあった場所はバルカン砲の台座にする。砲台のビジュアルや長さは、あなたにまかせる」
 //   電子パルス砲＝三本目の腕のメガランチャー。KIT4_DEF 'vulcan'＝三本目の腕が光刃を持つ（45°・長さ 96＝元の 62° のままだと下の台座を横切る／17° は長さ 70 しか入らず輪からほとんど出ない）＋副腕の場所にバルカン砲の台座（66°・砲身 36）。
 //   第48稿までの装備は gaika2With({ kit: 'launcher' })、第48稿の左手は { foreTurn: [20, 35] }
-const FORE4_DEF = [20, 20], HANDL4_DEF = 'hang', KIT4_DEF = 'vulcan';
+const FORE4_DEF = [20, 20], HANDL4_DEF = 'hang', KIT4_DEF = 'swap';   // 第51稿：'swap'＝砲と光刃を交代（第49〜50稿は 'vulcan'・第48稿までは 'launcher'）
 // 第50稿：FB「光刃は D にして」＝17°・長さ 70（砲があったときと同じ向き。テクスチャの幅 ±164 に入る長さの上限＝先端 x 156）。第49稿の既定は { saberDeg: 45, saberLen: 96 }
 const SABER4_DEG = 17, SABER4_LEN = 70, VULCAN4_DEG = 66, VULCAN4_LEN = 36;
-let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulcanLen = VULCAN4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
+let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulcanLen = VULCAN4_LEN;
+// 第51稿：FB「バルカン砲とビームサーベルを交代させて。いまのバルカン砲の柄にビームサーベルをつけて。いまのビームサーベルの柄にバルカン砲をつけて。ビームサーベルの位置は添付資料参考」
+//   kit 'swap'＝三本目の腕の手にバルカン砲（ARMGUN4＝向きは第50稿の光刃と同じ 17°・砲身 30）／台座から光刃（MSABER4＝向きは第50稿の砲と同じ 66°≒添付の実測 65°・長さ 96＝第33〜48稿の光刃の長さ）
+const ARMGUN4_DEG = 17, ARMGUN4_LEN = 30, MSABER4_DEG = 66, MSABER4_LEN = 96;
+let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
@@ -2096,21 +2100,35 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     const yoke = mkSlab(G, P0[0], P0[1], P1[0], P1[1]);
     yoke.slab(0, 1, (u) => 6.6 - 1.4 * u, (v) => (Math.abs(v) > 0.86 ? 'k' : v < -0.4 ? 'm' : v < 0.3 ? 'j' : 'k'));
     yoke.slab(0.15, 0.85, 1.0, () => 'k');
-    const VUL_RC = 23, a = (vulcanDeg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), ax = (d) => [P1[0] + dx * d, P1[1] + dy * d];
-    const rc = mkSlab(G, ...ax(-7), ...ax(VUL_RC));
+    gunAt(P1, s, vulcanDeg, vulcanLen, 7); trunnion(P1);
+  };
+  const gunAt = (P1, s, deg, len, back) => {   // 第51稿：砲の本体（機関部＋砲身の束三本）。back＝軸の後ろへ伸ばす長さ
+    const VUL_RC = 23, a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), ax = (d) => [P1[0] + dx * d, P1[1] + dy * d];
+    const rc = mkSlab(G, ...ax(-back), ...ax(VUL_RC));
     rc.slab(0, 1, 7.4, (v) => (Math.abs(v) > 0.9 ? 'k' : v < -0.55 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'));
     rc.slab(0.55, 0.86, 1.1, (v) => (Math.abs(v) < 0.5 ? 'R' : 'r'), 3.2);
     rc.slab(0.9, 1, 8.0, goldCol);
-    const br = mkSlab(G, ...ax(VUL_RC), ...ax(VUL_RC + vulcanLen));
+    const br = mkSlab(G, ...ax(VUL_RC), ...ax(VUL_RC + len));
     br.slab(0, 1, 5.6, () => 'k');
     for (const kc of [-3.6, 0, 3.6]) br.slab(0, 1, 1.4, (v) => (v < -0.3 ? 's' : v < 0.4 ? 'f' : 'm'), kc);
     for (const u of [0.3, 0.68]) { br.slab(u, u + 0.08, 6.4, () => 'k'); br.slab(u + 0.015, u + 0.065, 5.8, (v) => (v < -0.4 ? 'f' : v < 0.3 ? 'm' : 'j')); }
     br.slab(0.92, 1, 6.6, () => 'k'); br.slab(0.935, 0.985, 6.0, goldCol);
+  };
+  const trunnion = (P1) => {   // 旋回軸の円盤（ボルト六本）
     DISC(G, P1[0], P1[1], 8.8, 'k'); DISC(G, P1[0], P1[1], 7.6, 'm'); DISC(G, P1[0], P1[1], 5.8, 'k'); DISC(G, P1[0], P1[1], 4.6, 'j');
     for (let i = 0; i < 6; i++) { const t = (i * Math.PI) / 3 + 0.5; P(G, P1[0] + Math.cos(t) * 6.7, P1[1] + Math.sin(t) * 6.7, 'k'); }
   };
+  const saberMount = (s) => {   // 第51稿：台座（砲架＋旋回軸）から光刃を垂らす。砲架は vulcan と同じ・光刃の根は旋回軸の円盤の縁の外（軸から 7）
+    const P0 = [X(s * 82), Y(-4)], P1 = [X(s * 103), Y(12)];
+    const yoke = mkSlab(G, P0[0], P0[1], P1[0], P1[1]);
+    yoke.slab(0, 1, (u) => 6.6 - 1.4 * u, (v) => (Math.abs(v) > 0.86 ? 'k' : v < -0.4 ? 'm' : v < 0.3 ? 'j' : 'k'));
+    yoke.slab(0.15, 0.85, 1.0, () => 'k');
+    const a = (mountSaberDeg * Math.PI) / 180;
+    saberAt([P1[0] + s * Math.cos(a) * 7, P1[1] + Math.sin(a) * 7], s, mountSaberDeg, mountSaberLen); trunnion(P1);
+  };
   const sub = (s) => {   // 副腕（外側）
     if (kit === 'vulcan') return vulcan(s);
+    if (kit === 'swap') return saberMount(s);
     // 第36稿：FB「副腕と砲が一か所に集まってガチャガチャ」＝副腕を肩から外し、殻（蒼の装甲）の奥から生やす（クシャトリヤの隠し腕＝装甲の開閉と同じ語彙）。
     //   肩の関節には主腕と砲の二本だけが残る。高さで三段に分ける＝上段（y−35〜−15）砲は水平／中段（y 10〜55）手／外下（x 98〜）光刃
     const pts = [[82, -4], [104, 10], [109, 27]].map(([x, y]) => [X(s * x), Y(y)]);
@@ -2140,6 +2158,7 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     mechArm(G, pts, 5.6);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.1, 1, 7.4, (v) => (v < -0.8 ? 'f' : v < -0.15 ? 'm' : 'k'));
+    if (kit === 'swap') { gunAt(pts[2], s, armGunDeg, armGunLen, 3); return; }   // 第51稿：この手にバルカン砲（向きは第50稿の光刃と同じ）
     if (kit === 'vulcan') { fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sb.b : sb.c)); saberAt(pts[2], s, saberDeg, saberLen); return; }   // 第49稿：砲を外し、この手にマゼンタの光刃（前腕に光刃と同じ色の帯）
     const a = (17 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const S0 = [W0[0] + dx * 3, W0[1] + dy * 3], L = 44, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
@@ -2171,6 +2190,7 @@ const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ�
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
+  armGunDeg = o.armGunDeg ?? ARMGUN4_DEG; armGunLen = o.armGunLen ?? ARMGUN4_LEN; mountSaberDeg = o.mountSaberDeg ?? MSABER4_DEG; mountSaberLen = o.mountSaberLen ?? MSABER4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
