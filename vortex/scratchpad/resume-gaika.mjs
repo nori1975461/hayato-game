@@ -28,8 +28,12 @@ const src = execFileSync('node', ['-e', "const fs=require('fs');process.stdout.w
 const grab = (re, label) => { const m = src.match(re); console.log('  ' + label + ':', m ? m[0].slice(0, 120) : '(見つからない＝コードが変わった)'); };
 grab(/SCH\[o\.saber \|\| '\w+'\]/, '光刃の配色');
 grab(/const SKIRT_BIG = skirtTex\(\[\[[^\n]{0,110}/, 'スカートとノズル');
-grab(/const pts = \[\[40, -38\][^\n]{0,60}/, '三本目の腕（メガランチャー）の骨');
-{ const m = src.match(/const pts = \[\[40, -38\][\s\S]{0,400}?const a = \((\d+) \* Math\.PI\)[\s\S]{0,200}?L = (\d+)/); console.log('  三本目の砲:', m ? '角度 ' + m[1] + '° / 長さ ' + m[2] : '(見つからない＝コードが変わった)'); }
+grab(/const third = \(s\) => \{[^\n]*\n\s*const pts = [^\n]{0,70}/, '三本目の腕（メガランチャー）の骨');
+{ const m = src.match(/const third = \(s\) => \{[\s\S]{0,600}?const a = \((\d+) \* Math\.PI\)[\s\S]{0,200}?L = (\d+)/); console.log('  三本目の砲:', m ? '角度 ' + m[1] + '° / 長さ ' + m[2] : '(見つからない＝コードが変わった)'); }
+{ const m = src.match(/const sub = \(s\) => \{[\s\S]{0,700}?const pts = (\[\[[^\n]{0,40}\]\])/); console.log('  副腕（殻の奥から生える）の骨:', m ? m[1] : '(見つからない＝コードが変わった)'); }
+{ const m = src.match(/const main = \(s\) => \{\s*const pts = (\[\[[^\n]{0,40}\]\])/); console.log('  主腕の骨（肩の関節 (38,-25)）:', m ? m[1] : '(見つからない＝コードが変わった)'); }
+console.log('  描画順（リグの順＝奥→手前）:', b.rig.map((p) => p.tex).join(' > '));
+console.log('  月牙の枚数:', b.rig.filter((p) => /^moon/.test(p.tex)).length, '（六枚が正＝三枚ずつ・画面左の一番上は発射済みで座が空）');
 
 console.log('\n=== 3. 全身を描き直す ===');
 console.log(execFileSync('node', ['render-gaika2.mjs', '', 'S'], { cwd: here, encoding: 'utf8' }).trim());
