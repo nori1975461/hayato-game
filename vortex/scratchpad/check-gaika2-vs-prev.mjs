@@ -2,7 +2,7 @@
 //   先に git show HEAD:vortex/scratchpad/gaika-candidates.mjs > .gaika-prev.mjs。「変えたつもりのない版が 1 ドットも変わっていない」ことの確認に使う
 import * as NEW from './gaika-candidates.mjs';
 const OLD = await import('./.gaika-prev.mjs');
-const PAIRS = (process.argv[2] ? JSON.parse(process.argv[2]) : [['GAIKA2_NZ', 'GAIKA2'], ['GAIKA2_DOM', 'GAIKA2_DOM'], ['GAIKA2_ZAKU', 'GAIKA2_ZAKU'], ['GAIKA2_ZEONG', 'GAIKA2_ZEONG'], ['GAIKA2', 'GAIKA2']]);
+const PAIRS = (process.argv[2] ? JSON.parse(process.argv[2]) : [['GAIKA2_NZ', 'GAIKA2_NZ'], ['GAIKA2_DOM', 'GAIKA2_DOM'], ['GAIKA2_ZAKU', 'GAIKA2_ZAKU'], ['GAIKA2_ZEONG', 'GAIKA2_ZEONG'], ['GAIKA2', 'GAIKA2']]);
 for (const [n, o] of PAIRS) {
   const a = NEW[n], b = OLD[o]; if (!a || !b) { console.log(n.padEnd(13), 'vs prev', o, '→ 無い'); continue; }
   const diff = [];

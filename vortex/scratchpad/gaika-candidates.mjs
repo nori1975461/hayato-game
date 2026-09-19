@@ -1978,8 +1978,12 @@ const HANDS4 = (() => {
 
 // 第27稿：FB「四本の腕のバランスがわるい。蒼神骸華の腕が二本内側にあり、その外側に副腕があるという設計で。ノイエ・ジールのパターン。主要な腕と副腕できちんと描き分けて」
 //   主腕＝太い・肩の関節から真下へ垂れる・大きな装甲と深紅の帯・先に鋼の手（四本の指）。副腕＝細い・外へ広がる・薄い装甲とマゼンタの帯・爪の中心から光刃
+// 第46稿：FB「両肘が曲がるのを、外側ではなく内側に曲がるようにして」＝第35稿で私が手をスカートから離すために肘を外へ折った形（肘が肩と手首を結ぶ線の内側・前腕が外へ 43°）をやめる。
+//   肘を外上へ（肩当ての外下の角の陰）・手首を内上へ寄せ、前腕を内へ 16° 傾ける＝副腕と同じ「〈 〉」の形。掌の形と向きは 1 ドットも変えない（手首で外へ開く＝球の関節を置く）。
+//   縛り＝肘は x 60 まで（それより外は肘の円盤が三枚目の月牙の座 (±72,−8) を隠す＝check-gaika2-armmoon.mjs）・手首は (55,5) まで（それより内は開いた手の親指がスカートの付け根へ 2px＝check-gaika2-handskirt.mjs）
+const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_DEF = [60, -12], WRIST4_DEF = [55, 5];
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
-function arms4(sb, only = 'all', handFlip = false) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
+function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = WRIST4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
   //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
@@ -1988,9 +1992,11 @@ function arms4(sb, only = 'all', handFlip = false) {   // 第36稿：only＝'mai
   //   手を 1.45 倍（前腕に対して大きすぎる手＝ジオングの文法）。掌は黒・指は鋼の二節・先の節は灼けた鉤爪（暗い深紅→深紅→白熱）。掌の蝕は半径 8.2 に広げ、深紅の舌を六本噴かせる（日蝕の輪と同じ形を掌にもう一つ）
   //   左右で動詞を分ける（悪神＝非対称）：画面左＝開いた手（引き寄せる）／画面右＝握り潰す手（指が蝕の上へ折れ、舌が指の間から漏れる）
   const main = (s) => {
-    const pts = [[36, -26], [46, -3], [59, 11]].map(([x, y]) => [X(s * x), Y(y)]);
+    const pts = [[36, -26], elbow, wrist].map(([x, y]) => [X(s * x), Y(y)]);
     { const hx = X(s * 38), hy = Y(-25); DISC(G, hx, hy, 9.4, 'k'); DISC(G, hx, hy, 8.2, 'm'); DISC(G, hx, hy, 6.2, 'k'); DISC(G, hx, hy, 5.0, 'j'); }
     mechArm(G, pts, 7.2);
+    const wristBent = Math.abs(Math.atan2(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]) - Math.atan2(s * 18, 20)) > 0.2;   // 第46稿：肘を内へ折ると前腕と掌の向きがずれる＝手首に球の関節（前腕の装甲より先に描く＝端の金の輪が球の上に乗る）。旧い肘はずれ 0.9°＝描かない
+    if (wristBent) { const [wx, wy] = pts[2]; DISC(G, wx, wy, 7.0, 'k'); DISC(G, wx, wy, 5.8, 'm'); DISC(G, wx, wy, 4.0, 'k'); DISC(G, wx, wy, 2.8, 'f'); }
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.16, 0.96, 9.4, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
     fa.slab(0.16, 0.26, 10.1, goldCol); fa.slab(0.87, 0.96, 10.1, goldCol);
@@ -2004,7 +2010,7 @@ function arms4(sb, only = 'all', handFlip = false) {   // 第36稿：only＝'mai
     const HP = 0.87, HF = 0.93;
     const pm = mkSlab(G, ...at(2 * HP, 0), ...at(21 * HP, 0));
     pm.slab(0, 1, (u) => (10 + 5 * Math.pow(u, 0.7)) * HP, (v) => (Math.abs(v) > 0.92 ? 'k' : v < -0.62 ? 'm' : v < 0.3 ? 'j' : 'k'));
-    pm.slab(0, 0.12, 11.2 * HP, goldCol);
+    if (!wristBent) pm.slab(0, 0.12, 11.2 * HP, goldCol);
     const C0 = at(12 * HP, 0), r0 = 7.5 * HP, a0 = Math.atan2(dy - ny * 0.6, dx - nx * 0.6);
     for (let y = -16; y <= 16; y += 0.25) for (let x = -16; x <= 16; x += 0.25) {
       const rr = Math.hypot(x, y), a = Math.atan2(y, x), bias = 0.5 + 0.5 * Math.cos(a - a0);
@@ -2088,12 +2094,12 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
 }
 
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回り襟へ入る。浅い V の裾の下から扇の刃が放射状に出る。中央の合わせ目は閉じた炉の扉で、V の先端の金の鋲が扇の要。';
-const ZAKU2_DEF = { route: 'tuck' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）。ユーザーの選択で差し替える
+const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || WRIST4_DEF)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
