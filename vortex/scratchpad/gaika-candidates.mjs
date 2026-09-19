@@ -1745,24 +1745,27 @@ const TOR4_W = 78, TOR4_H = 112, TOR4_OY = 58;   // 第41稿：樽胴の裾（�
 //   中央の合わせ目＝炉の縦筋がそのまま裾まで下りる＝閉じた炉の扉（開閉式の「開」で開く場所）。裾は浅い V＝扇の要。逆さ扇の刃はこの下から放射状に出る
 //   style 'slab' は比較用（まっすぐな胴＋平らな台）
 // 第42稿：腰の文法が違う三版（ドム／ザク／ジオング）。胸から上は四版とも同じ。座標は世界（胴の中心が x=0）
-const CH4 = 26.2;   // 第43稿：胸の半幅（27.6→26.2＝四版共通で胴をほんの少し小さく）
-function waist4(G, X, Y, style) {
+// 第44稿：FB「胴をあなたが最適と思うくらいまで小さくして」＝胸の半幅 26.2→CH4_DEF。胸の中の割り付けと襟と関節は胸の幅に比例して内へ寄せる（線の太さは変えない）
+const CH4_DEF = 24, CH4_V43 = 26.2;
+function waist4(G, X, Y, style, CH4 = CH4_DEF) {
+  const k4 = CH4 / CH4_V43, SX4 = 16 * k4, GR4 = 17.5 * k4;
   const chestW = (y) => (y < -33 ? 6 : y < -29 ? 14 + (y + 33) * (CH4 - 14) / 4 : CH4);
   const face = (x, w, sx) => (Math.abs(Math.abs(x) - sx) < 0.5 ? 'k' : x + w < 2.8 ? 'm' : w - x < 1.4 ? 'j' : x < sx ? 'j' : 'k');
   const row = (y, w, col) => { for (let x = -w; x <= w; x += 0.25) { const c = col(x, w); if (c) P(G, X(x), Y(y), c); } };
-  const groove = (x, y) => Math.abs(x) > 17.5 && Math.abs(x) < CH4 - 3.2 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55);
-  const chestRows = (y1) => { for (let y = -40; y <= y1; y += 0.25) { const w = chestW(y); row(y, w, (x) => (y < -33 ? ((x + w) / (2 * w) < 0.3 ? 'm' : 'j') : groove(x, y) ? 'k' : face(x, w, 16))); } };
+  const groove = (x, y) => Math.abs(x) > GR4 && Math.abs(x) < CH4 - 3.2 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55);
+  const chestRows = (y1) => { for (let y = -40; y <= y1; y += 0.25) { const w = chestW(y); row(y, w, (x) => (y < -33 ? ((x + w) / (2 * w) < 0.3 ? 'm' : 'j') : groove(x, y) ? 'k' : face(x, w, SX4))); } };
   const seam = (y0, y1) => { for (let y = y0; y <= y1; y += 0.25) for (let x = -1.5; x <= 1.5; x += 0.25) P(G, X(x), Y(y), x < -0.6 ? 'm' : x <= 0.6 ? (y < 12 ? 'r' : 'k') : 'j'); };
   const rivet = (cy) => { for (let dy = -3.2; dy <= 3.2; dy += 0.25) for (let dx = -3.2; dx <= 3.2; dx += 0.25) { const d = Math.abs(dx) + Math.abs(dy); if (d <= 3.2) P(G, X(dx), Y(cy + dy), d > 2.2 ? 'k' : dx + dy < 0 ? 'Y' : 'y'); } };
   if (style === 'dom') {
     // ドム版＝ズングリ・ドッシリ。胸と腹のジェネレーター・ブロックを同じ太さで通し（絞らない）、袴のように開くスカート・アーマーを重ねる。前は Λ に割れ、装甲の内側は暗い深紅
     chestRows(-2);
-    for (let y = -2; y <= 11; y += 0.25) row(y, 24.8, (x, w) => (y < -0.8 ? 'k' : face(x, w, 14.4)));
-    const RIM_Y = 10, HEM_Y = 31.5, APEX_Y = 18, sk = (y) => 31.5 + (y - RIM_Y) * 0.381, nh = (y) => (y - APEX_Y) * (8 / 13.5);
+    for (let y = 6; y < 10; y += 0.25) row(y, CH4 + 1 + (y - 6) * 1.1, () => 'k');
+    for (let y = -2; y <= 11; y += 0.25) row(y, CH4 - 1.4, (x, w) => (y < -0.8 ? 'k' : face(x, w, SX4 * 0.9)));
+    const RIM_Y = 10, RIM_W = CH4 + 5.2, HEM_Y = 29.5, APEX_Y = 17, sk = (y) => (y <= 22 ? RIM_W + (y - RIM_Y) * (36.2 - RIM_W) / (22 - RIM_Y) : 36.2 + (y - 22) * 0.3), nh = (y) => (y - APEX_Y) * (8 / 12.5);
     for (let y = RIM_Y; y <= HEM_Y; y += 0.25) {
       const w = sk(y), px = w * 0.5;
       row(y, w, (x) => {
-        if (y > APEX_Y && Math.abs(x) < nh(y)) return null;
+        if (y > APEX_Y && Math.abs(x) < nh(y)) return y < 21.5 ? 'k' : null;
         if (y > APEX_Y - 1.0 && Math.abs(x) - Math.max(0, nh(y)) < 1.1) return 'r';
         if (y < RIM_Y + 2.5) return x < 0 ? 'm' : 'j';
         if (y < RIM_Y + 3.5) return 'k';
@@ -1774,16 +1777,17 @@ function waist4(G, X, Y, style) {
     seam(-6, APEX_Y - 1.0);
   } else if (style === 'zaku') {
     // ザク版＝動力パイプをわざとむき出しにする。腰は影に沈む太い幹、両脇を太い蛇腹の管が胸の下から襟へ回り込んで輪郭を埋める。下は襟と浅い V の裾（bell と同じ要）
-    const COL_Y = 17.5, COL_W = 30.5, BASE_Y = 22, TIP_Y = 39, BASE_W = 36.6, R0 = 4.0;
-    for (let y = -3; y <= COL_Y; y += 0.25) row(y, 23, () => 'k');
-    for (let y = -3; y <= COL_Y; y += 0.25) row(y, 16.8, (x, w) => (x + w < 2.2 ? 'm' : x < 0 ? 'j' : 'k'));
+    const COL_Y = 17.5, COL_W = 30.5, BASE_Y = 22, TIP_Y = 36.5, BASE_W = 36.6, R0 = 4.0, dX = CH4 - CH4_V43;
+    for (let y = -3; y <= COL_Y; y += 0.25) row(y, CH4 - 3.2, () => 'k');
+    for (let y = COL_Y - 2.5; y <= COL_Y; y += 0.25) row(y, COL_W + 0.6, () => 'k');
+    for (let y = -3; y <= COL_Y; y += 0.25) row(y, CH4 - 9.4, (x, w) => (x + w < 2.2 ? 'm' : x < 0 ? 'j' : 'k'));
     for (const s of [-1, 1]) {
       let len = 0, prev = null;
       for (let t = 0; t <= 1; t += 0.002) {
-        const a = 1 - t, cx = s * (a * a * 20.6 + 2 * a * t * 32.2 + t * t * 25.4), cy = a * a * -3 + 2 * a * t * 7.5 + t * t * 18.5;
+        const a = 1 - t, cx = s * (a * a * (20.6 + dX) + 2 * a * t * (32.2 + dX * 1.5) + t * t * (25.4 + dX * 0.5)), cy = a * a * -3 + 2 * a * t * 7.5 + t * t * 18.5;
         if (prev) len += Math.hypot(cx - prev[0], cy - prev[1]);
         prev = [cx, cy];
-        const tx = s * (2 * a * 11.6 + 2 * t * -6.8), ty = 2 * a * 10.5 + 2 * t * 11, tl = Math.hypot(tx, ty), nx = -ty / tl, ny = tx / tl;
+        const tx = s * (2 * a * (11.6 + dX * 0.5) + 2 * t * (-6.8 - dX)), ty = 2 * a * 10.5 + 2 * t * 11, tl = Math.hypot(tx, ty), nx = -ty / tl, ny = tx / tl;
         const end = t < 0.07 || t > 0.93, rr = end ? R0 + 0.9 : R0, ring = !end && len % 3.6 > 2.6;
         for (let k = -rr; k <= rr; k += 0.25) {
           const v = (nx * k * LIGHT[0] + ny * k * LIGHT[1]) / rr;
@@ -1800,42 +1804,45 @@ function waist4(G, X, Y, style) {
   } else if (style === 'zeong') {
     // ジオング版＝胸を下へ伸ばして腰を短くし、短い旋回円筒と、大型化したスカートの上縁の鍔（つば）で繋ぐ。細さは少し残るが人体でなく旋回軸
     chestRows(-1);
-    for (let y = -1; y <= 4; y += 0.25) { const w = CH4 - (y + 1) * 0.9; row(y, w, (x) => (y > 2.8 ? 'k' : face(x, w, 16))); }
-    for (let y = 4; y <= 14.5; y += 0.25) row(y, 18.2, (x, w) => { const v = x / w; return y < 5.4 ? 'k' : v < -0.8 ? 'j' : v < -0.45 ? 'm' : v < 0.25 ? 'j' : 'k'; });
+    for (let y = -1; y <= 4; y += 0.25) { const w = CH4 - (y + 1) * 0.9; row(y, w, (x) => (y > 2.8 ? 'k' : face(x, w, SX4))); }
+    for (let y = 4; y <= 14.5; y += 0.25) row(y, CH4 * 0.695, (x, w) => { const v = x / w; return y < 5.4 ? 'k' : v < -0.8 ? 'j' : v < -0.45 ? 'm' : v < 0.25 ? 'j' : 'k'; });
     const fl = (y) => 30.2 + (Math.min(y, 25) - 14.5) * 0.8;
     for (let y = 14.5; y <= 26.2; y += 0.25) { const w = fl(y); row(y, w, (x) => (y < 15.9 ? (x < 0 ? 'm' : 'j') : y > 25 ? 'k' : y >= 21.6 && y < 22.6 && x < 21 ? 'k' : face(x, w, 21))); }
     seam(-6, 2);
   }
 }
-const torso4 = (style = 'bell') => {
+const torso4 = (style = 'bell', CH4 = CH4_DEF, opt = {}) => {
+  const FP = opt.fp ?? 1, DISC2 = opt.disc2 ?? 'none';   // 脇の線の指数（1＝直線・大きいほど細いまま降りて裾だけ開く）／下の関節の円盤（full／small／none）
+  const k4 = CH4 / CH4_V43, SX4 = 16 * k4, GR4 = 17.5 * k4, kc = (CH4 - 8.2) / 18, LVa = Math.round(5.5 * k4), LVb = Math.round(13.5 * k4);
   const NEW = style === 'dom' || style === 'zaku' || style === 'zeong', W = NEW ? 88 : TOR4_W;
   const G = g(W, TOR4_H), X = (x) => x + W / 2, Y = (y) => y + TOR4_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
-  for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * 12, -53], [s * 22, -46], [s * 25, -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
-  const FL0 = -12, BASE_Y = 24, TIP_Y = 39, BASE_W = 36.6, K = (BASE_W - CH4) / (BASE_Y - FL0);
-  const flank = (y) => (style === 'slab' ? CH4 : CH4 + Math.max(0, y - FL0) * K);
+  for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * (7 + 5 * kc), -53], [s * (7 + 15 * kc), -46], [s * (7 + 18 * kc), -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
+  const FL0 = opt.fl0 ?? -12, BASE_Y = 22.6, TIP_Y = opt.tip ?? 36.5, BASE_W = 36.6;
+  const KN = opt.knee === undefined ? [4, 2.5] : opt.knee;   // [折れの高さ, 折れでの張り出し]＝上段は胸からほぼ真下・下段で扇の付け根の幅まで開く
+  const flank = (y) => (style === 'slab' ? CH4 : KN ? (y <= FL0 ? CH4 : y <= KN[0] ? CH4 + (y - FL0) * KN[1] / (KN[0] - FL0) : CH4 + KN[1] + (Math.min(y, BASE_Y) - KN[0]) * (BASE_W - CH4 - KN[1]) / (BASE_Y - KN[0])) : CH4 + (BASE_W - CH4) * Math.pow(Math.min(1, Math.max(0, (y - FL0) / (BASE_Y - FL0))), FP));
   const hemD = (x, y) => TIP_Y - Math.abs(x) * (TIP_Y - BASE_Y) / BASE_W - y;   // 裾（浅い V）までの縦の距離
   const hwAt = (y) => (y < -33 ? 6 : y < -29 ? 14 + (y + 33) * (CH4 - 14) / 4 : style === 'slab' ? (y < 22 ? CH4 : 35.5 - Math.max(0, y - 26) * 0.85) : y <= BASE_Y ? flank(y) : BASE_W * (TIP_Y - y) / (TIP_Y - BASE_Y));
   if (!NEW) for (let y = -40; y <= (style === 'slab' ? 38 : TIP_Y); y += 0.25) {
-    const w = hwAt(y), fw = flank(y), sx = 16 * fw / CH4;
+    const w = hwAt(y), fw = flank(y), sx = SX4 * fw / CH4;
     for (let x = -w; x <= w; x += 0.25) {
       let c;
       if (y < -33) c = (x + w) / (2 * w) < 0.3 ? 'm' : 'j';
       else if (Math.abs(Math.abs(x) - sx) < 0.5) c = 'k';
-      else if (y < FL0 && Math.abs(x) > 17.5 && Math.abs(x) < CH4 - 3.2 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55)) c = 'k';
+      else if (y < FL0 && Math.abs(x) > GR4 && Math.abs(x) < CH4 - 3.2 && [-25, -22, -19].some((vy) => Math.abs(y - vy) < 0.55)) c = 'k';
       else if (style !== 'slab' && x < sx && hemD(x, y) >= 3 && hemD(x, y) < 4) c = 'k';
       else c = x + w < 2.8 ? 'm' : w - x < 1.4 ? 'j' : x < sx ? 'j' : 'k';
       P(G, X(x), Y(y), c);
     }
   }
   if (NEW) waist4(G, X, Y, style);
-  for (const s of [-1, 1]) for (const [dx, dy] of [[33.6, -28], [35.1, -6]]) { DISC(G, X(s * dx), Y(dy), 6.6, 'k'); DISC(G, X(s * dx), Y(dy), 5.7, 'm'); DISC(G, X(s * dx), Y(dy), 3.8, 'k'); DISC(G, X(s * dx), Y(dy), 2.8, s < 0 ? 'f' : 'm'); }   // 第25稿：四本の腕ぶん関節を上下二つに   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
+  for (const s of [-1, 1]) for (const [dx, dy, r] of [[CH4 + 7.4, -28, 1], ...(DISC2 === 'none' ? [] : [[CH4 + (DISC2 === 'small' ? 7.0 : 8.9), -6, DISC2 === 'small' ? 0.82 : 1]])]) { DISC(G, X(s * dx), Y(dy), 6.6 * r, 'k'); DISC(G, X(s * dx), Y(dy), 5.7 * r, 'm'); DISC(G, X(s * dx), Y(dy), 3.8 * r, 'k'); DISC(G, X(s * dx), Y(dy), 2.8 * r, s < 0 ? 'f' : 'm'); }   // 第25稿：四本の腕ぶん関節を上下二つに   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
   // 第42稿：幅の広い版でも関節の円盤の見え方を bell と同じに切る（bell はテクスチャの端で x −39〜+38 に切れている）
   if (NEW) for (let y = -36; y <= 2; y++) for (let x = 39; x <= 44; x++) { P(G, X(x), Y(y), '.'); P(G, X(-x - 1), Y(y), '.'); }
   // 第21稿：FB「胸の太陽マークは不要。ダサい」＝金の蓮弁と丸い砲口を撤去。中央に縦一条の灼けた覗き窓（炉）と、左右の吸気ルーバーだけ
   for (let y = -30; y <= -6; y += 0.25) for (let x = -2.6; x <= 2.6; x += 0.25) P(G, X(x), Y(y), Math.abs(x) > 1.7 ? 'm' : Math.abs(x) > 0.9 ? 'k' : y > -26 && y < -10 ? (Math.abs(x) < 0.4 ? 'A' : 'R') : 'r');
   // 第41稿：合わせ目（炉の残り火は腹の途中で消える）
   if (!NEW) for (let y = -6; y <= (style === 'slab' ? 36 : TIP_Y - 10); y += 0.25) for (let x = -1.5; x <= 1.5; x += 0.25) P(G, X(x), Y(y), x < -0.6 ? 'm' : x <= 0.6 ? (y < 12 ? 'r' : 'k') : 'j');
-  for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = 5.5; x <= 13.5; x += 0.25) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x < 6.2 || x > 12.8 ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
+  for (const s of [-1, 1]) for (let y = -27; y <= -13; y += 0.25) for (let x = LVa; x <= LVb; x++) P(G, X(s * x), Y(y), y < -26.2 || y > -13.8 || x === LVa || x === LVb ? 'm' : ((y + 27) % 3.2) < 1.1 ? (s < 0 ? 'f' : 'm') : 'k');
   // 第41稿：扇の要＝V の先端に金の鋲ひとつ（菱形の無垢。輪と芯にすると目になる）
   if (style === 'bell') for (let dy = -3.2; dy <= 3.2; dy += 0.25) for (let dx = -3.2; dx <= 3.2; dx += 0.25) { const d = Math.abs(dx) + Math.abs(dy); if (d <= 3.2) P(G, X(dx), Y(TIP_Y - 6.5 + dy), d > 2.2 ? 'k' : dx + dy < 0 ? 'Y' : 'y'); }
   OUTLINE(G);
@@ -1913,7 +1920,7 @@ const HANDS4 = (() => {
 // 第27稿：FB「四本の腕のバランスがわるい。蒼神骸華の腕が二本内側にあり、その外側に副腕があるという設計で。ノイエ・ジールのパターン。主要な腕と副腕できちんと描き分けて」
 //   主腕＝太い・肩の関節から真下へ垂れる・大きな装甲と深紅の帯・先に鋼の手（四本の指）。副腕＝細い・外へ広がる・薄い装甲とマゼンタの帯・爪の中心から光刃
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
-function arms4(sb, only = 'all') {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
+function arms4(sb, only = 'all', handFlip = false) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
   //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
@@ -1956,12 +1963,14 @@ function arms4(sb, only = 'all') {   // 第36稿：only＝'main'（主腕と三�
       mkSlab(G, j1[0], j1[1], t[0], t[1]).slab(0, 1, (u) => 3.1 * HP * (1 - u) + 0.4, claw);
       DISC(G, j1[0], j1[1], 2.7 * HP, 'k'); DISC(G, j1[0], j1[1], 1.5 * HP, 'm');
     };
-    for (const [o, th, L1, L2] of [[-10.5, -0.3, 11, 11], [-3.5, -0.1, 13, 13], [3.5, 0.1, 13, 13], [10.5, 0.3, 10.5, 10]]) {
+    // 第44稿：handFlip＝左右を入れ替えた手（親指が内）。FB「掌は左右の腕に逆についてない？」の見比べ用。既定（false）が解剖学的に正しい向き＝掌を正面へ向け指を下へ垂らすと親指は外
+    const hs = handFlip ? -1 : 1;
+    for (const [o, th, L1, L2] of [[-10.5, -0.3, 11, 11], [-3.5, -0.1, 13, 13], [3.5, 0.1, 13, 13], [10.5, 0.3, 10.5, 10]].map(([a, b, c, e]) => [hs * a, hs * b, c, e])) {
       if (clench) finger(at(21 * HP, o * HP), th, L1 * 0.5 * HF, th + Math.PI - Math.sign(th) * 0.25, L2 * 0.85 * HF);
       else finger(at(21 * HP, o * HP), th, L1 * HF, th - Math.sign(th) * 0.6, L2 * HF);
     }
-    if (clench) finger(at(6 * HP, -11.5 * HP), -0.35, 7 * HF, 0.55, 8 * HF);
-    else finger(at(6 * HP, -11.5 * HP), -1.05, 7 * HF, -0.45, 7 * HF);
+    if (clench) finger(at(6 * HP, -11.5 * HP * hs), -0.35 * hs, 7 * HF, 0.55 * hs, 8 * HF);
+    else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, 7 * HF);
   };
   const sub = (s) => {   // 副腕（外側）
     // 第36稿：FB「副腕と砲が一か所に集まってガチャガチャ」＝副腕を肩から外し、殻（蒼の装甲）の奥から生やす（クシャトリヤの隠し腕＝装甲の開閉と同じ語彙）。
@@ -2024,7 +2033,7 @@ function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main')), subarms: P7(arms4(saber, 'sub')), torso: P7(o.torso ? torso4(o.torso) : TORSO4), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', !!o.handFlip)), subarms: P7(arms4(saber, 'sub')), torso: P7(o.torso || o.torsoCH || o.torsoOpt ? torso4(o.torso || 'bell', o.torsoCH || CH4_DEF, o.torsoOpt || {}) : TORSO4), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
@@ -2048,6 +2057,7 @@ export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-
 ];
 export const GAIKA2 = build4();                                   // 版A＝ロケットブースター
 export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });       // 版B＝脚（却下）
+export const gaika2With = (o = {}) => build4({ tag: '-x', ...o });   // 第44稿：候補の見比べ用（torso／torsoCH／handFlip）
 export const GAIKA2_DOM = build4({ tag: '-dom', torso: 'dom' });       // 第42稿：腰の文法の比較＝ドム版
 export const GAIKA2_ZAKU = build4({ tag: '-zaku', torso: 'zaku' });    // 同＝ザク版
 export const GAIKA2_ZEONG = build4({ tag: '-zeong', torso: 'zeong' }); // 同＝ジオング版（現行の GAIKA2＝ノイエ・ジール版）
