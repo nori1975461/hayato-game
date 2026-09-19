@@ -4,7 +4,7 @@ import { makeCanvas, renderBoss, writePng } from './render-boss-rig.mjs';
 import { bbox } from './god-raster.mjs';
 import { rect, text, BGC, DIM, WHITE } from './gods-sheet.mjs';
 import * as M from './gaika-candidates.mjs';
-const VERS = [['nz', 'NEUE ZIEL', M.GAIKA2], ['dom', 'DOM', M.GAIKA2_DOM], ['zaku', 'ZAKU', M.GAIKA2_ZAKU], ['zeong', 'ZEONG', M.GAIKA2_ZEONG]];
+const VERS = [['nz', 'NEUE ZIEL', M.GAIKA2_NZ], ['dom', 'DOM', M.GAIKA2_DOM], ['zaku', 'ZAKU', M.GAIKA2_ZAKU], ['zeong', 'ZEONG', M.GAIKA2_ZEONG]];
 const blit = (dst, src, ox, oy) => { for (let y = 0; y < src.h; y++) for (let x = 0; x < src.w; x++) { const s = (y * src.w + x) * 3, t = ((y + oy) * dst.w + x + ox) * 3; dst.px[t] = src.px[s]; dst.px[t + 1] = src.px[s + 1]; dst.px[t + 2] = src.px[s + 2]; } };
 const view = (d, w, h, S, wy, glow, label) => { const cv = makeCanvas(w, h); rect(cv, 0, 0, w, h, BGC); renderBoss(cv, d, { ...d.tier, spriteScale: S }, w / 2, h / 2 - wy * S, { glow }); if (label) text(cv, label, 6, 6, WHITE, 1); return cv; };
 const grid = makeCanvas(640, 360); rect(grid, 0, 0, 640, 360, [40, 42, 64]);

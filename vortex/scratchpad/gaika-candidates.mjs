@@ -1747,7 +1747,7 @@ const TOR4_W = 78, TOR4_H = 112, TOR4_OY = 58;   // 第41稿：樽胴の裾（�
 // 第42稿：腰の文法が違う三版（ドム／ザク／ジオング）。胸から上は四版とも同じ。座標は世界（胴の中心が x=0）
 // 第44稿：FB「胴をあなたが最適と思うくらいまで小さくして」＝胸の半幅 26.2→CH4_DEF。胸の中の割り付けと襟と関節は胸の幅に比例して内へ寄せる（線の太さは変えない）
 const CH4_DEF = 24, CH4_V43 = 26.2;
-function waist4(G, X, Y, style, CH4 = CH4_DEF) {
+function waist4(G, X, Y, style, CH4 = CH4_DEF, opt = {}) {
   const k4 = CH4 / CH4_V43, SX4 = 16 * k4, GR4 = 17.5 * k4;
   const chestW = (y) => (y < -33 ? 6 : y < -29 ? 14 + (y + 33) * (CH4 - 14) / 4 : CH4);
   const face = (x, w, sx) => (Math.abs(Math.abs(x) - sx) < 0.5 ? 'k' : x + w < 2.8 ? 'm' : w - x < 1.4 ? 'j' : x < sx ? 'j' : 'k');
@@ -1801,6 +1801,65 @@ function waist4(G, X, Y, style, CH4 = CH4_DEF) {
     for (let y = COL_Y; y <= TIP_Y; y += 0.25) { const w = colW(y); row(y, w, (x) => (y < COL_Y + 1.3 ? (x < 0 ? 'm' : 'j') : x < 21 && hemD(x, y) >= 3 && hemD(x, y) < 4 ? 'k' : face(x, w, 21))); }
     seam(-2, TIP_Y - 10);
     rivet(TIP_Y - 6.5);
+  } else if (style === 'zaku2') {
+    // 第45稿：ザク版にもうひとひねり（'zaku' は第44稿のまま残す）。opt.route＝管の通し方（既定の呼び出しは ZAKU2_DEF＝'tuck'）・opt.ember＝節の奥の残り火（true／'low'／'left'／'right'）・opt.r＝管の半径
+    const ROUTE = opt.route || 'long', R0 = opt.r ?? 4.0;
+    const COL_Y = 17.5, COL_W = 30.5, BASE_Y = 22, TIP_Y = 36.5, BASE_W = 36.6;
+    const bz = (p) => (t) => { const a = 1 - t; return [a * a * p[0][0] + 2 * a * t * p[1][0] + t * t * p[2][0], a * a * p[0][1] + 2 * a * t * p[1][1] + t * t * p[2][1]]; };
+    const cb = (p) => (t) => { const a = 1 - t, w = [a * a * a, 3 * a * a * t, 3 * a * t * t, t * t * t]; return [0, 1].map((i) => w[0] * p[0][i] + w[1] * p[1][i] + w[2] * p[2][i] + w[3] * p[3][i]); };
+    const ell = (ex, ey, rx, ry, a0, a1) => (t) => { const th = ((a0 + (a1 - a0) * t) * Math.PI) / 180; return [ex + rx * Math.cos(th), ey + ry * Math.sin(th)]; };
+    const tube = (path, s, R, o = {}) => {
+      let LEN = 0; { let p = path(0); for (let t = 0.002; t <= 1; t += 0.002) { const n = path(t); LEN += Math.hypot(n[0] - p[0], n[1] - p[1]); p = n; } }
+      let len = 0, prev = null; const per = o.period || 3.6, EMBER = opt.ember === true || (opt.ember === 'right' && s > 0) || (opt.ember === 'left' && s < 0);
+      for (let t = 0; t <= 1; t += 0.002) {
+        const b = path(t), b2 = path(Math.min(1, t + 0.004)), b1 = path(Math.max(0, t - 0.004));
+        const cx = s * b[0], cy = b[1], tx = s * (b2[0] - b1[0]), ty = b2[1] - b1[1], tl = Math.hypot(tx, ty) || 1, nx = -ty / tl, ny = tx / tl;
+        if (prev) len += Math.hypot(cx - prev[0], cy - prev[1]);
+        prev = [cx, cy];
+        const ring = !o.smooth && len % per > per - 1.0, band = !!o.bands && o.bands.some((L) => Math.abs(len - L * LEN) < 0.7), LOW = opt.ember === 'low', hot = EMBER ? Math.max(0, 1 - len / (LEN * 0.72)) : LOW ? Math.max(0, 1 - len / (LEN * 0.78)) : 0;
+        for (let k = -R; k <= R; k += 0.25) {
+          const v = (nx * k * LIGHT[0] + ny * k * LIGHT[1]) / R;
+          let c; const rg = opt.spiral ? !o.smooth && (((len + s * k * 0.9) % per) + per) % per > per - 1.0 : ring;   // らせん＝節の位相を管の幅方向へずらす
+          if (Math.abs(k) > R - 0.55 || band) c = 'k';
+          else if (rg && LOW) c = hot > 0.1 && Math.abs(k) < R * 0.62 ? 'r' : v > 0.1 ? 'j' : 'k';
+          else if (rg) c = hot > 0.5 && Math.abs(k) < R * 0.6 ? 'R' : hot > 0.12 ? 'r' : v > 0.1 ? 'j' : 'k';
+          else if (EMBER) c = v > 0.3 ? 'm' : v > -0.45 ? 'j' : 'k';
+          else c = v > 0.4 ? 'f' : v > -0.15 ? 'm' : 'j';
+          P(G, X(cx + nx * k), Y(cy + ny * k), c);
+        }
+      }
+    };
+    const colW = (y) => (y <= BASE_Y ? COL_W + (y - COL_Y) * (BASE_W - COL_W) / (BASE_Y - COL_Y) : BASE_W * (TIP_Y - y) / (TIP_Y - BASE_Y));
+    const hemD = (x, y) => TIP_Y - Math.abs(x) * (TIP_Y - BASE_Y) / BASE_W - y;
+    const collar = () => { for (let y = COL_Y; y <= TIP_Y; y += 0.25) { const w = colW(y); row(y, w, (x) => (y < COL_Y + 1.3 ? (x < 0 ? 'm' : 'j') : x < 21 && hemD(x, y) >= 3 && hemD(x, y) < 4 ? 'k' : face(x, w, 21))); } };
+    for (let y = -3; y <= COL_Y; y += 0.25) row(y, CH4 + 0.5, () => 'k');   // 半幅 CH4+0.5＝管の内縁まで影を届かせる（−0.5 だと丸めの左右差で左脇だけ背景が 4 点抜けた）
+    for (let y = COL_Y - 2.5; y <= COL_Y; y += 0.25) row(y, COL_W + 0.6, () => 'k');
+    // 幹＝段のある差し込み（上は太く下は細い）。段は輪郭だけで見せ、内側に横線は引かない（中央の合わせ目と交差すると十字の箱になる）
+    const PLATES = opt.trunk === 'bellows' || opt.trunk === 'spine';
+    for (let y = -3; y <= COL_Y; y += 0.25) {
+      const w = opt.trunk === 'plug' ? (y < 7 ? CH4 - 9 : CH4 - 13) : PLATES ? CH4 - 13 : CH4 - 11.5;
+      row(y, w, (x) => {
+        if (!PLATES) return x + w < 2.2 ? 'm' : x < 0 ? 'j' : 'k';
+        const u = y + 1.5 + (opt.trunk === 'spine' ? Math.abs(x) * 0.5 : 0), ph = ((u % 5) + 5) % 5;   // 板の周期 5。spine は中央が低い V
+        return ph < 1 ? 'k' : ph < 2 ? (x < 0 ? 'm' : 'j') : x + w < 2.2 ? 'm' : x < 0 ? 'j' : 'k';
+      });
+    }
+    if (!PLATES) seam(-2, COL_Y);
+    if (ROUTE === 'canon') for (const s of [-1, 1]) tube(bz([[18.4, -3], [28.9, 7.5], [24.3, 18.5]]), s, R0);
+    if (ROUTE === 'long') for (const s of [-1, 1]) { if (opt.asym === 'double' && s > 0) { tube(ell(24.4, 4.5, 8.4, 15.4, -82, 72), s, 2.5, { period: 3.0 }); tube(ell(20.2, 4.5, 5.0, 13.6, -80, 74), s, 2.5, { period: 3.0 }); } else tube(ell(22, 4.5, 7.5, 15, -82, 72), s, R0); }
+    if (ROUTE === 'bundle') for (const s of [-1, 1]) for (const p of [[[14.5, -2.5], [25.5, 7.5], [21, 18.8]], [[18, -2.5], [29.5, 7.5], [24.5, 18.8]], [[21.5, -2.5], [33.5, 7.5], [28, 18.8]]]) tube(bz(p), s, 1.7, { smooth: true, bands: [0.28, 0.72] });
+    if (ROUTE === 'sash') tube(bz([[-19, -2.5], [4, 13], [27, 18.5]]), 1, R0);
+    // tuck＝胸の下の角を斜めに落とし、その陰から管が出る。管は胸の脇の外へ張り出さない（輪郭は第44稿のザク版とほぼ同じ）
+    const NY0 = opt.notchY ?? -11, NK = opt.notchK ?? 0.62, TX = opt.tuckX ?? 19.5;   // TX 19.5＝輪郭の Δ幅が最大 2px（21 だと 6px 広がる）
+    if (ROUTE === 'tuck') {
+      for (let y = NY0 - 1; y <= -3; y += 0.25) row(y, CH4 + 0.5, () => 'k');
+      for (const s of [-1, 1]) tube(cb([[TX, NY0 - 1.5], [TX, -2], [TX + 9.5, 8], [24.3, 18.5]]), s, R0);
+      for (let y = -40; y <= -2; y += 0.25) { const w = chestW(y) - (y > NY0 ? (y - NY0) * NK : 0); row(y, w, (x) => (y < -33 ? ((x + w) / (2 * w) < 0.3 ? 'm' : 'j') : groove(x, y) ? 'k' : face(x, w, SX4))); }
+    } else chestRows(-2);
+    collar();
+    seam(COL_Y, TIP_Y - 10);
+    if (ROUTE === 'vee') { for (const s of [-1, 1]) tube(bz([[17, -2.5], [15.5, 14], [3.8, 27.5]]), s, opt.r ?? 3.6); chestRows(-2); }
+    rivet(TIP_Y - 6.5);
   } else if (style === 'zeong') {
     // ジオング版＝胸を下へ伸ばして腰を短くし、短い旋回円筒と、大型化したスカートの上縁の鍔（つば）で繋ぐ。細さは少し残るが人体でなく旋回軸
     chestRows(-1);
@@ -1814,7 +1873,7 @@ function waist4(G, X, Y, style, CH4 = CH4_DEF) {
 const torso4 = (style = 'bell', CH4 = CH4_DEF, opt = {}) => {
   const FP = opt.fp ?? 1, DISC2 = opt.disc2 ?? 'none';   // 脇の線の指数（1＝直線・大きいほど細いまま降りて裾だけ開く）／下の関節の円盤（full／small／none）
   const k4 = CH4 / CH4_V43, SX4 = 16 * k4, GR4 = 17.5 * k4, kc = (CH4 - 8.2) / 18, LVa = Math.round(5.5 * k4), LVb = Math.round(13.5 * k4);
-  const NEW = style === 'dom' || style === 'zaku' || style === 'zeong', W = NEW ? 88 : TOR4_W;
+  const NEW = style === 'dom' || style === 'zaku' || style === 'zaku2' || style === 'zeong', W = NEW ? 88 : TOR4_W;
   const G = g(W, TOR4_H), X = (x) => x + W / 2, Y = (y) => y + TOR4_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
   for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * (7 + 5 * kc), -53], [s * (7 + 15 * kc), -46], [s * (7 + 18 * kc), -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
   const FL0 = opt.fl0 ?? -12, BASE_Y = 22.6, TIP_Y = opt.tip ?? 36.5, BASE_W = 36.6;
@@ -1834,7 +1893,7 @@ const torso4 = (style = 'bell', CH4 = CH4_DEF, opt = {}) => {
       P(G, X(x), Y(y), c);
     }
   }
-  if (NEW) waist4(G, X, Y, style);
+  if (NEW) waist4(G, X, Y, style, CH4, opt);
   for (const s of [-1, 1]) for (const [dx, dy, r] of [[CH4 + 7.4, -28, 1], ...(DISC2 === 'none' ? [] : [[CH4 + (DISC2 === 'small' ? 7.0 : 8.9), -6, DISC2 === 'small' ? 0.82 : 1]])]) { DISC(G, X(s * dx), Y(dy), 6.6 * r, 'k'); DISC(G, X(s * dx), Y(dy), 5.7 * r, 'm'); DISC(G, X(s * dx), Y(dy), 3.8 * r, 'k'); DISC(G, X(s * dx), Y(dy), 2.8 * r, s < 0 ? 'f' : 'm'); }   // 第25稿：四本の腕ぶん関節を上下二つに   // 第22稿：肩の関節＝装甲を胴に繋ぐ（浮き対策）
   // 第42稿：幅の広い版でも関節の円盤の見え方を bell と同じに切る（bell はテクスチャの端で x −39〜+38 に切れている）
   if (NEW) for (let y = -36; y <= 2; y++) for (let x = 39; x <= 44; x++) { P(G, X(x), Y(y), '.'); P(G, X(-x - 1), Y(y), '.'); }
@@ -1963,14 +2022,14 @@ function arms4(sb, only = 'all', handFlip = false) {   // 第36稿：only＝'mai
       mkSlab(G, j1[0], j1[1], t[0], t[1]).slab(0, 1, (u) => 3.1 * HP * (1 - u) + 0.4, claw);
       DISC(G, j1[0], j1[1], 2.7 * HP, 'k'); DISC(G, j1[0], j1[1], 1.5 * HP, 'm');
     };
-    // 第44稿：handFlip＝左右を入れ替えた手（親指が内）。FB「掌は左右の腕に逆についてない？」の見比べ用。既定（false）が解剖学的に正しい向き＝掌を正面へ向け指を下へ垂らすと親指は外
+    // 第44稿：handFlip＝左右を入れ替えた手（親指が内）。FB「掌は左右の腕に逆についてない？」の見比べ用 → 第45稿：ユーザーが A/B を見比べて B（親指が内）を選んだ＝build4 の既定は handFlip: true（false を渡すと親指が外の旧版）
     const hs = handFlip ? -1 : 1;
     for (const [o, th, L1, L2] of [[-10.5, -0.3, 11, 11], [-3.5, -0.1, 13, 13], [3.5, 0.1, 13, 13], [10.5, 0.3, 10.5, 10]].map(([a, b, c, e]) => [hs * a, hs * b, c, e])) {
       if (clench) finger(at(21 * HP, o * HP), th, L1 * 0.5 * HF, th + Math.PI - Math.sign(th) * 0.25, L2 * 0.85 * HF);
       else finger(at(21 * HP, o * HP), th, L1 * HF, th - Math.sign(th) * 0.6, L2 * HF);
     }
     if (clench) finger(at(6 * HP, -11.5 * HP * hs), -0.35 * hs, 7 * HF, 0.55 * hs, 8 * HF);
-    else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, 7 * HF);
+    else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, (handFlip ? 6 : 7) * HF);   // 第45稿：B は親指が内＝爪先がスカートへ 2px まで迫るので爪だけ 1 短く（隙間 3px＝A と同じ・check-gaika2-handskirt.mjs）
   };
   const sub = (s) => {   // 副腕（外側）
     // 第36稿：FB「副腕と砲が一か所に集まってガチャガチャ」＝副腕を肩から外し、殻（蒼の装甲）の奥から生やす（クシャトリヤの隠し腕＝装甲の開閉と同じ語彙）。
@@ -2028,12 +2087,13 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
   return R(G);
 }
 
-const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。胴は腰を持たない一枚の黒鉄＝肩の下から裾へ一直線に開き、浅い V の裾の下から扇の刃が放射状に出る。中央の合わせ目は閉じた炉の扉で、V の先端の金の鋲が扇の要。';
+const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回り襟へ入る。浅い V の裾の下から扇の刃が放射状に出る。中央の合わせ目は閉じた炉の扉で、V の先端の金の鋲が扇の要。';
+const ZAKU2_DEF = { route: 'tuck' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）。ユーザーの選択で差し替える
 function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', !!o.handFlip)), subarms: P7(arms4(saber, 'sub')), torso: P7(o.torso || o.torsoCH || o.torsoOpt ? torso4(o.torso || 'bell', o.torsoCH || CH4_DEF, o.torsoOpt || {}) : TORSO4), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
@@ -2058,6 +2118,7 @@ export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-
 export const GAIKA2 = build4();                                   // 版A＝ロケットブースター
 export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });       // 版B＝脚（却下）
 export const gaika2With = (o = {}) => build4({ tag: '-x', ...o });   // 第44稿：候補の見比べ用（torso／torsoCH／handFlip）
+export const GAIKA2_NZ = build4({ tag: '-nz', torso: 'bell', torsoOpt: {} });   // 第45稿：既定がザク型になったので、ノイエ・ジール版（樽胴）は別名で残す
 export const GAIKA2_DOM = build4({ tag: '-dom', torso: 'dom' });       // 第42稿：腰の文法の比較＝ドム版
 export const GAIKA2_ZAKU = build4({ tag: '-zaku', torso: 'zaku' });    // 同＝ザク版
 export const GAIKA2_ZEONG = build4({ tag: '-zeong', torso: 'zeong' }); // 同＝ジオング版（現行の GAIKA2＝ノイエ・ジール版）

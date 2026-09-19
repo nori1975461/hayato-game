@@ -1,6 +1,6 @@
-// 背景が透ける抜けの検査：胴のまわり（|x|<=60・世界 y −40〜40）で、どのテクスチャにも覆われない点を四版それぞれ数える。node check-gaika2-holes.mjs
+// 背景が透ける抜けの検査：胴のまわり（|x|<=60・世界 y −40〜40）で、どのテクスチャにも覆われない点を、既定（Z2＝ザク型のひねり・第45稿〜）と比較用の四版それぞれ数える。node check-gaika2-holes.mjs
 //   胴を細くすると、殻や腕がたまたま覆っていない 1〜3 ドットの隙間が背景まで抜ける（第44稿でドム版 6・ザク版 4 が出た）。
-//   ジオング版は細い旋回円筒の両脇が空間として抜けるのが仕様（第44稿で 148）。それ以外の三版は 0 が正。
+//   ジオング版は細い旋回円筒の両脇が空間として抜けるのが仕様（第44稿で 148）。それ以外は 0 が正。
 //   .gaika-prev.mjs（git show HEAD:vortex/scratchpad/gaika-candidates.mjs > .gaika-prev.mjs）があれば、直前のコミットの値も並べる
 import { existsSync } from 'node:fs';
 import * as NEW from './gaika-candidates.mjs';
@@ -21,7 +21,7 @@ const holes = (d) => {
 };
 const box = (h) => (h.length ? 'x ' + Math.min(...h.map((p) => p[0])) + '..' + Math.max(...h.map((p) => p[0])) + ' y ' + Math.min(...h.map((p) => p[1])) + '..' + Math.max(...h.map((p) => p[1])) : '-');
 let ok = true; const sum = [];
-for (const [label, n, allow] of [['NZ', 'GAIKA2', 0], ['DOM', 'GAIKA2_DOM', 0], ['ZAKU', 'GAIKA2_ZAKU', 0], ['ZEONG', 'GAIKA2_ZEONG', Infinity]]) {
+for (const [label, n, allow] of [['Z2', 'GAIKA2', 0], ['NZ', 'GAIKA2_NZ', 0], ['DOM', 'GAIKA2_DOM', 0], ['ZAKU', 'GAIKA2_ZAKU', 0], ['ZEONG', 'GAIKA2_ZEONG', Infinity]]) {
   const h = holes(NEW[n]), prev = OLD && OLD[n] ? holes(OLD[n]).length : null;
   if (h.length > allow) ok = false;
   sum.push(label + ' ' + h.length);

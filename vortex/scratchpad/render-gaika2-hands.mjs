@@ -1,5 +1,5 @@
 // 第二案の両手だけを並べて拡大する（腕のテクスチャだけ＝副腕の光刃やスカートに隠れない）。node render-gaika2-hands.mjs [出力名]
-//   上段 A＝現状（親指が外＝掌を正面へ向けて指を下へ垂らした手として正しい向き）／下段 B＝左右を入れ替えた場合（handFlip＝親指が内）
+//   上段 A＝第44稿までの手（親指が外・gaika2With({ handFlip: false })）／下段 B＝第45稿からの既定（親指が内＝ユーザーが A/B を見比べて選んだ・開いた手の親指の爪だけ 1 短い）
 //   左の列＝画面左の手（骸華の右手・開く）／右の列＝画面右の手（骸華の左手・握り潰す）
 import { makeCanvas, renderBoss, writePng } from './render-boss-rig.mjs';
 import { rect, text, BGC } from './gods-sheet.mjs';
@@ -12,7 +12,7 @@ const panel = (d, wx, wy, x0, y0, label) => {
   text(cv, label, 6, PH - 12, [200, 210, 230], 1);
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) { const i = (y * PW + x) * 3, o = ((y0 + y) * 640 + x0 + x) * 3; out.px[o] = cv.px[i]; out.px[o + 1] = cv.px[i + 1]; out.px[o + 2] = cv.px[i + 2]; }
 };
-const A = M.GAIKA2, B = M.gaika2With({ handFlip: true });
-panel(A, -70, 25, 0, 0, 'A  NOW / THUMB OUTSIDE / HER RIGHT HAND'); panel(A, 70, 25, 322, 0, 'A  NOW / THUMB OUTSIDE / HER LEFT HAND');
-panel(B, -70, 25, 0, 182, 'B  SWAPPED / THUMB INSIDE'); panel(B, 70, 25, 322, 182, 'B  SWAPPED / THUMB INSIDE');
+const A = M.gaika2With({ handFlip: false }), B = M.GAIKA2;
+panel(A, -70, 25, 0, 0, 'A  UNTIL DRAFT 44 / THUMB OUTSIDE / HER RIGHT HAND'); panel(A, 70, 25, 322, 0, 'A  UNTIL DRAFT 44 / THUMB OUTSIDE / HER LEFT HAND');
+panel(B, -70, 25, 0, 182, 'B  DEFAULT SINCE DRAFT 45 / THUMB INSIDE'); panel(B, 70, 25, 322, 182, 'B  DEFAULT SINCE DRAFT 45 / THUMB INSIDE');
 writePng(out, file); console.log('HANDS_OK');
