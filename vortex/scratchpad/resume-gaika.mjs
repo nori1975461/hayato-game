@@ -28,10 +28,10 @@ const src = execFileSync('node', ['-e', "const fs=require('fs');process.stdout.w
 const grab = (re, label) => { const m = src.match(re); console.log('  ' + label + ':', m ? m[0].slice(0, 120) : '(見つからない＝コードが変わった)'); };
 grab(/SCH\[o\.saber \|\| '\w+'\]/, '光刃の配色');
 grab(/const SKIRT_BIG = skirtTex\(\[\[[^\n]{0,110}/, 'スカートとノズル');
-grab(/const third = \(s\) => \{[^\n]*\n\s*const pts = [^\n]{0,70}/, '三本目の腕（メガランチャー）の骨');
-{ const m = src.match(/const third = \(s\) => \{[\s\S]{0,600}?const a = \((\d+) \* Math\.PI\)[\s\S]{0,200}?L = (\d+)/); console.log('  三本目の砲:', m ? '角度 ' + m[1] + '° / 長さ ' + m[2] : '(見つからない＝コードが変わった)'); }
-{ const m = src.match(/const sub = \(s\) => \{[\s\S]{0,700}?const pts = (\[\[[^\n]{0,40}\]\])/); console.log('  副腕（殻の奥から生える）の骨:', m ? m[1] : '(見つからない＝コードが変わった)'); }
-{ const m = src.match(/ELBOW4_OUT = (\[[^\]]+\]), WRIST4_OUT = (\[[^\]]+\])/), t = src.match(/const FORE4_DEF = (\[[^\]]+\]), HANDL4_DEF = '(\w+)';/); console.log('  主腕の骨（肩の関節 (38,-25)）:', m && t ? '[[36, -26], 肘 ' + m[1] + ', 手首 ' + m[2] + '] を、肘を軸に中央へ [画面左, 画面右] = ' + t[1] + '° まわす・骸華の左手（画面右）の手 = ' + t[2] + '（第47稿＝両腕 20°／第48稿＝FB「添付のように左手だけ書きなおして」＝画面右だけ肘からほぼ真下＋垂らして指を内へ巻いた手。画面左＝骸華の右手は第47稿から 1 ドットも変えていない。第47稿の腕は gaika2With({ foreTurn: 20, handL: "clench" })。⚠️第46稿の「肘を外へ出す」は否決）' : '(見つからない＝コードが変わった)'); }
+grab(/const third = \(s\) => \{[^\n]*\n\s*const pts = [^\n]{0,70}/, '三本目の腕の骨（第49稿から光刃を持つ。第48稿まではメガランチャー）');
+{ const m = src.match(/const SABER4_DEG = (\d+), SABER4_LEN = (\d+), VULCAN4_DEG = (\d+), VULCAN4_LEN = (\d+);/), k = src.match(/KIT4_DEF = '(\w+)';/); console.log('  装備:', m && k ? 'kit = ' + k[1] + '（vulcan＝三本目の腕にマゼンタの光刃 ' + m[1] + '°・長さ ' + m[2] + '／副腕と光刃があった場所にバルカン砲の台座 ' + m[3] + '°・砲身 ' + m[4] + '。第48稿までの装備＝gaika2With({ kit: "launcher" })＝メガランチャー 17°・長さ 44＋副腕の光刃 62°・長さ 96）' : '(見つからない＝コードが変わった)'); }
+{ const m = src.match(/const vulcan = \(s\) => \{\s*const P0 = (\[[^\]]+\]), P1 = (\[[^\]]+\]);/); console.log('  バルカン砲の台座（殻の外の縁の陰の根 → 旋回軸）:', m ? m[1] + ' → ' + m[2] : '(見つからない＝コードが変わった)'); }
+{ const m = src.match(/ELBOW4_OUT = (\[[^\]]+\]), WRIST4_OUT = (\[[^\]]+\])/), t = src.match(/const FORE4_DEF = (\[[^\]]+\]), HANDL4_DEF = '(\w+)'/); console.log('  主腕の骨（肩の関節 (38,-25)）:', m && t ? '[[36, -26], 肘 ' + m[1] + ', 手首 ' + m[2] + '] を、肘を軸に中央へ [画面左, 画面右] = ' + t[1] + '° まわす・骸華の左手（画面右）の手 = ' + t[2] + '（第47稿＝両腕 20°／第48稿＝骸華の左手（画面右）だけ垂らして指を内へ巻いた手・前腕は外へ 8°／第49稿＝FB「左手は D にして」＝垂らした手のまま前腕は第47稿と同じ 20°。骸華の右手（画面左）は第47稿から 1 ドットも変えていない。第48稿の左手は { foreTurn: [20, 35] }・第47稿の腕は { foreTurn: 20, handL: "clench" }。⚠️第46稿の「肘を外へ出す」は否決）' : '(見つからない＝コードが変わった)'); }
 console.log('  描画順（リグの順＝奥→手前）:', b.rig.map((p) => p.tex).join(' > '));
 console.log('  月牙の枚数:', b.rig.filter((p) => /^moon/.test(p.tex)).length, '（六枚が正＝三枚ずつ・画面左の一番上は発射済みで座が空）');
 // 第40〜45稿：胴（第45稿からの既定＝ザク型のひねり／比較用の四版）と手

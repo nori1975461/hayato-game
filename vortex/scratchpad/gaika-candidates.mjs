@@ -1990,9 +1990,14 @@ const ELBOW4_OUT = [46, -3], WRIST4_OUT = [59, 11], ELBOW4_V46 = [60, -12], WRIS
 //   骸華の左手＝画面右（s>0）。添付は右手の絵なので左右を反転。肩と肘の位置は据え置き・前腕は肘からほぼ真下（FORE4_DEF[1] = 35＝鉛直から外へ 8°。真下 42.9 は親指の付け根が胴の陰に 14px 隠れる）・
 //   手は『握り潰す手（掌の蝕に指が折れる＝赤い輪の塊に見えた）』をやめ、鋼の手の甲＋外の高い拳頭から内の低い拳頭へ並ぶ四指が内へ巻く＋内の手前に垂れる親指。握り込んだ蝕は親指と人差し指の間の残り火だけ。
 //   骸華の右手（画面左＝開いた手）はコードを通らない＝1 ドットも変えない。第47稿の腕は gaika2With({ foreTurn: 20, handL: 'clench' })
-const FORE4_DEF = [20, 35], HANDL4_DEF = 'hang';
+// 第49稿：FB「左手は D にして」（D＝垂らした手のまま前腕の角度は第47稿と同じ 20°）「電子パルス砲をなくして、その場所にマゼンタ色のビームサーベルを移動させる。ビームサーベルがあった場所はバルカン砲の台座にする。砲台のビジュアルや長さは、あなたにまかせる」
+//   電子パルス砲＝三本目の腕のメガランチャー。KIT4_DEF 'vulcan'＝三本目の腕が光刃を持つ（45°・長さ 96＝元の 62° のままだと下の台座を横切る／17° は長さ 70 しか入らず輪からほとんど出ない）＋副腕の場所にバルカン砲の台座（66°・砲身 36）。
+//   第48稿までの装備は gaika2With({ kit: 'launcher' })、第48稿の左手は { foreTurn: [20, 35] }
+const FORE4_DEF = [20, 20], HANDL4_DEF = 'hang', KIT4_DEF = 'vulcan';
+const SABER4_DEG = 45, SABER4_LEN = 96, VULCAN4_DEG = 66, VULCAN4_LEN = 36;
+let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulcanLen = VULCAN4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
-function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
+function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const G = g(ARM4_W, ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
   //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
@@ -2072,7 +2077,39 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     if (clench) finger(at(6 * HP, -11.5 * HP * hs), -0.35 * hs, 7 * HF, 0.55 * hs, 8 * HF);
     else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, (handFlip ? 6 : 7) * HF);   // 第45稿：B は親指が内＝爪先がスカートへ 2px まで迫るので爪だけ 1 短く（隙間 3px＝A と同じ・check-gaika2-handskirt.mjs）
   };
+  // 第49稿：光刃を任意の手首から任意の角度で生やす（形と色は第33稿の光刃＝副腕の光刃と同じ作り：手首の節 → 刀身五層 → 爪二本 → 柄）
+  const saberAt = (W0, s, deg, L) => {
+    const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a);
+    const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 6, W0[1] + dy * 6); un.slab(0, 1, 4.8, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));
+    const S0 = [W0[0] + dx * 7, W0[1] + dy * 7], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
+    const BW = (u) => (u < 0.055 ? 0.9 + u * 36 : u > 0.84 ? 2.9 * Math.pow((1 - u) / 0.16, 0.5) : 2.9);
+    bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k'); bl.slab(0, 1, (u) => BW(u), () => sb.c); bl.slab(0, 1, (u) => BW(u) * 0.55, () => sb.b); bl.slab(0, 1, (u) => BW(u) * 0.3, () => sb.a); bl.slab(0, 1, (u) => BW(u) * 0.08, () => sb.core);
+    for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
+    const em = mkSlab(G, S0[0] - dx * 4.2, S0[1] - dy * 4.2, S0[0] + dx * 3.4, S0[1] + dy * 3.4);
+    em.slab(0, 1, 4.4, (v) => (v < -0.6 ? 'j' : 'k')); em.slab(0, 0.22, 4.9, goldCol); em.slab(0.78, 1, 4.9, goldCol);
+  };
+  // 第49稿：バルカン砲の台座（副腕と光刃があった場所）。殻の外の縁の陰から黒鉄の砲架が出て、旋回軸の円盤に機関部と砲身の束（見えるのは三本）が載る。
+  //   語彙は骸華の機械のまま＝黒鉄・鋼・金の輪・放熱の溝の深紅。丸い金の輪に芯は打たない（目の罠）。砲口は外下（vulcanDeg）＝逆さ扇と光刃と同じ「下へ開く扇」の一本
+  const vulcan = (s) => {
+    const P0 = [X(s * 82), Y(-4)], P1 = [X(s * 103), Y(12)];
+    const yoke = mkSlab(G, P0[0], P0[1], P1[0], P1[1]);
+    yoke.slab(0, 1, (u) => 6.6 - 1.4 * u, (v) => (Math.abs(v) > 0.86 ? 'k' : v < -0.4 ? 'm' : v < 0.3 ? 'j' : 'k'));
+    yoke.slab(0.15, 0.85, 1.0, () => 'k');
+    const VUL_RC = 23, a = (vulcanDeg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), ax = (d) => [P1[0] + dx * d, P1[1] + dy * d];
+    const rc = mkSlab(G, ...ax(-7), ...ax(VUL_RC));
+    rc.slab(0, 1, 7.4, (v) => (Math.abs(v) > 0.9 ? 'k' : v < -0.55 ? 'f' : v < 0 ? 'm' : v < 0.55 ? 'j' : 'k'));
+    rc.slab(0.55, 0.86, 1.1, (v) => (Math.abs(v) < 0.5 ? 'R' : 'r'), 3.2);
+    rc.slab(0.9, 1, 8.0, goldCol);
+    const br = mkSlab(G, ...ax(VUL_RC), ...ax(VUL_RC + vulcanLen));
+    br.slab(0, 1, 5.6, () => 'k');
+    for (const kc of [-3.6, 0, 3.6]) br.slab(0, 1, 1.4, (v) => (v < -0.3 ? 's' : v < 0.4 ? 'f' : 'm'), kc);
+    for (const u of [0.3, 0.68]) { br.slab(u, u + 0.08, 6.4, () => 'k'); br.slab(u + 0.015, u + 0.065, 5.8, (v) => (v < -0.4 ? 'f' : v < 0.3 ? 'm' : 'j')); }
+    br.slab(0.92, 1, 6.6, () => 'k'); br.slab(0.935, 0.985, 6.0, goldCol);
+    DISC(G, P1[0], P1[1], 8.8, 'k'); DISC(G, P1[0], P1[1], 7.6, 'm'); DISC(G, P1[0], P1[1], 5.8, 'k'); DISC(G, P1[0], P1[1], 4.6, 'j');
+    for (let i = 0; i < 6; i++) { const t = (i * Math.PI) / 3 + 0.5; P(G, P1[0] + Math.cos(t) * 6.7, P1[1] + Math.sin(t) * 6.7, 'k'); }
+  };
   const sub = (s) => {   // 副腕（外側）
+    if (kit === 'vulcan') return vulcan(s);
     // 第36稿：FB「副腕と砲が一か所に集まってガチャガチャ」＝副腕を肩から外し、殻（蒼の装甲）の奥から生やす（クシャトリヤの隠し腕＝装甲の開閉と同じ語彙）。
     //   肩の関節には主腕と砲の二本だけが残る。高さで三段に分ける＝上段（y−35〜−15）砲は水平／中段（y 10〜55）手／外下（x 98〜）光刃
     const pts = [[82, -4], [104, 10], [109, 27]].map(([x, y]) => [X(s * x), Y(y)]);
@@ -2102,6 +2139,7 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     mechArm(G, pts, 5.6);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.1, 1, 7.4, (v) => (v < -0.8 ? 'f' : v < -0.15 ? 'm' : 'k'));
+    if (kit === 'vulcan') { fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sb.b : sb.c)); saberAt(pts[2], s, saberDeg, saberLen); return; }   // 第49稿：砲を外し、この手にマゼンタの光刃（前腕に光刃と同じ色の帯）
     const a = (17 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const S0 = [W0[0] + dx * 3, W0[1] + dy * 3], L = 44, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
     bl.slab(0, 1, 8.9, () => 'k');
@@ -2131,10 +2169,11 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
 const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回り襟へ入る。浅い V の裾の下から扇の刃が放射状に出る。中央の合わせ目は閉じた炉の扉で、V の先端の金の鋲が扇の要。';
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
+  saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF)), subarms: P7(arms4(saber, 'sub')), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
