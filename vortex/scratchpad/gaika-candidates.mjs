@@ -2001,6 +2001,7 @@ let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulca
 //   kit 'swap'＝三本目の腕の手にバルカン砲（ARMGUN4＝向きは第50稿の光刃と同じ 17°・砲身 30）／台座から光刃（MSABER4＝向きは第50稿の砲と同じ 66°≒添付の実測 65°・長さ 96＝第33〜48稿の光刃の長さ）
 // 第52稿：FB「ビームサーベルを62度110にして」＝角度の見比べ A〜D のうち B の角度（62°）と C の長さ（110）を組み合わせた指定
 const ARMGUN4_DEG = 17, ARMGUN4_LEN = 30, MSABER4_DEG = 62, MSABER4_LEN = 110;
+let subStraight = false;   // 第48稿修正：kit launcher の副腕の前腕を光刃と一直線に（gaika2With({ kit: "launcher", foreTurn: [20, 35], subStraight: true })）
 let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
@@ -2132,7 +2133,10 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     if (kit === 'swap') return saberMount(s);
     // 第36稿：FB「副腕と砲が一か所に集まってガチャガチャ」＝副腕を肩から外し、殻（蒼の装甲）の奥から生やす（クシャトリヤの隠し腕＝装甲の開閉と同じ語彙）。
     //   肩の関節には主腕と砲の二本だけが残る。高さで三段に分ける＝上段（y−35〜−15）砲は水平／中段（y 10〜55）手／外下（x 98〜）光刃
-    const pts = [[82, -4], [104, 10], [109, 27]].map(([x, y]) => [X(s * x), Y(y)]);
+    // 第48稿修正：FB「付け根とビームサーベルが一直線になっていない。わずかに歪んでいる」＝前腕 (104,10)→(109,27) は 73.6°・柄と刀身は 62° で 12° 折れていた。
+    //   subStraight＝手首 (109,27) と柄と刀身は据え置き、前腕を同じ長さのまま 62° の線上へ（肘が (100.7,11.4) へ寄る）。既定 false＝第48稿までの絵は 1 ドットも変わらない
+    const SUB_FL = Math.hypot(5, 17), SUB_A = (62 * Math.PI) / 180, subElbow = subStraight ? [109 - Math.cos(SUB_A) * SUB_FL, 27 - Math.sin(SUB_A) * SUB_FL] : [104, 10];
+    const pts = [[82, -4], subElbow, [109, 27]].map(([x, y]) => [X(s * x), Y(y)]);
     mechArm(G, pts, 4.4);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.22, 0.9, 6.2, (v) => (v < -0.86 ? 'm' : v < -0.2 ? 'j' : 'k'));
@@ -2191,6 +2195,7 @@ const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ�
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
+  subStraight = !!o.subStraight;
   armGunDeg = o.armGunDeg ?? ARMGUN4_DEG; armGunLen = o.armGunLen ?? ARMGUN4_LEN; mountSaberDeg = o.mountSaberDeg ?? MSABER4_DEG; mountSaberLen = o.mountSaberLen ?? MSABER4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
