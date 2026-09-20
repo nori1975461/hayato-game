@@ -1,6 +1,6 @@
 // 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（resume-gaika.mjs は「コードの既定＝第52稿」を調べる道具。こちらは「いま検討中の姿」を出す）。
-//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 12 前回の推し（肩当て 4＋ブレード）と 19 今回の推し（肩当て 5＋面取り・首の装甲・溝から生える刃） の全身を横並びで gaika2-now.png（640×352）へ
-//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜22・最大2つ）を gaika2-now.png へ
+//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 36 いまの土台（座＝昇る蝕・左肩は跳ね上げのまま）と 44 左肩の私の推し（大きな一本棘・白骨） の全身を横並びで gaika2-now.png（640×352）へ
+//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜58・最大2つ）を gaika2-now.png へ
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -84,6 +84,29 @@ Object.assign(CANDS, {
   41: { label: '41 BITE: FINAL FORM (OPEN)', jp: '食の最終形態＝切り欠いた縁のまま外の板が開く（0921/１ の 6-2）', o: { ...DEC2, ...OPEN4, dormantX: { kind: 'bite' } } },
   42: { label: '42 REF PLAIN SHELL: FINAL FORM', jp: '参考＝元の殻の最終形態（「開」の第一稿に今日までの決定を載せた姿）', o: { ...DEC2, ...OPEN4 } },
 });
+// 09-21 01:17 FB「#4 昇る蝕にしよう／左肩を 跳ね上げではなく棘にして・左肩のプロテクターの色を変えて（真紅・金・銀・白・緑・黄色など）・ひと目で印象に残るように・格は落とさない」（フォルダ 0921/２）
+//   決定＝座は昇る蝕（DEC3）。読み＝変えるのは骸華の左肩（画面右）の肩当てだけ。形の見比べは色を白骨で固定（43〜47）・色の見比べは形を大きな一本棘で固定（48〜56）
+const DEC3 = { ...DEC2, dormantX: { kind: 'umbra' } }, SHL = (form, tint, extra = {}) => ({ ...SH7, ...form, ...(tint ? { tint: [null, tint] } : {}), ...extra });
+const SP_SHORT = { accent: ['chamfer', 'spike'] }, SP_UP = { accent: ['chamfer', 'spikes'], spikes: [[5, -11, 80, 18, 5]], seam: true }, SP_62 = { accent: ['chamfer', 'spikes'], spikes: [[7, -10, 62, 18, 5]], seam: true };
+const SP_45 = { accent: ['chamfer', 'spikes'], spikes: [[8, -8, 45, 17, 4.5]], seam: true }, SP_TRI = { accent: ['chamfer', 'spikes'], spikes: [[2, -11, 85, 9, 3.8], [8.5, -8, 48, 10, 3.8], [12, 0, 12, 9, 3.8]], seam: true };
+Object.assign(CANDS, {
+  43: { label: '43 L-SHOULDER: SHORT SPIKE, BONE', jp: '左肩＝前に見せた短い棘・白骨（0921/２ 形の 1）', o: { ...DEC3, shoulder: SHL(SP_SHORT, 'bone') } },
+  44: { label: '44 L-SHOULDER: ONE BIG SPIKE, BONE (MY PICK)', jp: '左肩＝大きな一本棘・ほぼ直立・白骨＝私の推し（形の 2＝色の 1）', o: { ...DEC3, shoulder: SHL(SP_UP, 'bone') } },
+  45: { label: '45 L-SHOULDER: LEANING 62, BONE', jp: '左肩＝外へ倒した一本棘 62°・白骨（形の 3）', o: { ...DEC3, shoulder: SHL(SP_62, 'bone') } },
+  46: { label: '46 L-SHOULDER: LEANING 45, BONE', jp: '左肩＝もっと外へ 45°・白骨（形の 4）', o: { ...DEC3, shoulder: SHL(SP_45, 'bone') } },
+  47: { label: '47 REF L-SHOULDER: THREE SPIKES, BONE', jp: '参考＝三本棘（ザクの左肩の型）・白骨（形の 5）', o: { ...DEC3, shoulder: SHL(SP_TRI, 'bone') } },
+  48: { label: '48 L-SHOULDER: BIG SPIKE, IRON', jp: '左肩＝大きな一本棘・黒鉄のまま（色の 0＝くらべる基準）', o: { ...DEC3, shoulder: SHL(SP_UP, null) } },
+  49: { label: '49 L-SHOULDER: BIG SPIKE, CRIMSON', jp: '同・真紅（色の 2）', o: { ...DEC3, shoulder: SHL(SP_UP, 'crimson') } },
+  50: { label: '50 L-SHOULDER: BIG SPIKE, DEEP CRIMSON', jp: '同・深い真紅（色の 3）', o: { ...DEC3, shoulder: SHL(SP_UP, 'blood') } },
+  51: { label: '51 L-SHOULDER: BIG SPIKE, GOLD', jp: '同・金（色の 4）', o: { ...DEC3, shoulder: SHL(SP_UP, 'gold') } },
+  52: { label: '52 L-SHOULDER: BIG SPIKE, SILVER', jp: '同・銀（色の 5）', o: { ...DEC3, shoulder: SHL(SP_UP, 'silver') } },
+  53: { label: '53 L-SHOULDER: BIG SPIKE, GREEN', jp: '同・緑（色の 6）', o: { ...DEC3, shoulder: SHL(SP_UP, 'green') } },
+  54: { label: '54 L-SHOULDER: BIG SPIKE, YELLOW', jp: '同・黄色（色の 7）', o: { ...DEC3, shoulder: SHL(SP_UP, 'yellow') } },
+  55: { label: '55 REF: ONLY THE SPIKE IS BONE', jp: '参考＝棘だけ白骨・面は黒鉄のまま（色の 8）', o: { ...DEC3, shoulder: SHL(SP_UP, 'bone', { tintPlate: false }) } },
+  56: { label: '56 MY PICK: TOTALITY', jp: '私の推し（44）の皆既＝蒼が消えても白骨の肩は残る（0921/２ ページ６の 2）', o: { ...DEC2, dormantX: TOTAL, shoulder: SHL(SP_UP, 'bone') } },
+  57: { label: '57 MY PICK: FINAL FORM (OPEN)', jp: '私の推し（44）の最終形態（ページ６の 3）', o: { ...DEC2, ...OPEN4, dormantX: TOTAL, shoulder: SHL(SP_UP, 'bone') } },
+  58: { label: '58 CRIMSON: FINAL FORM (OPEN)', jp: '真紅（49）の最終形態＝炉の赤に紛れる（写真３）', o: { ...DEC2, ...OPEN4, dormantX: TOTAL, shoulder: SHL(SP_UP, 'crimson') } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -102,11 +125,12 @@ console.log('  ・月牙は収めた姿で穴なし（stowed:true）');
 console.log('  ・副腕の光刃は蝕刃（subBlade:eclipse）・支柱は短いほう（subBoom:true）／肩当ては 5・中心へ 7');
 console.log('  ・⭐22:07 肩当ての形＝骸華の右肩（画面左）は面取り・左肩（画面右）は跳ね上げ（shoulder.accent:[chamfer,fin]）／頭は蝕の軌条（head.top:mast）');
 console.log('  ・⭐22:47 首は襟なし（collar:none）／一番下の座は月の形をやめる（「月にこだわらない」・閉は 4 枚でよい・開いたら 6 枚は変えない）・月牙を左右で違える案は不要');
+console.log('  ・⭐09-21 01:17 一番下の座は 4 昇る蝕（dormantX:{kind:umbra}）＝最終形態まで見て決定（皆既の「縁が灼ける」burn の要否は未回答＝いまは灼ける版のまま・催促しない）');
 console.log('  土台の引数:', JSON.stringify(BASE));
-console.log('\n=== 4. 結論待ち（0920/２５＋0921/１）＝一番下の座＝34 無地／33 前回の 3（満ちかけの繊月 0.3）／35 蝕の炉口／36 昇る蝕（私の推し）／37 昇る蝕・高い／38 食。09-21 00:11「最終形態を見ないと判断できない」→ 39 皆既／40 昇る蝕の最終形態／41 食の最終形態／42 参考＝元の殻の最終形態 を渡した。いまの土台は 34 ===');
+console.log('\n=== 4. 結論待ち（0921/２）＝骸華の左肩（画面右）の肩当て＝形（43 短い棘／44 大きな一本棘・ほぼ直立＝私の推し／45 62°／46 45°／47 参考 三本棘・色は白骨で固定）と 色（48 黒鉄／44 白骨＝私の推し／49 真紅／50 深い真紅／51 金／52 銀／53 緑／54 黄色／55 参考 棘だけ白骨・形は 44 で固定）。56・57＝推しの皆既と最終形態／58＝真紅の最終形態。いまの土台は 36（座＝昇る蝕・左肩は跳ね上げのまま） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
-const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [36, 40];
+const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [36, 44];
 const PW = ids.length === 1 ? 344 : 319, PH = 352, W = ids.length * PW + (ids.length - 1) * 2, out = makeCanvas(W, PH); rect(out, 0, 0, W, PH, [40, 42, 64]);
 ids.forEach((id, i) => {
   const d = M.gaika2With(CANDS[id].o), cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);
@@ -117,6 +141,6 @@ ids.forEach((id, i) => {
 writePng(out, resolve(here, 'gaika2-now.png'));
 console.log('\n=== 5. 全身（等倍）を書き出した ===');
 console.log('  vortex/scratchpad/gaika2-now.png  ' + W + 'x' + PH + '  左から ' + ids.map((id) => id + '＝' + CANDS[id].jp).join(' ／ '));
-console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "一番下の座の練り直し\\|引継ぎ（2026-09-20 21" → sed -n）');
-console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder26.sh（0921/１＝最終形態・その前は -folder25.sh＝0920/２５）');
+console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "左肩の肩当て（棘の形と色）\\|一番下の座の練り直し\\|引継ぎ（2026-09-20 21" → sed -n）');
+console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／左肩以外が不変か node check-gaika2-shoulder-diff.mjs／色の目立ち方の実測 node measure-gaika2-shoulder-pop.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder27.sh（0921/２＝左肩の棘と色・その前は -folder26.sh＝0921/１ 最終形態）');
 }
