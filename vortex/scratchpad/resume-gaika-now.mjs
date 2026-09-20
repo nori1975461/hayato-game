@@ -49,6 +49,9 @@ Object.assign(CANDS, {
   22: { label: '22 AXIS ON THE EYE', jp: '同・頭＝眼の真上に立つ刃', o: { ...BUST, head: { cheek: 'steel', top: 'sunk', ex: -3.6 } } },
 });
 
+// ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
 console.log('=== 1. リポジトリの状態 ===');
 console.log(git('status', '-sb', '-uno').split('\n')[0]);
 console.log(git('log', '--oneline', '-3'));
@@ -75,4 +78,6 @@ ids.forEach((id, i) => {
 writePng(out, resolve(here, 'gaika2-now.png'));
 console.log('\n=== 5. 全身（等倍）を書き出した ===');
 console.log('  vortex/scratchpad/gaika2-now.png  ' + W + 'x' + PH + '  左から ' + ids.map((id) => id + '＝' + CANDS[id].jp).join(' ／ '));
-console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "朔の座" → sed -n）');
+console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "引継ぎ（2026-09-20 21" → sed -n）');
+console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder23.sh');
+}
