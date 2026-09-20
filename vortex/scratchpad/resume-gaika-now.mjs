@@ -1,6 +1,6 @@
 // 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（resume-gaika.mjs は「コードの既定＝第52稿」を調べる道具。こちらは「いま検討中の姿」を出す）。
-//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 1 無地 と 3 朔＋残り火 の全身を横並びで gaika2-now.png（640×352）へ
-//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜5・最大2つ）を gaika2-now.png へ
+//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 1 無地 と 3 繊月・深紅 の全身を横並びで gaika2-now.png（640×352）へ
+//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜6・最大2つ）を gaika2-now.png へ
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -14,13 +14,14 @@ const node = (...a) => { try { return execFileSync('node', a, { cwd: here, encod
 
 // ⭐2026-09-20 に確定した土台（コードの既定にはまだ入れていない＝月牙の結論が出たらまとめて既定へ反映する）
 export const BASE = { kit: 'launcher', foreTurn: [20, 35], subStraight: true, stowed: true, thirdArm: false, subBehind: true };
-// 結論待ち＝一番下の座をどうするか（フォルダ 0920/１８ と同じ番号）
+// 結論待ち＝朔の座の絵（フォルダ 0920/２０ と同じ番号）。18:41 FB「朔の座の考えはいい・黒い月牙はまだすっきりさが足りない・月牙より静かな絵に」→ 繊月の象嵌（形は一つ・色も一つ）
 export const CANDS = {
   1: { label: '1 EMPTY (4 MOONS)', jp: '無地（月牙4枚）', o: { ...BASE, dropMoons: ['moonX'] } },
-  2: { label: '2 DORMANT MOON', jp: '朔の座＝眠る月（黒い月に鈍い鋼の縁）', o: { ...BASE, dormantX: 'dark' } },
-  3: { label: '3 DORMANT + EMBER', jp: '朔の座＋残り火（私の推し）', o: { ...BASE, dormantX: 'ember' } },
-  4: { label: '4 LIT (6 MOONS)', jp: '6枚とも灯る', o: { ...BASE } },
-  5: { label: '5 REF: RED BAND', jp: '参考＝以前の赤い帯', o: { ...BASE, dropMoons: ['moonX'], keepBand2: true } },
+  2: { label: '2 SLIVER STEEL', jp: '繊月・鋼', o: { ...BASE, dormantX: 'sliver' } },
+  3: { label: '3 SLIVER EMBER', jp: '繊月・深紅（私の推し）', o: { ...BASE, dormantX: 'sliverEmber' } },
+  4: { label: '4 EMBER BOLD', jp: '繊月・深紅の太め', o: { ...BASE, dormantX: 'sliverEmberBold' } },
+  5: { label: '5 REF: OLD SAKU', jp: '参考＝いままでの朔の座（黒い月牙・否決）', o: { ...BASE, dormantX: 'dark' } },
+  6: { label: '6 REF: LIT (6 MOONS)', jp: '参考＝6枚とも灯る', o: { ...BASE } },
 };
 
 console.log('=== 1. リポジトリの状態 ===');
@@ -35,7 +36,7 @@ console.log('  ・光刃の付け根は副腕（kit:launcher・foreTurn:[20,35]�
 console.log('  ・付け根は蒼の装甲の奥から生える（subBehind:true＝role を podL にして殻の奥へ）');
 console.log('  ・月牙は収めた姿で穴なし（stowed:true）');
 console.log('  土台の引数:', JSON.stringify(BASE));
-console.log('\n=== 4. 結論待ち＝一番下の座（月牙 4枚／6枚） ===');
+console.log('\n=== 4. 結論待ち＝朔の座の絵（繊月の象嵌・2〜4 のどれか） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [1, 3];
