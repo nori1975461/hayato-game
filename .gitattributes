@@ -1,0 +1,2 @@
+# シェルスクリプトは LF のまま（core.autocrlf=true の環境でチェックアウトし直すと CRLF になり、bash が $'\r' で落ちるのを防ぐ）
+*.sh text eol=lf
