@@ -1680,6 +1680,7 @@ let SH_HATCH = SH_HATCH_ALL;   // 整理の検討：dropMoons に moonX を入�
 const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
 const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
 const SHO_W = 140, SHO_H = 216, SHO_PIV = [54, 58], SHO_SEATS = [-108, -82, -56];
+let shoOn = [0, 1, 2];   // 「開」の姿で生きている座（上から T・M・X）。build4 が dropMoons から差し替える
 const shoRot = (x, y, a) => { const dx = x - SHO_PIV[0], dy = y - SHO_PIV[1], c = Math.cos(a), n = Math.sin(a); return [SHO_PIV[0] + dx * c - dy * n, SHO_PIV[1] + dx * n + dy * c]; };
 function shellOpen4(s, trim, deg) {
   const th = (deg * Math.PI) / 180, GX = (xn) => (s > 0 ? xn - 10 : 150 - xn), GY = (y) => y + 138;
@@ -1693,7 +1694,7 @@ function shellOpen4(s, trim, deg) {
     else if (mid < 0.06 && tt > 0.07 && tt < 0.76) c = 'R';
     else if (mid < 0.095 && tt > 0.05 && tt < 0.8) c = 'r';
     else if (rib && mid < 0.24 && tt > 0.08 && tt < 0.78) c = 'r';
-    for (const ys of SHO_SEATS) { const d = Math.abs(y - ys); if (d < 2.6 && u > 0.14 && u < 0.86) c = u < 0.24 || u > 0.76 ? (d < 1.8 ? 'Y' : 'k') : d < 0.8 ? 'N' : d < 1.7 ? 'Q' : 'k'; }
+    for (const ys of SHO_SEATS.filter((_, i) => shoOn.includes(i))) { const d = Math.abs(y - ys); if (d < 2.6 && u > 0.14 && u < 0.86) c = u < 0.24 || u > 0.76 ? (d < 1.8 ? 'Y' : 'k') : d < 0.8 ? 'N' : d < 1.7 ? 'Q' : 'k'; }
     P(C, GX(p[0]), GY(p[1]), c);
   }
   for (const L of [leaf(false), leaf(true)]) for (let y = 0; y < SHO_H; y++) for (let x = 0; x < SHO_W; x++) if (L[y][x] !== '.') C[y][x] = L[y][x];
@@ -1702,6 +1703,7 @@ function shellOpen4(s, trim, deg) {
 function openMoons4(deg) {   // 六枚とも有線で射出（根＝割れ目の中央の座）。画面左の向きで作り、右は rig の mirror
   const GW = 300, GH = 220, GC = [60, 110], T = [[-144, -124], [-176, -44], [-166, 34]], sprites = {}, rig = [];
   SHO_SEATS.forEach((ys, i) => {
+    if (!shoOn.includes(i)) return;
     const sp = shoRot(polyX(SH_RIDGE, ys), ys, ((deg * Math.PI) / 180) * 0.5), root = [-sp[0], sp[1]], off = [root[0] - T[i][0], root[1] - T[i][1]], tex = 'moonF' + i, origin = [(GC[0] + off[0]) / GW, (GC[1] + off[1]) / GH];
     sprites[tex] = { rows: moonArm4(off, 'wire', GW, GH, GC), palette: PAL };
     rig.push({ role: 'baseL', tex, ox: root[0], oy: root[1], origin }, { role: 'baseR', tex, ox: -root[0], oy: root[1], origin, mirror: true });
@@ -2233,7 +2235,7 @@ const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴�
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
   subStraight = !!o.subStraight; thirdArm4 = o.thirdArm !== false; third4Pts = o.thirdPts || THIRD4_PTS; third4Deg = o.thirdDeg ?? 17; open4 = o.open === true ? 16 : Number(o.open) || 0; stowed4 = !!o.stowed;
-  { const drop = o.dropMoons || [], ti = { moonT: 0, moonM: 1, moonX: 2 }; SH_HATCH = open4 || stowed4 ? [] : SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)); SH_SEAT = stowed4 && !open4 ? SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)) : []; }
+  { const drop = o.dropMoons || [], ti = { moonT: 0, moonM: 1, moonX: 2 }; shoOn = [0, 1, 2].filter((i) => !drop.some((k) => ti[k] === i)); SH_HATCH = open4 || stowed4 ? [] : SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)); SH_SEAT = stowed4 && !open4 ? SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)) : []; }
   armGunDeg = o.armGunDeg ?? ARMGUN4_DEG; armGunLen = o.armGunLen ?? ARMGUN4_LEN; mountSaberDeg = o.mountSaberDeg ?? MSABER4_DEG; mountSaberLen = o.mountSaberLen ?? MSABER4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
