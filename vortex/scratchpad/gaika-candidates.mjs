@@ -212,6 +212,7 @@ export const PAL = {
   // 第35稿：蒼の装甲の漆（q より一段明るく Q より暗い＝黒い胴と明度で分かれるが浮かない）
   b: '#0c2a4e',
   d: '#06122a',                                                           // 一番下の座の検討：蒼の漆が蝕に呑まれた闇（q より暗い蒼・黒 k とは蒼みで分かれる）
+  a: '#b3202e', h: '#4d0a16', o: '#2e7d5b',                               // 左肩の肩当ての検討：真紅の漆の地 a と その陰 h／緑の地 o（既定の絵では使わない）
   e: '#1b3a30', E: '#5fbf95',                                             // 玉座の緑青（封印の結び目だけ）
   v: '#4a3b7d', V: '#c0aef5',                                             // 軌道神核の紫（封印の結び目だけ）
 };
@@ -2059,12 +2060,15 @@ const HEAD4 = head4();
 
 // 第30稿：FB「肩にアーマープロテクターをつけて」＝胴の肩の関節を覆う角ばった肩当て。外へ向けて下がり、上面に金の縁・面に深紅の一筋・裾に牙
 const SHLD_W = 48, SHLD_H = 38;   // 第31稿：FB「肩のプロテクターをもう少し小さくして。主張強すぎ」
+const SHLD_TINT = { crimson: 'aRr', blood: 'rRh', bone: 'snf', silver: 'fsm', gold: 'YGy', green: 'oEe', yellow: 'GWY' };   // 左肩だけ色を変える口＝[地, 光の当たる縁, 陰]
 const shoulder = (s, so = null) => {   // so＝{ edge:'gold'|'steel'|'none', bands:false, flare, topW, scale }（第53稿の検討：すっきりさせる口。null なら従来どおり）
   // 第35稿：FB「肩のプロテクターがうるさい。自己主張を抑えて」＝幅 38→30・高さ 33→21。深紅の帯と裾の牙四本を外し、黒鉄の一枚板に金の上縁だけ
   // 第36稿：FB「肩当てがずれている。しっかり肩に嵌めて」＝原因は腕の根元が三つばらばら（33／40／52）で、肩当て（中心 45）がどの関節も覆っていなかったこと。
   //   直し＝主腕と三本目の腕を一つの肩の関節 (38,−25) へ集め、肩当てをその真上 (39,−31) に置く。内の縁は胴の肩の張り出し（x 28〜38）に 5 かぶる
   if (so && Array.isArray(so.accent)) so = { ...so, accent: so.accent[s < 0 ? 0 : 1] };   // 形のアクセントを左右で違える口＝[画面左（骸華の右肩）, 画面右（骸華の左肩）]
-  const G = g(SHLD_W, SHLD_H), X = (x) => x + 24, Y = (y) => y + 19;
+  const tn0 = so && so.tint ? (Array.isArray(so.tint) ? so.tint[s < 0 ? 0 : 1] : so.tint) : null, tn = tn0 ? SHLD_TINT[tn0] || tn0 : null;   // 色の口＝名前か 3 文字（地・光・陰）。配列なら [画面左, 画面右]
+  const pad = so?.pad ?? (so && so.accent === 'spikes' ? 10 : 0);   // 棘のぶんテクスチャを四方へ同じだけ広げる（origin は中心＝位置は動かない）
+  const G = g(SHLD_W + 2 * pad, SHLD_H + 2 * pad), X = (x) => x + 24 + pad, Y = (y) => y + 19 + pad;
   if (so && so.hide) return R(G);   // 参考＝肩当てを外した姿（下の関節が見える）
   for (let y = -13; y <= 10; y += 0.25) {
     const u = (y + 13) / 23, w = (so?.topW ?? 8) + (so?.flare ?? 8.5) * Math.pow(u, 0.72), sk = s * (so?.skew ?? 2.6) * u, sc = so?.scale ?? 1;
@@ -2079,6 +2083,7 @@ const shoulder = (s, so = null) => {   // so＝{ edge:'gold'|'steel'|'none', ban
       if (ac === 'chamfer' && od + (y + 13) < (so.cut ?? 7)) continue;                          // 上の外の角を斜めに落とす（面取り＝避弾の傾斜）
       if (ac === 'chamfer' && od + (y + 13) < (so.cut ?? 7) + 1.3 && s < 0) c = 'm';            // 光の当たる側（画面左）の斜面だけ明るい
       if (ac === 'notch' && 10 - y < (so.cut ?? 5) - Math.abs(x) * 0.9) continue;               // 裾の中央を逆 V に切り欠く（腕を振り上げる逃げ）
+      if (tn && so.tintPlate !== false && c !== 'k') c = c !== 'j' ? tn[1] : v > (so.shadeV ?? 0.45) || y > 6 ? tn[2] : tn[0];   // 色の口：面は一枚・色は一色（陰は外寄りと裾の上だけ）
       P(G, X((x + sk) * sc), Y(y * sc), c);
     }
   }
@@ -2087,7 +2092,17 @@ const shoulder = (s, so = null) => {   // so＝{ edge:'gold'|'steel'|'none', ban
     for (let yy = -13 - r; yy < -12.5; yy += 0.25) { const tt = (-13 - yy) / r;
       const [v0, v1] = so.accent === 'fin' ? [Math.max(0, tt), 1] : [0.42 + 0.5 * tt, 0.98 - 0.02 * tt];
       if (v1 < v0) continue;
-      for (let v = v0; v <= v1; v += 0.02) P(G, X(s * v * w0 * sc), Y(yy * sc), s < 0 && v > v1 - 0.12 ? 'm' : 'j'); }
+      for (let v = v0; v <= v1; v += 0.02) P(G, X(s * v * w0 * sc), Y(yy * sc), tn ? ((s > 0 ? v < v0 + 0.14 : v > v1 - 0.14) ? tn[1] : (s > 0 ? v > v1 - 0.3 : v < v0 + 0.3) ? tn[2] : tn[0]) : s < 0 && v > v1 - 0.12 ? 'm' : 'j'); }
+  }
+  if (so && so.accent === 'spikes') {   // 棘を自由に置く口＝so.spikes＝[[根の外向き x, 根の y, 角度（外向き水平＝0°・真上＝90°）, 長さ, 根の半幅, 反り], …]。面のあとに 面の無い所だけへ描く＝根は面の陰に入る
+    const sc = so.scale ?? 1, LX = -0.5 * s, LY = -0.62, plate = G.map((r) => r.map((ch) => ch !== '.')), isP = (x, y) => !!(plate[y] && plate[y][x]);   // so.seam＝棘の根の継ぎ目（面の輪郭に沿う 1 画素を黒く＝棘が「面に据えた別の部品」と読める）
+    for (const [bx, by, deg, len, hw, bend = 0] of so.spikes || []) {
+      const a = deg * Math.PI / 180, ux = Math.cos(a), uy = -Math.sin(a), nx = -uy, ny = ux;
+      for (let tt = 0; tt <= 1; tt += 0.008) { const w = hw * (1 - tt) + 0.35, cx = bx + ux * len * tt + nx * bend * tt * tt, cy = by + uy * len * tt + ny * bend * tt * tt;
+        for (let e = -w; e <= w; e += 0.2) { const lit = (nx * LX + ny * LY) * e > 0, c = lit ? (Math.abs(e) > w * 0.5 ? (tn ? tn[1] : 'm') : (tn ? tn[0] : 'j')) : (tn ? tn[2] : 'j');
+          const rx = Math.round(X(s * (cx + nx * e) * sc)), ry = Math.round(Y((cy + ny * e) * sc)); if (!G[ry] || rx < 0 || rx >= G[0].length || isP(rx, ry)) continue;
+          G[ry][rx] = so.seam && (isP(rx + 1, ry) || isP(rx - 1, ry) || isP(rx, ry + 1) || isP(rx, ry - 1)) ? (so.seam === true ? 'k' : so.seam) : c; } }
+    }
   }
   OUTLINE(G);
   return R(G);
