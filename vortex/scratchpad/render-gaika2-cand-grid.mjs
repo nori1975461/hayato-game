@@ -8,7 +8,7 @@ const ROWS = Math.ceil(items.length / COLS), W = COLS * PW + (COLS - 1) * 2, H =
 items.forEach(({ label, a }, i) => {
   const d = a.startsWith('{') ? M.gaika2With(JSON.parse(a)) : M[a], cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);
   renderBoss(cv, d, { ...d.tier, spriteScale: S }, PW / 2 - wx * S, PH / 2 - wy * S, { glow: false });
-  text(cv, label, 4, 4, WHITE, 1);
+  text(cv, label, 4, 4, WHITE, Number(process.env.LABEL_SCALE) || 1);   // 大きい倍率で撮るときは LABEL_SCALE=2 で札も大きく
   const ox = (i % COLS) * (PW + 2), oy = Math.floor(i / COLS) * (PH + 2);
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) { const s0 = (y * PW + x) * 3, p = ((oy + y) * W + ox + x) * 3; out.px[p] = cv.px[s0]; out.px[p + 1] = cv.px[s0 + 1]; out.px[p + 2] = cv.px[s0 + 2]; }
 });
