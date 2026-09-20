@@ -1999,7 +1999,8 @@ const SABER4_DEG = 17, SABER4_LEN = 70, VULCAN4_DEG = 66, VULCAN4_LEN = 36;
 let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulcanLen = VULCAN4_LEN;
 // 第51稿：FB「バルカン砲とビームサーベルを交代させて。いまのバルカン砲の柄にビームサーベルをつけて。いまのビームサーベルの柄にバルカン砲をつけて。ビームサーベルの位置は添付資料参考」
 //   kit 'swap'＝三本目の腕の手にバルカン砲（ARMGUN4＝向きは第50稿の光刃と同じ 17°・砲身 30）／台座から光刃（MSABER4＝向きは第50稿の砲と同じ 66°≒添付の実測 65°・長さ 96＝第33〜48稿の光刃の長さ）
-const ARMGUN4_DEG = 17, ARMGUN4_LEN = 30, MSABER4_DEG = 66, MSABER4_LEN = 96;
+// 第52稿：FB「ビームサーベルを62度110にして」＝角度の見比べ A〜D のうち B の角度（62°）と C の長さ（110）を組み合わせた指定
+const ARMGUN4_DEG = 17, ARMGUN4_LEN = 30, MSABER4_DEG = 62, MSABER4_LEN = 110;
 let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
