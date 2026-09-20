@@ -1919,12 +1919,29 @@ function waist4(G, X, Y, style, CH4 = CH4_DEF, opt = {}) {
     seam(-6, 2);
   }
 }
+// 頬当て（頭の吹返し）の外縁の x。首の装甲の「すき間の灯」をこの線のすぐ外へ置くために、胴と頭で同じ式を使う
+const CHEEK4_X1 = (y) => 15.8 - ((y + 49.5) / 13.5) * 7.8;
+// 首の装甲（第53稿の検討）：黒鉄の低い板。上端は頭の鉢の下の縁まで＝顔より高く尖らない。外の面は上へ行くほど内へ傾く（襟は外へ開くもの＝その逆）。
+//   seam＝頬当てのすぐ外に沿う細い深紅（頭と装甲のすき間から漏れる灯＝光は縁にしか無い）。false で灯なし
+const collarGuard4 = (G, X, Y, kc, co) => {
+  const c = typeof co === 'object' ? co : {}, lean = c.lean ?? 3.2, seam = c.seam ?? 'R', seamW = c.seamW ?? 1.5, xo = 7 + 18 * kc + (c.out ?? 1.2);
+  for (const s of [-1, 1]) for (let top = s > 0 ? c.topR ?? c.top ?? -45.5 : c.top ?? -45.5, y = top; y <= -30.5; y += 0.25) {   // topR＝骸華の左（画面右）だけ高さを変える口
+    const u = (y - top) / (-30.5 - top), x1 = xo - lean * (1 - u), yt = y - top;
+    for (let x = 6; x <= x1; x += 0.25) {
+      const dIn = x - (y <= -36 ? CHEEK4_X1(y) : CHEEK4_X1(-36)) - 1.0, dOut = x1 - x;   // dIn＝頭の輪郭（頬当ての外縁＋輪郭 1）からの距離
+      let ch = yt < 1.0 ? (s < 0 ? 'f' : 'm') : dOut < 1.2 ? (s < 0 ? 'm' : 'k') : 'j';
+      if (seam && dIn >= 0 && dIn < seamW && y <= -33) ch = seam;
+      P(G, X(s * x), Y(y), ch);
+    }
+  }
+};
 const torso4 = (style = 'bell', CH4 = CH4_DEF, opt = {}) => {
   const FP = opt.fp ?? 1, DISC2 = opt.disc2 ?? 'none';   // 脇の線の指数（1＝直線・大きいほど細いまま降りて裾だけ開く）／下の関節の円盤（full／small／none）
   const k4 = CH4 / CH4_V43, SX4 = 16 * k4, GR4 = 17.5 * k4, kc = (CH4 - 8.2) / 18, LVa = Math.round(5.5 * k4), LVb = Math.round(13.5 * k4);
   const NEW = style === 'dom' || style === 'zaku' || style === 'zaku2' || style === 'zeong', W = NEW ? 88 : TOR4_W;
   const G = g(W, TOR4_H), X = (x) => x + W / 2, Y = (y) => y + TOR4_OY, Q = (pts) => pts.map(([x, y]) => [X(x), Y(y)]);
-  for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * (7 + 5 * kc), -53], [s * (7 + 15 * kc), -46], [s * (7 + 18 * kc), -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
+  if (opt.collar && opt.collar !== 'none') collarGuard4(G, X, Y, kc, opt.collar);
+  if (!opt.collar) for (const s of [-1, 1]) polyFill(G, Q([[s * 7, -32], [s * (7 + 5 * kc), -53], [s * (7 + 15 * kc), -46], [s * (7 + 18 * kc), -31]]), (x, y, d) => (d(1) < 1.0 ? (s < 0 ? 'A' : 'R') : d(2) < 1.1 ? 'k' : s < 0 && d(1) < 4 ? 'R' : 'r'));   // 深紅の高い襟
   const FL0 = opt.fl0 ?? -12, BASE_Y = 22.6, TIP_Y = opt.tip ?? 36.5, BASE_W = 36.6;
   const KN = opt.knee === undefined ? [4, 2.5] : opt.knee;   // [折れの高さ, 折れでの張り出し]＝上段は胸からほぼ真下・下段で扇の付け根の幅まで開く
   const flank = (y) => (style === 'slab' ? CH4 : KN ? (y <= FL0 ? CH4 : y <= KN[0] ? CH4 + (y - FL0) * KN[1] / (KN[0] - FL0) : CH4 + KN[1] + (Math.min(y, BASE_Y) - KN[0]) * (BASE_W - CH4 - KN[1]) / (BASE_Y - KN[0])) : CH4 + (BASE_W - CH4) * Math.pow(Math.min(1, Math.max(0, (y - FL0) / (BASE_Y - FL0))), FP));
@@ -1977,6 +1994,18 @@ const headTop4 = (G, X, Y, top, ho) => {
     box(-6.4, -58.2, 6.4, -53.8, 'k'); box(-5.5, -57.4, 5.5, -54.6, (x) => (x < -1.5 ? 'f' : x < 2.5 ? 'm' : 'j'));
   } else if (top === 'third') {   // 額の上の横の溝＝上方を見張るサブセンサー（第三の眼）。灯は主のモノアイと反対側＝二方向を同時に見ている
     const dx = ho.dotX ?? 1.2; box(-4.4, -60.0, 4.4, -59.4, (x) => (x < 0 ? 'f' : 'm')); box(-4.4, -59.2, 4.4, -57.0, 'k'); box(dx, -58.2, dx + 1.2, -57.8, 'r'); box(dx, -58.2, dx + 0.2, -57.8, 'A');
+  } else if (top === 'mast') {   // 蝕の軌条：モノアイの溝が額を越え、頭の上まで枠ごと立ち上がる（枠つきの十字＋鶏冠＋刃）。一目では刃のアンテナ・二度見で芯が黒い溝＝眼が頭の外まで昇れる軌条
+    const h = ho.h ?? 9, yT = -62 - h, o0 = ho.w0 ?? 2.7, o1 = ho.w1 ?? 1.6, yK = ho.yK ?? -60, ex = ho.ex ?? 0;   // yK＝ここから上が細る（鶏冠の形にするなら w0 3.4・w1 1.3・yK −57）
+    for (let y = yT; y <= -50.6; y += 0.25) { const uu = y < yK ? (yK - y) / (yK - yT) : 0, ow = o0 + (o1 - o0) * uu, iw = Math.max(0.55, ow - 1.1);
+      for (let x = -ow; x <= ow; x += 0.25) P(G, X(ex + x), Y(y), y < yT + 0.9 ? (x < 0 ? 'f' : 'm') : x < -iw ? 'f' : x > iw ? 'm' : 'k'); }
+  } else if (top === 'sunk') {   // 溝から生える刃（3＋5）：十字の軌条の上端から、台座なしで刃が立つ＝眼と刃が同じ一本の溝を使っている。一目では刃のアンテナ・二度見で「眼の通り道から生えている」
+    const ex = ho.ex ?? 0; box(ex - 2.4, -62.4, ex + 2.4, -50.6, (x) => (x > ex + 1.5 ? 'm' : 'k'));
+    blade(ex, ho.y0 ?? -59.5, ex, -57 - (ho.h ?? 14), ho.w0 ?? 1.3, 0.45);
+  } else if (top === 'gaze') {   // 視線に従う刃：額に横の軌条、刃はその上をモノアイの真上まで寄っている（眼が動けば刃も動く）。中心線から外れた一本
+    const ex = ho.ex ?? -3.6, h = ho.h ?? 13;
+    box(-9.5, -57.0, 9.5, -56.0, 'k'); box(-9.5, -57.8, 9.5, -57.2, (x) => (x < 0 ? 'f' : 'm'));
+    blade(ex, -57, ex, -57 - h, ho.w0 ?? 1.5, 0.45);
+    box(ex - 2.6, -58.6, ex + 2.6, -54.8, 'k'); box(ex - 1.8, -57.8, ex + 1.8, -55.6, (x) => (x < ex - 0.4 ? 'f' : x < ex + 0.9 ? 'm' : 'j'));
   } else if (top === 'side') {   // 鉢の片側に台座と一本の刃＝通信アンテナ。左右非対称。既定は画面左（骸華の右）＝画面右は背景の柱のすぐ脇で刃が柱に溶ける
     const h = ho.h ?? 15, sx = ho.sx ?? -1; blade(sx * 10.9, -56.5, sx * (10.9 + (ho.lean ?? 1.8)), -56.5 - h, ho.w0 ?? 1.3, 0.4, sx > 0 ? 's' : 's', 'f');
     box(Math.min(sx * 8.4, sx * 13.2), -57.2, Math.max(sx * 8.4, sx * 13.2), -52.2, 'k'); box(Math.min(sx * 9.2, sx * 12.4), -56.4, Math.max(sx * 9.2, sx * 12.4), -53.0, (x) => (x * sx < 10.2 ? 'f' : 'm'));
@@ -2000,9 +2029,10 @@ const head4 = (ho = {}) => {
   for (const s of [-1, 1]) for (let y = -49.5; y <= -36; y += 0.25) {   // 第33稿：吹返し（鉢の左右から顎へ尖る二枚の板）
     const u = (y + 49.5) / 13.5, x0 = 7.2 + u * 1.6, x1 = 15.8 - u * 7.8;
     if (x1 <= x0) continue;
-    for (let x = x0; x <= x1; x += 0.25) { const v = (x - x0) / (x1 - x0); P(G, X(s * x), Y(y), v > 0.93 ? (s < 0 ? 'Y' : 'y') : v < 0.18 ? 'k' : s < 0 ? 'm' : 'j'); }
+    for (let x = x0; x <= x1; x += 0.25) { const v = (x - x0) / (x1 - x0); P(G, X(s * x), Y(y), v > 0.93 ? (ho.cheek === 'steel' ? (s < 0 ? 'f' : 'j') : s < 0 ? 'Y' : 'y') : v < 0.18 ? 'k' : s < 0 ? 'm' : 'j'); }
   }
   if (ho.eye === 'eclipse') { DISC(G, X(-3.6), Y(-47.7), 3.5, 'r'); DISC(G, X(-3.6), Y(-47.7), 2.8, 'A'); DISC(G, X(-3.6 + (ho.eyeDx ?? 0.5)), Y(-47.7 + (ho.eyeDy ?? -0.5)), ho.eyeR ?? 1.7, 'k'); }   // 蝕のモノアイ：芯が黒く、縁だけが灼ける（蝕刃・掌蝕と同じ形）
+  else if (ho.eyeAt) { const [ex, ey] = ho.eyeAt; DISC(G, X(ex), Y(ey), 3.5, 'r'); DISC(G, X(ex), Y(ey), 2.7, 'A'); DISC(G, X(ex - 0.3), Y(ey - 0.3), 1.2, 'W'); }
   else DISC(G, X(-3.6), Y(-47.7), 3.5, 'r'), DISC(G, X(-3.6), Y(-47.7), 2.7, 'A'), DISC(G, X(-3.9), Y(-48), 1.2, 'W');                  // 深紅のモノアイ
   OUTLINE(G);
   return R(G);
@@ -2026,8 +2056,19 @@ const shoulder = (s, so = null) => {   // so＝{ edge:'gold'|'steel'|'none', ban
       else if (y > 8.6) c = 'k';
       else if (so && so.bands === false) c = Math.abs(v) > 0.93 ? 'k' : v < -0.78 ? 'm' : 'j';
       else c = Math.abs(v) > 0.93 ? 'k' : v < -0.58 ? 'm' : v < 0.18 ? 'j' : 'k';
+      const ac = so && so.accent, od = w - v * w;   // od＝外の縁からの距離。形のアクセントは一つだけ（色は足さない）
+      if (ac === 'chamfer' && od + (y + 13) < (so.cut ?? 7)) continue;                          // 上の外の角を斜めに落とす（面取り＝避弾の傾斜）
+      if (ac === 'chamfer' && od + (y + 13) < (so.cut ?? 7) + 1.3 && s < 0) c = 'm';            // 光の当たる側（画面左）の斜面だけ明るい
+      if (ac === 'notch' && 10 - y < (so.cut ?? 5) - Math.abs(x) * 0.9) continue;               // 裾の中央を逆 V に切り欠く（腕を振り上げる逃げ）
       P(G, X((x + sk) * sc), Y(y * sc), c);
     }
+  }
+  if (so && (so.accent === 'fin' || so.accent === 'spike')) {   // fin＝上の縁が外の角へ向かって跳ね上がる／spike＝上の縁の外寄りに短い棘が一本
+    const sc = so.scale ?? 1, w0 = so.topW ?? 8, r = so.cut ?? (so.accent === 'fin' ? 6 : 7);
+    for (let yy = -13 - r; yy < -12.5; yy += 0.25) { const tt = (-13 - yy) / r;
+      const [v0, v1] = so.accent === 'fin' ? [Math.max(0, tt), 1] : [0.42 + 0.5 * tt, 0.98 - 0.02 * tt];
+      if (v1 < v0) continue;
+      for (let v = v0; v <= v1; v += 0.02) P(G, X(s * v * w0 * sc), Y(yy * sc), s < 0 && v > v1 - 0.12 ? 'm' : 'j'); }
   }
   OUTLINE(G);
   return R(G);
@@ -2308,7 +2349,7 @@ function build4(o = {}) {
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(open4 ? shellOpen4(-1, trim, open4) : shell(-1, trim)), shellR: P7(open4 ? shellOpen4(1, trim, open4) : shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(o.head ? head4(o.head) : HEAD4), shldL: P7(shoulder(-1, o.shoulder || null)), shldR: P7(shoulder(1, o.shoulder || null)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(saku4 ? sakuSeal4(saku4) : o.dormantX ? dormant4(MOONS4[2].rows, o.dormantX) : MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(open4 ? shellOpen4(-1, trim, open4) : shell(-1, trim)), shellR: P7(open4 ? shellOpen4(1, trim, open4) : shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.collar ? { ...(o.torsoOpt || (o.torso ? {} : ZAKU2_DEF)), collar: o.collar } : o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(o.head ? head4(o.head) : HEAD4), shldL: P7(shoulder(-1, o.shoulder || null)), shldR: P7(shoulder(1, o.shoulder || null)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(saku4 ? sakuSeal4(saku4) : o.dormantX ? dormant4(MOONS4[2].rows, o.dormantX) : MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const OM4 = open4 ? openMoons4(open4) : null; if (OM4) Object.assign(sprites, OM4.sprites);
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
@@ -2321,7 +2362,7 @@ function build4(o = {}) {
     ...(OM4 ? OM4.rig : []), ...(OM4 ? [] : [moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), (stowed4 ? moon('wingL', 0, false) : moon('qlegFL', 3, false))]).filter((m) => !(o.dropMoons || []).includes(m.tex)),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
-    { role: 'rack', tex: 'shldL', ox: -39, oy: -31, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 39, oy: -31, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
+    { role: 'rack', tex: 'shldL', ox: -(39 - (o.shoulder?.dx ?? 0)), oy: -31, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 39 - (o.shoulder?.dx ?? 0), oy: -31, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
   ];
   return { id: 'gaika4' + (o.tag || ''), name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: glow[0], glowInner: glow[1] } };
