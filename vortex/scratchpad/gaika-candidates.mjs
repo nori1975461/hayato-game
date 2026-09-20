@@ -1715,7 +1715,7 @@ function openMoons4(deg) {   // 六枚とも有線で射出（根＝割れ目の
 }
 function shell(s, trim = ['R', 'R'], xf = null) {
   const G = xf ? g(xf.W, xf.H) : g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
-  const sx = xf ? null : shSeatX, bt = sx && sx.kind === 'bite' ? { c: sx.c || [118, 0], r: sx.r ?? 40 } : null, um = sx && sx.kind === 'umbra' ? { c: sx.c || [0, 70], r: sx.r ?? 115, rim: sx.rim ?? 'R', w: sx.w ?? 1.2, w2: sx.w2 ?? 1.1, dark: sx.dark || 'd', sink: sx.sink !== false } : null, UM_DIM = { R: 'r', A: 'R', G: 'Y', Y: 'y', W: 'G', s: 'f', f: 'm' }, ecl2 = !!(sx && sx.kind === 'band' && sx.eclipse);
+  const sx = shSeatX, bt = sx && sx.kind === 'bite' ? { c: sx.c || [118, 0], r: sx.r ?? 40 } : null, um = sx && sx.kind === 'umbra' ? { c: sx.c || [0, 70], r: sx.r ?? 115, rim: sx.rim ?? 'R', w: sx.w ?? 1.2, w2: sx.w2 ?? 1.1, dark: sx.dark || 'd', sink: sx.sink !== false, inner: !!sx.inner, burn: sx.burn || null } : null, UM_DIM = { R: 'r', A: 'R', G: 'Y', Y: 'y', W: 'G', s: 'f', f: 'm' }, ecl2 = !!(sx && sx.kind === 'band' && sx.eclipse);
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
     const [xi, xo0, tt] = shellEdges(y), bdy = bt ? y - bt.c[1] : 0, xo = bt && Math.abs(bdy) < bt.r ? Math.min(xo0, bt.c[0] - Math.sqrt(bt.r * bt.r - bdy * bdy)) : xo0, xr = polyX(SH_RIDGE, y);
     for (let x = xi; x <= xo; x += 0.25) {
@@ -1732,10 +1732,10 @@ function shell(s, trim = ['R', 'R'], xf = null) {
       else if (hd < 0.92) c = 'k';                                                                       // 月牙の座＝装甲に彫られた開口（奥は闇）
       else if (hd < 1.0) c = lit ? 'r' : 'k';                                                          // 開口の縁（炉の残り火だけ）
       else if (dOut < 1.1 && tt > 0.06) c = lit ? 's' : 'f';                                            // 縁そのものが刃（最外一筋の白銀）
-      else if (sd < 1.0 && !(dOut >= 1.8 && dOut < 3.0)) c = lit ? 'b' : 'q';                              // 月牙を収めた座＝無地の装甲板
+      else if (sd < 1.0 && !(dOut >= 1.8 && dOut < 3.0)) c = um && (x > xr || um.inner) && dU >= um.w ? um.dark : lit ? 'b' : 'q';                              // 月牙を収めた座＝無地の装甲板
       else if (um && x > xr && dU >= 0 && dU < um.w) c = um.rim;                                            // 昇る蝕：闇の縁の一筋（稜線より外の面だけ＝内の面は腕と胴のすき間から欠片が覗くので掛けない。⚠️lit でなく x > xr で判定する＝lit は左右の殻で内外が逆）
       else if (um && x > xr && dU >= um.w && dU < um.w + um.w2) c = 'r';                                         // 昇る蝕：縁のすぐ内側は灼けた暗い深紅（蝕刃と同じ「縁だけが灼ける」）
-      else if (um && um.sink && dU >= um.w && dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = UM_DIM[lit ? trim[0] : trim[1]] || (lit ? trim[0] : trim[1]);   // 昇る蝕：闇の中の縁取りは一段沈む
+      else if (um && um.sink && dU >= um.w && dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = um.burn || UM_DIM[lit ? trim[0] : trim[1]] || (lit ? trim[0] : trim[1]);   // 昇る蝕：闇の中の縁取りは一段沈む
       else if (um && um.sink && dU >= um.w && Math.abs(x - xr) < 0.55) c = lit ? 'm' : 'k';               // 昇る蝕：闇の中の稜線も一段沈む
       else if (ecl2 && Math.floor(f) === 2 && fr < 0.22) c = fr < (sx.e0 ?? 0.035) || fr >= 0.22 - (sx.e1 ?? 0.035) ? (lit ? 'R' : 'r') : 'k';   // 蝕の炉口：芯が黒く縁だけ灼ける
       else if (bandOn && f > 0.9 && fr < 0.075) c = lit ? 'A' : 'R';                                              // 段の隙間から漏れる炉の光
@@ -1743,7 +1743,7 @@ function shell(s, trim = ['R', 'R'], xf = null) {
       else if (bandOn && f > 0.9 && fr < 0.22) c = 'k';
       else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
-      else if (um && x > xr && dU >= um.w) c = um.dark;                                                    // 昇る蝕：闇に呑まれた面
+      else if (um && (x > xr || um.inner) && dU >= um.w) c = um.dark;                                                    // 昇る蝕：闇に呑まれた面
       else c = lit ? (fr > 0.86 && Math.floor(f) + 1 !== shBandOff ? 'Q' : 'b') : 'q';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
       if (xf) { const tp = xf(x, y, xr); if (tp) P(G, tp[0], tp[1], c); } else P(G, X(s * x), Y(y), c);
     }
@@ -2362,7 +2362,7 @@ function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
   subBoom4 = o.subBoom ? { ...SUB4_BOOM_DEF, ...(typeof o.subBoom === 'object' ? o.subBoom : {}) } : null; subBlade4 = o.subBlade ? { ...SUB4_ECLIPSE_DEF, ...(typeof o.subBlade === 'object' ? o.subBlade : {}) } : null;
   subStraight = !!o.subStraight; thirdArm4 = o.thirdArm !== false; third4Pts = o.thirdPts || THIRD4_PTS; third4Deg = o.thirdDeg ?? 17; open4 = o.open === true ? 16 : Number(o.open) || 0; stowed4 = !!o.stowed;
-  const saku4 = !open4 && o.dormantX ? (typeof o.dormantX === 'object' ? o.dormantX : SAKU4[o.dormantX]) || null : null;   // 朔の座の絵（第二版）。'dark'／'ember' は null＝従来どおり月牙の色替え
+  const sakuRaw4 = o.dormantX ? (typeof o.dormantX === 'object' ? o.dormantX : SAKU4[o.dormantX]) || null : null, saku4 = sakuRaw4 && (!open4 || sakuRaw4.kind === 'umbra' || sakuRaw4.kind === 'bite') ? sakuRaw4 : null;   // 朔の座の絵（第二版）。'dark'／'ember' は null＝従来どおり月牙の色替え
   { const drop = o.dropMoons || [], ti = { moonT: 0, moonM: 1, moonX: 2 }, dropS = saku4 ? [...drop, 'moonX'] : drop; shoOn = [0, 1, 2].filter((i) => !drop.some((k) => ti[k] === i)); shSeatX = saku4 && saku4.kind ? saku4 : null; shBandOff = !open4 && dropS.includes('moonX') && !o.keepBand2 && !(shSeatX && shSeatX.kind === 'band') ? 2 : 0; SH_HATCH = open4 || stowed4 ? [] : SH_HATCH_ALL.filter((_, i) => !dropS.some((k) => ti[k] === i)); SH_SEAT = stowed4 && !open4 ? SH_HATCH_ALL.filter((_, i) => !dropS.some((k) => ti[k] === i)) : []; }
   armGunDeg = o.armGunDeg ?? ARMGUN4_DEG; armGunLen = o.armGunLen ?? ARMGUN4_LEN; mountSaberDeg = o.mountSaberDeg ?? MSABER4_DEG; mountSaberLen = o.mountSaberLen ?? MSABER4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
