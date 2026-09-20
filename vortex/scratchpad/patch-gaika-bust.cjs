@@ -6,7 +6,9 @@
 // 読み：④「深紅の板＋金の縁どり」は二つの部品の重なり＝胴の「深紅の高い襟」（torso4）と、頭の頬当て（第33稿の吹返し）の外縁の金。深紅の面と金の線と上へ尖る輪郭がヒーローの記号 → 黒鉄の低い首の装甲＋金を外す。
 //       深紅は「面」でなく、頭と装甲のすき間から漏れる細い光として残す（蝕刃・掌蝕と同じ＝光は縁にしか無い）。
 //       ②関節の円盤は (CH4+7.4, −28) 半径 6.6＝x 24.8〜38。肩当て 5 の内の縁は x≈29.8 → 円盤の内側が 5 画素のぞいていた。
-// 作り：{ shoulder: { dx, accent:'chamfer'|'fin'|'spike'|'notch', cut } }／{ collar: 'none' | { seam, top, lean } }／{ head: { cheek:'steel', top:'mast'|'saku'|'gaze' … } }。どれも省略すれば従来どおり。既定は不変。
+// 作り：{ shoulder: { dx, accent:'chamfer'|'fin'|'spike'|'notch', cut } }／{ collar: 'none' | { seam, seamW, top, topR, lean, out } }／{ head: { cheek:'steel', top:'sunk'|'mast'（外した案＝'gaze'）, ex, eyeAt … } }。どれも省略すれば従来どおり。既定は不変。
+// 私の推し＝肩当て { …5, dx:7, accent:'chamfer' }・顔の両脇 { collar:{}, head.cheek:'steel' }・頭 { top:'sunk' }。渡したもの＝0920/２３。実測＝関節の円盤の明るい輪が見える画素 56→0 は dx 7 から（measure-gaika2-shoulder-cover.mjs）・頭の金 40→6・胴の深紅 511→134。
+// 途中の追記（FB）＝「気に入ったのは 3 ブレード・5 十字の軌条・鶏冠・枠つきの十字の四つ。6（列）はくどい」→ 多刃の案（朔の冠）は捨て、中心線の一本の縦に絞った。
 const fs = require('fs'), F = __dirname + '/gaika-candidates.mjs';
 let t = fs.readFileSync(F, 'utf8'); const crlf = t.includes('\r\n'); if (crlf) t = t.replace(/\r\n/g, '\n');
 const rep = (a, b) => { a = a.replace(/\r\n/g, '\n'); b = b.replace(/\r\n/g, '\n'); if (t.split(a).length !== 2) throw new Error('NOT_UNIQUE(' + (t.split(a).length - 1) + ') ' + a.slice(0, 60)); t = t.replace(a, () => b); };
