@@ -1733,8 +1733,8 @@ function shell(s, trim = ['R', 'R'], xf = null) {
       else if (hd < 1.0) c = lit ? 'r' : 'k';                                                          // 開口の縁（炉の残り火だけ）
       else if (dOut < 1.1 && tt > 0.06) c = lit ? 's' : 'f';                                            // 縁そのものが刃（最外一筋の白銀）
       else if (sd < 1.0 && !(dOut >= 1.8 && dOut < 3.0)) c = lit ? 'b' : 'q';                              // 月牙を収めた座＝無地の装甲板
-      else if (um && lit && dU >= 0 && dU < um.w) c = um.rim;                                            // 昇る蝕：闇の縁の一筋（稜線より外の面だけ＝内の面は腕と胴のすき間から欠片が覗くので掛けない）
-      else if (um && lit && dU >= um.w && dU < um.w + um.w2) c = 'r';                                         // 昇る蝕：縁のすぐ内側は灼けた暗い深紅（蝕刃と同じ「縁だけが灼ける」）
+      else if (um && x > xr && dU >= 0 && dU < um.w) c = um.rim;                                            // 昇る蝕：闇の縁の一筋（稜線より外の面だけ＝内の面は腕と胴のすき間から欠片が覗くので掛けない。⚠️lit でなく x > xr で判定する＝lit は左右の殻で内外が逆）
+      else if (um && x > xr && dU >= um.w && dU < um.w + um.w2) c = 'r';                                         // 昇る蝕：縁のすぐ内側は灼けた暗い深紅（蝕刃と同じ「縁だけが灼ける」）
       else if (um && um.sink && dU >= um.w && dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = UM_DIM[lit ? trim[0] : trim[1]] || (lit ? trim[0] : trim[1]);   // 昇る蝕：闇の中の縁取りは一段沈む
       else if (um && um.sink && dU >= um.w && Math.abs(x - xr) < 0.55) c = lit ? 'm' : 'k';               // 昇る蝕：闇の中の稜線も一段沈む
       else if (ecl2 && Math.floor(f) === 2 && fr < 0.22) c = fr < (sx.e0 ?? 0.035) || fr >= 0.22 - (sx.e1 ?? 0.035) ? (lit ? 'R' : 'r') : 'k';   // 蝕の炉口：芯が黒く縁だけ灼ける
@@ -1743,7 +1743,7 @@ function shell(s, trim = ['R', 'R'], xf = null) {
       else if (bandOn && f > 0.9 && fr < 0.22) c = 'k';
       else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
-      else if (um && lit && dU >= um.w) c = um.dark;                                                    // 昇る蝕：闇に呑まれた面
+      else if (um && x > xr && dU >= um.w) c = um.dark;                                                    // 昇る蝕：闇に呑まれた面
       else c = lit ? (fr > 0.86 && Math.floor(f) + 1 !== shBandOff ? 'Q' : 'b') : 'q';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
       if (xf) { const tp = xf(x, y, xr); if (tp) P(G, tp[0], tp[1], c); } else P(G, X(s * x), Y(y), c);
     }
