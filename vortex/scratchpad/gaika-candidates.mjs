@@ -1776,13 +1776,22 @@ const DORMANT4 = { dark: { R: 'm', Q: 'j', q: 'k', r: 'j', A: 'm', Y: 'y', s: 'm
 const dormant4 = (rows, mode) => { const map = DORMANT4[mode] || DORMANT4.dark; return rows.map((r) => r.replace(/[RQqrAYsf]/g, (ch) => map[ch] || ch)); };
 // 朔の座の絵（第二版）：繊月の象嵌。c＝月の色・dd／rc＝欠けの円のずれと半径（厚みの最大＝r−rc+dd）・thr＝画素を塗る被覆率
 const SAKU4 = { sliver: { c: 'm' }, sliverEmber: { c: 'r' }, sliverEmberBold: { c: 'r', dd: 3.8, rc: 12.5 } };
-const sakuSeal4 = ({ c = 'm', dd = 3.0, rc = 12.7, thr = 0.4 }) => {
-  const G = g(MOON4_W, MOON4_H), [cx, cy] = MOON4_C, r = 11.5 * MOON4_K, a = Math.atan2(-2.5, 5.5), ox = Math.cos(a) * dd, oy = Math.sin(a) * dd;   // 円と欠けの向きは灯る月牙の主の刃と同じ
+const sakuSeal4 = ({ c = 'm', dd = 3.0, rc = 12.7, thr = 0.4, fill = 0, fillC = 'r', flip = false, core = null, coreIn = 0.9 }) => {
+  const hit = [];
+  const G = g(MOON4_W, MOON4_H), [cx, cy] = MOON4_C, r = 11.5 * MOON4_K, a = Math.atan2(-2.5, 5.5) + (flip ? Math.PI : 0), ox = Math.cos(a) * dd, oy = Math.sin(a) * dd;   // 円と欠けの向きは灯る月牙の主の刃と同じ
   for (let y = 0; y < MOON4_H; y++) for (let x = 0; x < MOON4_W; x++) {
     let n = 0;
     for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x - 0.375 + i * 0.25, py = y - 0.375 + j * 0.25; if (Math.hypot(px - cx, py - cy) <= r && Math.hypot(px - cx - ox, py - cy - oy) >= rc) n++; }
-    if (n / 16 >= thr) G[y][x] = c;
+    if (n / 16 >= thr) hit.push([x, y]);
   }
+  // 弧に沿った位置 u（0＝画面で下の先端・1＝上の先端）
+  const am = a + Math.PI, ts = hit.map(([x, y]) => { let d = Math.atan2(y - cy, x - cx) - am; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; });
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), lowIs0 = hit.length > 0 && hit[ts.indexOf(t0)][1] > hit[ts.indexOf(t1)][1];
+  hit.forEach(([x, y], i) => {
+    const u0 = (ts[i] - t0) / (t1 - t0 || 1), u = lowIs0 ? u0 : 1 - u0;
+    const inCore = core && r - Math.hypot(x - cx, y - cy) >= coreIn && Math.hypot(x - cx - ox, y - cy - oy) - rc >= coreIn;
+    G[y][x] = inCore ? core : u < fill ? fillC : c;
+  });
   return R(G);   // 輪郭の黒は付けない＝面に埋まった象嵌
 };
 const MOONS4 = [{ c: [-48, -84], root: [-48, -84], mode: 'dock' }, { c: [-64, -46], root: [-64, -46], mode: 'dock' }, { c: [-72, -8], root: [-72, -8], mode: 'dock' }, { c: [-132, -68], root: [-48, -84], mode: 'wire' }]
@@ -2045,6 +2054,7 @@ const shoulder = (s, so = null) => {   // so＝{ edge:'gold'|'steel'|'none', ban
   // 第35稿：FB「肩のプロテクターがうるさい。自己主張を抑えて」＝幅 38→30・高さ 33→21。深紅の帯と裾の牙四本を外し、黒鉄の一枚板に金の上縁だけ
   // 第36稿：FB「肩当てがずれている。しっかり肩に嵌めて」＝原因は腕の根元が三つばらばら（33／40／52）で、肩当て（中心 45）がどの関節も覆っていなかったこと。
   //   直し＝主腕と三本目の腕を一つの肩の関節 (38,−25) へ集め、肩当てをその真上 (39,−31) に置く。内の縁は胴の肩の張り出し（x 28〜38）に 5 かぶる
+  if (so && Array.isArray(so.accent)) so = { ...so, accent: so.accent[s < 0 ? 0 : 1] };   // 形のアクセントを左右で違える口＝[画面左（骸華の右肩）, 画面右（骸華の左肩）]
   const G = g(SHLD_W, SHLD_H), X = (x) => x + 24, Y = (y) => y + 19;
   if (so && so.hide) return R(G);   // 参考＝肩当てを外した姿（下の関節が見える）
   for (let y = -13; y <= 10; y += 0.25) {
