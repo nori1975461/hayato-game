@@ -48,6 +48,22 @@ Object.assign(CANDS, {
   21: { label: '21 MAST, CREST SHAPE', jp: '同・頭＝蝕の軌条・鶏冠の形', o: { ...BUST, head: { cheek: 'steel', top: 'mast', w0: 3.4, w1: 1.3, yK: -57, h: 10 } } },
   22: { label: '22 AXIS ON THE EYE', jp: '同・頭＝眼の真上に立つ刃', o: { ...BUST, head: { cheek: 'steel', top: 'sunk', ex: -3.6 } } },
 });
+// 22:07 FB「右肩は面取り・左肩は跳ね上げ／頭は 4 蝕の軌条で／首は 4（＋すき間の灯）か 5（襟なし）で迷っている／一番下は繊月・鋼か深紅か もっとよいアイデアがないか迷っている」（フォルダ 0920/２４）
+//   決定＝肩の accent は [画面左（骸華の右肩）, 画面右（骸華の左肩）]・頭は mast。首と座は見比べ中＝土台（23）は首 4・座 深紅のまま
+const DEC = { ...BUST, shoulder: { ...SH7, accent: ['chamfer', 'fin'] }, head: { cheek: 'steel', top: 'mast' } }, WAX = (fill) => ({ c: 'm', fill });
+Object.assign(CANDS, {
+  23: { label: '23 DECIDED: R CHAMFER / L FIN + MAST', jp: '決定を反映＝右肩は面取り・左肩は跳ね上げ・頭は蝕の軌条（首は 4・座は深紅のまま＝いまの土台）', o: { ...DEC } },
+  24: { label: '24 LOWER NECK GUARD', jp: '同・首＝低い首の装甲＋灯（上端 −41・私の推し）', o: { ...DEC, collar: { top: -41 } } },
+  25: { label: '25 LOWEST NECK GUARD', jp: '同・首＝もっと低い（上端 −38）', o: { ...DEC, collar: { top: -38 } } },
+  26: { label: '26 NO COLLAR', jp: '同・首＝襟なし（前回の 5）', o: { ...DEC, collar: 'none' } },
+  27: { label: '27 SEAT: STEEL SLIVER', jp: '同・座＝繊月・鋼（満ち具合 0）', o: { ...DEC, dormantX: 'sliver' } },
+  28: { label: '28 SEAT: WAXING 0.2', jp: '同・座＝満ちかけの繊月 0.2', o: { ...DEC, dormantX: WAX(0.2) } },
+  29: { label: '29 SEAT: WAXING 0.3', jp: '同・座＝満ちかけの繊月 0.3（私の推し）', o: { ...DEC, dormantX: WAX(0.3) } },
+  30: { label: '30 SEAT: WAXING 0.45', jp: '同・座＝満ちかけの繊月 0.45', o: { ...DEC, dormantX: WAX(0.45) } },
+  31: { label: '31 REF: ECLIPSE SLIVER', jp: '参考＝蝕の繊月（芯が黒く縁だけ深紅）', o: { ...DEC, dormantX: { c: 'r', core: 'k' } } },
+  32: { label: '32 MY PICK: LOWER NECK + WAXING 0.3', jp: '私の推しの組み合わせ＝低い首の装甲＋満ちかけ 0.3', o: { ...DEC, collar: { top: -41 }, dormantX: WAX(0.3) } },
+  33: { label: '33 NO COLLAR + WAXING 0.3', jp: '襟なし＋満ちかけ 0.3', o: { ...DEC, collar: 'none', dormantX: WAX(0.3) } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -63,11 +79,13 @@ console.log('  ・バルカン砲（電子パルス砲）と肩の腕は閉じ�
 console.log('  ・光刃の付け根は副腕（kit:launcher・foreTurn:[20,35]・subStraight:true）。光刃は振る');
 console.log('  ・付け根は蒼の装甲の奥から生える（subBehind:true＝role を podL にして殻の奥へ）');
 console.log('  ・月牙は収めた姿で穴なし（stowed:true）');
+console.log('  ・副腕の光刃は蝕刃（subBlade:eclipse）・支柱は短いほう（subBoom:true）／肩当ては 5・中心へ 7');
+console.log('  ・⭐22:07 肩当ての形＝骸華の右肩（画面左）は面取り・左肩（画面右）は跳ね上げ（shoulder.accent:[chamfer,fin]）／頭は蝕の軌条（head.top:mast）');
 console.log('  土台の引数:', JSON.stringify(BASE));
-console.log('\n=== 4. 結論待ち＝①朔の座の絵（2〜4・ユーザー検討中）②蝕刃は⭐採用・支柱は指摘なし＝8 で進行 ③肩当ては 5 に決定＝形のアクセントと中心寄せ・顔の両脇・頭の新案（17〜22）＝FB 待ち ===');
+console.log('\n=== 4. 結論待ち（0920/２４）＝①首の装甲の高さ＝23（前回の 4）／24 低い（私の推し）／25 もっと低い／26 襟なし（前回の 5）②一番下の座＝27 鋼／28〜30 満ちかけの繊月（29＝私の推し）／23 深紅／31 参考＝蝕の繊月。いまの土台は 23 ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
-const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [12, 19];
+const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [23, 32];
 const PW = ids.length === 1 ? 344 : 319, PH = 352, W = ids.length * PW + (ids.length - 1) * 2, out = makeCanvas(W, PH); rect(out, 0, 0, W, PH, [40, 42, 64]);
 ids.forEach((id, i) => {
   const d = M.gaika2With(CANDS[id].o), cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);
@@ -79,5 +97,5 @@ writePng(out, resolve(here, 'gaika2-now.png'));
 console.log('\n=== 5. 全身（等倍）を書き出した ===');
 console.log('  vortex/scratchpad/gaika2-now.png  ' + W + 'x' + PH + '  左から ' + ids.map((id) => id + '＝' + CANDS[id].jp).join(' ／ '));
 console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "引継ぎ（2026-09-20 21" → sed -n）');
-console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder23.sh');
+console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder24.sh（その前は -folder23.sh）');
 }
