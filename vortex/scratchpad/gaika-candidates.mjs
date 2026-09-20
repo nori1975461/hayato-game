@@ -2248,7 +2248,7 @@ function build4(o = {}) {
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     ...(limbs === 'none' ? [] : [{ role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] }]),   // 第25稿：脚は腰の扇より奥
     // 第37稿：スカートは殻の後ろへ移した（下の行）
-    { role: 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
+    { role: o.subBehind ? 'podL' : 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
     { role: 'trackL', tex: 'shellL', ox: open4 ? -150 : -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },   // 第33稿：腰のブロックが胴の裾の左右の穴を塞ぐところまで上げる
     ...(OM4 ? OM4.rig : []), ...(OM4 ? [] : [moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), (stowed4 ? moon('wingL', 0, false) : moon('qlegFL', 3, false))]).filter((m) => !(o.dropMoons || []).includes(m.tex)),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
