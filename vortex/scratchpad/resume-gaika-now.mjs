@@ -64,6 +64,17 @@ Object.assign(CANDS, {
   32: { label: '32 MY PICK: LOWER NECK + WAXING 0.3', jp: '私の推しの組み合わせ＝低い首の装甲＋満ちかけ 0.3', o: { ...DEC, collar: { top: -41 }, dormantX: WAX(0.3) } },
   33: { label: '33 NO COLLAR + WAXING 0.3', jp: '襟なし＋満ちかけ 0.3', o: { ...DEC, collar: 'none', dormantX: WAX(0.3) } },
 });
+// 22:47 FB「首＝4 襟なし／一番下の座は 3 かなと思ったがまだもやもやが解消されない。再度アイデアを練り直して」（フォルダ 0920/２５）
+//   絞った質問への回答＝もやもやは「絵に凄みがない」「無くてもいい気もする」・守りたいのは「月にこだわらない」（閉は 4 枚でよい・開いたら 6 枚は変えない）・左右で違える案は不要
+//   決定＝首は襟なし。座は月の形をやめ、空間の意味の与え方を 足す／塗る／引く に振って見比べ中＝土台（34）は襟なし・座は無地
+const DEC2 = { ...DEC, collar: 'none' };
+Object.assign(CANDS, {
+  34: { label: '34 DECIDED: NO COLLAR / SEAT PLAIN', jp: '決定を反映＝首は襟なし（座は無地＝いまの土台・0920/２５ の 1）', o: { ...DEC2, dormantX: { kind: 'none' } } },
+  35: { label: '35 SEAT: ECLIPSED VENT', jp: '同・座＝蝕の炉口（足す＝段のすき間の炉の光が芯から黒く蝕まれる・0920/２５ の 3）', o: { ...DEC2, dormantX: { kind: 'band', eclipse: true } } },
+  36: { label: '36 SEAT: RISING UMBRA', jp: '同・座＝昇る蝕（塗る＝蒼の装甲が下から闇に呑まれる・私の推し・0920/２５ の 4）', o: { ...DEC2, dormantX: { kind: 'umbra' } } },
+  37: { label: '37 SEAT: RISING UMBRA, HIGHER', jp: '同・座＝昇る蝕・高い（闇の高さだけ違う・0920/２５ の 5）', o: { ...DEC2, dormantX: { kind: 'umbra', c: [0, 58] } } },
+  38: { label: '38 SEAT: BITE', jp: '同・座＝食（引く＝殻の外の縁を円弧で切り欠く・0920/２５ の 6）', o: { ...DEC2, dormantX: { kind: 'bite' } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -81,11 +92,12 @@ console.log('  ・付け根は蒼の装甲の奥から生える（subBehind:true
 console.log('  ・月牙は収めた姿で穴なし（stowed:true）');
 console.log('  ・副腕の光刃は蝕刃（subBlade:eclipse）・支柱は短いほう（subBoom:true）／肩当ては 5・中心へ 7');
 console.log('  ・⭐22:07 肩当ての形＝骸華の右肩（画面左）は面取り・左肩（画面右）は跳ね上げ（shoulder.accent:[chamfer,fin]）／頭は蝕の軌条（head.top:mast）');
+console.log('  ・⭐22:47 首は襟なし（collar:none）／一番下の座は月の形をやめる（「月にこだわらない」・閉は 4 枚でよい・開いたら 6 枚は変えない）・月牙を左右で違える案は不要');
 console.log('  土台の引数:', JSON.stringify(BASE));
-console.log('\n=== 4. 結論待ち（0920/２４）＝①首の装甲の高さ＝23（前回の 4）／24 低い（私の推し）／25 もっと低い／26 襟なし（前回の 5）②一番下の座＝27 鋼／28〜30 満ちかけの繊月（29＝私の推し）／23 深紅／31 参考＝蝕の繊月。いまの土台は 23 ===');
+console.log('\n=== 4. 結論待ち（0920/２５）＝一番下の座＝34 無地／33 前回の 3（満ちかけの繊月 0.3）／35 蝕の炉口／36 昇る蝕（私の推し）／37 昇る蝕・高い／38 食。聞いたこと＝「もやもやがいちばん小さいのはどれ」。いまの土台は 34 ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
-const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [23, 32];
+const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [34, 36];
 const PW = ids.length === 1 ? 344 : 319, PH = 352, W = ids.length * PW + (ids.length - 1) * 2, out = makeCanvas(W, PH); rect(out, 0, 0, W, PH, [40, 42, 64]);
 ids.forEach((id, i) => {
   const d = M.gaika2With(CANDS[id].o), cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);
@@ -96,6 +108,6 @@ ids.forEach((id, i) => {
 writePng(out, resolve(here, 'gaika2-now.png'));
 console.log('\n=== 5. 全身（等倍）を書き出した ===');
 console.log('  vortex/scratchpad/gaika2-now.png  ' + W + 'x' + PH + '  左から ' + ids.map((id) => id + '＝' + CANDS[id].jp).join(' ／ '));
-console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "引継ぎ（2026-09-20 21" → sed -n）');
-console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder24.sh（その前は -folder23.sh）');
+console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "一番下の座の練り直し\\|引継ぎ（2026-09-20 21" → sed -n）');
+console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／前回の一式の作り方 build-gaika2-folder25.sh（その前は -folder24.sh）');
 }
