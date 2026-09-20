@@ -1678,8 +1678,37 @@ const SH_HATCH_ALL = [[48, -84], [64, -46], [72, -8]];
 let SH_HATCH = SH_HATCH_ALL;   // 整理の検討：dropMoons に moonX を入れると一番下の座（ハッチ）も彫らない（build4 が差し替える）   // 月牙の座（shell のローカル座標＝MOONS4 の root と同じ）
 const polyX = (pts, y) => { for (let i = 0; i < pts.length - 1; i++) if (y <= pts[i + 1][1]) { const k = (y - pts[i][1]) / (pts[i + 1][1] - pts[i][1]); return pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k; } return pts[pts.length - 1][0]; };
 const shellEdges = (y) => [polyX(SH_IN, y), polyX(SH_OUT, y), (y - SH_TOP) / SH_LEN];
-function shell(s, trim = ['R', 'R']) {
-  const G = g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
+const SHO_W = 140, SHO_H = 216, SHO_PIV = [54, 58], SHO_SEATS = [-108, -82, -56];
+const shoRot = (x, y, a) => { const dx = x - SHO_PIV[0], dy = y - SHO_PIV[1], c = Math.cos(a), n = Math.sin(a); return [SHO_PIV[0] + dx * c - dy * n, SHO_PIV[1] + dx * n + dy * c]; };
+function shellOpen4(s, trim, deg) {
+  const th = (deg * Math.PI) / 180, GX = (xn) => (s > 0 ? xn - 10 : 150 - xn), GY = (y) => y + 138;
+  const leaf = (outer) => shell(s, trim, Object.assign((x, y, xr) => { if (outer ? x < xr : x >= xr) return null; const p = outer ? shoRot(x, y, th) : [x, y]; return [GX(p[0]), GY(p[1])]; }, { W: SHO_W, H: SHO_H })).map((r) => r.split(''));
+  const C = g(SHO_W, SHO_H);   // 割れ目の奥：黒い空洞・肋の残り火・中央に炉の光の一筋（丸い灯は打たない＝目の罠）・月牙の座は蒼い軌条と金の留め具
+  for (let i = 0; i <= 260; i++) for (let y = SH_TOP + 6; y <= 52; y += 0.25) {
+    const u = i / 260, p = shoRot(polyX(SH_RIDGE, y), y, th * u), tt = (y - SH_TOP) / SH_LEN, mid = Math.abs(u - 0.5), rib = (y - SH_TOP) % 13 < 1.2;
+    let c = 'k';
+    if (u < 0.06 || u > 0.94) c = 'j';
+    else if (mid < 0.028 && tt > 0.1 && tt < 0.7) c = 'A';
+    else if (mid < 0.06 && tt > 0.07 && tt < 0.76) c = 'R';
+    else if (mid < 0.095 && tt > 0.05 && tt < 0.8) c = 'r';
+    else if (rib && mid < 0.24 && tt > 0.08 && tt < 0.78) c = 'r';
+    for (const ys of SHO_SEATS) { const d = Math.abs(y - ys); if (d < 2.6 && u > 0.14 && u < 0.86) c = u < 0.24 || u > 0.76 ? (d < 1.8 ? 'Y' : 'k') : d < 0.8 ? 'N' : d < 1.7 ? 'Q' : 'k'; }
+    P(C, GX(p[0]), GY(p[1]), c);
+  }
+  for (const L of [leaf(false), leaf(true)]) for (let y = 0; y < SHO_H; y++) for (let x = 0; x < SHO_W; x++) if (L[y][x] !== '.') C[y][x] = L[y][x];
+  return R(C);
+}
+function openMoons4(deg) {   // 六枚とも有線で射出（根＝割れ目の中央の座）。画面左の向きで作り、右は rig の mirror
+  const GW = 300, GH = 220, GC = [60, 110], T = [[-144, -124], [-176, -44], [-166, 34]], sprites = {}, rig = [];
+  SHO_SEATS.forEach((ys, i) => {
+    const sp = shoRot(polyX(SH_RIDGE, ys), ys, ((deg * Math.PI) / 180) * 0.5), root = [-sp[0], sp[1]], off = [root[0] - T[i][0], root[1] - T[i][1]], tex = 'moonF' + i, origin = [(GC[0] + off[0]) / GW, (GC[1] + off[1]) / GH];
+    sprites[tex] = { rows: moonArm4(off, 'wire', GW, GH, GC), palette: PAL };
+    rig.push({ role: 'baseL', tex, ox: root[0], oy: root[1], origin }, { role: 'baseR', tex, ox: -root[0], oy: root[1], origin, mirror: true });
+  });
+  return { sprites, rig };
+}
+function shell(s, trim = ['R', 'R'], xf = null) {
+  const G = xf ? g(xf.W, xf.H) : g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
   for (let y = SH_TOP; y <= SH_TOP + SH_LEN; y += 0.25) {
     const [xi, xo0, tt] = shellEdges(y), xo = xo0, xr = polyX(SH_RIDGE, y);
     for (let x = xi; x <= xo; x += 0.25) {
@@ -1701,10 +1730,10 @@ function shell(s, trim = ['R', 'R']) {
       else if (dOut >= 1.8 && dOut < 3.0 && tt > 0.08) c = lit ? trim[0] : trim[1];                    // 縁から入った一筋（第23稿：色は配色の案で切り替え）
       else if (Math.abs(x - xr) < 0.55) c = lit ? 'f' : 'k';                                           // 稜線
       else c = lit ? (fr > 0.86 ? 'Q' : 'b') : 'q';                                                     // 第28稿：黒鉄の二面を一段暗く（第12稿の黒）
-      P(G, X(s * x), Y(y), c);
+      if (xf) { const tp = xf(x, y, xr); if (tp) P(G, tp[0], tp[1], c); } else P(G, X(s * x), Y(y), c);
     }
   }
-  if (s < 0) {
+  if (s < 0 && !xf) {
     // 第36稿：空の座（画面左の一番上）＝金の留め具二つと蒼い軌条だけが残る。円の灯は打たない（暗い開口に丸い灯＝目の罠）
     for (let y = -90; y <= -78; y += 0.25) { P(G, X(-48), Y(y), 'N'); P(G, X(-49), Y(y), 'Q'); P(G, X(-47), Y(y), 'Q'); }
     for (const [hx, hy] of [[-59, -93], [-54, -71]]) { RECT(G, Math.round(X(hx)) - 2, Math.round(Y(hy)) - 1, Math.round(X(hx)) + 1, Math.round(Y(hy)) + 1, 'k'); RECT(G, Math.round(X(hx)) - 1, Math.round(Y(hy)), Math.round(X(hx)), Math.round(Y(hy)), 'Y'); }
@@ -1716,8 +1745,8 @@ function shell(s, trim = ['R', 'R']) {
 //   数＝七枚→六枚（三枚ずつ）。皆既は六枚で輪を欠けさせる技なので七枚目は数が合わない。画面左の一番上を発射済みにして座を空ける＝「飛ばすと架が空く」を絵で言う
 //   形＝刃を 1.15 倍・背（凸の側）に鋼の杭と金の留め金。飛ぶ＝鎌／止まる＝杭を打って線を張る／線は留め金につながる。格納時は杭の先だけが殻の外の縁から覗く
 const MOON4_W = 112, MOON4_H = 44, MOON4_C = [25, 22], MOON4_K = 1.15;
-const moonArm4 = (rootOff, mode) => {
-  const G = g(MOON4_W, MOON4_H), [cx, cy] = MOON4_C, K = MOON4_K, ux = -0.912, uy = 0.41, R1 = 11.5 * K;
+const moonArm4 = (rootOff, mode, GW = MOON4_W, GH = MOON4_H, GC = MOON4_C) => {
+  const G = g(GW, GH), [cx, cy] = GC, K = MOON4_K, ux = -0.912, uy = 0.41, R1 = 11.5 * K;
   const bx = cx + ux * (R1 - 2), by = cy + uy * (R1 - 2);
   if (mode === 'wire') {
     const rx = cx + rootOff[0], ry = cy + rootOff[1], mx = (rx + bx) / 2, my = (ry + by) / 2 + 8;
@@ -2002,6 +2031,8 @@ let saberDeg = SABER4_DEG, saberLen = SABER4_LEN, vulcanDeg = VULCAN4_DEG, vulca
 //   kit 'swap'＝三本目の腕の手にバルカン砲（ARMGUN4＝向きは第50稿の光刃と同じ 17°・砲身 30）／台座から光刃（MSABER4＝向きは第50稿の砲と同じ 66°≒添付の実測 65°・長さ 96＝第33〜48稿の光刃の長さ）
 // 第52稿：FB「ビームサーベルを62度110にして」＝角度の見比べ A〜D のうち B の角度（62°）と C の長さ（110）を組み合わせた指定
 const ARMGUN4_DEG = 17, ARMGUN4_LEN = 30, MSABER4_DEG = 62, MSABER4_LEN = 110;
+const THIRD4_PTS = [[40, -34], [64, -31], [82, -28]];
+let third4Pts = THIRD4_PTS, third4Deg = 17, open4 = 0;   // 「開」の姿：肩の腕は割れ目の中に根を置く（gaika2With({ open: 16, thirdPts: [...] })）
 let thirdArm4 = true;   // 整理の検討：false＝肩の腕（三本目）と砲を描かない（gaika2With({ thirdArm: false })）
 let subStraight = false;   // 第48稿修正：kit launcher の副腕の前腕を光刃と一直線に（gaika2With({ kit: "launcher", foreTurn: [20, 35], subStraight: true })）
 let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
@@ -2161,13 +2192,13 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     em.slab(0, 1, 4.4, (v) => (v < -0.6 ? 'j' : 'k')); em.slab(0, 0.22, 4.9, goldCol); em.slab(0.78, 1, 4.9, goldCol);
   };
   const third = (s) => {   // 第34稿：三本目の腕（メガランチャー）
-    const pts = [[40, -34], [64, -31], [82, -28]].map(([x, y]) => [X(s * x), Y(y)]);   // 第36稿：根元を肩の関節へ（−38→−34）
+    const pts = third4Pts.map(([x, y]) => [X(s * x), Y(y)]);   // 第36稿：根元を肩の関節へ（−38→−34）
     mechArm(G, pts, 5.6);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.1, 1, 7.4, (v) => (v < -0.8 ? 'f' : v < -0.15 ? 'm' : 'k'));
     if (kit === 'swap') { gunAt(pts[2], s, armGunDeg, armGunLen, 3); return; }   // 第51稿：この手にバルカン砲（向きは第50稿の光刃と同じ）
     if (kit === 'vulcan') { fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sb.b : sb.c)); saberAt(pts[2], s, saberDeg, saberLen); return; }   // 第49稿：砲を外し、この手にマゼンタの光刃（前腕に光刃と同じ色の帯）
-    const a = (17 * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
+    const a = (third4Deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const S0 = [W0[0] + dx * 3, W0[1] + dy * 3], L = 44, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
     bl.slab(0, 1, 8.9, () => 'k');
     bl.slab(0, 0.97, 8.0, (v) => (v < -0.8 ? 's' : v < -0.25 ? 'f' : v < 0.45 ? 'm' : 'j'));   // 砲身
@@ -2197,22 +2228,23 @@ const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ�
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
-  subStraight = !!o.subStraight; thirdArm4 = o.thirdArm !== false;
-  { const drop = o.dropMoons || [], ti = { moonT: 0, moonM: 1, moonX: 2 }; SH_HATCH = SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)); }
+  subStraight = !!o.subStraight; thirdArm4 = o.thirdArm !== false; third4Pts = o.thirdPts || THIRD4_PTS; third4Deg = o.thirdDeg ?? 17; open4 = o.open === true ? 16 : Number(o.open) || 0;
+  { const drop = o.dropMoons || [], ti = { moonT: 0, moonM: 1, moonX: 2 }; SH_HATCH = open4 ? [] : SH_HATCH_ALL.filter((_, i) => !drop.some((k) => ti[k] === i)); }
   armGunDeg = o.armGunDeg ?? ARMGUN4_DEG; armGunLen = o.armGunLen ?? ARMGUN4_LEN; mountSaberDeg = o.mountSaberDeg ?? MSABER4_DEG; mountSaberLen = o.mountSaberLen ?? MSABER4_LEN;
   const limbs = o.limbs || 'none';   // 第29稿：FB「下半身は12稿のを採用して」＝逆さ扇＋釣鐘形の噴射口（`SKIRT`＝第12稿の pedestal と完全一致）に戻す。ブースターと脚は定義だけ残す
   const ring = SCH[o.ring || 'dim'], tongue = SCH[o.tongue || 'red'], saber = SCH[o.saber || 'mag'], trim = o.trim || ['Y', 'y'], glow = o.glow || ['#2a1038', '#7a3a8a'];
   const P7 = (rows) => ({ rows, palette: PAL });
-  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(shell(-1, trim)), shellR: P7(shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(open4 ? shellOpen4(-1, trim, open4) : shell(-1, trim)), shellR: P7(open4 ? shellOpen4(1, trim, open4) : shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, o.torsoOpt || (o.torso ? {} : ZAKU2_DEF))), head: P7(HEAD4), shldL: P7(shoulder(-1)), shldR: P7(shoulder(1)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
+  const OM4 = open4 ? openMoons4(open4) : null; if (OM4) Object.assign(sprites, OM4.sprites);
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     ...(limbs === 'none' ? [] : [{ role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] }]),   // 第25稿：脚は腰の扇より奥
     // 第37稿：スカートは殻の後ろへ移した（下の行）
     { role: 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
-    { role: 'trackL', tex: 'shellL', ox: -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
+    { role: 'trackL', tex: 'shellL', ox: open4 ? -150 : -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },   // 第33稿：腰のブロックが胴の裾の左右の穴を塞ぐところまで上げる
-    ...[moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false)].filter((m) => !(o.dropMoons || []).includes(m.tex)),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
+    ...(OM4 ? OM4.rig : []), ...(OM4 ? [] : [moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), moon('qlegFL', 3, false)]).filter((m) => !(o.dropMoons || []).includes(m.tex)),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
     { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'rack', tex: 'shldL', ox: -39, oy: -31, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 39, oy: -31, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
