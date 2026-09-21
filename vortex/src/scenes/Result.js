@@ -8,6 +8,7 @@ import { BALANCE } from '../data/balance.js';
 import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint, clearHint } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
 import { BUILD } from '../data/version.js';
+import { getFlag, setFlag } from '../systems/record.js';
 
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
@@ -349,13 +350,28 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 一行の呼びかけ（コメント欄はゲームの外にある＝書く一文を手渡した直後に頼む。押しつけないよう一行・小さく）
-    this.add.text(W / 2, 294, 'あなたの裁きをコメントで教えてください', {
+    this.add.text(W / 2, 293, 'あなたの裁きをコメントで教えてください', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6a0',
     }).setOrigin(0.5);
 
     this.drawFooter(d);
 
-    const prompt = this.add.text(W / 2, 316, `SPACE で もう一度 裁きを　／　V で 裁きの一覧（${seenN}/${VERDICTS.length}）　／　R で タイトル`, {
+    // ★2026-09-21 実プレイFB「息子はプレイ後のランキングを初見では理解できず、横で『Vを押して』と
+    //   教えて初めて一覧に入った」。原因は入口が3つ並んだ1行の文字の中に埋もれていたこと。
+    //   直し方は「教える」ではなく「隠さない」＝①V だけを金の枠で独立させる ②残り何種あるかを書く
+    //   ③**初めての人には勝手に開く**（一度見たら二度と自動では開かない＝慣れた人の邪魔をしない）。
+    const rest = VERDICTS.length - seenN;
+    const bw = 316, bx = W / 2 - bw / 2, byy = 305;
+    const galBox = this.add.graphics();
+    galBox.fillStyle(0x2c2108, 0.9); galBox.fillRoundedRect(bx, byy, bw, 22, 6);
+    galBox.lineStyle(1, 0xffd23f, 0.95); galBox.strokeRoundedRect(bx, byy, bw, 22, 6);
+    const galHint = this.add.text(W / 2, byy + 11,
+      rest > 0 ? `V キー ▶ 裁きの一覧　${seenN} ／ ${VERDICTS.length}（あと ${rest}）` : `V キー ▶ 裁きの一覧　${seenN} ／ ${VERDICTS.length} 　ぜんぶ みた`, {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ffd23f', fontStyle: 'bold',
+      }).setOrigin(0.5);
+    this.tweens.add({ targets: [galBox, galHint], alpha: 0.45, duration: 750, yoyo: true, repeat: -1 });
+
+    const prompt = this.add.text(W / 2, 337, 'SPACE で もう一度 裁きを　／　R で タイトル', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffffff',
     }).setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.3, duration: 650, yoyo: true, repeat: -1 });
@@ -452,7 +468,13 @@ export class ResultScene extends Phaser.Scene {
       });
       by += bh + 4;
     });
-    gal.add(this.add.text(W / 2, H - 11, '金の枠＝今回の裁き　／　V で もどる', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5));
+    // ★初見の人はこの一覧が勝手に開くので、戻り方だけでなく「続け方」もここに要る
+    //   （一覧を出している間 SPACE の案内は隠れているため）
+    const galFoot = this.add.text(W / 2, H - 11, '金の枠＝今回の裁き　／　V で もどる　／　SPACE で もう一度', {
+      fontFamily: 'monospace', fontSize: '12px', color: '#ffd23f', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.tweens.add({ targets: galFoot, alpha: 0.4, duration: 750, yoyo: true, repeat: -1 });
+    gal.add(galFoot);
     this._gal = gal;
 
     const retry = () => {
@@ -467,7 +489,14 @@ export class ResultScene extends Phaser.Scene {
       Sound.stopBgm();
       this.scene.start('Title');
     };
-    this.input.keyboard.on('keydown-V', () => { if (!this._done) gal.setVisible(!gal.visible); });
+    const openGal = (on) => {
+      gal.setVisible(on);
+      galBox.setVisible(!on); galHint.setVisible(!on); prompt.setVisible(!on);   // 一覧の中では入口の案内を隠す
+      if (on) setFlag('galSeen');
+    };
+    this.input.keyboard.on('keydown-V', () => { if (!this._done) openGal(!gal.visible); });
+    // 初めて結果画面に来た人には、一覧のほうから開く（「V を押して」と教えなくても存在が分かる）
+    if (!getFlag('galSeen')) this.time.delayedCall(1500, () => { if (!this._done && !gal.visible) openGal(true); });
     this.input.keyboard.on('keydown-SPACE', retry);
     this.input.keyboard.on('keydown-R', toTitle);
     this.time.delayedCall(450, () => { this.input.on('pointerdown', retry); });

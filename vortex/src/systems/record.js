@@ -82,3 +82,29 @@ export function writeJam(patch) {
     return o;
   } catch (e) { return null; }
 }
+
+// ============ 一度きりの案内を出すための小さな覚え書き（R71） ============
+// 2026-09-21 実プレイFB「息子はプレイ後のランキングシステムを初見では理解できなかった。
+//   横で『Vを押して』と説明して初めて一覧に入った」。＝入口が1行の文字だけで、読まれていなかった。
+// 直し方は「教える」ではなく「隠さない」＝初めての人には結果画面から**勝手に一覧が開く**。
+// そのために「もう一覧を見たか」だけを覚える。遊びには影響しないので失敗しても黙って無視する。
+const FKEY = 'vortex.flags';
+
+export function getFlag(name) {
+  try {
+    const raw = window.localStorage.getItem(FKEY);
+    const o = raw ? JSON.parse(raw) : {};
+    return o && typeof o === 'object' ? !!o[name] : false;
+  } catch (e) { return false; }
+}
+
+export function setFlag(name, val = true) {
+  try {
+    const raw = window.localStorage.getItem(FKEY);
+    const o = raw ? JSON.parse(raw) : {};
+    const next = (o && typeof o === 'object') ? o : {};
+    next[name] = !!val;
+    window.localStorage.setItem(FKEY, JSON.stringify(next));
+    return true;
+  } catch (e) { return false; }
+}
