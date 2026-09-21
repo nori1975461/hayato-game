@@ -1,6 +1,8 @@
 // 背景が透ける抜けの検査：胴のまわり（|x|<=60・世界 y −40〜40）で、どのテクスチャにも覆われない点を、既定（Z2＝ザク型のひねり・第45稿〜）と比較用の四版それぞれ数える。node check-gaika2-holes.mjs
 //   胴を細くすると、殻や腕がたまたま覆っていない 1〜3 ドットの隙間が背景まで抜ける（第44稿でドム版 6・ザク版 4 が出た）。
 //   ジオング版は細い旋回円筒の両脇が空間として抜けるのが仕様（第44稿で 148）。それ以外は 0 が正。
+//   ⚠️第53稿（2026-09-21・襟なし collar:'none' が既定）から Z2 に 30 が出る＝首の両脇の切り欠きで仕様。
+//     全身で実際に描くと透けるのは頭の脇で、襟ありの 680 に対し 1234 px（node check-gaika2-fullbody-holes.mjs で実測・胸の弱点は 0）。
 //   .gaika-prev.mjs（git show HEAD:vortex/scratchpad/gaika-candidates.mjs > .gaika-prev.mjs）があれば、直前のコミットの値も並べる
 import { existsSync } from 'node:fs';
 import * as NEW from './gaika-candidates.mjs';
