@@ -1687,6 +1687,14 @@ const SHO_W = 140, SHO_H = 216, SHO_PIV = [54, 58], SHO_SEATS = [-108, -82, -56]
 let shoCore = null;   // 割れ目の奥の絵を差し替える口（build4 が o.openCore から差し替える。null＝従来＝背骨＋椎骨）
 let shoOn = [0, 1, 2];   // 「開」の姿で生きている座（上から T・M・X）。build4 が dropMoons から差し替える
 const shoRot = (x, y, a) => { const dx = x - SHO_PIV[0], dy = y - SHO_PIV[1], c = Math.cos(a), n = Math.sin(a); return [SHO_PIV[0] + dx * c - dy * n, SHO_PIV[1] + dx * n + dy * c]; };
+// 割れ目の奥に機械を詰める版。rail＝月牙を送る主軌条／cyl＝座の後ろの射出シリンダー／pipe＝外側の配管の束
+// （[中心からの u, 太さ]・左右対称に立てる・節の位相は管ごとにずらす）／ember＝いちばん外の隙間の残り火
+const WK4 = {
+  works: { rail: 1, cyl: 1, pipe: [], ember: 0 },                                                  // 送弾機構だけ＝いちばん静か
+  pipes: { rail: 0, cyl: 0, pipe: [[0.155, 0.023], [0.238, 0.013], [0.312, 0.019]], ember: 1 },     // 動力の配管だけ
+  packed: { rail: 1, cyl: 1, pipe: [[0.155, 0.023], [0.238, 0.013], [0.312, 0.019]], ember: 0 },    // 両方
+  dense: { rail: 1, cyl: 1, pipe: [[0.13, 0.021], [0.205, 0.013], [0.278, 0.019], [0.35, 0.012]], ember: 1 },  // いちばん詰まる＝管を四本ずつ＋残り火
+};
 function shellOpen4(s, trim, deg) {
   const th = (deg * Math.PI) / 180, GX = (xn) => (s > 0 ? xn - 10 : 150 - xn), GY = (y) => y + 138;
   const leaf = (outer) => shell(s, trim, Object.assign((x, y, xr) => { if (outer ? x < xr : x >= xr) return null; const p = outer ? shoRot(x, y, th) : [x, y]; return [GX(p[0]), GY(p[1])]; }, { W: SHO_W, H: SHO_H })).map((r) => r.split(''));
@@ -1696,6 +1704,19 @@ function shellOpen4(s, trim, deg) {
     let c = 'k';
     const ck = shoCore ? shoCore.kind || shoCore : null, cT = shoCore && shoCore.tone === 'crimson' ? ['A', 'R', 'r'] : ['W', 'G', 'Y'];
     if (u < 0.06 || u > 0.94) c = 'j';
+    else if (WK4[ck]) {
+      const w = WK4[ck], dn = y - SH_TOP, seats = SHO_SEATS.filter((_, si) => shoOn.includes(si));
+      const seatD = seats.length ? Math.min(...seats.map((ys) => Math.abs(y - ys))) : 99;
+      c = 'k';                                                                                     // 奥の壁
+      if (tt > 0.05 && tt < 0.82) {
+        for (const [pu, pw] of w.pipe) for (const uu of [pu, 1 - pu]) {                             // 配管＝縦の管に節（位相は管ごとにずらす）
+          if (Math.abs(u - uu) < pw) c = (dn + pu * 53) % 9.2 < 1.6 ? 'm' : 'j';
+        }
+        if (w.rail && mid < 0.045) c = mid < 0.014 ? 'f' : mid < 0.028 ? 'm' : 'j';                  // 主軌条＝座から座へ月牙を送る
+        if (w.cyl && seatD < 4.6 && mid < 0.17) c = seatD < 3.4 ? 'm' : 'j';                         // 射出シリンダー＝座の真後ろだけ太る
+        if (w.ember && mid > 0.40 && seatD > 3.4 && u > 0.06 && u < 0.94 && dn % 14 < 1.2) c = 'r';  // いちばん外の隙間から炉の残り火
+      }
+    }
     else if (ck === 'rack') c = mid < 0.022 && tt > 0.06 && tt < 0.8 ? 'm' : mid < 0.05 && tt > 0.06 && tt < 0.8 ? 'j' : 'k';   // 発射架＝光なし。黒鉄の軌条が一本、座をつなぐ
     else if (ck === 'rim') c = tt > 0.05 && tt < 0.82 ? (u > 0.905 ? cT[0] : u > 0.865 ? cT[1] : u > 0.815 && tt > 0.1 && tt < 0.74 ? cT[2] : 'k') : 'k';   // 光は縁だけ＝胸の側から来た光が外の板の内側の面だけを灼く
     else if (mid < 0.028 && tt > 0.1 && tt < 0.7) c = 'A';
