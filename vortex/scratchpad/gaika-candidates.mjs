@@ -2382,7 +2382,7 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
   return R(G);
 }
 
-const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。肩の装甲の陰から四本の装甲の腕が現れ、爪の中心から光刃を下へ抜く。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回り襟へ入る。浅い V の裾の下から扇の刃が放射状に出る。中央の合わせ目は閉じた炉の扉で、V の先端の金の鋲が扇の要。';
+const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。襟はなく首は剥き出しのまま肩の谷に落ちる。肩当ては左右で違い、左の一枚だけが金の板を跳ね上げている。肩の装甲の陰から四本の腕が出る。内の二本は掌を開き、外の二本は殻の奥から支柱で伸びて芯の黒い蝕刃を斜め下へ振る。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回る。浅い V の裾の下から扇の刃が放射状に出て、V の先端の金の鋲が扇の要。中央の合わせ目は閉じた炉の扉で、金の板が落ちたときだけ開き、白金の光と炉心が現れる。月牙は座に収めたまま、いちばん下の座には蝕が昇る。蒼の装甲が開けば、電子パルス砲と肩の腕が現れる。';   // 第53稿（2026-09-21）：閉じた姿の確定に合わせて書き直した。左右は骸華の視点（左＝画面右）
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
@@ -2417,7 +2417,22 @@ export const GAIKA2_COLORS = [   // 配色の検証（並べる＝render-gaika2-
   [build4({ tag: '-V22', ring: 'red', tongue: 'red', saber: 'red', trim: ['R', 'R'], glow: ['#8a1622', '#ff7a3a'] }), '22nd  ALL CRIMSON'],
   [build4({ tag: '-ALLBLUE', ring: 'blue', tongue: 'blue', saber: 'blue' }), 'REJECTED  ALL BLUE'],
 ];
-export const GAIKA2 = build4();                                   // 版A＝ロケットブースター
+// 第53稿（2026-09-21）：閉じた姿＝ふだんの姿の確定。砲と肩の腕は出さず 月牙は収め 一番下の座は昇る蝕。
+// 左肩（画面右）は跳ね上げた金の板＝胸の炉の扉を開ける鍵・右肩（画面左）は面取り。弱点は胸の炉心。
+export const GAIKA2_DEF53 = {
+  kit: 'launcher', foreTurn: [20, 35], subStraight: true, subBehind: true, subBoom: true, subBlade: 'eclipse',
+  stowed: true, thirdArm: false, dormantX: { kind: 'umbra' },
+  shoulder: { edge: 'none', bands: false, flare: 5, topW: 9, scale: 0.88, dx: 7, accent: ['chamfer', 'fin'], tint: [null, 'gold'] },
+  collar: 'none', head: { cheek: 'steel', top: 'mast' },
+};
+// 鍵が入った姿＝左肩を叩かれて板が落ち（右肩と同じ面取りになり）胸の炉の扉が開く。一定時間で板が跳ね上がり扉が閉じる
+export const GAIKA2_KEYDOWN_OPT = { ...GAIKA2_DEF53, shoulder: { ...GAIKA2_DEF53.shoulder, accent: 'chamfer' }, chest: { tone: 'gold' } };
+// 最終形態＝皆既（昇る蝕が満ちて縁が灼ける）＋蒼の装甲が開いて砲と肩の腕が出る＋胸の炉の扉が開く
+export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], openCore: 'rack', chest: { tone: 'gold' }, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' } };
+
+export const GAIKA2 = build4({ ...GAIKA2_DEF53 });                 // 版A＝ロケットブースター（第53稿＝閉じた姿）
+export const GAIKA2_KEYDOWN = build4({ tag: '-key', ...GAIKA2_KEYDOWN_OPT });
+export const GAIKA2_FINAL = build4({ tag: '-final', ...GAIKA2_FINAL_OPT });
 export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });       // 版B＝脚（却下）
 export const gaika2With = (o = {}) => build4({ tag: '-x', ...o });   // 第44稿：候補の見比べ用（torso／torsoCH／handFlip）
 export const GAIKA2_NZ = build4({ tag: '-nz', torso: 'bell', torsoOpt: {} });   // 第45稿：既定がザク型になったので、ノイエ・ジール版（樽胴）は別名で残す

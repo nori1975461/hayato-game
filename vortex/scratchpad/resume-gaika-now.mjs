@@ -1,4 +1,4 @@
-// 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（resume-gaika.mjs は「コードの既定＝第52稿」を調べる道具。こちらは「いま検討中の姿」を出す）。
+// 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（閉じた姿は 09-21 18:50 に全部確定＝コードの既定は第53稿。resume-gaika.mjs はその既定を調べる道具・こちらは候補を並べて見る道具）。
 //   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 63 左肩の私の推し（跳ね上げ・金）と 80 その最終形態（⭐発射架＋胸の炉の扉が開く・白金） の全身を横並びで gaika2-now.png（640×352）へ
 //           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜87・最大2つ）を gaika2-now.png へ
 import { execFileSync } from 'node:child_process';
@@ -147,9 +147,9 @@ if (isMain) {
 console.log('=== 1. リポジトリの状態 ===');
 console.log(git('status', '-sb', '-uno').split('\n')[0]);
 console.log(git('log', '--oneline', '-3'));
-console.log('\n=== 2. 不変の確認（コードの既定は第52稿のまま） ===');
+console.log('\n=== 2. 不変の確認（コードの既定は第53稿＝閉じた姿の確定・09-21 18:50） ===');
 console.log(' ', node('check-gaika1-hash.mjs'));
-console.log(' ', node('check-gaika2-hash.mjs', 'ac412d79c55d'));
+console.log(' ', node('check-gaika2-hash.mjs', 'd21ac02000c9'));
 console.log('\n=== 3. 2026-09-20 に確定したこと ===');
 console.log('  ・バルカン砲（電子パルス砲）と肩の腕は閉じた姿から外す（thirdArm:false）。蒼の装甲が開くときに出現する');
 console.log('  ・光刃の付け根は副腕（kit:launcher・foreTurn:[20,35]・subStraight:true）。光刃は振る');
@@ -162,8 +162,10 @@ console.log('  ・⭐09-21 01:17 一番下の座は 4 昇る蝕（dormantX:{kind
 console.log('  土台の引数:', JSON.stringify(BASE));
 console.log('  ・09-21 13:08 左肩＝大きな一本棘と白骨は不採用。形は「面上げ」＝跳ね上げの意味だった（面取りと読んだのは外れ＝面取りは候補から外れた）');
 console.log('  ・⭐09-21 18:08 弱点は胸の炉心／胸の炉の扉が開く・白金の光を採用（chest:{tone:gold}・割れ目の奥は発射架 openCore:rack と読んだ＝68）');
+console.log('  ・⭐⭐09-21 18:50 左肩の形＝跳ね上げ・色＝金で決定（候補 63）。鍵の入り方と炉心の開き方は「跳ね上げた板が鍵そのもの」の案を採用（候補 87）');
+console.log('  ・⭐⭐09-21 18:50 これで閉じた姿は全部確定＝コードの既定を第53稿へ（GAIKA2＝63／GAIKA2_KEYDOWN＝87／GAIKA2_FINAL＝80・画素一致は check-gaika2-def53.mjs）');
 console.log('  ・⭐09-21 18:08 行動＝左肩は胸の扉を開ける鍵：左肩に当てるとスイッチが入る（ガツンという重低音）→ 胸の弱点が開く → 胸に当てるとダメージ → 一定時間で閉まる → 左肩で再び開く・その繰り返し');
-console.log('\n=== 4. 結論待ち（0921/４）＝左肩の色（真紅／金／銀／黄色）と形（跳ね上げ／短い棘）。平常＝跳ね上げ 62 真紅・63 金・74 銀・64 黄色／短い棘 75 真紅・76 金・77 銀・78 黄色。最終形態＝跳ね上げ 79〜82／短い棘 83〜86（色の順は同じ）。87＝案「跳ね上げた板が鍵そのもの」の叩かれた姿（ふだんは 63）。私の推し＝跳ね上げ・金（63）。いまの土台は 36（座＝昇る蝕・左肩は跳ね上げ・黒鉄のまま） ===');
+console.log('\n=== 4. 候補の引数（1〜87）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 80。次の論点は「開」の姿（出る砲・嵌め込み・六枚の月）と行動設計 ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
