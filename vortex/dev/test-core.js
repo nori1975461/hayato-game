@@ -12,6 +12,7 @@ import { ENDING_ART } from '../src/data/ending_art.js';
 import { judge as vJudge, newlyFound as vNewlyFound } from '../src/data/verdict.js';
 import { createTimeStopGovernor, installTimeStopGovernor, crowdLevel } from '../src/systems/timestop.js';
 import { rarityRank, findSwapIndex, preferUnowned } from '../src/systems/rarity.js';
+import { stepAim, AIM_STEP, angDiff } from '../src/core/aim.js';
 
 let failures = 0;
 function assert(cond, msg) {
@@ -1622,7 +1623,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     {
       const rs17 = read('scenes/Result.js'), bj17b = read('systems/boss.js'), sd17 = read('audio/sound.js');
       assert(/\['被弾', String\(s\.hits \|\| 0\)\]/.test(rs17) && !/\['裁き', `\$\{seenN\}/.test(rs17)
-        && /V で 裁きの一覧（\$\{seenN\}\/\$\{VERDICTS\.length\}）/.test(rs17),
+        && rs17.indexOf('裁きの一覧　${seenN} ／ ${VERDICTS.length}') >= 0,
         'JAM17: 結果の表に被弾の行・行は増やさない（裁き n/33 は V の案内へ移す）');
       {
         const rowsLen = (name) => { const m = rs17.match(new RegExp('const ' + name + ' = \\[([\\s\\S]*?)\\];')); return m ? (m[1].match(/\['/g) || []).length : -1; };
@@ -6105,6 +6106,45 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R70: 取り出しの文章に切り札の行方が出る');
   assert(/B\.sg == null \? '' :/.test(rec),
     'R70: 古い記録（切り札の数字がない）を読んでも壊れない');
+}
+
+// ★2026-09-21 R71：実プレイFB2件（息子さん）
+//   ①「弾の放つ方向が上下左右にしかうまく投げられない。16方向へ投げやすくしてほしい」
+//   ②「プレイ後のランキングシステムを初見では理解できなかった（横で V を押してと教えて初めて入った）」
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const bl = read('systems/billiard.js'), rs = read('scenes/Result.js'), rc = read('systems/record.js');
+  const S = Math.PI / 8;
+  assert(Math.abs(AIM_STEP - S) < 1e-9, 'R71: 1刻みは 22.5°（＝16方向）');
+  // 右(0°)から上(-90°)へ叩くと 22.5° ずつ進む＝45°の「間」で止められる＝16方向が出せる
+  let a = 0; const seq = [];
+  for (let i = 0; i < 5; i++) { a = stepAim(a, -Math.PI / 2); seq.push(Math.round((a * 180) / Math.PI * 10) / 10); }
+  assert(seq.join(',') === '-22.5,-45,-67.5,-90,-90', 'R71: 押すたび 22.5°ずつ寄り、届いたら止まる（' + seq.join(' → ') + '）');
+  // 押しっぱなしで8方向へ届いたら行き過ぎない＝従来と同じ結果になる
+  let b = 0; for (let i = 0; i < 4; i++) b = stepAim(b, -Math.PI / 4);
+  assert(Math.abs(b + Math.PI / 4) < 1e-9, 'R71: 8方向を押し続けてもその向きで止まる（従来の操作は変わらない）');
+  // ±180°をまたぐときも近い側へ回る（半周する遠回りをしない）
+  const overCur = Math.PI - 0.1, overGot = stepAim(overCur, -Math.PI + 0.6);
+  assert(Math.abs(angDiff(overGot, overCur) - S) < 1e-9 && Math.abs(overGot) <= Math.PI + 1e-9,
+    'R71: ±180°をまたぐときも近い側へ1刻み回る（遠回りしない・値も ±π に収まる）');
+  assert(Math.abs(stepAim(Math.PI - 0.01, -Math.PI + 0.01) - (-Math.PI + 0.01)) < 1e-9,
+    'R71: 残りが1刻み以下ならその向きにそろう');
+  assert(/from '\.\.\/core\/aim\.js'/.test(bl) && /stepAim\(st\.keyAim, want, STEP\)/.test(bl),
+    'R71: 本体（billiard）はテストと同じ式を使う＝刻みの計算を二重に書かない');
+  assert(/!st\.held/.test(bl), 'R71: 刻みで回るのは掴んでいる間だけ＝歩いているときの狙いは従来どおり');
+  assert(/aimStepSec/.test(read('data/balance.js')), 'R71: 刻みの間隔は balance で調整できる');
+  // ②入口＝V を独立させ、初めての人には自分から開く
+  assert(/getFlag, setFlag/.test(rs) && /getFlag\('galSeen'\)/.test(rs)
+    && /delayedCall\(\d+, \(\) => \{ if \(!this\._done && !gal\.visible\) openGal\(true\)/.test(rs),
+    'R71: 初めて結果画面に来た人には裁きの一覧が自分から開く');
+  assert(/setFlag\('galSeen'\)/.test(rs), 'R71: 一度開いたら覚える＝二度目からは自動で開かない（慣れた人の邪魔をしない）');
+  assert(/V キー ▶ 裁きの一覧/.test(rs) && /あと \$\{rest\}/.test(rs),
+    'R71: 入口は金の枠で独立し、あと何種あるかが書いてある');
+  assert(/galBox\.setVisible\(!on\); galHint\.setVisible\(!on\)/.test(rs),
+    'R71: 一覧を開いている間は入口の案内を隠す（二重に出さない）');
+  assert(/export function getFlag/.test(rc) && /catch \(e\) \{ return false; \}/.test(rc),
+    'R71: 覚え書きは localStorage が使えなくても遊びに影響しない');
 }
 
 if (failures > 0) {
