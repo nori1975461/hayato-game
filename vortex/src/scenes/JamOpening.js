@@ -48,7 +48,10 @@ const CATH_SCALE = 3.0;   // 本番 6.2 だと画面の高さを超える（尖�
 // ★2026-09-14 ユーザーFB「ひらがなばかりで読みづらい。通常漢字にする言葉は漢字に」→ ジャム版は漢字まじり（評価者は大人・Result と同じ方針）。
 const CARD_LINES = [
   { k: '動く', v: '矢印キー ／ WASD' },
-  { k: '掴む→溜める→投げる', v: 'J キーを押す → 押し続ける → 離す　（左クリックでも）' },
+  // ★2026-09-21 実プレイFB「弾の放つ方向が上下左右にしかうまく投げられない。16方向へ投げやすく」。
+  //   仕組みを足しても、あることが分からなければ使われない（＝供給経路が1本の罠）。だから操作カードに一行で出す。
+  { k: '掴む→溜める→投げる', v: 'J キーを押す → 押し続ける → 離す　（左クリックでも）',
+    a: '掴んでいる間に 矢印キーを叩くと 狙いが細かく回る　（16方向）' },
   { k: '切り札', v: 'SPACE' },
   // capture.js onEnemyKilled＝撃破したマキナがコアを落とし、拾うとモビットが仲間になる（ミニロボは除く）
   { k: 'モビット', v: '倒したマキナが落とすコアを拾うと仲間になる' },
@@ -528,7 +531,7 @@ export class JamOpeningScene extends Phaser.Scene {
     panel.fillStyle(0x0d1226, 0.85); panel.fillRoundedRect(40, 92, this.W - 80, 178, 8);
     panel.lineStyle(1, 0x45588a, 0.9); panel.strokeRoundedRect(40, 92, this.W - 80, 178, 8);
     this.add.text(60, 106, '操作', { fontFamily: 'monospace', fontSize: '13px', color: '#8ea3d4' }).setOrigin(0, 0.5).setDepth(D_TEXT);
-    const ys = [132, 162, 210, 244];
+    const ys = [128, 154, 216, 248];   // 1行目（掴む→溜める→投げる）の下に狙いの一行が入る分だけ詰めた
     CARD_LINES.forEach((l, i) => {
       const big = i === 1, mob = i === 3;
       this.add.text(60, ys[i], l.k, {
@@ -536,6 +539,9 @@ export class JamOpeningScene extends Phaser.Scene {
       }).setOrigin(0, 0.5).setDepth(D_TEXT);
       this.add.text(big ? 60 : 250, big ? ys[i] + 20 : ys[i], l.v, {
         fontFamily: 'monospace', fontSize: mob ? '13px' : '14px', color: big ? YELLOW_S : '#ffffff',
+      }).setOrigin(0, 0.5).setDepth(D_TEXT);
+      if (l.a) this.add.text(60, ys[i] + 38, l.a, {
+        fontFamily: 'monospace', fontSize: '12px', color: '#9fd0ff',
       }).setOrigin(0, 0.5).setDepth(D_TEXT);
     });
     // モビットの顔（カードでも「仲間」が絵で目に入る）

@@ -19,6 +19,7 @@
 import { BALANCE } from '../data/balance.js';
 import { ENEMIES } from '../data/enemies.js';
 import { Sound } from '../audio/sound.js';
+import { stepAim, AIM_STEP } from '../core/aim.js';
 
 const Phaser = window.Phaser;
 const ADD = Phaser.BlendModes.ADD;
@@ -336,7 +337,42 @@ export function createBilliard(run) {
       if (k.down.isDown || k.s.isDown) ky += 1;
     }
     st.keyActive = !!(kx || ky);
-    if (st.keyActive) { st.keyAim = Math.atan2(ky, kx); st.keyAimT = run.elapsed; }
+    // ★2026-09-21 実プレイFB「弾の放つ方向が上下左右にしかうまく投げられない。16方向へ投げやすく」。
+    //   十字キーは4つしかないので、同時押しを使っても作れるのは8方向まで＝物理的な上限。マウスは使わない。
+    //   そこで「掴んでいる間だけ」狙いの動きを変えた＝押した方向へ 22.5°（16方向の1刻み）ずつ寄っていく。
+    //   ・押しっぱなし＝その8方向まで回って止まる（＝従来とまったく同じ結果）
+    //   ・軽く叩く＝1刻みだけ回る＝45°の間（22.5°）に止められる＝16方向
+    //   覚える操作は1つも増えない。掴んでいない間は従来どおり押した方向へ即座に向く。
+    //   ⚠️ここが成立するのは、溜め中は足が止まって狙いだけ変わる設計（moveMulWhileAiming:0／aimStopSec）
+    //     が先にあるから。十字キーを狙いに使っても移動を奪わない。
+    if (st.keyActive) {
+      const want = Math.atan2(ky, kx);
+      const STEP = AIM_STEP;      // 22.5°＝16方向の1刻み
+      // 「押した瞬間」はキーの timeDown が変わったかで見る。⚠️前フレームの isDown と比べる方法だと、
+      //   離してから押し直すまでが1フレームに収まったときに取りこぼし、叩いた回数と回った回数がずれる
+      //   （実機の検証で 5 回叩いて 4 回しか回らなかった）。timeDown は押された時刻そのものなので、
+      //   フレームの切れ目に左右されない。
+      let tDown = 0;
+      for (const kk of [k && k.left, k && k.a, k && k.right, k && k.d, k && k.up, k && k.w, k && k.down, k && k.s]) {
+        if (kk && kk.isDown && kk.timeDown > tDown) tDown = kk.timeDown;
+      }
+      const fresh = tDown !== st.keyDownT;
+      st.keyDownT = tDown;
+      if (st.keyAim == null || !st.held) {
+        st.keyAim = want;
+      } else if (fresh) {
+        // 押した瞬間は必ず1刻み＝叩いた回数と回った回数が合う。次の刻みまでは少し待つ（キーの取りこぼしと
+        // 押しっぱなしの暴走の両方を防ぐ＝ふつうのキーリピートと同じ作法）
+        st.keyAim = stepAim(st.keyAim, want, STEP);
+        st.aimStepT = run.elapsed + (B().aimRepeatSec || 0.22);
+      } else if (run.elapsed >= (st.aimStepT || 0)) {
+        st.keyAim = stepAim(st.keyAim, want, STEP);
+        st.aimStepT = run.elapsed + (B().aimStepSec || 0.085);
+      }
+      st.keyAimT = run.elapsed;
+    } else {
+      st.aimStepT = 0; st.keyDownT = 0;   // 離したら次に押した瞬間に1刻み回る（叩けば1刻み）
+    }
 
     const mT = run._pointerMoveT == null ? -1 : run._pointerMoveT;
     const kT = st.keyAimT == null ? -1 : st.keyAimT;
@@ -346,7 +382,7 @@ export function createBilliard(run) {
       const w = run.cameras.main.getWorldPoint(run.input.activePointer.x, run.input.activePointer.y);
       raw = Math.atan2(w.y - run.player.y, w.x - run.player.x);
     } else if (st.keyAim != null) {
-      raw = st.keyAim;                      // 方向キーの8方向。離しても保持される
+      raw = st.keyAim;                      // 方向キーの向き（掴み中は22.5°刻みで16方向）。離しても保持される
     } else {
       raw = run._weaponAim || 0;
     }
