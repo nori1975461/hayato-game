@@ -1,6 +1,6 @@
 // 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（resume-gaika.mjs は「コードの既定＝第52稿」を調べる道具。こちらは「いま検討中の姿」を出す）。
-//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 60 左肩の私の推し（面取り・金）と 68 炉心の私の推し（発射架＋胸の炉の扉が開く・白金・最終形態） の全身を横並びで gaika2-now.png（640×352）へ
-//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜73・最大2つ）を gaika2-now.png へ
+//   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 63 左肩の私の推し（跳ね上げ・金）と 80 その最終形態（⭐発射架＋胸の炉の扉が開く・白金） の全身を横並びで gaika2-now.png（640×352）へ
+//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜87・最大2つ）を gaika2-now.png へ
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -128,6 +128,18 @@ Object.assign(CANDS, {
   72: { label: '72 FINAL: PICK CORE + GOLD SHOULDER', jp: '最終形態・推しの炉心＋左肩 金（写真６・写真７の土台）', o: { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_CH, 'gold') } },
   73: { label: '73 FINAL: PICK CORE + YELLOW SHOULDER', jp: '最終形態・推しの炉心＋左肩 黄色（写真６）', o: { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_CH, 'yellow') } },
 });
+// 09-21 18:08 FB「#弱点は胸の炉心でよい。#扉が開く（白金の光）を採用。#左肩は胸の扉を開ける鍵にする案を採用（左肩に当てるとスイッチが入る＝ガツンという重低音 → 胸の弱点が開く → 胸に当てるとダメージ → 一定時間で閉まる → 左肩で再び開く・その繰り返し）。
+//   #左肩は真紅、金、銀、黄色でまだ迷っている。跳ね上げか棘かでも。全体像が見れる写真を各種一枚ずつ撮影して。一枚画の全体像を比較して決めたい。」＋18:18「ここで私が言った棘は、『短い棘』のこと。」
+//   ⚠️前回の「面上げ」は跳ね上げの意味だった（面取りと読んだ私の読みは外れ）＝面取りは左肩の候補から外れた。⚠️「棘」は大きな一本棘ではなく短い棘（SP_SHORT）。
+//   渡したもの＝0921/４（build-gaika2-folder29.sh）。跳ね上げ × 真紅・金・黄色は 62〜64 が同じ絵。
+const COLS4 = [['crimson', 'CRIMSON', '真紅'], ['gold', 'GOLD', '金'], ['silver', 'SILVER', '銀'], ['yellow', 'YELLOW', '黄色']];
+Object.assign(CANDS, {
+  74: { label: '74 L-SHOULDER: FIN, SILVER', jp: '左肩＝跳ね上げ・銀（0921/４ の 3）', o: { ...DEC3, shoulder: SHL(SP_FIN, 'silver') } },
+  ...Object.fromEntries(COLS4.map(([c, en, jp], i) => [75 + i, { label: (75 + i) + ' L-SHOULDER: SHORT SPIKE, ' + en, jp: '左肩＝短い棘・' + jp + '（0921/４）', o: { ...DEC3, shoulder: SHL(SP_SHORT, c) } }])),
+  ...Object.fromEntries(COLS4.map(([c, en, jp], i) => [79 + i, { label: (79 + i) + ' FINAL: FIN, ' + en, jp: '最終形態（⭐発射架＋胸の炉の扉・白金）・左肩＝跳ね上げ・' + jp, o: { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_FIN, c) } }])),
+  ...Object.fromEntries(COLS4.map(([c, en, jp], i) => [83 + i, { label: (83 + i) + ' FINAL: SHORT SPIKE, ' + en, jp: '最終形態（同）・左肩＝短い棘・' + jp, o: { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_SHORT, c) } }])),
+  87: { label: '87 KEY IDEA: PLATE STRUCK DOWN, CHEST OPEN', jp: '案＝跳ね上げた板が「鍵」そのもの＝叩かれて板が落ち（面取り）胸の炉の扉が開いた平常の姿（色は説明用に金・ふだんの姿は 63）', o: { ...DEC3, chest: { tone: 'gold' }, shoulder: SHL(SP_CH, 'gold') } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -148,11 +160,13 @@ console.log('  ・⭐22:07 肩当ての形＝骸華の右肩（画面左）は�
 console.log('  ・⭐22:47 首は襟なし（collar:none）／一番下の座は月の形をやめる（「月にこだわらない」・閉は 4 枚でよい・開いたら 6 枚は変えない）・月牙を左右で違える案は不要');
 console.log('  ・⭐09-21 01:17 一番下の座は 4 昇る蝕（dormantX:{kind:umbra}）＝最終形態まで見て決定（皆既の「縁が灼ける」burn の要否は未回答＝いまは灼ける版のまま・催促しない）');
 console.log('  土台の引数:', JSON.stringify(BASE));
-console.log('  ・09-21 13:08 左肩＝棘と白骨は不採用。形は「面上げ」（＝面取りと読んだ・跳ね上げの可能性あり）・色は 真紅／金／黄色 の三つへ絞られた');
-console.log('\n=== 4. 結論待ち（0921/３）＝①炉心（65 いま＝背骨＋椎骨＝不気味／66 椎骨を外す／67 発射架／68 発射架＋胸の炉の扉が開く・白金＝私の推し／69 同・深紅／70 68＋開いた板の内側を金に灼く）②左肩の色（59 真紅／60 金＝私の推し／61 黄色・形は面取り／62〜64 跳ね上げの場合）③弱点の置き場所（私の判断＝左肩は勧めない・胸の炉心）。71〜73＝最終形態で三色。いまの土台は 36（座＝昇る蝕・左肩は跳ね上げ・黒鉄のまま） ===');
+console.log('  ・09-21 13:08 左肩＝大きな一本棘と白骨は不採用。形は「面上げ」＝跳ね上げの意味だった（面取りと読んだのは外れ＝面取りは候補から外れた）');
+console.log('  ・⭐09-21 18:08 弱点は胸の炉心／胸の炉の扉が開く・白金の光を採用（chest:{tone:gold}・割れ目の奥は発射架 openCore:rack と読んだ＝68）');
+console.log('  ・⭐09-21 18:08 行動＝左肩は胸の扉を開ける鍵：左肩に当てるとスイッチが入る（ガツンという重低音）→ 胸の弱点が開く → 胸に当てるとダメージ → 一定時間で閉まる → 左肩で再び開く・その繰り返し');
+console.log('\n=== 4. 結論待ち（0921/４）＝左肩の色（真紅／金／銀／黄色）と形（跳ね上げ／短い棘）。平常＝跳ね上げ 62 真紅・63 金・74 銀・64 黄色／短い棘 75 真紅・76 金・77 銀・78 黄色。最終形態＝跳ね上げ 79〜82／短い棘 83〜86（色の順は同じ）。87＝案「跳ね上げた板が鍵そのもの」の叩かれた姿（ふだんは 63）。私の推し＝跳ね上げ・金（63）。いまの土台は 36（座＝昇る蝕・左肩は跳ね上げ・黒鉄のまま） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
-const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [60, 68];
+const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
 const PW = ids.length === 1 ? 344 : 319, PH = 352, W = ids.length * PW + (ids.length - 1) * 2, out = makeCanvas(W, PH); rect(out, 0, 0, W, PH, [40, 42, 64]);
 ids.forEach((id, i) => {
   const d = M.gaika2With(CANDS[id].o), cv = makeCanvas(PW, PH); rect(cv, 0, 0, PW, PH, BGC);

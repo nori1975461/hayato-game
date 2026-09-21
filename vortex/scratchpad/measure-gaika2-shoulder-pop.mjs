@@ -11,8 +11,8 @@ import { rect, BGC } from './gods-sheet.mjs';
 import * as M from './gaika-candidates.mjs';
 const W = 400, H = 380, CX = 200, CY = 190 - 13.5;
 const BASE = { kit: 'launcher', foreTurn: [20, 35], subStraight: true, stowed: true, thirdArm: false, subBehind: true, subBoom: true, subBlade: 'eclipse', collar: 'none', head: { cheek: 'steel', top: 'mast' } };
-//   引数：形＝spike（既定・大きな一本棘）／chamfer（面取り）／fin（跳ね上げ）。二つ目に core を付けると最終形態の炉心を 09-21 の推し（発射架＋胸の炉の扉・白金）にする
-const SHAPE = { chamfer: { accent: 'chamfer' }, fin: { accent: ['chamfer', 'fin'] } }[process.argv[2]] || { accent: ['chamfer', 'spikes'], spikes: [[5, -11, 80, 18, 5]], seam: true };
+//   引数：形＝spike（既定・大きな一本棘）／short（短い棘＝09-21 18:18 にユーザーが言う「棘」）／chamfer（面取り）／fin（跳ね上げ）。二つ目に core を付けると最終形態の炉心を 09-21 の推し（発射架＋胸の炉の扉・白金）にする
+const SHAPE = { chamfer: { accent: 'chamfer' }, fin: { accent: ['chamfer', 'fin'] }, short: { accent: ['chamfer', 'spike'] } }[process.argv[2]] || { accent: ['chamfer', 'spikes'], spikes: [[5, -11, 80, 18, 5]], seam: true };
 const SH = { edge: 'none', bands: false, flare: 5, topW: 9, scale: 0.88, dx: 7, ...SHAPE };
 const CORE = process.argv[3] === 'core' ? { openCore: 'rack', chest: { tone: 'gold' } } : {};
 const FORMS = { closed: { dormantX: { kind: 'umbra' } }, final: { open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], thirdArm: true, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' }, ...CORE } };

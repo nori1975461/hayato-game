@@ -16,6 +16,8 @@ const VARIANTS = {
   '45+bone': { accent: ['chamfer', 'spikes'], spikes: [[8, -8, 45, 17, 4.5]], seam: true, tint: [null, 'bone'] },
   'tri+bone': { accent: ['chamfer', 'spikes'], spikes: [[2, -11, 85, 9, 3.8], [8.5, -8, 48, 10, 3.8], [12, 0, 12, 9, 3.8]], seam: true, tint: [null, 'bone'] },
   'up+spikeOnly': { accent: ['chamfer', 'spikes'], spikes: [[5, -11, 80, 18, 5]], seam: true, tint: [null, 'bone'], tintPlate: false },
+  // 0921/４＝4 色 × 跳ね上げ・短い棘（18:18 にユーザーが訂正＝「棘」は短い棘）
+  ...Object.fromEntries(['crimson', 'gold', 'silver', 'yellow'].flatMap((c) => [['fin+' + c, { accent: ['chamfer', 'fin'], tint: [null, c] }], ['short+' + c, { accent: ['chamfer', 'spike'], tint: [null, c] }]])),
 };
 const shot = (o) => { const d = M.gaika2With(o), cv = makeCanvas(W, H); rect(cv, 0, 0, W, H, BGC); renderBoss(cv, d, { ...d.tier, spriteScale: 1 }, CX, CY, { glow: false }); return cv.px; };
 let ok = true;
