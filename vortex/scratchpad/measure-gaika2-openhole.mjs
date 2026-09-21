@@ -8,7 +8,7 @@ const base = M.gaika2With(M.GAIKA2_FINAL_OPT);
 const shells = (d) => ['shellL', 'shellR'].map((k) => d.sprites[k].rows);
 const B = shells(base);
 for (const kind of process.argv.slice(2)) {
-  const d = M.gaika2With({ ...M.GAIKA2_FINAL_OPT, openHole: kind }), A = shells(d);
+  const d = M.gaika2With({ ...M.GAIKA2_FINAL_OPT, openHole: kind.startsWith('{') ? JSON.parse(kind) : kind }), A = shells(d);
   let n = 0, sumRGB = 0, sumLum = 0, strong = 0; const col = {};
   for (let s = 0; s < 2; s++) for (let y = 0; y < A[s].length; y++) for (let x = 0; x < A[s][y].length; x++) {
     const a = A[s][y][x], b = B[s][y][x]; if (a === b) continue;
