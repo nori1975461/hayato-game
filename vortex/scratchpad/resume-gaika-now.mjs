@@ -182,7 +182,7 @@ Object.assign(CANDS, {
 //   分かったこと＝光の断面をどう変えても「手から光が生えている」かぎり刀に見える。効いたのは手の先の灰色の筒（砲身）＝光がその口から出る形（barrel）。
 //   ⚠️等倍では B／C／D の差はほぼ見えない（光の幅は 3〜4 画素）。等倍で読めるのは「長さ」と「砲身の暗い区切り」の 2 つだけ＝実測。
 Object.assign(CANDS, {
-  103: { label: '103 LASER: LONGER BLADE ONLY (L120)', jp: 'A 長いだけ（形は刃のまま・長い剣に見える＝比較の土台）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120 } },
+  103: { label: '103 LASER: LONGER BLADE ONLY (L120)', jp: 'A 長いだけ（形は刃のまま・長い剣に見える＝比較の土台）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: 'saber' } },
   104: { label: '104 LASER: BARREL + STRAIGHT BEAM', jp: '⭐B 砲身＋等幅の光（私の推し・先は切ったまま）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam', barrel: 20 } } },
   105: { label: '105 LASER: BARREL + WIDENING BEAM', jp: 'C 砲身＋先へ広がる光（剣ではありえない形＝いちばん刃でない）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'cone', barrel: 20 } } },
   106: { label: '106 LASER: BARREL + PULSING BEAM', jp: 'D 砲身＋脈打つ光（節が流れる）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20 } } },
@@ -203,6 +203,11 @@ Object.assign(CANDS, {
   114: { label: '114 TWIST: FIRING', jp: '推しが撃つ瞬間＝育った粒がそのまま弾として離れる', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, asym: true, shots: 3 } } },
   115: { label: '115 REJECTED: DARK CORE', jp: '落とした案＝蝕の芯（光の量 −17%・4 か所で切れる）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, darkCore: 0.7 } } },
   116: { label: '116 REJECTED: RINGS', jp: '落とした案＝磁環（外に出した版＝金の粒が浮くだけ）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, rings: true } } },
+});
+// ⭐⭐09-22 23:22 ユーザー「４＋砲身の作りこみでお願い。２．育つもよかったが ビジュアル的に私の好みではなかった。４＋は 薬室の存在 放熱フィンの存在をみせることで より遠距離攻撃であることを強調してくれた」
+//   ＝クリックページの 4 から育つ grow だけを外した形で確定＝**117 がコードの既定（GAIKA2_FINAL）**。asym と skew は 4 に無かったので保留（あとから一言で足せる）。
+Object.assign(CANDS, {
+  117: { label: '117 FINAL FIXED: BARREL + GRAINY PULSE', jp: '⭐最終形態の確定版（09-22 23:22）＝砲身（薬室＋放熱フィン）から粒立った脈の光 長さ120', o: { ...M.GAIKA2_FINAL_OPT } },
 });
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う

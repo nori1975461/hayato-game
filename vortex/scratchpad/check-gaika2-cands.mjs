@@ -22,7 +22,7 @@ const LEGACY = {   // CANDS に無い旧い検討の版と、試して外した�
   COLLAR_NOSEAM: { ...NOW8, collar: { seam: false }, head: { cheek: 'steel', top: 'blade' } }, COLLAR_NONE: { ...NOW8, collar: 'none', head: { cheek: 'steel', top: 'blade' } },
   EYE_UP_SUNK: { ...NOW8, head: { cheek: 'steel', top: 'sunk', eyeAt: [0, -55.5] } }, EYE_UP_MAST: { ...NOW8, head: { cheek: 'steel', top: 'mast', eyeAt: [0, -66] } },
 };
-const all = { ...Object.fromEntries(Object.entries(CANDS).map(([k, c]) => ['C' + k, c.o])), ...LEGACY }, W = 344, H = 352, now = {};
+const all = { ...Object.fromEntries(Object.entries(CANDS).map(([k, c]) => ['C' + k, c.o])), ...LEGACY }, W = 560, H = 352, now = {};   // 09-22 夜：光が長くなり 344 の枠では先（弾と閃光）が映らず変化を見逃した＝560 へ
 for (const [k, o] of Object.entries(all)) { const d = M.gaika2With(o), cv = makeCanvas(W, H); rect(cv, 0, 0, W, H, BGC); renderBoss(cv, d, { ...d.tier, spriteScale: 1 }, W / 2, H / 2 - 13.5, { glow: false }); now[k] = crypto.createHash('sha1').update(Buffer.from(cv.px)).digest('hex').slice(0, 12); }
 if (process.argv.includes('--update')) { fs.writeFileSync(FILE, JSON.stringify(now, null, 1) + '\n'); console.log('GAIKA2_CANDS_EXPECTED_UPDATED', Object.keys(now).length); }
 else {
