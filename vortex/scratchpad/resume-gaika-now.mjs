@@ -140,6 +140,19 @@ Object.assign(CANDS, {
   ...Object.fromEntries(COLS4.map(([c, en, jp], i) => [83 + i, { label: (83 + i) + ' FINAL: SHORT SPIKE, ' + en, jp: '最終形態（同）・左肩＝短い棘・' + jp, o: { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_SHORT, c) } }])),
   87: { label: '87 KEY IDEA: PLATE STRUCK DOWN, CHEST OPEN', jp: '案＝跳ね上げた板が「鍵」そのもの＝叩かれて板が落ち（面取り）胸の炉の扉が開いた平常の姿（色は説明用に金・ふだんの姿は 63）', o: { ...DEC3, chest: { tone: 'gold' }, shoulder: SHL(SP_CH, 'gold') } },
 });
+// 09-22 朝：「開」の姿の詰め①月牙が出ていった跡（閉じた姿は「面にきっちり嵌め込み・穴なし」で確定しているのに、開いた板に跡が無かった）
+//   ②蒼の装甲が開いて出る砲（09-20 16:59「バルカン砲（電子パルス砲）は外そう。蒼の装甲が開く際に出現するものとする」＝出る砲の絵は未定のままだった）
+//   渡したもの＝0922/１（build-gaika2-folder31.sh）。土台は候補 80（最終形態・左肩 跳ね上げ・金）。私の推し＝跡 91・砲 92。
+const FIN80 = { ...FINAL4, ...CORE_PICK, shoulder: SHL(SP_FIN, 'gold') }, HOLE_PICK = { kind: 'moon', seat: true, burn: true };
+Object.assign(CANDS, {
+  88: { label: '88 OPEN HOLE: SOCKET', jp: '跡＝月牙の形の窪み（底は暗い鋼・0922/１ の 2）', o: { ...FIN80, openHole: 'socket' } },
+  89: { label: '89 OPEN HOLE: SOCKET + SEAT', jp: '跡＝窪み＋第36稿の空の座（蒼い軌条と金の留め具二つ・0922/１ の 3）', o: { ...FIN80, openHole: { kind: 'socket', seat: true } } },
+  90: { label: '90 OPEN HOLE: HOLE + SEAT', jp: '跡＝抜けた穴＋軌条と留め具（0922/１ の 4）', o: { ...FIN80, openHole: { kind: 'moon', seat: true } } },
+  91: { label: '91 OPEN HOLE: HOLE + SEAT + BURN', jp: '跡＝穴＋軌条と留め具＋灼けた縁（⭐私の推し・等倍で読めるのはこれだけ・0922/１ の 5）', o: { ...FIN80, openHole: HOLE_PICK } },
+  92: { label: '92 OPEN GUN: VULCAN', jp: '出る砲＝バルカン砲（砲身の束三本・⭐私の推し・0922/１ の 3）', o: { ...FIN80, openHole: HOLE_PICK, openGun: 'gun' } },
+  93: { label: '93 OPEN GUN: MIXED', jp: '出る砲＝左右で違える（骸華の左肩＝画面右だけバルカン砲・0922/１ の 2）', o: { ...FIN80, openHole: HOLE_PICK, openGun: ['launcher', 'gun'] } },
+  94: { label: '94 OPEN GUN: SABER', jp: '出る砲＝光刃（参考＝砲を出さない・0922/１ の 4）', o: { ...FIN80, openHole: HOLE_PICK, openGun: 'saber' } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -165,7 +178,11 @@ console.log('  ・⭐09-21 18:08 弱点は胸の炉心／胸の炉の扉が開�
 console.log('  ・⭐⭐09-21 18:50 左肩の形＝跳ね上げ・色＝金で決定（候補 63）。鍵の入り方と炉心の開き方は「跳ね上げた板が鍵そのもの」の案を採用（候補 87）');
 console.log('  ・⭐⭐09-21 18:50 これで閉じた姿は全部確定＝コードの既定を第53稿へ（GAIKA2＝63／GAIKA2_KEYDOWN＝87／GAIKA2_FINAL＝80・画素一致は check-gaika2-def53.mjs）');
 console.log('  ・⭐09-21 18:08 行動＝左肩は胸の扉を開ける鍵：左肩に当てるとスイッチが入る（ガツンという重低音）→ 胸の弱点が開く → 胸に当てるとダメージ → 一定時間で閉まる → 左肩で再び開く・その繰り返し');
-console.log('\n=== 4. 候補の引数（1〜87）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 80。次の論点は「開」の姿（出る砲・嵌め込み・六枚の月）と行動設計 ===');
+console.log('  ・09-22 朝「開」の姿の詰めに着手＝①月牙が出ていった跡（openHole。閉じた姿が「面に嵌め込み・穴なし」なのに開いた板に跡が無かった）');
+console.log('  　　　　　　　　　　　　　　　②蒼の装甲が開いて出る砲（openGun。外すことは決まっていたが出る砲の絵は未定だった）＝0922/１ で 5 案と 4 案を渡した（⏳回答待ち）');
+console.log('  ・09-22 跡は「月牙の形」で揃えた＝角丸の開口（第36稿）は月牙が穴に収まっていた頃の名残なので外し、中の軌条と留め具だけ引き継いだ');
+console.log('  ・09-22 実測＝等倍で跡があると読めるのは「灼けた縁」を足した案だけ（明るくなる画素 650 対 暗い赤 331・暗い赤は等倍で灯にならない）');
+console.log('\n=== 4. 候補の引数（1〜94）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 80。88〜94 は「開」の詰め（跡と出る砲・私の推しは 91 と 92） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
