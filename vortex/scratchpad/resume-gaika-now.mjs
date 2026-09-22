@@ -189,6 +189,21 @@ Object.assign(CANDS, {
   107: { label: '107 LASER: NO BARREL (CONTROL)', jp: 'E 砲身なし・等幅の光＝対照（砲身が効いているかを見る一枚）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam' } } },
   108: { label: '108 LASER: BARREL + BEAM, FIRING', jp: 'B が撃つ瞬間（光弾は光の先から出る）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam', barrel: 20, shots: 3 } } },
 });
+// ⭐09-22 22:57 ユーザー「D 砲身＋脈打つ光で。一番レーザー砲の雰囲気ある。ただ、もうひとひねりできないか？極限まで検証して考えて」＝0922/６
+//   ひねりは 6 つ作って 2 つ落とした（等倍でマゼンタの画素だけを数えて判定＝measure-gaika2-beam.mjs）。
+//   採った＝①粒立ち gapPulse（節の間を細らせる）②育つ grow（先へ行くほど粒が大きい＝いちばん先の粒がそのまま弾になる）③砲身の薬室と放熱フィン chamber（光は 1 画素も変えない）＋左右で位相をずらす asym。別案＝走る脈 skew。
+//   落とした＝蝕の芯 darkCore（光の量が 17% 減り 4 か所で切れる）／磁環 rings（横切る版は 21 か所で光を断ち切り「金の棒」・外に出す版は金の粒が浮くだけ）。
+const TW = { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65, grow: 0.7, chamber: true };
+Object.assign(CANDS, {
+  109: { label: '109 TWIST: GRAINY ONLY', jp: 'ひねり①粒立ちだけ（0.65）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65 } } },
+  110: { label: '110 TWIST: + GROWING', jp: 'ひねり①＋②育つ（先の粒ほど大きい）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65, grow: 0.7 } } },
+  111: { label: '111 TWIST: + CHAMBER (PROPOSED)', jp: '⭐推し＝ひねり①②＋③砲身の薬室と放熱フィン', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: TW } },
+  112: { label: '112 TWIST: + ASYM', jp: '⭐推し＋左右で脈の位相をずらす', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, asym: true } } },
+  113: { label: '113 TWIST: + RUNNING (ALT)', jp: '別案＝走る脈（前縁が立ち後ろへ尾を引く）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, asym: true, skew: 0.8 } } },
+  114: { label: '114 TWIST: FIRING', jp: '推しが撃つ瞬間＝育った粒がそのまま弾として離れる', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, asym: true, shots: 3 } } },
+  115: { label: '115 REJECTED: DARK CORE', jp: '落とした案＝蝕の芯（光の量 −17%・4 か所で切れる）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, darkCore: 0.7 } } },
+  116: { label: '116 REJECTED: RINGS', jp: '落とした案＝磁環（外に出した版＝金の粒が浮くだけ）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { ...TW, rings: true } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -222,7 +237,8 @@ console.log('  ・⭐09-22 昼 最終形態の確定＝跡は窪み＋金具（s
 console.log('  ・⭐09-22 12:37 三本目の光刃は「刃に見えて光弾を撃つ」遠距離の武器に（ユーザー案を採用・撃つ瞬間＝候補 98）。同時に刃先の切れ（格子 ±164）を直した＝0922/３');
 console.log('  ・⭐09-22 18:05 7 段階の全身を 0922/４ で渡した（満ちる＝umbra r・放射前＝moonsSeated）');
 console.log('  ・⭐09-22 19:34 三本目の光刃をレーザー兵器の形へ＝0922/５ で 6 案（砲身 barrel が効く・長さ 120）。⏳形と長さの回答待ち');
-console.log('\n=== 4. 候補の引数（1〜108）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
+console.log('  ・⭐09-22 22:57 D を採用＝砲身＋脈打つ光。ひねりを 6 つ作り 2 つ落として 0922/６ へ（推し＝候補 112）。⏳ひねりの可否と粒立ての強さの回答待ち');
+console.log('\n=== 4. 候補の引数（1〜116）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];

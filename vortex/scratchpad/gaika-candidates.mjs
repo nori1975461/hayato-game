@@ -2326,15 +2326,28 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
       const RT = sty === 'halo' ? [0.42, 0.27, 0.17] : [0.86, 0.6, 0.38];   // 外→芯の太さの比。halo は芯を細く・外の淡い光を広く
       const beam = (b, f) => { b.slab(0, 0.98, (u) => f(u) + 0.7, () => 'k'); b.slab(0, 1, f, () => sc.c); b.slab(0, 1, (u) => f(u) * RT[0], () => sc.b); b.slab(0, 1, (u) => f(u) * RT[1], () => sc.a); b.slab(0, 1, (u) => Math.min(f(u) * RT[2], 1.05), () => sc.core); };
       if (sty === 'twin') for (const sg of [-1, 1]) { const g0 = 3.3 * sg, g1 = 1.0 * sg; beam(mkSlab(G, A0[0] - dy * g0, A0[1] + dx * g0, T[0] - dy * g1, T[1] + dx * g1), (u) => 2.0 * cap(u)); }   // 二条＝先でわずかに寄る
-      else if (sty === 'pulse') beam(bl2, (u) => W * (0.55 + 0.45 * Math.pow(Math.max(0, Math.sin((Math.PI * u * L) / per)), 0.55)) * cap(u));   // 脈＝節が流れる
+      else if (sty === 'pulse') {   // 脈＝節が流れる。skew で前縁が立ち（走って見える）・gapPulse で節の間が細る（粒の連なり）
+        const sk = (st && st.skew) || 0, gp = (st && st.gapPulse) || 0, ph = st && st.asym && s > 0 ? 0.5 : 0;   // asym＝骸華の左肩（画面右）だけ半周ずらす
+        const amp = (u) => { if (!sk) return Math.pow(Math.max(0, Math.sin(Math.PI * ((u * L) / per + ph))), 0.55);   // ひねり無し＝0922/５ の D と同じ式（山と平らが交互）
+          const q = (u * L) / (2 * per) + ph / 2, f0 = q - Math.floor(q); return Math.pow(f0, 0.55 + 2.2 * sk); };   // 走る脈＝前縁が立ち 後ろへ尾を引く（山は 2*per ごと＝D と同じ間隔）
+        const gw = (st && st.grow) || 0;   // grow＝先へ行くほど節が太る（光が外へ送られて育つ＝撃つ前の一粒がいちばん大きい）
+        beam(bl2, (u) => W * ((0.55 - 0.5 * gp) + (0.45 + 0.5 * gp) * amp(u) * (1 + gw * (1.6 * u - 0.55))) * cap(u));
+      }
       else if (sty === 'cone') beam(bl2, (u) => (1.7 + 3.6 * u) * cap(u));   // 広がる光条＝根元が細く先へ広がる（剣ではありえない形）
       else if (sty === 'halo') beam(bl2, (u) => 5.4 * cap(u));   // 細い芯＋広い淡い光
       else beam(bl2, (u) => W * cap(u));   // 'beam'＝等幅
+      if (st && st.darkCore) bl2.slab(0.02, 0.99, () => (typeof st.darkCore === 'number' ? st.darkCore : 0.7), () => 'k');   // 蝕の芯＝光の中を黒い糸が走る（副腕の蝕刃と同じ図像）
+      if (st && st.rings) { const rp = typeof st.rings === 'number' ? st.rings : 2 * per, nr = Math.floor((L - B0 - 6) / rp), cross = st.ringCross;
+        for (let i = 1; i <= nr; i++) { const d = B0 + i * rp, c0 = [S0[0] + dx * d, S0[1] + dy * d];
+          if (cross) { const rg = mkSlab(G, c0[0] + dy * 3.4, c0[1] - dx * 3.4, c0[0] - dy * 3.4, c0[1] + dx * 3.4); rg.slab(0, 1, () => 1.1, (v, u) => (u < 0.22 || u > 0.78 ? 'Y' : 'G')); continue; }
+          for (const sg of [-1, 1]) { const rg = mkSlab(G, c0[0] + dy * 2.9 * sg, c0[1] - dx * 2.9 * sg, c0[0] + dy * 5.6 * sg, c0[1] - dx * 5.6 * sg); rg.slab(0, 1, (u) => 1.5 - 0.6 * u, (v, u) => (u < 0.35 ? 'G' : 'Y')); } } }   // 磁環＝光を閉じ込める輪（端は鈍い金・中は明るい金）
       const tp = mkSlab(G, T[0] - dx * 1.5, T[1] - dy * 1.5, T[0] + dx * 1.5, T[1] + dy * 1.5); tp.slab(0, 1, 1.5, () => sc.a); tp.slab(0.25, 0.75, 0.8, () => sc.core);   // 先端の芯だけ残す＝「切れている」ことを見せる
       if (B0) {   // 砲身＝手の先の灰色の筒。口に金の輪・胴に金の帯・芯に陰（筒に見せる）
         const bs = mkSlab(G, W0[0] + dx * 2, W0[1] + dy * 2, A0[0], A0[1]);
         bs.slab(0, 1, (u) => 3.9 - 0.7 * u, (v) => (v < -0.55 ? 'f' : v < 0.3 ? 'm' : 'j')); bs.slab(0, 1, 0.8, () => 'k');
         bs.slab(0.26, 0.4, 4.5, goldCol); bs.slab(0.9, 1, 4.6, goldCol);
+        if (st && st.chamber) { for (const uu of [0.5, 0.68, 0.84]) { const c0 = [W0[0] + dx * (2 + (B0 + 5) * uu), W0[1] + dy * (2 + (B0 + 5) * uu)], sl = mkSlab(G, c0[0] + dy * 3.2, c0[1] - dx * 3.2, c0[0] - dy * 3.2, c0[1] + dx * 3.2); sl.slab(0.18, 0.82, 0.9, () => sc.a); sl.slab(0.3, 0.7, 0.5, () => sc.core); }   // 薬室＝筒の隙間から中の光が漏れる
+          for (const sg of [-1, 1]) for (const uu of [0.34, 0.52]) { const c0 = [W0[0] + dx * (2 + (B0 + 5) * uu), W0[1] + dy * (2 + (B0 + 5) * uu)], fn = mkSlab(G, c0[0] - dy * 3.4 * sg, c0[1] + dx * 3.4 * sg, c0[0] - dy * 6.2 * sg, c0[1] + dx * 6.2 * sg); fn.slab(0, 1, (u) => 1.6 - 0.5 * u, (v) => (v < -0.2 ? 'f' : v < 0.45 ? 'm' : 'j')); } }   // 放熱フィン＝筒から出る短い羽根
         const mu = mkSlab(G, A0[0] - dx * 1.2, A0[1] - dy * 1.2, A0[0] + dx * 2.2, A0[1] + dy * 2.2); mu.slab(0, 1, 2.6, () => sc.b); mu.slab(0.2, 0.8, 1.4, () => sc.a);   // 口の中の光
       } else for (const sg of [-1, 1]) { const o = [W0[0] + dx * 3 - dy * 3.4 * sg, W0[1] + dy * 3 + dx * 3.4 * sg], pr = mkSlab(G, o[0], o[1], o[0] + dx * 12, o[1] + dy * 12); pr.slab(0, 1, (u) => 2.3 - 0.9 * u, (v, u) => (u > 0.82 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 柄＝前へ伸びる二又の放射口（刀の鍔をやめる）
     } else {
