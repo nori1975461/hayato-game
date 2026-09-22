@@ -2298,12 +2298,13 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, (handFlip ? 6 : 7) * HF);   // 第45稿：B は親指が内＝爪先がスカートへ 2px まで迫るので爪だけ 1 短く（隙間 3px＝A と同じ・check-gaika2-handskirt.mjs）
   };
   // 第49稿：光刃を任意の手首から任意の角度で生やす（形と色は第33稿の光刃＝副腕の光刃と同じ作り：手首の節 → 刀身五層 → 爪二本 → 柄）
-  const saberAt = (W0, s, deg, L) => {
+  const saberAt = (W0, s, deg, L, pal) => {   // pal＝色の組（SCH の値）。省略＝機体の光刃の色（o.saber・既定 mag）
+    const sc = pal || sb;
     const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a);
     const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 6, W0[1] + dy * 6); un.slab(0, 1, 4.8, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));
     const S0 = [W0[0] + dx * 7, W0[1] + dy * 7], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
     const BW = (u) => (u < 0.055 ? 0.9 + u * 36 : u > 0.84 ? 2.9 * Math.pow((1 - u) / 0.16, 0.5) : 2.9);
-    bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k'); bl.slab(0, 1, (u) => BW(u), () => sb.c); bl.slab(0, 1, (u) => BW(u) * 0.55, () => sb.b); bl.slab(0, 1, (u) => BW(u) * 0.3, () => sb.a); bl.slab(0, 1, (u) => BW(u) * 0.08, () => sb.core);
+    bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k'); bl.slab(0, 1, (u) => BW(u), () => sc.c); bl.slab(0, 1, (u) => BW(u) * 0.55, () => sc.b); bl.slab(0, 1, (u) => BW(u) * 0.3, () => sc.a); bl.slab(0, 1, (u) => BW(u) * 0.08, () => sc.core);
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
     const em = mkSlab(G, S0[0] - dx * 4.2, S0[1] - dy * 4.2, S0[0] + dx * 3.4, S0[1] + dy * 3.4);
     em.slab(0, 1, 4.4, (v) => (v < -0.6 ? 'j' : 'k')); em.slab(0, 0.22, 4.9, goldCol); em.slab(0.78, 1, 4.9, goldCol);
@@ -2396,9 +2397,10 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     mechArm(G, pts, 5.6);
     const fa = mkSlab(G, pts[1][0], pts[1][1], pts[2][0], pts[2][1]);
     fa.slab(0.1, 1, 7.4, (v) => (v < -0.8 ? 'f' : v < -0.15 ? 'm' : 'k'));
-    const tk = thirdGun4 ? (Array.isArray(thirdGun4) ? (s > 0 ? thirdGun4[1] : thirdGun4[0]) : thirdGun4) : kit === 'swap' ? 'gun' : kit === 'vulcan' ? 'saber' : 'launcher';   // 「開」の姿：出る砲（省略＝kit のまま）
-    if (tk === 'gun') { gunAt(pts[2], s, armGunDeg, armGunLen, 3); return; }   // 第51稿：この手にバルカン砲（向きは第50稿の光刃と同じ）
-    if (tk === 'saber') { fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sb.b : sb.c)); saberAt(pts[2], s, saberDeg, saberLen); return; }   // 第49稿：砲を外し、この手にマゼンタの光刃（前腕に光刃と同じ色の帯）
+    const tk0 = thirdGun4 ? (Array.isArray(thirdGun4) ? (s > 0 ? thirdGun4[1] : thirdGun4[0]) : thirdGun4) : kit === 'swap' ? 'gun' : kit === 'vulcan' ? 'saber' : 'launcher';   // 「開」の姿：出る砲か刃（省略＝kit のまま）
+    const tk = typeof tk0 === 'object' ? tk0.kind : tk0, tko = typeof tk0 === 'object' ? tk0 : {};
+    if (tk === 'gun') { gunAt(pts[2], s, tko.deg ?? armGunDeg, tko.len ?? armGunLen, 3); return; }   // 第51稿：この手にバルカン砲（向きは第50稿の光刃と同じ）
+    if (tk === 'saber') { const sc = tko.tone ? SCH[tko.tone] : sb; fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sc.b : sc.c)); saberAt(pts[2], s, tko.deg ?? saberDeg, tko.len ?? saberLen, sc); return; }   // 第49稿：砲を外し、この手に光刃（前腕に刃と同じ色の帯）。tone で色を変える
     const a = (third4Deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const S0 = [W0[0] + dx * 3, W0[1] + dy * 3], L = 44, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
     bl.slab(0, 1, 8.9, () => 'k');
@@ -2425,7 +2427,7 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
   return R(G);
 }
 
-const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。襟はなく首は剥き出しのまま肩の谷に落ちる。肩当ては左右で違い、左の一枚だけが金の板を跳ね上げている。肩の装甲の陰から四本の腕が出る。内の二本は掌を開き、外の二本は殻の奥から支柱で伸びて芯の黒い蝕刃を斜め下へ振る。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回る。浅い V の裾の下から扇の刃が放射状に出て、V の先端の金の鋲が扇の要。中央の合わせ目は閉じた炉の扉で、金の板が落ちたときだけ開き、白金の光と炉心が現れる。月牙は座に収めたまま、いちばん下の座には蝕が昇る。蒼の装甲が開けば、電子パルス砲と肩の腕が現れる。';   // 第53稿（2026-09-21）：閉じた姿の確定に合わせて書き直した。左右は骸華の視点（左＝画面右）
+const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。襟はなく首は剥き出しのまま肩の谷に落ちる。肩当ては左右で違い、左の一枚だけが金の板を跳ね上げている。肩の装甲の陰から四本の腕が出る。内の二本は掌を開き、外の二本は殻の奥から支柱で伸びて芯の黒い蝕刃を斜め下へ振る。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回る。浅い V の裾の下から扇の刃が放射状に出て、V の先端の金の鋲が扇の要。中央の合わせ目は閉じた炉の扉で、金の板が落ちたときだけ開き、白金の光と炉心が現れる。月牙は座に収めたまま、いちばん下の座には蝕が昇る。蒼の装甲が開けば、肩の腕がもう一対現れて細い光刃を水平に構え、月牙は六枚とも座を離れて有線で飛ぶ。空いた座には月牙の形の窪みと蒼い軌条と金の留め具だけが残る。';   // 第53稿（2026-09-21）：閉じた姿の確定に合わせて書き直した。左右は骸華の視点（左＝画面右）
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
@@ -2471,7 +2473,7 @@ export const GAIKA2_DEF53 = {
 // 鍵が入った姿＝左肩を叩かれて板が落ち（右肩と同じ面取りになり）胸の炉の扉が開く。一定時間で板が跳ね上がり扉が閉じる
 export const GAIKA2_KEYDOWN_OPT = { ...GAIKA2_DEF53, shoulder: { ...GAIKA2_DEF53.shoulder, accent: 'chamfer' }, chest: { tone: 'gold' } };
 // 最終形態＝皆既（昇る蝕が満ちて縁が灼ける）＋蒼の装甲が開いて砲と肩の腕が出る＋胸の炉の扉が開く
-export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], openCore: 'rack', chest: { tone: 'gold' }, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' } };
+export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], openCore: 'rack', chest: { tone: 'gold' }, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' }, openHole: { kind: 'socket', seat: true }, openGun: 'saber' };   // 09-22 決定：跡＝月牙の形の窪み＋座の軌条と金の留め具／三本目の腕はマゼンタの光刃（候補 95）
 
 export const GAIKA2 = build4({ ...GAIKA2_DEF53 });                 // 版A＝ロケットブースター（第53稿＝閉じた姿）
 export const GAIKA2_KEYDOWN = build4({ tag: '-key', ...GAIKA2_KEYDOWN_OPT });

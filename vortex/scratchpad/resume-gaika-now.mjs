@@ -153,6 +153,14 @@ Object.assign(CANDS, {
   93: { label: '93 OPEN GUN: MIXED', jp: '出る砲＝左右で違える（骸華の左肩＝画面右だけバルカン砲・0922/１ の 2）', o: { ...FIN80, openHole: HOLE_PICK, openGun: ['launcher', 'gun'] } },
   94: { label: '94 OPEN GUN: SABER', jp: '出る砲＝光刃（参考＝砲を出さない・0922/１ の 4）', o: { ...FIN80, openHole: HOLE_PICK, openGun: 'saber' } },
 });
+// ⭐09-22 のご決定＝跡は「3 窪み＋金具」／出るものは「4 光刃」（「ビジュアルが最もしっくりきた」）＝95 が最終形態の確定版＝コードの既定（GAIKA2_FINAL）。
+//   ⚠️96／97 は作って捨てた案（色を変えて差をつける手）＝マゼンタは機体の中で埋もれない唯一の色（同系色が機体のほかにある割合 mag 1.90%／gold 8.46%／silver 15.10%）。
+const HOLE_DEF = { kind: 'socket', seat: true };
+Object.assign(CANDS, {
+  95: { label: '95 FINAL FIXED: SOCKET+SEAT, MAG SABER', jp: '⭐最終形態の確定版（09-22）＝跡は月牙の形の窪み＋軌条と金の留め具・三本目の腕はマゼンタの光刃', o: { ...FIN80, openHole: HOLE_DEF, openGun: 'saber' } },
+  96: { label: '96 REJECTED: PLATINUM SABER', jp: '却下＝三本目の刃を白金（胸の炉と同じ色域）に。拡大では金の棒に見え 等倍では輪の炎と胸の金に埋もれた', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', tone: 'gold' } } },
+  97: { label: '97 REJECTED: SILVER SABER', jp: '却下＝三本目の刃を白銀に。機体の鋼と同系色（15.10%）で塗っていない金属に見える', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', tone: 'silver' } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
