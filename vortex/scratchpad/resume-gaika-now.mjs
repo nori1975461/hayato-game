@@ -178,6 +178,17 @@ Object.assign(CANDS, {
   101: { label: '101 STATE: TOTAL ECLIPSE (CLOSED)', jp: '完全に満つる＝皆既（r215・inner・縁が灼ける）を閉じたまま', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' } } },
   102: { label: '102 FINAL: BEFORE LAUNCH (MOONS SEATED)', jp: '最終形態・月牙放射前＝開いた板の座に月牙が載ったまま（moonsSeated・跡なし）', o: { ...M.GAIKA2_FINAL_OPT, moonsSeated: true, openHole: 'none' } },
 });
+// ⭐09-22 19:34 ユーザー「後の2本の光刃のレーザー部分をもっと長くして。レーザー兵器と一目見てわかるように形を変えて。必要であれば柄も修正してかまわない」＝0922/５ で 6 案
+//   分かったこと＝光の断面をどう変えても「手から光が生えている」かぎり刀に見える。効いたのは手の先の灰色の筒（砲身）＝光がその口から出る形（barrel）。
+//   ⚠️等倍では B／C／D の差はほぼ見えない（光の幅は 3〜4 画素）。等倍で読めるのは「長さ」と「砲身の暗い区切り」の 2 つだけ＝実測。
+Object.assign(CANDS, {
+  103: { label: '103 LASER: LONGER BLADE ONLY (L120)', jp: 'A 長いだけ（形は刃のまま・長い剣に見える＝比較の土台）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120 } },
+  104: { label: '104 LASER: BARREL + STRAIGHT BEAM', jp: '⭐B 砲身＋等幅の光（私の推し・先は切ったまま）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam', barrel: 20 } } },
+  105: { label: '105 LASER: BARREL + WIDENING BEAM', jp: 'C 砲身＋先へ広がる光（剣ではありえない形＝いちばん刃でない）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'cone', barrel: 20 } } },
+  106: { label: '106 LASER: BARREL + PULSING BEAM', jp: 'D 砲身＋脈打つ光（節が流れる）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20 } } },
+  107: { label: '107 LASER: NO BARREL (CONTROL)', jp: 'E 砲身なし・等幅の光＝対照（砲身が効いているかを見る一枚）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam' } } },
+  108: { label: '108 LASER: BARREL + BEAM, FIRING', jp: 'B が撃つ瞬間（光弾は光の先から出る）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'beam', barrel: 20, shots: 3 } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -210,7 +221,8 @@ console.log('  ・09-22 実測＝等倍で跡があると読めるのは「灼�
 console.log('  ・⭐09-22 昼 最終形態の確定＝跡は窪み＋金具（socket+seat）・三本目の腕はマゼンタの光刃（候補 95＝GAIKA2_FINAL）。白金・白銀の刃は却下（96・97）');
 console.log('  ・⭐09-22 12:37 三本目の光刃は「刃に見えて光弾を撃つ」遠距離の武器に（ユーザー案を採用・撃つ瞬間＝候補 98）。同時に刃先の切れ（格子 ±164）を直した＝0922/３');
 console.log('  ・⭐09-22 18:05 7 段階の全身を 0922/４ で渡した（満ちる＝umbra r・放射前＝moonsSeated）');
-console.log('\n=== 4. 候補の引数（1〜102）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
+console.log('  ・⭐09-22 19:34 三本目の光刃をレーザー兵器の形へ＝0922/５ で 6 案（砲身 barrel が効く・長さ 120）。⏳形と長さの回答待ち');
+console.log('\n=== 4. 候補の引数（1〜108）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];

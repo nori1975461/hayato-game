@@ -1757,7 +1757,8 @@ function openMoons4(deg) {   // 六枚とも有線で射出（根＝割れ目の
   return { sprites, rig };
 }
 function openShots4(n, gap, sc, shotLen = 10, shotW = 3.4, flash = true) {   // 三本目の腕の刃の先へ光弾（紡錘）を n 個＝刃に見えて撃つ。画面左の向きで作り、右は rig の mirror
-  const GW = 150, GH = 80, GC = [138, 18], a = (saberDeg * Math.PI) / 180, dx = -Math.cos(a), dy = Math.sin(a), G = g(GW, GH);
+  const a = (saberDeg * Math.PI) / 180, dMax = 7 + saberLen + 5 + (n - 1) * gap + shotLen / 2 + 5;
+  const GW = Math.max(150, Math.ceil(dMax * Math.cos(a)) + 18), GH = Math.max(80, Math.ceil(dMax * Math.sin(a)) + 34), GC = [GW - 12, 18], dx = -Math.cos(a), dy = Math.sin(a), G = g(GW, GH);   // 刃が長いときは足りるまで広げる
   for (let i = 0; i < n; i++) {
     const d = 7 + saberLen + 5 + i * gap, cx = GC[0] + dx * d, cy = GC[1] + dy * d, h = shotLen / 2;
     const bl = mkSlab(G, cx - dx * h, cy - dy * h, cx + dx * h, cy + dy * h), BW = (u) => shotW * Math.pow(Math.sin(Math.PI * u), 0.6);
@@ -2232,7 +2233,7 @@ let subStraight = false;   // 第48稿修正：kit launcher の副腕の前腕�
 let thirdGun4 = null;   // 「開」の姿で三本目の腕が持つもの（gaika2With({ openGun: 'gun' | 'launcher' | 'saber' | ['画面左', '画面右'] })）
 let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
 const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48], ARM4_EXT = 24;   // ARM4_EXT＝「開」のときだけ左右に足す幅（三本目の腕の光刃 108＋77 が ±164 で切れていた・09-22）
-const arm4W = () => ARM4_W + (open4 && thirdArm4 ? 2 * ARM4_EXT : 0);   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
+const arm4W = () => ARM4_W + (open4 && thirdArm4 ? 2 * Math.max(ARM4_EXT, Math.ceil(third4Pts[2][0] + 7 + saberLen + 3 - ARM4_O[0])) : 0);   // 刃が長いときは足りるまで広げる（70 では 24＝従来値）   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
   const AW = arm4W(), G = g(AW, only === 'sub' && subBoom4 ? ARM4_H + SUB4_EXTRA_H : ARM4_H), X = (x) => x + AW / 2, Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
@@ -2314,14 +2315,33 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     else finger(at(6 * HP, -11.5 * HP * hs), -1.05 * hs, 7 * HF, -0.45 * hs, (handFlip ? 6 : 7) * HF);   // 第45稿：B は親指が内＝爪先がスカートへ 2px まで迫るので爪だけ 1 短く（隙間 3px＝A と同じ・check-gaika2-handskirt.mjs）
   };
   // 第49稿：光刃を任意の手首から任意の角度で生やす（形と色は第33稿の光刃＝副腕の光刃と同じ作り：手首の節 → 刀身五層 → 爪二本 → 柄）
-  const saberAt = (W0, s, deg, L, pal) => {   // pal＝色の組（SCH の値）。省略＝機体の光刃の色（o.saber・既定 mag）
-    const sc = pal || sb;
+  const saberAt = (W0, s, deg, L, pal, st) => {   // pal＝色の組（SCH の値）。省略＝機体の光刃の色（o.saber・既定 mag）。st＝レーザーの形（省略＝従来の刃）
+    const sc = pal || sb, sty = (st && st.style) || 'blade';
     const a = (deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a);
     const un = mkSlab(G, W0[0] - dx * 2, W0[1] - dy * 2, W0[0] + dx * 6, W0[1] + dy * 6); un.slab(0, 1, 4.8, (v) => (v < -0.6 ? 'f' : v < 0.4 ? 'm' : 'j'));
     const S0 = [W0[0] + dx * 7, W0[1] + dy * 7], T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
+    if (sty !== 'blade') {   // レーザー＝等幅・明るい側を太く・先は尖らせず切ったまま（剣との差はここ）
+      const W = (st && st.w) || 3.6, per = (st && st.period) || 15, cap = (u) => (u > 0.975 ? 0.5 : 1);
+      const B0 = (st && st.barrel) || 0, A0 = [S0[0] + dx * B0, S0[1] + dy * B0], bl2 = B0 ? mkSlab(G, A0[0], A0[1], T[0], T[1]) : bl;   // 砲身があれば光はその口から出る
+      const RT = sty === 'halo' ? [0.42, 0.27, 0.17] : [0.86, 0.6, 0.38];   // 外→芯の太さの比。halo は芯を細く・外の淡い光を広く
+      const beam = (b, f) => { b.slab(0, 0.98, (u) => f(u) + 0.7, () => 'k'); b.slab(0, 1, f, () => sc.c); b.slab(0, 1, (u) => f(u) * RT[0], () => sc.b); b.slab(0, 1, (u) => f(u) * RT[1], () => sc.a); b.slab(0, 1, (u) => Math.min(f(u) * RT[2], 1.05), () => sc.core); };
+      if (sty === 'twin') for (const sg of [-1, 1]) { const g0 = 3.3 * sg, g1 = 1.0 * sg; beam(mkSlab(G, A0[0] - dy * g0, A0[1] + dx * g0, T[0] - dy * g1, T[1] + dx * g1), (u) => 2.0 * cap(u)); }   // 二条＝先でわずかに寄る
+      else if (sty === 'pulse') beam(bl2, (u) => W * (0.55 + 0.45 * Math.pow(Math.max(0, Math.sin((Math.PI * u * L) / per)), 0.55)) * cap(u));   // 脈＝節が流れる
+      else if (sty === 'cone') beam(bl2, (u) => (1.7 + 3.6 * u) * cap(u));   // 広がる光条＝根元が細く先へ広がる（剣ではありえない形）
+      else if (sty === 'halo') beam(bl2, (u) => 5.4 * cap(u));   // 細い芯＋広い淡い光
+      else beam(bl2, (u) => W * cap(u));   // 'beam'＝等幅
+      const tp = mkSlab(G, T[0] - dx * 1.5, T[1] - dy * 1.5, T[0] + dx * 1.5, T[1] + dy * 1.5); tp.slab(0, 1, 1.5, () => sc.a); tp.slab(0.25, 0.75, 0.8, () => sc.core);   // 先端の芯だけ残す＝「切れている」ことを見せる
+      if (B0) {   // 砲身＝手の先の灰色の筒。口に金の輪・胴に金の帯・芯に陰（筒に見せる）
+        const bs = mkSlab(G, W0[0] + dx * 2, W0[1] + dy * 2, A0[0], A0[1]);
+        bs.slab(0, 1, (u) => 3.9 - 0.7 * u, (v) => (v < -0.55 ? 'f' : v < 0.3 ? 'm' : 'j')); bs.slab(0, 1, 0.8, () => 'k');
+        bs.slab(0.26, 0.4, 4.5, goldCol); bs.slab(0.9, 1, 4.6, goldCol);
+        const mu = mkSlab(G, A0[0] - dx * 1.2, A0[1] - dy * 1.2, A0[0] + dx * 2.2, A0[1] + dy * 2.2); mu.slab(0, 1, 2.6, () => sc.b); mu.slab(0.2, 0.8, 1.4, () => sc.a);   // 口の中の光
+      } else for (const sg of [-1, 1]) { const o = [W0[0] + dx * 3 - dy * 3.4 * sg, W0[1] + dy * 3 + dx * 3.4 * sg], pr = mkSlab(G, o[0], o[1], o[0] + dx * 12, o[1] + dy * 12); pr.slab(0, 1, (u) => 2.3 - 0.9 * u, (v, u) => (u > 0.82 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }   // 柄＝前へ伸びる二又の放射口（刀の鍔をやめる）
+    } else {
     const BW = (u) => (u < 0.055 ? 0.9 + u * 36 : u > 0.84 ? 2.9 * Math.pow((1 - u) / 0.16, 0.5) : 2.9);
     bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k'); bl.slab(0, 1, (u) => BW(u), () => sc.c); bl.slab(0, 1, (u) => BW(u) * 0.55, () => sc.b); bl.slab(0, 1, (u) => BW(u) * 0.3, () => sc.a); bl.slab(0, 1, (u) => BW(u) * 0.08, () => sc.core);
     for (const da of [-0.62, 0.62]) { const ca = Math.atan2(dy, dx) + da, cl = mkSlab(G, W0[0] + dx * 4, W0[1] + dy * 4, W0[0] + dx * 4 + Math.cos(ca) * 11, W0[1] + dy * 4 + Math.sin(ca) * 11); cl.slab(0, 1, (u) => 2.5 * (1 - u) + 0.35, (v, u) => (u > 0.8 ? 'Y' : v < -0.3 ? 'f' : v < 0.4 ? 'm' : 'j')); }
+    }
     const em = mkSlab(G, S0[0] - dx * 4.2, S0[1] - dy * 4.2, S0[0] + dx * 3.4, S0[1] + dy * 3.4);
     em.slab(0, 1, 4.4, (v) => (v < -0.6 ? 'j' : 'k')); em.slab(0, 0.22, 4.9, goldCol); em.slab(0.78, 1, 4.9, goldCol);
   };
@@ -2416,7 +2436,7 @@ function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = n
     const tk0 = thirdGun4 ? (Array.isArray(thirdGun4) ? (s > 0 ? thirdGun4[1] : thirdGun4[0]) : thirdGun4) : kit === 'swap' ? 'gun' : kit === 'vulcan' ? 'saber' : 'launcher';   // 「開」の姿：出る砲か刃（省略＝kit のまま）
     const tk = typeof tk0 === 'object' ? tk0.kind : tk0, tko = typeof tk0 === 'object' ? tk0 : {};
     if (tk === 'gun') { gunAt(pts[2], s, tko.deg ?? armGunDeg, tko.len ?? armGunLen, 3); return; }   // 第51稿：この手にバルカン砲（向きは第50稿の光刃と同じ）
-    if (tk === 'saber') { const sc = tko.tone ? SCH[tko.tone] : sb; fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sc.b : sc.c)); saberAt(pts[2], s, tko.deg ?? saberDeg, tko.len ?? saberLen, sc); return; }   // 第49稿：砲を外し、この手に光刃（前腕に刃と同じ色の帯）。tone で色を変える
+    if (tk === 'saber') { const sc = tko.tone ? SCH[tko.tone] : sb; fa.slab(0.4, 0.78, 1.5, (v) => (v < 0 ? sc.b : sc.c)); saberAt(pts[2], s, tko.deg ?? saberDeg, tko.len ?? saberLen, sc, tko); return; }   // 第49稿：砲を外し、この手に光刃（前腕に刃と同じ色の帯）。tone で色を変える
     const a = (third4Deg * Math.PI) / 180, dx = s * Math.cos(a), dy = Math.sin(a), W0 = pts[2];
     const S0 = [W0[0] + dx * 3, W0[1] + dy * 3], L = 44, T = [S0[0] + dx * L, S0[1] + dy * L], bl = mkSlab(G, S0[0], S0[1], T[0], T[1]);
     bl.slab(0, 1, 8.9, () => 'k');
