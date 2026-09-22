@@ -1756,6 +1756,21 @@ function openMoons4(deg) {   // 六枚とも有線で射出（根＝割れ目の
   });
   return { sprites, rig };
 }
+function openShots4(n, gap, sc, shotLen = 10, shotW = 3.4, flash = true) {   // 三本目の腕の刃の先へ光弾（紡錘）を n 個＝刃に見えて撃つ。画面左の向きで作り、右は rig の mirror
+  const GW = 150, GH = 80, GC = [138, 18], a = (saberDeg * Math.PI) / 180, dx = -Math.cos(a), dy = Math.sin(a), G = g(GW, GH);
+  for (let i = 0; i < n; i++) {
+    const d = 7 + saberLen + 5 + i * gap, cx = GC[0] + dx * d, cy = GC[1] + dy * d, h = shotLen / 2;
+    const bl = mkSlab(G, cx - dx * h, cy - dy * h, cx + dx * h, cy + dy * h), BW = (u) => shotW * Math.pow(Math.sin(Math.PI * u), 0.6);
+    bl.slab(0, 1, (u) => BW(u) + 0.8, () => 'k'); bl.slab(0, 1, BW, () => sc.c); bl.slab(0, 1, (u) => BW(u) * 0.6, () => sc.b); bl.slab(0, 1, (u) => BW(u) * 0.35, () => sc.a); bl.slab(0, 1, (u) => BW(u) * 0.12, () => sc.core);
+  }
+  if (n > 0 && flash) {   // 刃先の閃き＝四芒の小さな星。「刃から出た」と読ませる合図（光なので黒縁は付けない）
+    const tx = GC[0] + dx * (7 + saberLen), ty = GC[1] + dy * (7 + saberLen), px = -dy, py = dx, ST = (u) => Math.pow(Math.sin(Math.PI * u), 0.5);
+    const fa = mkSlab(G, tx - dx * 3, ty - dy * 3, tx + dx * 6, ty + dy * 6); fa.slab(0, 1, (u) => 1.7 * ST(u) + 0.3, () => sc.b); fa.slab(0.15, 0.85, (u) => 1.0 * ST(u) + 0.2, () => sc.a); fa.slab(0.3, 0.7, 0.6, () => sc.core);
+    const fc = mkSlab(G, tx - px * 4, ty - py * 4, tx + px * 4, ty + py * 4); fc.slab(0, 1, (u) => 1.3 * ST(u) + 0.3, () => sc.b); fc.slab(0.2, 0.8, (u) => 0.8 * ST(u) + 0.2, () => sc.a); fc.slab(0.35, 0.65, 0.5, () => sc.core);
+  }
+  const hand = third4Pts[2], origin = [GC[0] / GW, GC[1] / GH];
+  return { sprites: { shots: { rows: R(G), palette: PAL } }, rig: [{ role: 'cannon', tex: 'shots', ox: -hand[0], oy: hand[1], origin }, { role: 'cannon', tex: 'shots', ox: hand[0], oy: hand[1], origin, mirror: true }] };
+}
 function shell(s, trim = ['R', 'R'], xf = null) {
   const G = xf ? g(xf.W, xf.H) : g(SH_W, SH_H), X = (wx) => (s > 0 ? wx - 10 : wx + 112), Y = (wy) => wy + 138;
   const sx = shSeatX, bt = sx && sx.kind === 'bite' ? { c: sx.c || [118, 0], r: sx.r ?? 40 } : null, um = sx && sx.kind === 'umbra' ? { c: sx.c || [0, 70], r: sx.r ?? 115, rim: sx.rim ?? 'R', w: sx.w ?? 1.2, w2: sx.w2 ?? 1.1, dark: sx.dark || 'd', sink: sx.sink !== false, inner: !!sx.inner, burn: sx.burn || null } : null, UM_DIM = { R: 'r', A: 'R', G: 'Y', Y: 'y', W: 'G', s: 'f', f: 'm' }, ecl2 = !!(sx && sx.kind === 'band' && sx.eclipse);
@@ -2216,9 +2231,10 @@ const SUB4_EXTRA_H = 28;   // 支柱の版は光刃の先が下がる＝副腕�
 let subStraight = false;   // 第48稿修正：kit launcher の副腕の前腕を光刃と一直線に（gaika2With({ kit: "launcher", foreTurn: [20, 35], subStraight: true })）
 let thirdGun4 = null;   // 「開」の姿で三本目の腕が持つもの（gaika2With({ openGun: 'gun' | 'launcher' | 'saber' | ['画面左', '画面右'] })）
 let armGunDeg = ARMGUN4_DEG, armGunLen = ARMGUN4_LEN, mountSaberDeg = MSABER4_DEG, mountSaberLen = MSABER4_LEN;   // 第49稿：見比べ用に build4 から差し替える（下の build4 を参照）
-const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48];   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
+const ARM4_W = 328, ARM4_H = 182, ARM4_O = [164, 48], ARM4_EXT = 24;   // ARM4_EXT＝「開」のときだけ左右に足す幅（三本目の腕の光刃 108＋77 が ±164 で切れていた・09-22）
+const arm4W = () => ARM4_W + (open4 && thirdArm4 ? 2 * ARM4_EXT : 0);   // 第29稿：余った縦を詰める（bbox が腕の空白で膨らみ機体の縮尺が落ちていた）
 function arms4(sb, only = 'all', handFlip = false, elbow = ELBOW4_DEF, wrist = null, foreTurn = FORE4_DEF, handL = HANDL4_DEF, kit = KIT4_DEF) {   // 第36稿：only＝'main'（主腕と三本目）／'sub'（副腕だけ＝殻より奥に置く別テクスチャ）
-  const G = g(ARM4_W, only === 'sub' && subBoom4 ? ARM4_H + SUB4_EXTRA_H : ARM4_H), X = (x) => x + ARM4_O[0], Y = (y) => y + ARM4_O[1];
+  const AW = arm4W(), G = g(AW, only === 'sub' && subBoom4 ? ARM4_H + SUB4_EXTRA_H : ARM4_H), X = (x) => x + AW / 2, Y = (y) => y + ARM4_O[1];
   // 第35稿：FB「両手をスカートに触れないように」「手の攻撃手段を決め、そのうえでビジュアルを」
   //   攻撃手段＝掌蝕（しょうしょく）。掌に欠けた黒い太陽を抱え、引き寄せ・握り潰し・投げ返す（プレイヤーの動詞＝掴む・投げるを闘いの神が返す）。
   //   絵＝掌を正面へ開く。黒い円の下外側だけが深紅に灼ける（月牙と日蝕の輪と同じ「蝕」の形）。芯の点は打たない（金の輪に芯＝目の罠）
@@ -2427,7 +2443,7 @@ function eclipseTex(sc, tg = sc) {   // sc＝環の芯・tg＝外へ噴く舌（
   return R(G);
 }
 
-const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。襟はなく首は剥き出しのまま肩の谷に落ちる。肩当ては左右で違い、左の一枚だけが金の板を跳ね上げている。肩の装甲の陰から四本の腕が出る。内の二本は掌を開き、外の二本は殻の奥から支柱で伸びて芯の黒い蝕刃を斜め下へ振る。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回る。浅い V の裾の下から扇の刃が放射状に出て、V の先端の金の鋲が扇の要。中央の合わせ目は閉じた炉の扉で、金の板が落ちたときだけ開き、白金の光と炉心が現れる。月牙は座に収めたまま、いちばん下の座には蝕が昇る。蒼の装甲が開けば、肩の腕がもう一対現れて細い光刃を水平に構え、月牙は六枚とも座を離れて有線で飛ぶ。空いた座には月牙の形の窪みと蒼い軌条と金の留め具だけが残る。';   // 第53稿（2026-09-21）：閉じた姿の確定に合わせて書き直した。左右は骸華の視点（左＝画面右）
+const CONCEPT4 = '蒼き魔神の機動要塞。頭より高くそびえ下へ牙のように尖る二枚の紺の肩は、羽根のように重なる段の装甲で、段の隙間から炉の光が漏れる。その間に沈む鋼の頭と深紅のモノアイ。襟はなく首は剥き出しのまま肩の谷に落ちる。肩当ては左右で違い、左の一枚だけが金の板を跳ね上げている。肩の装甲の陰から四本の腕が出る。内の二本は掌を開き、外の二本は殻の奥から支柱で伸びて芯の黒い蝕刃を斜め下へ振る。背に日蝕の輪、逆さの扇の下半身で浮く。胴は黒鉄の胸の下で腰を影に沈める。胸の下の角は斜めに落ち、その陰から蛇腹の動力管が出て腰の両脇を回る。浅い V の裾の下から扇の刃が放射状に出て、V の先端の金の鋲が扇の要。中央の合わせ目は閉じた炉の扉で、金の板が落ちたときだけ開き、白金の光と炉心が現れる。月牙は座に収めたまま、いちばん下の座には蝕が昇る。蒼の装甲が開けば、肩の腕がもう一対現れて細い光刃を水平に構える。刃に見えて、その先から光弾が飛ぶ。月牙は六枚とも座を離れて有線で飛び、空いた座には月牙の形の窪みと蒼い軌条と金の留め具だけが残る。';   // 第53稿（2026-09-21）：閉じた姿の確定に合わせて書き直した。左右は骸華の視点（左＝画面右）
 const ZAKU2_DEF = { route: 'tuck', ember: 'low' };   // 第45稿：既定の胴＝ザク版のひねり（胸の下の角を落とし、その陰から管が出る。輪郭は第44稿のザク版とほぼ同じ）→ 第46稿：ユーザーが A〜D から C を選んだ＝B＋弱い残り火（管は鋼のまま・節の奥だけ暗い深紅）。第45稿の B は gaika2With({ torso: 'zaku2', torsoOpt: { route: 'tuck' } })
 function build4(o = {}) {
   saberDeg = o.saberDeg ?? SABER4_DEG; saberLen = o.saberLen ?? SABER4_LEN; vulcanDeg = o.vulcanDeg ?? VULCAN4_DEG; vulcanLen = o.vulcanLen ?? VULCAN4_LEN;
@@ -2441,19 +2457,22 @@ function build4(o = {}) {
   const P7 = (rows) => ({ rows, palette: PAL });
   const sprites = { eclipse: P7(eclipseTex(ring, tongue)), pedestal: P7(limbs === 'none' ? (o.hub ? SKIRT_BIG : SKIRT_BIG_NH) : SK_BLADES), ...(limbs === 'none' ? {} : { limbs: P7(limbs === 'leg' ? LEGS : BOOST) }), shellL: P7(open4 ? shellOpen4(-1, trim, open4) : shell(-1, trim)), shellR: P7(open4 ? shellOpen4(1, trim, open4) : shell(1, trim)), arms: P7(arms4(saber, 'main', o.handFlip !== false, o.elbow || ELBOW4_DEF, o.wrist || null, o.foreTurn ?? FORE4_DEF, o.handL || HANDL4_DEF, o.kit || KIT4_DEF)), subarms: P7(arms4(saber, 'sub', false, ELBOW4_DEF, null, FORE4_DEF, HANDL4_DEF, o.kit || KIT4_DEF)), torso: P7(torso4(o.torso || 'zaku2', o.torsoCH || CH4_DEF, (() => { const t0 = o.torsoOpt || (o.torso ? {} : ZAKU2_DEF); return o.collar || o.chest ? { ...t0, ...(o.collar ? { collar: o.collar } : {}), ...(o.chest ? { chest: o.chest } : {}) } : t0; })())), head: P7(o.head ? head4(o.head) : HEAD4), shldL: P7(shoulder(-1, o.shoulder || null)), shldR: P7(shoulder(1, o.shoulder || null)), moonT: P7(MOONS4[0].rows), moonM: P7(MOONS4[1].rows), moonX: P7(shSeatX ? R(g(MOON4_W, MOON4_H)) : saku4 ? sakuSeal4(saku4) : o.dormantX ? dormant4(MOONS4[2].rows, o.dormantX) : MOONS4[2].rows), moonB: P7(MOONS4[3].rows) };
   const OM4 = open4 ? openMoons4(open4) : null; if (OM4) Object.assign(sprites, OM4.sprites);
+  const tg4 = thirdGun4 && !Array.isArray(thirdGun4) && typeof thirdGun4 === 'object' && thirdGun4.kind === 'saber' && thirdGun4.shots ? thirdGun4 : null;
+  const OS4 = open4 && thirdArm4 && tg4 ? openShots4(tg4.shots, tg4.gap ?? 14, tg4.tone ? SCH[tg4.tone] : saber, tg4.shotLen ?? 10, tg4.shotW ?? 3.4, tg4.flash ?? true) : null; if (OS4) Object.assign(sprites, OS4.sprites);   // 光弾（刃に見えて撃つ）
   const moon = (role, i, mirror) => ({ role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: MOONS4[i].root[0] * (mirror ? -1 : 1), oy: MOONS4[i].root[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}) });
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
     ...(limbs === 'none' ? [] : [{ role: 'podL', tex: 'limbs', ox: 0, oy: limbs === 'leg' ? 26 : 24, origin: [0.5, 0] }]),   // 第25稿：脚は腰の扇より奥
     // 第37稿：スカートは殻の後ろへ移した（下の行）
-    { role: o.subBehind ? 'podL' : 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / (subBoom4 ? ARM4_H + SUB4_EXTRA_H : ARM4_H)] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
+    { role: o.subBehind ? 'podL' : 'cannon', tex: 'subarms', ox: 0, oy: 0, origin: [0.5, ARM4_O[1] / (subBoom4 ? ARM4_H + SUB4_EXTRA_H : ARM4_H)] },   // 第36稿：副腕は殻より奥＝装甲の外の縁の陰から生える
     { role: 'trackL', tex: 'shellL', ox: open4 ? -150 : -112, oy: -138, origin: [0, 0] }, { role: 'trackR', tex: 'shellR', ox: 10, oy: -138, origin: [0, 0] },
     { role: 'legL', tex: 'pedestal', ox: 0, oy: 22, origin: [0.5, 0] },   // 第33稿：腰のブロックが胴の裾の左右の穴を塞ぐところまで上げる
     ...(OM4 ? OM4.rig : []), ...(OM4 ? [] : [moon('wingR', 0, true), moon('baseL', 1, false), moon('baseR', 1, true), moon('podR', 2, false), moon('podR', 2, true), (stowed4 ? moon('wingL', 0, false) : moon('qlegFL', 3, false))]).filter((m) => !(o.dropMoons || []).includes(m.tex)),   // 第28稿：月牙を三枚ずつ＋発射済みの一枚（第12稿の並び）
-    { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [ARM4_O[0] / ARM4_W, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
+    { role: 'wingR', tex: 'arms', ox: 0, oy: 0, origin: [0.5, ARM4_O[1] / ARM4_H] },   // 第24稿：FB「腕の後ろ側に装甲がつくのでは」＝肩の装甲と月牙より手前・胴より奥
     { role: 'body', tex: 'torso', ox: 0, oy: -TOR4_OY, origin: [0.5, 0] },
     { role: 'rack', tex: 'shldL', ox: -(39 - (o.shoulder?.dx ?? 0)), oy: -31, origin: [0.5, 0.5] }, { role: 'rack', tex: 'shldR', ox: 39 - (o.shoulder?.dx ?? 0), oy: -31, origin: [0.5, 0.5] },   // 第30稿：肩当て（胴より手前・頭より奥）
     { role: 'dome', tex: 'head', ox: 0, oy: -HEAD4_OY, origin: [0.5, 0] },
+    ...(OS4 ? OS4.rig : []),   // 三本目の腕の光弾（機体の外へ飛ぶので何にも重ならない）
   ];
   return { id: 'gaika4' + (o.tag || ''), name: '蒼神骸華', concept: CONCEPT4, sprites, rig, tier: { spriteScale: 4.2, glowScale: 11.0, glowOuter: glow[0], glowInner: glow[1] } };
 }
@@ -2473,7 +2492,7 @@ export const GAIKA2_DEF53 = {
 // 鍵が入った姿＝左肩を叩かれて板が落ち（右肩と同じ面取りになり）胸の炉の扉が開く。一定時間で板が跳ね上がり扉が閉じる
 export const GAIKA2_KEYDOWN_OPT = { ...GAIKA2_DEF53, shoulder: { ...GAIKA2_DEF53.shoulder, accent: 'chamfer' }, chest: { tone: 'gold' } };
 // 最終形態＝皆既（昇る蝕が満ちて縁が灼ける）＋蒼の装甲が開いて砲と肩の腕が出る＋胸の炉の扉が開く
-export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], openCore: 'rack', chest: { tone: 'gold' }, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' }, openHole: { kind: 'socket', seat: true }, openGun: 'saber' };   // 09-22 決定：跡＝月牙の形の窪み＋座の軌条と金の留め具／三本目の腕はマゼンタの光刃（候補 95）
+export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thirdPts: [[67, -32], [90, -34], [108, -30]], openCore: 'rack', chest: { tone: 'gold' }, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' }, openHole: { kind: 'socket', seat: true }, openGun: 'saber' };   // 09-22 決定：跡＝月牙の形の窪み＋座の軌条と金の留め具／三本目の腕はマゼンタの光刃（候補 95）。⭐12:37 この光刃は遠距離の武器＝刃に見えて先から光弾を撃つ（撃つ瞬間は openGun: { kind:'saber', shots:3 }＝候補 98・光弾は掴めない＝避けるだけ）
 
 export const GAIKA2 = build4({ ...GAIKA2_DEF53 });                 // 版A＝ロケットブースター（第53稿＝閉じた姿）
 export const GAIKA2_KEYDOWN = build4({ tag: '-key', ...GAIKA2_KEYDOWN_OPT });

@@ -161,6 +161,14 @@ Object.assign(CANDS, {
   96: { label: '96 REJECTED: PLATINUM SABER', jp: '却下＝三本目の刃を白金（胸の炉と同じ色域）に。拡大では金の棒に見え 等倍では輪の炎と胸の金に埋もれた', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', tone: 'gold' } } },
   97: { label: '97 REJECTED: SILVER SABER', jp: '却下＝三本目の刃を白銀に。機体の鋼と同系色（15.10%）で塗っていない金属に見える', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', tone: 'silver' } } },
 });
+// ⭐09-22 12:37 ユーザー「弱点は胸の中心 → 近づくしかない」は必ずしも成り立たない（ビリヤード弾＝遠距離が基本・近づいたのはボスの近くに弾があったから・
+//   骸華の月牙は飛来する弾なのでボスの近くにない）→「追加の 2 本の光刃を遠距離武器に。刃に見えて光弾が飛ぶのもいい」＝実装（vortex/src）を実測して採用。
+//   三本目の腕の光刃＝「刃に見えて光弾を撃つ」遠距離の武器（openGun: { kind:'saber', shots:n }）。構えの絵（95）は変えず、撃つ瞬間が 98。
+//   ⚠️同時に判明＝光刃は arms の格子（±164）で先が切れていた（実長 52・先が平ら）。「開」のときだけ格子を左右 24 広げて直した（patch-gaika-armwide.cjs）
+//   ＝94〜97 の画素が刃先の帯（x=±164〜183・293 画素）だけ変わった。閉じた姿は不変（hash d21ac02000c9）。
+Object.assign(CANDS, {
+  98: { label: '98 SABER FIRING: 3 SHOTS + FLASH', jp: '⭐三本目の光刃が撃つ瞬間（09-22 12:37 採用）＝刃先に閃き・紡錘の光弾 3 発が刃の延長線上へ（間 14）', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', shots: 3 } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -190,7 +198,9 @@ console.log('  ・09-22 朝「開」の姿の詰めに着手＝①月牙が出�
 console.log('  　　　　　　　　　　　　　　　②蒼の装甲が開いて出る砲（openGun。外すことは決まっていたが出る砲の絵は未定だった）＝0922/１ で 5 案と 4 案を渡した（⏳回答待ち）');
 console.log('  ・09-22 跡は「月牙の形」で揃えた＝角丸の開口（第36稿）は月牙が穴に収まっていた頃の名残なので外し、中の軌条と留め具だけ引き継いだ');
 console.log('  ・09-22 実測＝等倍で跡があると読めるのは「灼けた縁」を足した案だけ（明るくなる画素 650 対 暗い赤 331・暗い赤は等倍で灯にならない）');
-console.log('\n=== 4. 候補の引数（1〜94）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 80。88〜94 は「開」の詰め（跡と出る砲・私の推しは 91 と 92） ===');
+console.log('  ・⭐09-22 昼 最終形態の確定＝跡は窪み＋金具（socket+seat）・三本目の腕はマゼンタの光刃（候補 95＝GAIKA2_FINAL）。白金・白銀の刃は却下（96・97）');
+console.log('  ・⭐09-22 12:37 三本目の光刃は「刃に見えて光弾を撃つ」遠距離の武器に（ユーザー案を採用・撃つ瞬間＝候補 98）。同時に刃先の切れ（格子 ±164）を直した＝0922/３');
+console.log('\n=== 4. 候補の引数（1〜98）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
