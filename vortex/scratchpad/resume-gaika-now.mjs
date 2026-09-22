@@ -169,6 +169,15 @@ Object.assign(CANDS, {
 Object.assign(CANDS, {
   98: { label: '98 SABER FIRING: 3 SHOTS + FLASH', jp: '⭐三本目の光刃が撃つ瞬間（09-22 12:37 採用）＝刃先に閃き・紡錘の光弾 3 発が刃の延長線上へ（間 14）', o: { ...FIN80, openHole: HOLE_DEF, openGun: { kind: 'saber', shots: 3 } } },
 });
+// ⭐09-22 18:05 ユーザー「Version ごとに全身を撮影して」＝7 段階（基本 63 → 満ち始める 99 → ほぼ満つる 100 → 完全に満つる 101 → 最終形態 放射前 102 → 放射後 95 → 炉心光る 87）＝0922/４
+//   「満ちる」＝昇る蝕（dormantX umbra）の半径 r（115 → 215）。145／180 は私が仮に置いた中間値＝ゲームでは連続的に動かす（採用時の宿題）
+//   「放射前」＝今日足した口 moonsSeated（開いた板の座に月牙が載ったまま・座は板と一緒に SHO_PIV を軸に回る・描画器 render-boss-rig.mjs に rot を足した）
+Object.assign(CANDS, {
+  99: { label: '99 STATE: FILLING (r145)', jp: '蒼の装甲が満ち始める＝昇る蝕 r145（仮）', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 145 } } },
+  100: { label: '100 STATE: NEARLY FULL (r180)', jp: '蒼の装甲がほぼ満つる＝昇る蝕 r180（仮）', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 180 } } },
+  101: { label: '101 STATE: TOTAL ECLIPSE (CLOSED)', jp: '完全に満つる＝皆既（r215・inner・縁が灼ける）を閉じたまま', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' } } },
+  102: { label: '102 FINAL: BEFORE LAUNCH (MOONS SEATED)', jp: '最終形態・月牙放射前＝開いた板の座に月牙が載ったまま（moonsSeated・跡なし）', o: { ...M.GAIKA2_FINAL_OPT, moonsSeated: true, openHole: 'none' } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -200,7 +209,8 @@ console.log('  ・09-22 跡は「月牙の形」で揃えた＝角丸の開口�
 console.log('  ・09-22 実測＝等倍で跡があると読めるのは「灼けた縁」を足した案だけ（明るくなる画素 650 対 暗い赤 331・暗い赤は等倍で灯にならない）');
 console.log('  ・⭐09-22 昼 最終形態の確定＝跡は窪み＋金具（socket+seat）・三本目の腕はマゼンタの光刃（候補 95＝GAIKA2_FINAL）。白金・白銀の刃は却下（96・97）');
 console.log('  ・⭐09-22 12:37 三本目の光刃は「刃に見えて光弾を撃つ」遠距離の武器に（ユーザー案を採用・撃つ瞬間＝候補 98）。同時に刃先の切れ（格子 ±164）を直した＝0922/３');
-console.log('\n=== 4. 候補の引数（1〜98）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
+console.log('  ・⭐09-22 18:05 7 段階の全身を 0922/４ で渡した（満ちる＝umbra r・放射前＝moonsSeated）');
+console.log('\n=== 4. 候補の引数（1〜102）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
