@@ -1766,13 +1766,14 @@ function shell(s, trim = ['R', 'R'], xf = null) {
       let c, hd = 9;
       for (const [hx, hy] of SH_HATCH) { const dx = Math.abs(x - hx) / 20, dy = Math.abs(y - hy) / 15.5, d = Math.pow(Math.pow(dx, 8) + Math.pow(dy, 8), 0.125); if (d < hd) hd = d; }
       let sd = 9; for (const [hx, hy] of SH_SEAT) { const ddx = Math.abs(x - hx) / 20, ddy = Math.abs(y - hy) / 15.5, d = Math.pow(Math.pow(ddx, 8) + Math.pow(ddy, 8), 0.125); if (d < sd) sd = d; }
-      let mo = 0; if (shHole && shHole.kind !== 'seat' && shHole.kind !== 'round') for (const hi of SH_HOLE) { const v = moonMask4(hi, x, y); if (v) { mo = v; break; } }
+      let mo = 0, msc = null; if (shHole && shHole.kind !== 'seat' && shHole.kind !== 'round') { for (const hi of SH_HOLE) { const v = moonMask4(hi, x, y); if (v) { mo = v; break; } } if (shHole.seat) msc = seatDeco4(x, y); }
       if (tt > 0.94) c = lit ? 'G' : 'Y';                                                              // 牙の先の金
       else if (tt < 0.04) c = 'f';
       else if (dIn < 3.4) c = s < 0 ? 'm' : 'f';                                                       // 内の縁の鋼の枠
       else if (dIn < 4.3) c = 'k';
       else if (dIn < 12 && tt > 0.1 && tt < 0.86) c = Math.round(y * 0.5) % 4 === 0 ? 'k' : 'j';       // 黒い内板（放熱の横溝）
       else if (dIn < 13 && tt > 0.1 && tt < 0.86) c = 'k';
+      else if (msc) c = msc;                                                                             // 座の軌条と金の留め具（月牙の形の跡にも残す）
       else if (mo) { const hk = shHole.kind, dn = y - SH_HATCH_ALL[moonHitI][1] + 60; c = hk === 'grid' ? (mo === 2 ? 'k' : dn % 4 < 1.6 ? 'm' : 'j') : hk === 'socket' ? (mo === 2 ? 'k' : 'j') : mo === 2 ? (shHole.burn ? (lit ? 'A' : 'R') : lit ? 'r' : 'k') : 'k'; }   // 月牙が出ていった跡（型は月牙の絵。burn＝縁が灼ける）
       else if (hd < 0.92) c = (shHole && shHole.kind === 'seat' && seatDeco4(x, y)) || 'k';               // 月牙の座＝装甲に彫られた開口（奥は闇。'seat' は空の座の軌条と留め具）
       else if (hd < 1.0) c = shHole && shHole.burn ? (lit ? 'A' : 'R') : lit ? 'r' : 'k';                // 開口の縁（炉の残り火だけ。burn＝射出したばかりで灼けている）
