@@ -176,7 +176,7 @@ Object.assign(CANDS, {
   99: { label: '99 STATE: FILLING (r145)', jp: '蒼の装甲が満ち始める＝昇る蝕 r145（仮）', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 145 } } },
   100: { label: '100 STATE: NEARLY FULL (r180)', jp: '蒼の装甲がほぼ満つる＝昇る蝕 r180（仮）', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 180 } } },
   101: { label: '101 STATE: TOTAL ECLIPSE (CLOSED)', jp: '完全に満つる＝皆既（r215・inner・縁が灼ける）を閉じたまま', o: { ...M.GAIKA2_DEF53, dormantX: { kind: 'umbra', r: 215, inner: true, burn: 'R' } } },
-  102: { label: '102 FINAL: BEFORE LAUNCH (MOONS SEATED)', jp: '最終形態・月牙放射前＝開いた板の座に月牙が載ったまま（moonsSeated・跡なし）', o: { ...M.GAIKA2_FINAL_OPT, moonsSeated: true, openHole: 'none' } },
+  102: { label: '102 FINAL: BEFORE LAUNCH (MOONS SEATED)', jp: '最終形態・月牙放射前＝開いた板の座に月牙が載ったまま（moonsSeated・跡なし）', o: { ...M.GAIKA2_FINAL_OPT, moonsSeated: true, openHole: 'none', saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65, chamber: true } } },   // 09-22 23:50 既定が 118 になったので 117 の武器へ固定
 });
 // ⭐09-22 19:34 ユーザー「後の2本の光刃のレーザー部分をもっと長くして。レーザー兵器と一目見てわかるように形を変えて。必要であれば柄も修正してかまわない」＝0922/５ で 6 案
 //   分かったこと＝光の断面をどう変えても「手から光が生えている」かぎり刀に見える。効いたのは手の先の灰色の筒（砲身）＝光がその口から出る形（barrel）。
@@ -207,8 +207,20 @@ Object.assign(CANDS, {
 // ⭐⭐09-22 23:22 ユーザー「４＋砲身の作りこみでお願い。２．育つもよかったが ビジュアル的に私の好みではなかった。４＋は 薬室の存在 放熱フィンの存在をみせることで より遠距離攻撃であることを強調してくれた」
 //   ＝クリックページの 4 から育つ grow だけを外した形で確定＝**117 がコードの既定（GAIKA2_FINAL）**。asym と skew は 4 に無かったので保留（あとから一言で足せる）。
 Object.assign(CANDS, {
-  117: { label: '117 FINAL FIXED: BARREL + GRAINY PULSE', jp: '⭐最終形態の確定版（09-22 23:22）＝砲身（薬室＋放熱フィン）から粒立った脈の光 長さ120', o: { ...M.GAIKA2_FINAL_OPT } },
+  117: { label: '117 FINAL FIXED: BARREL + GRAINY PULSE', jp: '最終形態 09-22 23:22 版＝砲身（薬室＋放熱フィン）から粒立った脈の光 長さ120（波動なし）', o: { ...M.GAIKA2_FINAL_OPT, saberLen: 120, openGun: { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65, chamber: true } } },
 });
+// ⭐⭐09-22 23:50 ユーザー「２．育つの要素はいれようか。先に行くたびに大きくなり 一番先では大きな波動（貼付資料）となり ライフルのように撃ちだされる」
+//   ＝117 に grow 0.7 を戻し、光の先に波動（tipBurst＝結晶状の閃光）。**118 がコードの既定（GAIKA2_FINAL）**。
+//   語が曖昧な「波動となり撃ち出される」は二つの読み＝A 波動が残って弾が出る（121）／B 波動そのものが弾として飛ぶ（122）
+{ const B = { ...M.GAIKA2_FINAL_OPT.openGun };
+  Object.assign(CANDS, {
+    118: { label: '118 FINAL: GROW + TIP BURST 16', jp: '⭐最終形態の既定（09-22 23:50）＝育つ 0.7＋いちばん先で波動（半径 16）', o: { ...M.GAIKA2_FINAL_OPT } },
+    119: { label: '119 TIP BURST 12 (SMALLER)', jp: '波動を小さく（半径 12）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, tipBurst: 12 } } },
+    120: { label: '120 TIP BURST 20 (BIGGER)', jp: '波動を大きく（半径 20）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, tipBurst: 20 } } },
+    121: { label: '121 FIRING A: BURST STAYS + SHOTS', jp: '撃つ瞬間 A＝波動が残り その縁から光弾（ご承認の紡錘）が出る', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3 } } },
+    122: { label: '122 FIRING B: THE BURST FLIES', jp: '撃つ瞬間 B＝波動そのものが弾として飛ぶ', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3, shotShape: 'wave', gap: 26 } } },
+    123: { label: '123 FIRING C: BURST + TRACER ACCEL', jp: '撃つ瞬間 C＝波動＋曳光弾（加速）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3, shotShape: 'tracer', accel: 3 } } },
+  }); }
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
