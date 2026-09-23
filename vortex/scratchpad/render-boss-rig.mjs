@@ -15,13 +15,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BG = [0x0a, 0x0a, 0x1e];
 
 // boss.js:17-31 の写し（依存を持たないよう定数を複製。boss.js変更時はここも同期）
-const PART_DEPTH = {
+export const PART_DEPTH = {
   body: 8, core: 12, armR: 11, armL: 11, legR: 7, legL: 7, cannon: 10,
   dome: 9, rack: 9,
   wingR: 7, wingL: 7, trackR: 7, trackL: 7, baseR: 7, baseL: 7, podR: 7, podL: 7, thruster: 6,
   qlegFL: 7, qlegFR: 7, qlegBL: 7, qlegBR: 7,
 };
-const PART_ORIGIN = {
+export const PART_ORIGIN = {
   body: [0.5, 0.5], core: [0.5, 0.5],
   armR: [0.5, 0.12], armL: [0.5, 0.12],
   legR: [0.5, 0.1], legL: [0.5, 0.1],

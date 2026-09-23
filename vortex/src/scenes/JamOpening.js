@@ -23,6 +23,7 @@
 // 本編は不変：この scene は Title の J からしか始まらず、autotest（?autotest=1）は Title が Run へ直行する。
 import { Sound } from '../audio/sound.js';
 import { CATHEDRAL } from '../data/enemies.js';
+import { GOD_PILLARS } from '../data/gods.js';
 import { VERDICTS, tierOf } from '../data/verdict.js';
 
 const Phaser = window.Phaser;
@@ -98,6 +99,7 @@ export class JamOpeningScene extends Phaser.Scene {
     this._lcg = 0x5a17c0de;
     this.cameras.main.setBackgroundColor('#050508');
     this.makeFogTexture();
+    this.makeGodTextures();
 
     const cx = this.W / 2;
     this.reg(this.add.tileSprite(cx, this.H / 2, this.W, this.H, 'stars2').setAlpha(0.35).setDepth(D_STARS));
@@ -127,6 +129,32 @@ export class JamOpeningScene extends Phaser.Scene {
     g.generateTexture('jam_fog', 128, 128);
     g.destroy();
   }
+  // 四柱の神の姿（data/gods.js）をテクスチャにする。ジャム版の入口でしか要らないので Boot では焼かない（本編の起動を重くしない）。
+  //   ⚠️ 1ドット1回の fillRect だと 2万回を超えて画面が一瞬止まる。同じ色が続くぶんは横一列にまとめて塗る。
+  makeGodTextures() {
+    for (const god of GOD_PILLARS) {
+      const key = 'god_' + god.id;
+      if (this.textures.exists(key)) continue;
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const rows = god.sprite.rows, h = rows.length, w = rows[0].length;
+      for (let y = 0; y < h; y++) {
+        const row = rows[y];
+        let x = 0;
+        while (x < w) {
+          const ch = row[x];
+          if (ch === '.') { x++; continue; }
+          let n = 1;
+          while (x + n < w && row[x + n] === ch) n++;
+          const col = god.sprite.palette[ch];
+          if (col) { g.fillStyle(parseInt(col.slice(1), 16), 1); g.fillRect(x, y, n, 1); }
+          x += n;
+        }
+      }
+      g.generateTexture(key, w, h);
+      g.destroy();
+    }
+  }
+
   rnd() { this._lcg = (this._lcg * 1103515245 + 12345) & 0x7fffffff; return this._lcg / 0x7fffffff; }
   reg(o) { this._objs.push(o); return o; }
   seq(ms, fn) {
@@ -144,8 +172,9 @@ export class JamOpeningScene extends Phaser.Scene {
     const P = this.plan = {};
     const at = (name, ms, fn) => { P[name] = ms; this.seq(ms, fn); };
     let t = 200;
-    at('gods', t, () => this.beatGods());                      // 四柱の神
+    at('gods', t, () => this.beatGods());                      // 四柱の神（黒いシルエットが1体ずつ）
     t += GODS_TEXT_DELAY + readMs(TX.gods);
+    at('godsGlimpse', t - 1250, () => this.glimpseGods());     // 幕1の最後＝四柱が身体の4分の1だけ見せる
     at('one', t, () => this.beatOne());                        // その一柱が
     t += readMs(TX.one);
     at('descend', t, () => this.beatDescend());                // 影絵の降臨・名乗り（着地の光で翼が浮かぶ）
@@ -172,35 +201,80 @@ export class JamOpeningScene extends Phaser.Scene {
   }
 
   // =============== 幕1 四柱の神 ===============
+  // ★2026-09-23 ユーザー指示「黄色い丸4つではなく**実際の四神柱の黒いシルエット**に。最後の瞬間に
+  //   **身体の4分の1がちらっと見える**演出を」。四柱＝堕天の大聖堂／腐蝕の玉座／軌道神核／蒼神骸華（この並び）。
+  //   丸は「神が4体いる」ことしか言えず、どんな姿かは何も言っていなかった＝ここで姿を見せておくと、
+  //   幕3で降りてくる一柱が「さっきの左端だ」と分かる（影絵のまま情報だけ増やす）。
+  //   姿は data/gods.js（設計から機械で焼いたもの）。玉座と骸華はゲーム本体には居ないので、ここだけで見られる。
   beatGods() {
     this.sfx('bellToll', 0.8, 0.5);
-    this.halos = [];
-    const xs = [170, 270, 370, 470];
-    xs.forEach((x, i) => {
-      const g = this.reg(this.add.image(x, 118, 'glow').setBlendMode(ADD).setTint(GOLD).setScale(0).setAlpha(0.5).setDepth(D_RAY));
-      const r = this.reg(this.add.image(x, 118, 'w_ring').setBlendMode(ADD).setTint(GOLD).setScale(0).setDepth(D_RAY + 1));
-      this.halos.push({ g, r, x });
+    this.pillars = [];
+    // 4体を画面いっぱいに並べる（640 幅・間隔 152）。丸のときの間隔 100 では影絵が重なって形が読めない。
+    const XS = [92, 244, 396, 548], CY = 112, BOXW = 148, BOXH = 116;
+    GOD_PILLARS.forEach((god, i) => {
+      const key = 'god_' + god.id;
+      const w = god.sprite.rows[0].length, h = god.sprite.rows.length;
+      const s = Math.min(BOXW / w, BOXH / h);   // 四柱は元の大きさがばらばら（61〜129ドット）＝同じ枠に収めて並びの重さを揃える
+      const x = XS[i] != null ? XS[i] : 92 + i * 152;
+      // 逆光（後ろの金）。影絵は「後ろの光で縁を読ませる」＝幕3の大聖堂と同じ語彙。
+      //   ⚠️ 1枚・scale 3.3・alpha 0.44 では黒い体が背景に溶けて形が読めなかった（撮影で確認）＝
+      //   幕3の buildShadow と同じく**広い金＋狭い暖色の2枚**にして、影絵の幅（148px）より広く光らせる。
+      const backW = this.reg(this.add.image(x, CY - 4, 'glow').setBlendMode(ADD).setTint(GOLD)
+        .setScale(0).setAlpha(0.62).setDepth(D_RAY));
+      const backM = this.reg(this.add.image(x, CY - 12, 'glow').setBlendMode(ADD).setTint(0xffe9a0)
+        .setScale(0).setAlpha(0.55).setDepth(D_RAY + 1));
+      const back = [backW, backM];
+      const sil = this.reg(this.add.image(x, CY + 10, key).setScale(s).setTint(SHADOW).setAlpha(0).setDepth(D_BOSS));
+      // 身体の4分の1だけ本当の色。ふだんは透明で、幕1の最後の一瞬だけ点く（reveal はテクスチャ座標で切り抜く）。
+      const rv = god.reveal;
+      const rev = this.reg(this.add.image(x, CY + 10, key).setScale(s).setAlpha(0).setDepth(D_BOSS + 1));
+      rev.setCrop(Math.round(w * rv[0]), Math.round(h * rv[1]), Math.round(w * rv[2]), Math.round(h * rv[3]));
+      this.pillars.push({ back, sil, rev, x, s, name: god.name });
       this.seq(i * 260, () => {
         this.sfx('choirChord', 0.35, 1 + i * 0.12);
-        this.tweens.add({ targets: r, scale: 1.3, duration: 320, ease: 'Back.easeOut' });
-        this.tweens.add({ targets: g, scale: 2.2, duration: 380, ease: 'Cubic.out' });
+        this.tweens.add({ targets: backW, scale: 5.4, duration: 430, ease: 'Cubic.out' });
+        this.tweens.add({ targets: backM, scale: 2.6, duration: 430, ease: 'Cubic.out' });
+        this.tweens.add({ targets: [sil, rev], y: CY, duration: 430, ease: 'Cubic.out' });
+        this.tweens.add({ targets: sil, alpha: 1, duration: 380, ease: 'Cubic.out' });
       });
     });
     this.typeText(this.W / 2, 208, TX.gods, PALE_S, 14, GODS_TEXT_DELAY);
   }
 
+  // 幕1の最後＝四柱が「身体の4分の1」だけ本当の色を見せて、すぐ闇へ戻る（0.06 秒で点き・0.23 秒保ち・0.46 秒で沈む）。
+  //   左から 0.11 秒ずつずらす＝4体が順に息をしたように見える。全身は一度も見せない（正体は本番まで取っておく）。
+  glimpseGods() {
+    if (!this.pillars) return;
+    this.pillars.forEach((p, i) => {
+      this.seq(i * 110, () => {
+        this.sfx('choirChord', 0.3, 1.3 + i * 0.1);
+        this.tweens.add({ targets: p.rev, alpha: 1, duration: 60, ease: 'Quad.out' });
+        this.tweens.add({ targets: p.rev, alpha: 0, duration: 460, delay: 230, ease: 'Cubic.in' });
+        this.tweens.add({ targets: p.back, alpha: 0.85, duration: 60, yoyo: true, hold: 230, ease: 'Quad.out' });
+      });
+    });
+  }
+
   // =============== 幕2 そのひとつが ===============
   beatOne() {
-    if (!this.halos) return;
-    this.halos.forEach((h, i) => {
-      if (i === 2) return;
-      this.tweens.add({ targets: [h.g, h.r], alpha: 0.12, duration: 500 });
+    if (!this.pillars) return;
+    // 降りてくるのは**先頭＝堕天の大聖堂**（四柱の並びの左端）。残る三柱は闇へ引く。
+    const one = this.pillars[0];
+    this.pillars.forEach((p, i) => {
+      if (i === 0) return;
+      // ⚠️ rev（4分の1の色）は**上げない**。[sil, rev, back] をまとめて 0.1 へ送ると、消えていた色が薄く戻る
+      //   （幕2に三柱の色が残って見えた・2026-09-23 の撮影で発見）。
+      this.tweens.add({ targets: p.sil, alpha: 0.1, duration: 500 });
+      this.tweens.add({ targets: p.back, alpha: 0.04, duration: 500 });   // 0.1 だと右端の一柱だけ金の染みとして残った
+      this.tweens.add({ targets: p.rev, alpha: 0, duration: 300 });
     });
-    const one = this.halos[2];
     this.clearTexts();   // 前の行と同じ y に打つので必ず消す（重なりの原因だった）
     this.sfx('bellToll', 1.0, 0.7);
-    this.tweens.add({ targets: one.r, x: this.W / 2, y: 60, scale: 2.4, duration: 700, ease: 'Cubic.inOut' });
-    this.tweens.add({ targets: one.g, x: this.W / 2, y: 60, scale: 4.5, alpha: 0.7, duration: 700, ease: 'Cubic.inOut' });
+    // 前へ出て大きくなる＝幕3で降りてくる rig の影絵（CATH_SCALE 3.0）とほぼ同じ大きさで受け渡す
+    this.tweens.add({ targets: [one.sil, one.rev], x: this.W / 2, y: 124, scale: one.s * 1.45, duration: 700, ease: 'Cubic.inOut' });
+    // ⚠️ 逆光は2枚で役割が違う（広い金＋狭い暖色）＝まとめて同じ scale へ送ると狭い方まで広がり、光が締まらず体が沈む
+    this.tweens.add({ targets: one.back[0], x: this.W / 2, y: 118, scale: 6.6, alpha: 0.66, duration: 700, ease: 'Cubic.inOut' });
+    this.tweens.add({ targets: one.back[1], x: this.W / 2, y: 104, scale: 3.4, alpha: 0.6, duration: 700, ease: 'Cubic.inOut' });
     this.typeText(this.W / 2, 208, TX.one, PALE_S, 14, 0);
   }
 
@@ -209,7 +283,7 @@ export class JamOpeningScene extends Phaser.Scene {
     const cx = this.W / 2, cy = 150;
     this.sfx('organRise', 1.4);
     this.clearTexts();
-    if (this.halos) for (const h of this.halos) { this.tweens.add({ targets: [h.g, h.r], alpha: 0, duration: 300, onComplete: () => { h.g.destroy(); h.r.destroy(); } }); }
+    if (this.pillars) for (const p of this.pillars) { this.tweens.add({ targets: [p.sil, p.rev].concat(p.back), alpha: 0, duration: 300, onComplete: () => { p.sil.destroy(); p.rev.destroy(); for (const b of p.back) b.destroy(); } }); }
     // 光条（金）。本番の spawnIntroRays と同じ語彙＝到達したとき「あの光だ」と分かる。
     this.rays = [];
     for (let i = 0; i < 7; i++) {

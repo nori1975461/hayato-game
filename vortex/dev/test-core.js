@@ -9,6 +9,7 @@ import { BALANCE } from '../src/data/balance.js';
 import { MONSTERS, PLAYER_SPRITE } from '../src/data/monsters.js';
 import { ENEMIES, BOSS, BOSSES, MAOU } from '../src/data/enemies.js';
 import { ENDING_ART } from '../src/data/ending_art.js';
+import { GOD_PILLARS } from '../src/data/gods.js';   // 2026-09-23 R73 ジャム版オープニング 幕1 の四神柱
 import { judge as vJudge, newlyFound as vNewlyFound } from '../src/data/verdict.js';
 import { createTimeStopGovernor, installTimeStopGovernor, crowdLevel } from '../src/systems/timestop.js';
 import { rarityRank, findSwapIndex, preferUnowned } from '../src/systems/rarity.js';
@@ -6154,6 +6155,52 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R72: 結果画面の「第n位 ／ 33」はいつも白（階位色の灰で沈ませない）');
   assert(/export function getFlag/.test(rc) && /catch \(e\) \{ return false; \}/.test(rc),
     'R71: 覚え書きは localStorage が使えなくても遊びに影響しない');
+}
+
+// ★2026-09-23 R73：ユーザー指示「オープニングの四神柱が黄色い丸4つなのを**実際の四神柱の黒いシルエット**に。
+//   最初は黒く、最後の瞬間に**身体の4分の1がちらっと見える**演出を」。四柱＝堕天の大聖堂／腐蝕の玉座／軌道神核／蒼神骸華。
+{
+  const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
+  const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+  const jo = read('scenes/JamOpening.js'), gj = read('data/gods.js');
+  // --- 姿のデータ（data/gods.js）
+  assert(Array.isArray(GOD_PILLARS) && GOD_PILLARS.length === 4, `R73: 四柱がそろっている（${GOD_PILLARS.length}）`);
+  assert(GOD_PILLARS.map((g) => g.id).join(',') === 'cathedral,throne,godcore,gaika',
+    'R73: 並びはユーザー指定＝堕天の大聖堂／腐蝕の玉座／軌道神核／蒼神骸華');
+  assert(GOD_PILLARS.map((g) => g.name).join('／') === '堕天の大聖堂／腐蝕の玉座／軌道神核／蒼神骸華',
+    'R73: 四柱の名前が指定どおり');
+  for (const g of GOD_PILLARS) {
+    const rows = g.sprite.rows, w = rows[0].length;
+    assert(rows.every((r) => r.length === w), `R73: ${g.name} の行の長さがそろっている`);
+    const bad = new Set();
+    for (const r of rows) for (const ch of r) if (ch !== '.' && !g.sprite.palette[ch]) bad.add(ch);
+    assert(bad.size === 0, `R73: ${g.name} の文字はすべてパレットにある（${[...bad].join('')}）`);
+    // 影絵として読める大きさか（小さすぎると 148px へ引き伸ばしたとき形が潰れる）
+    assert(w >= 48 && rows.length >= 40, `R73: ${g.name} は影絵に足る大きさ（${w}×${rows.length}）`);
+    const rv = g.reveal;
+    assert(rv.length === 4 && Math.abs(rv[2] * rv[3] - 0.25) < 1e-6,
+      `R73: ${g.name} の一瞬見せる窓は**身体のちょうど4分の1**（いまは ${(rv[2] * rv[3] * 100).toFixed(0)}%）`);
+    assert(rv[0] >= 0 && rv[1] >= 0 && rv[0] + rv[2] <= 1 + 1e-9 && rv[1] + rv[3] <= 1 + 1e-9,
+      `R73: ${g.name} の窓が体の外へ出ていない`);
+  }
+  assert(/手で書き換えない/.test(gj) && /emit-god-pillars\.mjs/.test(gj),
+    'R73: gods.js は設計から機械で焼いたものだと自分で名乗る（手写しの禁止）');
+  // --- オープニング側
+  assert(/import \{ GOD_PILLARS \} from '\.\.\/data\/gods\.js';/.test(jo), 'R73: 幕1は焼いた四柱の姿を使う');
+  assert(!/'w_ring'\)[^\n]*GOLD[^\n]*setScale\(0\)/.test(jo) && !/const xs = \[170, 270, 370, 470\]/.test(jo),
+    'R73: 黄色い丸4つ（w_ring の並び）は残っていない');
+  assert(/setTint\(SHADOW\)/.test(jo) && /const XS = \[92, 244, 396, 548\]/.test(jo),
+    'R73: 四柱は黒いシルエットで画面いっぱいに並ぶ');
+  assert(/rev\.setCrop\(Math\.round\(w \* rv\[0\]\)/.test(jo),
+    'R73: 4分の1は本当の色のまま切り抜いて重ねる（ふだんは透明）');
+  assert(/glimpseGods\(\) \{/.test(jo) && /at\('godsGlimpse', t - 1250, \(\) => this\.glimpseGods\(\)\)/.test(jo),
+    'R73: 4分の1が見えるのは幕1の最後（その1.25秒後に次の幕へ）');
+  assert(/targets: p\.rev, alpha: 1, duration: 60[\s\S]{0,200}?targets: p\.rev, alpha: 0, duration: 460, delay: 230/.test(jo),
+    'R73: 見えるのは一瞬だけ（0.06秒で点き・0.23秒保ち・0.46秒で沈む）＝全身は最後まで見せない');
+  assert(/const one = this\.pillars\[0\];/.test(jo),
+    'R73: 降りてくるのは先頭＝堕天の大聖堂（幕3で降臨する一柱と同じ）');
+  assert(/targets: p\.rev, alpha: 0, duration: 300/.test(jo),
+    'R73: 幕2で三柱を薄めるとき 4分の1の色を巻き込んで戻さない（色が残って見えた回帰の防止）');
 }
 
 if (failures > 0) {

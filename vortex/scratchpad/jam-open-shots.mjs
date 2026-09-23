@@ -78,7 +78,9 @@ async function main() {
   let P = null;
   for (let i = 0; i < 40 && !P; i++) { P = JSON.parse(await ev("JSON.stringify((window.__vortexGame.scene.getScene('JamOpening')||{}).plan||null)") || 'null'); if (!P) await sleep(25); }
   console.log('PLAN', JSON.stringify(P));
-  const plan = [[P.one - 300, '01-gods'], [P.descend - 300, '02-one'], [P.land + 110, '03-glimpse-wings'], [P.land + 1100, '04-name'],
+  // 2026-09-23 幕1は四柱の黒いシルエット＝並んだところ（01）と「身体の4分の1」が点いた瞬間（01b・01c）を撮る
+  const plan = [[P.gods + 1400, '01-gods'], [P.godsGlimpse + 120, '01b-gods-glimpse'],
+    [P.godsGlimpse + 350, '01c-gods-glimpse-last'], [P.descend - 300, '02-one'], [P.land + 110, '03-glimpse-wings'], [P.land + 1100, '04-name'],
     [P.glimpseArms - 250, '05-line'], [P.glimpseArms + 110, '05b-glimpse-arms'], [P.hero + 400, '06-hero'], [P.eyes + 700, '07-eyes'],
     [P.grab - 300, '08-mobits'], [P.grab + 300, '09-grab'], [P.charge + 400, '10-charge'], [P.throw + 250, '11-throw'],
     [P.hit + 110, '12-hit-glimpse'], [P.concept + 1200, '13-concept'], [P.card - 300, '14-judge'], [P.card + 700, '15-card']];
