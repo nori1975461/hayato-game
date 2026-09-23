@@ -4,7 +4,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { THRONE } from './throne-candidates.mjs';
-import { GAIKA2_FINAL } from './gaika-candidates.mjs';
+import { GAIKA, GAIKA2_FINAL } from './gaika-candidates.mjs';
 import { CATHEDRAL, MAOU } from '../src/data/enemies.js';
 
 const PART_DEPTH = { thruster: 0, wingR: 1, wingL: 1, legL: 1, legR: 1, body: 2, dome: 3, rack: 3, podL: 4, podR: 4, armL: 5, armR: 5, cannon: 5, core: 6 };
@@ -74,7 +74,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     ['堕天の大聖堂', CATHEDRAL, CATHEDRAL.rig],
     ['腐蝕の玉座', THRONE, THRONE.rig],
     ['軌道神核', { ...MAOU, sprites: MAOU.trueSprites }, MAOU.trueRig],
-    ['蒼神骸華', GAIKA2_FINAL, GAIKA2_FINAL.rig],
+    ['蒼神骸華 第一案', GAIKA, GAIKA.rig],
+    ['蒼神骸華 第二案', GAIKA2_FINAL, GAIKA2_FINAL.rig],
   ];
   for (const [name, def, rig] of list) {
     const { G, pal } = compose(def, rig);

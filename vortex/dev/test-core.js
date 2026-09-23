@@ -6191,6 +6191,16 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R73: 黄色い丸4つ（w_ring の並び）は残っていない');
   assert(/setTint\(SHADOW\)/.test(jo) && /const XS = \[92, 244, 396, 548\]/.test(jo),
     'R73: 四柱は黒いシルエットで画面いっぱいに並ぶ');
+  {
+    // 大きい柱は「枠ぴったり」に焼いてあるので、枠の数字が食い違うと実行時に間引かれて細い線が消える
+    const jm = /BOXW = (\d+), BOXH = (\d+)/.exec(jo);
+    const em = /export const BOXW = (\d+), BOXH = (\d+)/.exec(
+      fs.readFileSync(path.resolve(SRC, '../scratchpad/emit-god-pillars.mjs'), 'utf8'));
+    assert(jm && em && jm[1] === em[1] && jm[2] === em[2],
+      `R73: 影絵の枠が焼いたときと同じ（画面 ${jm && jm[1]}×${jm && jm[2]}／焼き ${em && em[1]}×${em && em[2]}）`);
+    const big = GOD_PILLARS.filter((g) => g.sprite.rows[0].length > +em[1] || g.sprite.rows.length > +em[2]);
+    assert(big.length === 0, `R73: 枠より大きいまま焼かれた柱がない（${big.map((g) => g.name).join('・')}）`);
+  }
   assert(/rev\.setCrop\(Math\.round\(w \* rv\[0\]\)/.test(jo),
     'R73: 4分の1は本当の色のまま切り抜いて重ねる（ふだんは透明）');
   assert(/glimpseGods\(\) \{/.test(jo) && /at\('godsGlimpse', t - 1250, \(\) => this\.glimpseGods\(\)\)/.test(jo),

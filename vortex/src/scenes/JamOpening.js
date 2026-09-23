@@ -210,7 +210,9 @@ export class JamOpeningScene extends Phaser.Scene {
     this.sfx('bellToll', 0.8, 0.5);
     this.pillars = [];
     // 4体を画面いっぱいに並べる（640 幅・間隔 152）。丸のときの間隔 100 では影絵が重なって形が読めない。
-    const XS = [92, 244, 396, 548], CY = 112, BOXW = 148, BOXH = 116;
+    // ⚠️ 枠の数字は emit-god-pillars.mjs と同じでなければならない（大きい柱は**この枠ぴったりに焼いて**あるので、
+    //   ここを変えると実行時に間引かれて細い線が消える）。縦 140＝上の黒帯（〜40）と字幕（208）の間いっぱい。
+    const XS = [92, 244, 396, 548], CY = 110, BOXW = 148, BOXH = 140;
     GOD_PILLARS.forEach((god, i) => {
       const key = 'god_' + god.id;
       const w = god.sprite.rows[0].length, h = god.sprite.rows.length;
@@ -218,12 +220,16 @@ export class JamOpeningScene extends Phaser.Scene {
       const x = XS[i] != null ? XS[i] : 92 + i * 152;
       // 逆光（後ろの金）。影絵は「後ろの光で縁を読ませる」＝幕3の大聖堂と同じ語彙。
       //   ⚠️ 1枚・scale 3.3・alpha 0.44 では黒い体が背景に溶けて形が読めなかった（撮影で確認）＝
-      //   幕3の buildShadow と同じく**広い金＋狭い暖色の2枚**にして、影絵の幅（148px）より広く光らせる。
+      //   幕3の buildShadow と同じく**広い金＋狭い暖色の2枚**にして、影絵より広く光らせる。
+      //   ⚠️ 丸いままだと縦長の柱（骸華＝119×140）の足元が光の外に出て沈む＝**体の形に合わせた楕円**にする
+      //   （'glow' は 32px の円なので、縦横それぞれ「表示の大きさ ÷ 32 × 係数」で伸ばす）。
+      const gw = w * s, gh = h * s;
       const backW = this.reg(this.add.image(x, CY - 4, 'glow').setBlendMode(ADD).setTint(GOLD)
         .setScale(0).setAlpha(0.62).setDepth(D_RAY));
-      const backM = this.reg(this.add.image(x, CY - 12, 'glow').setBlendMode(ADD).setTint(0xffe9a0)
+      const backM = this.reg(this.add.image(x, CY - 10, 'glow').setBlendMode(ADD).setTint(0xffe9a0)
         .setScale(0).setAlpha(0.55).setDepth(D_RAY + 1));
       const back = [backW, backM];
+      const backTo = { W: [gw / 32 * 1.35, gh / 32 * 1.5], M: [gw / 32 * 0.62, gh / 32 * 0.72] };
       const sil = this.reg(this.add.image(x, CY + 10, key).setScale(s).setTint(SHADOW).setAlpha(0).setDepth(D_BOSS));
       // 身体の4分の1だけ本当の色。ふだんは透明で、幕1の最後の一瞬だけ点く（reveal はテクスチャ座標で切り抜く）。
       const rv = god.reveal;
@@ -232,8 +238,8 @@ export class JamOpeningScene extends Phaser.Scene {
       this.pillars.push({ back, sil, rev, x, s, name: god.name });
       this.seq(i * 260, () => {
         this.sfx('choirChord', 0.35, 1 + i * 0.12);
-        this.tweens.add({ targets: backW, scale: 5.4, duration: 430, ease: 'Cubic.out' });
-        this.tweens.add({ targets: backM, scale: 2.6, duration: 430, ease: 'Cubic.out' });
+        this.tweens.add({ targets: backW, scaleX: backTo.W[0], scaleY: backTo.W[1], duration: 430, ease: 'Cubic.out' });
+        this.tweens.add({ targets: backM, scaleX: backTo.M[0], scaleY: backTo.M[1], duration: 430, ease: 'Cubic.out' });
         this.tweens.add({ targets: [sil, rev], y: CY, duration: 430, ease: 'Cubic.out' });
         this.tweens.add({ targets: sil, alpha: 1, duration: 380, ease: 'Cubic.out' });
       });
@@ -273,8 +279,8 @@ export class JamOpeningScene extends Phaser.Scene {
     // 前へ出て大きくなる＝幕3で降りてくる rig の影絵（CATH_SCALE 3.0）とほぼ同じ大きさで受け渡す
     this.tweens.add({ targets: [one.sil, one.rev], x: this.W / 2, y: 124, scale: one.s * 1.45, duration: 700, ease: 'Cubic.inOut' });
     // ⚠️ 逆光は2枚で役割が違う（広い金＋狭い暖色）＝まとめて同じ scale へ送ると狭い方まで広がり、光が締まらず体が沈む
-    this.tweens.add({ targets: one.back[0], x: this.W / 2, y: 118, scale: 6.6, alpha: 0.66, duration: 700, ease: 'Cubic.inOut' });
-    this.tweens.add({ targets: one.back[1], x: this.W / 2, y: 104, scale: 3.4, alpha: 0.6, duration: 700, ease: 'Cubic.inOut' });
+    this.tweens.add({ targets: one.back[0], x: this.W / 2, y: 118, scaleX: 6.8, scaleY: 4.6, alpha: 0.66, duration: 700, ease: 'Cubic.inOut' });
+    this.tweens.add({ targets: one.back[1], x: this.W / 2, y: 104, scaleX: 3.2, scaleY: 2.2, alpha: 0.6, duration: 700, ease: 'Cubic.inOut' });
     this.typeText(this.W / 2, 208, TX.one, PALE_S, 14, 0);
   }
 

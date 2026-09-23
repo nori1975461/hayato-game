@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { THRONE } from './throne-candidates.mjs';
-import { GAIKA2_FINAL } from './gaika-candidates.mjs';
+import { GAIKA } from './gaika-candidates.mjs';
 import { CATHEDRAL, MAOU } from '../src/data/enemies.js';
 import { makeCanvas, writePng, PART_DEPTH, PART_ORIGIN } from './render-boss-rig.mjs';
 
@@ -72,19 +72,25 @@ function crop(G) {
   return G.slice(y0, y1 + 1).map((r) => r.slice(x0, x1 + 1));
 }
 
-// 多数決で 1/n に縮める。透明が半分を超える区画だけ透明にする（＝細い線が消えない）。
-function shrink(G, n) {
-  if (n <= 1) return G;
-  const H = Math.ceil(G.length / n), W = Math.ceil(G[0].length / n);
-  const out = Array.from({ length: H }, () => Array(W).fill('.'));
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
+// 影絵を並べる枠（JamOpening の BOXW／BOXH と同じ数字。test-core が食い違いを見張る）。
+export const BOXW = 148, BOXH = 140;
+
+// 枠に合わせた大きさへ多数決で縮める（区画でいちばん多い文字を採る）。
+//   ⚠️**縮めるときだけ**焼き直す。伸ばすほうは焼かずに Phaser へ任せる（焼くとドットが倍になるだけで情報は増えず、データだけ太る）。
+//   ⚠️整数分の1（1/2 など）では足りない＝骸華 第一案（142×167）を 1/2 にしたら光背の輪が途切れ蓮華座が潰れた（2026-09-23 に実測）。
+//     **表示する大きさぴったり**へ落とすと、実行時の間引きも起きず線が残る。
+//   平均を取るとパレットに無い中間色ができ、間引きだと細い線が消えるので、どちらも使わない。
+function fitTo(G, W2, H2) {
+  const H = G.length, W = G[0].length;
+  const out = Array.from({ length: H2 }, () => Array(W2).fill('.'));
+  for (let y = 0; y < H2; y++) {
+    const sy0 = Math.floor((y * H) / H2), sy1 = Math.max(sy0 + 1, Math.floor(((y + 1) * H) / H2));
+    for (let x = 0; x < W2; x++) {
+      const sx0 = Math.floor((x * W) / W2), sx1 = Math.max(sx0 + 1, Math.floor(((x + 1) * W) / W2));
       const count = new Map();
       let empty = 0, total = 0;
-      for (let dy = 0; dy < n; dy++) {
-        for (let dx = 0; dx < n; dx++) {
-          const sy = y * n + dy, sx = x * n + dx;
-          if (sy >= G.length || sx >= G[0].length) continue;
+      for (let sy = sy0; sy < sy1 && sy < H; sy++) {
+        for (let sx = sx0; sx < sx1 && sx < W; sx++) {
           total++;
           const c = G[sy][sx];
           if (c === '.') { empty++; continue; }
@@ -115,27 +121,34 @@ function toSprite(G) {
 // ★四柱。並びはユーザー指定（2026-09-23）＝堕天の大聖堂／腐蝕の玉座／軌道神核／蒼神骸華。
 //   reveal＝最後の一瞬だけ本当の色で見せる「身体の4分の1」（左上を 0,0 とした割合・面積が全体の 1/4）。
 const LIST = [
-  { id: 'cathedral', name: '堕天の大聖堂', def: CATHEDRAL, rig: CATHEDRAL.rig, shrink: 1,
+  { id: 'cathedral', name: '堕天の大聖堂', def: CATHEDRAL, rig: CATHEDRAL.rig,
     reveal: [0.25, 0.0, 0.5, 0.5], revealNote: '光輪と薔薇窓（上の中央）' },
-  { id: 'throne', name: '腐蝕の玉座', def: THRONE, rig: THRONE.rig, shrink: 1,
+  { id: 'throne', name: '腐蝕の玉座', def: THRONE, rig: THRONE.rig,
     reveal: [0.25, 0.0, 0.5, 0.5], revealNote: '冠と王（上の中央）' },
-  { id: 'godcore', name: '軌道神核', def: { ...MAOU, sprites: MAOU.trueSprites }, rig: MAOU.trueRig, shrink: 1,
+  { id: 'godcore', name: '軌道神核', def: { ...MAOU, sprites: MAOU.trueSprites }, rig: MAOU.trueRig,
     reveal: [0.25, 0.25, 0.5, 0.5], revealNote: '単眼（真ん中）' },
-  { id: 'gaika', name: '蒼神骸華', def: GAIKA2_FINAL, rig: GAIKA2_FINAL.rig, shrink: 4,
-    reveal: [0.25, 0.0, 0.5, 0.5], revealNote: '兜と肩（上の中央）' },
+  // ★2026-09-23 ユーザー指示「骸華は**第一案**を載せて。第二案は第一案を倒したら現れる（第二形態）」＝
+  //   オープニングに並ぶのは**第一形態＝第一案（GAIKA・第28案改４）**。第二案（GAIKA2_FINAL）は使わない。
+  //   縦長（142×167）なので 1/2 に縮めて 71×84＝枠（高さ116）へ 1.38 倍で伸ばす（実行時に縮めると細い線が消える）。
+  { id: 'gaika', name: '蒼神骸華', def: GAIKA, rig: GAIKA.rig,
+    reveal: [0.25, 0.0, 0.5, 0.5], revealNote: '宝冠と光背（上の中央）' },
 ];
 
 const built = LIST.map((g) => {
   const raw = crop(compose(g.def, g.rig));
-  const sp = toSprite(crop(shrink(raw, g.shrink)));
-  console.log(`${g.name}: 合成 ${raw[0].length}×${raw.length} → 1/${g.shrink} → ${sp.rows[0].length}×${sp.rows.length}・色 ${Object.keys(sp.palette).length}`);
-  return { ...g, sp, srcW: raw[0].length, srcH: raw.length };
+  const s0 = Math.min(BOXW / raw[0].length, BOXH / raw.length);
+  // 枠より大きい柱だけ、枠にぴったりの大きさへ落としてから焼く（小さい柱は原寸のまま＝伸ばすのは Phaser に任せる）
+  const fitted = s0 < 1 ? fitTo(raw, Math.round(raw[0].length * s0), Math.round(raw.length * s0)) : raw;
+  const sp = toSprite(crop(fitted));
+  const how = s0 < 1 ? `枠に合わせて ${(s0 * 100).toFixed(0)}% へ` : '原寸のまま';
+  console.log(`${g.name}: 合成 ${raw[0].length}×${raw.length} → ${how} → ${sp.rows[0].length}×${sp.rows.length}・色 ${Object.keys(sp.palette).length}`);
+  return { ...g, sp, srcW: raw[0].length, srcH: raw.length, how };
 });
 
 const EOL = '\r\n';
 const palLine = (p) => '{ ' + Object.entries(p).map(([k, v]) => `${k}: '${v}'`).join(', ') + ' }';
 const body = built.map((g) => [
-  `  // ${g.name}　合成 ${g.srcW}×${g.srcH}${g.shrink > 1 ? ` を 1/${g.shrink} に縮めた` : ' そのまま'}／一瞬見せるのは ${g.revealNote}`,
+  `  // ${g.name}　合成 ${g.srcW}×${g.srcH} → ${g.how}／一瞬見せるのは ${g.revealNote}`,
   `  {`,
   `    id: '${g.id}', name: '${g.name}', reveal: [${g.reveal.join(', ')}],`,
   `    sprite: { palette: ${palLine(g.sp.palette)}, rows: [`,
@@ -149,9 +162,9 @@ const out = [
   `//`,
   `// ⚠️ **手で書き換えない**。\`node scratchpad/emit-god-pillars.mjs\` が設計から焼いたもの。`,
   `//   元：堕天の大聖堂＝enemies.js CATHEDRAL.rig ／ 軌道神核＝enemies.js MAOU.trueRig ／`,
-  `//       腐蝕の玉座＝scratchpad/throne-candidates.mjs ／ 蒼神骸華＝scratchpad/gaika-candidates.mjs（GAIKA2_FINAL）。`,
+  `//       腐蝕の玉座＝scratchpad/throne-candidates.mjs ／ 蒼神骸華＝scratchpad/gaika-candidates.mjs（GAIKA＝第一案）。`,
   `//   玉座と骸華は**ゲーム本体には居ない**（行動と攻撃が未設計）。ここにあるのは姿だけで、オープニングの影絵にしか使わない。`,
-  `//   骸華は素材が巨大（合成 515×337）なので 1/4 に縮めてある＝細部は落ちるが影絵には足りる。`,
+  `//   骸華は**第一案（第一形態）**。第二案は第一案を倒したあとに現れる第二形態なのでここには出さない。`,
   `//`,
   `// reveal＝最後の一瞬だけ本当の色で見せる「身体の4分の1」（[x, y, 幅, 高さ] の割合・左上が 0,0）。`,
   `export const GOD_PILLARS = [`,
@@ -165,7 +178,7 @@ console.log('書いた:', path.relative(path.resolve(HERE, '..'), OUT), (out.len
 // ---- 確認用プレビュー（--png）：オープニングと同じ並び・同じ大きさで、影絵と「4分の1」を描く
 if (process.argv.includes('--png')) {
   fs.mkdirSync(PNG, { recursive: true });
-  const W = 640, H = 360, BOXW = 148, BOXH = 116, XS = [92, 244, 396, 548], CY = 118;
+  const W = 640, H = 360, XS = [92, 244, 396, 548], CY = 118;
   const cv = makeCanvas(W, H);
   const addPx2 = (x, y, r, g, b) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 3; cv.px[i] = Math.min(255, cv.px[i] + r); cv.px[i + 1] = Math.min(255, cv.px[i + 1] + g); cv.px[i + 2] = Math.min(255, cv.px[i + 2] + b); };
   const backlight = (cx, cy, R, col, mul) => {
