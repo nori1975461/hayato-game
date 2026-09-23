@@ -13,7 +13,7 @@ PRE=$(node -e "import('./gaika-candidates.mjs').then(m=>console.log(JSON.stringi
 
 node render-gaika2-cand-grid.mjs "$OUT/１_最終形態（等倍の全身・波動 20）.png" 1 0 -20 1 560 340 "120 FINAL=$C120"
 node render-gaika2-cand-grid.mjs "$OUT/２_撃つ瞬間＝波動から一直線のレーザー（2倍・上＝細い／下＝太い）.png" 2 -270 10 1 640 180 "THIN (HALF WIDTH 2.4)=$C124" "THICK (HALF WIDTH 3.6)=$C125"
-node render-gaika2-cand-grid.mjs "$OUT/３_レーザーの根元（4倍・波動の芯から出る）.png" 4 -250 22 1 640 200 "ROOT 4X (THIN)=$C124"
+node render-gaika2-cand-grid.mjs "$OUT/３_レーザーの根元（4倍・波動の芯から出る）.png" 4 -250 8 1 640 240 "ROOT 4X (THIN)=$C124"
 node render-gaika2-cand-grid.mjs "$OUT/４_前後（2倍・上＝前回の B 弾が飛ぶ／下＝レーザー）.png" 2 -270 10 1 640 180 "BEFORE: BULLETS (B)=$C122" "NOW: RAY (THIN)=$C124"
 node render-gaika2-cand-grid.mjs "$OUT/５_月牙の放射前と放射後（等倍・波動 20 で撮り直し）.png" 1 0 -20 2 560 340 "BEFORE LAUNCH=$PRE" "AFTER LAUNCH=$C120"
 
