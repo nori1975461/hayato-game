@@ -212,15 +212,21 @@ Object.assign(CANDS, {
 // ⭐⭐09-22 23:50 ユーザー「２．育つの要素はいれようか。先に行くたびに大きくなり 一番先では大きな波動（貼付資料）となり ライフルのように撃ちだされる」
 //   ＝117 に grow 0.7 を戻し、光の先に波動（tipBurst＝結晶状の閃光）。**118 がコードの既定（GAIKA2_FINAL）**。
 //   語が曖昧な「波動となり撃ち出される」は二つの読み＝A 波動が残って弾が出る（121）／B 波動そのものが弾として飛ぶ（122）
-{ const B = { ...M.GAIKA2_FINAL_OPT.openGun };
+{ const B = { kind: 'saber', style: 'pulse', barrel: 20, gapPulse: 0.65, chamber: true, grow: 0.7, tipBurst: 16 };   // 09-23 00:10 の既定（波動 16）に固定＝10:50 に既定が 20 へ動いても 118〜123 の絵は変わらない
   Object.assign(CANDS, {
-    118: { label: '118 FINAL: GROW + TIP BURST 16', jp: '⭐最終形態の既定（09-22 23:50）＝育つ 0.7＋いちばん先で波動（半径 16）', o: { ...M.GAIKA2_FINAL_OPT } },
+    118: { label: '118 GROW + TIP BURST 16', jp: '09-23 00:10 の既定＝育つ 0.7＋いちばん先で波動（半径 16）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B } } },
     119: { label: '119 TIP BURST 12 (SMALLER)', jp: '波動を小さく（半径 12）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, tipBurst: 12 } } },
-    120: { label: '120 TIP BURST 20 (BIGGER)', jp: '波動を大きく（半径 20）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, tipBurst: 20 } } },
+    120: { label: '120 FINAL: TIP BURST 20', jp: '⭐最終形態の既定（09-23 10:50「波動の形は５の大きい波動」）＝育つ 0.7＋波動 20', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, tipBurst: 20 } } },
     121: { label: '121 FIRING A: BURST STAYS + SHOTS', jp: '撃つ瞬間 A＝波動が残り その縁から光弾（ご承認の紡錘）が出る', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3 } } },
     122: { label: '122 FIRING B: THE BURST FLIES', jp: '撃つ瞬間 B＝波動そのものが弾として飛ぶ', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3, shotShape: 'wave', gap: 26 } } },
     123: { label: '123 FIRING C: BURST + TRACER ACCEL', jp: '撃つ瞬間 C＝波動＋曳光弾（加速）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...B, shots: 3, shotShape: 'tracer', accel: 3 } } },
   }); }
+// ⭐09-23 10:50 ユーザー「飛ぶ弾は 弾が一個ずつ飛ぶのではなく 波動から敵めがけて一直線にレーザーが飛ぶビジュアルにして。波動はあくまで光の集合体にすぎないのだから 弾として発射されるのはおかしい」
+//   ＝撃つ瞬間は openGun.ray（連続したレーザー・波動は発射口として残る）。121〜123（弾）は不採用の記録
+Object.assign(CANDS, {
+  124: { label: '124 FIRING: RAY FROM THE BURST (THIN 2.4)', jp: '撃つ瞬間＝波動から一直線のレーザー（細い・半幅 2.4）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...M.GAIKA2_FINAL_OPT.openGun, ray: { len: 230, w: 2.4 } } } },
+  125: { label: '125 FIRING: RAY FROM THE BURST (THICK 3.6)', jp: '撃つ瞬間＝波動から一直線のレーザー（太い・半幅 3.6＝育つ前の光と同じ太さ）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...M.GAIKA2_FINAL_OPT.openGun, ray: { len: 230, w: 3.6 } } } },
+});
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
