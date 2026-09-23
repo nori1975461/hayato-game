@@ -2516,7 +2516,7 @@ function build4(o = {}) {
   const OM4 = open4 ? openMoons4(open4) : null; if (OM4) Object.assign(sprites, OM4.sprites);
   const seated4 = !!(open4 && o.moonsSeated), seatTh = (open4 * Math.PI) / 180;   // 月牙放射前＝開いた板に月牙が載ったまま（座は板と一緒に SHO_PIV を軸に回る・跡は描かない）
   const tg4 = thirdGun4 && !Array.isArray(thirdGun4) && typeof thirdGun4 === 'object' && thirdGun4.kind === 'saber' && (thirdGun4.shots || thirdGun4.ray) ? thirdGun4 : null;
-  const OS4 = open4 && thirdArm4 && tg4 ? openShots4(tg4.shots || 0, tg4.gap ?? 14, tg4.tone ? SCH[tg4.tone] : saber, tg4.shotLen ?? 10, tg4.shotW ?? 3.4, tg4.flash ?? !saberTipR, tg4.shotShape ?? 'spindle', tg4.accel ?? 0, saberTipR, tg4.ray ? { len: 230, w: 2.4, ...(typeof tg4.ray === 'object' ? tg4.ray : {}) } : null) : null; if (OS4) Object.assign(sprites, OS4.sprites);   // 光弾（刃に見えて撃つ）
+  const OS4 = open4 && thirdArm4 && tg4 ? openShots4(tg4.shots || 0, tg4.gap ?? 14, tg4.tone ? SCH[tg4.tone] : saber, tg4.shotLen ?? 10, tg4.shotW ?? 3.4, tg4.flash ?? !saberTipR, tg4.shotShape ?? 'spindle', tg4.accel ?? 0, saberTipR, tg4.ray ? { len: 230, w: 3.6, ...(typeof tg4.ray === 'object' ? tg4.ray : {}) } : null) : null; if (OS4) Object.assign(sprites, OS4.sprites);   // 光弾（刃に見えて撃つ）
   const moon = (role, i, mirror) => { const r0 = MOONS4[i].root, rp = seated4 ? shoRot(-r0[0], r0[1], seatTh) : [-r0[0], r0[1]]; return { role, tex: ['moonT', 'moonM', 'moonX', 'moonB'][i], ox: rp[0] * (mirror ? 1 : -1), oy: rp[1], origin: MOONS4[i].origin, ...(mirror ? { mirror: true } : {}), ...(seated4 ? { rot: -seatTh } : {}) }; };   // root は左側の世界座標。shoRot は右側の座標で回す
   const rig = [
     { role: 'thruster', tex: 'eclipse', ox: 0, oy: -24, origin: [0.5, 0.5] },
@@ -2555,6 +2555,8 @@ export const GAIKA2_FINAL_OPT = { ...GAIKA2_DEF53, thirdArm: true, open: 16, thi
 export const GAIKA2 = build4({ ...GAIKA2_DEF53 });                 // 版A＝ロケットブースター（第53稿＝閉じた姿）
 export const GAIKA2_KEYDOWN = build4({ tag: '-key', ...GAIKA2_KEYDOWN_OPT });
 export const GAIKA2_FINAL = build4({ tag: '-final', ...GAIKA2_FINAL_OPT });
+export const GAIKA2_FIRING_OPT = { ...GAIKA2_FINAL_OPT, openGun: { ...GAIKA2_FINAL_OPT.openGun, ray: true } };   // ⭐09-23 11:12 決定：撃つ瞬間＝波動から一直線の**太い**レーザー（半幅 3.6・候補 125）。撃っていない姿は GAIKA2_FINAL のまま
+export const GAIKA2_FIRING = build4({ tag: '-fire', ...GAIKA2_FIRING_OPT });
 export const GAIKA2_LEGS = build4({ tag: '-legs', limbs: 'leg' });       // 版B＝脚（却下）
 export const gaika2With = (o = {}) => build4({ tag: '-x', ...o });   // 第44稿：候補の見比べ用（torso／torsoCH／handFlip）
 export const GAIKA2_NZ = build4({ tag: '-nz', torso: 'bell', torsoOpt: {} });   // 第45稿：既定がザク型になったので、ノイエ・ジール版（樽胴）は別名で残す

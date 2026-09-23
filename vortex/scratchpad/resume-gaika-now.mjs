@@ -224,8 +224,8 @@ Object.assign(CANDS, {
 // ⭐09-23 10:50 ユーザー「飛ぶ弾は 弾が一個ずつ飛ぶのではなく 波動から敵めがけて一直線にレーザーが飛ぶビジュアルにして。波動はあくまで光の集合体にすぎないのだから 弾として発射されるのはおかしい」
 //   ＝撃つ瞬間は openGun.ray（連続したレーザー・波動は発射口として残る）。121〜123（弾）は不採用の記録
 Object.assign(CANDS, {
-  124: { label: '124 FIRING: RAY FROM THE BURST (THIN 2.4)', jp: '撃つ瞬間＝波動から一直線のレーザー（細い・半幅 2.4）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...M.GAIKA2_FINAL_OPT.openGun, ray: { len: 230, w: 2.4 } } } },
-  125: { label: '125 FIRING: RAY FROM THE BURST (THICK 3.6)', jp: '撃つ瞬間＝波動から一直線のレーザー（太い・半幅 3.6＝育つ前の光と同じ太さ）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...M.GAIKA2_FINAL_OPT.openGun, ray: { len: 230, w: 3.6 } } } },
+  124: { label: '124 REJECTED: THIN RAY (2.4)', jp: '落とした案＝細いレーザー（半幅 2.4・09-23 11:12 に太い方を採用）', o: { ...M.GAIKA2_FINAL_OPT, openGun: { ...M.GAIKA2_FINAL_OPT.openGun, ray: { len: 230, w: 2.4 } } } },
+  125: { label: '125 FIRING (FIXED): THICK RAY 3.6', jp: '⭐撃つ瞬間の確定（09-23 11:12）＝波動から一直線の太いレーザー（半幅 3.6＝GAIKA2_FIRING）', o: { ...M.GAIKA2_FIRING_OPT } },
 });
 
 // ほかの道具（check-gaika2-cands.mjs）が BASE／CANDS だけを読み込めるよう、表示と書き出しは直接実行されたときだけ行う
