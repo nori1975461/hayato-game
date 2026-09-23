@@ -1,6 +1,6 @@
 // 蒼神骸華 第二案：2026-09-20 夕方からの作業を再開するときに最初に打つ一本（閉じた姿は 09-21 18:50 に全部確定＝コードの既定は第53稿。resume-gaika.mjs はその既定を調べる道具・こちらは候補を並べて見る道具）。
 //   使い方: node vortex/scratchpad/resume-gaika-now.mjs            → 状態の表示＋ 63 左肩の私の推し（跳ね上げ・金）と 80 その最終形態（⭐発射架＋胸の炉の扉が開く・白金） の全身を横並びで gaika2-now.png（640×352）へ
-//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜87・最大2つ）を gaika2-now.png へ
+//           node vortex/scratchpad/resume-gaika-now.mjs 3 4        → 番号で選んだ候補（1〜125・最大2つ）を gaika2-now.png へ
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -260,8 +260,15 @@ console.log('  ・⭐09-22 昼 最終形態の確定＝跡は窪み＋金具（s
 console.log('  ・⭐09-22 12:37 三本目の光刃は「刃に見えて光弾を撃つ」遠距離の武器に（ユーザー案を採用・撃つ瞬間＝候補 98）。同時に刃先の切れ（格子 ±164）を直した＝0922/３');
 console.log('  ・⭐09-22 18:05 7 段階の全身を 0922/４ で渡した（満ちる＝umbra r・放射前＝moonsSeated）');
 console.log('  ・⭐09-22 19:34 三本目の光刃をレーザー兵器の形へ＝0922/５ で 6 案（砲身 barrel が効く・長さ 120）。⏳形と長さの回答待ち');
-console.log('  ・⭐09-22 22:57 D を採用＝砲身＋脈打つ光。ひねりを 6 つ作り 2 つ落として 0922/６ へ（推し＝候補 112）。⏳ひねりの可否と粒立ての強さの回答待ち');
-console.log('\n=== 4. 候補の引数（1〜116）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87 を採用・最終形態は 95（構え）／98（撃つ瞬間） ===');
+console.log('  ・⭐09-22 22:57 D を採用＝砲身＋脈打つ光。ひねりを 6 つ作り 2 つ落として 0922/６ へ（推し＝候補 112）');
+console.log('  ・⭐09-22 23:22 ひねりは「粒立ち＋薬室と放熱フィン」を採用・育つ grow は不採用（ビジュアルの好みでない）＝候補 117 が既定。弾は据え置き（0922/７）');
+console.log('  ・⭐09-22 23:50 一転して「育つを入れる・いちばん先で大きな波動になり ライフルのように撃ちだされる」＝grow 0.7 を戻し tipBurst（結晶状の閃光）＝候補 118（0922/８）');
+console.log('  ・⭐⭐09-23 10:50「波動の形は５の大きい波動」＝tipBurst 20（候補 120 が既定）。「弾が一個ずつ飛ぶのでなく 波動から敵めがけて一直線にレーザー。波動は光の集合体だから弾として発射されるのはおかしい」＝弾の案 121〜123 は全部不採用（0923/１）');
+console.log('  ・⭐⭐09-23 11:12「撃つ瞬間：太いレーザー」＝GAIKA2_FIRING（候補 125・openGun.ray 半幅 3.6）を撃つ姿の正典として追加。細い 2.4（124）は不採用（0923/２）');
+console.log('  ・⭐⭐09-23 11:19 効果音は D-長で確定＝育つ 0.35 →（波動が弾ける一発）→ 照射 1.00 秒 → 切れる。貼り付け用コード gaika-sfx-d.js（本体 sound.js へはボス実装時に入れる・検査 node check-gaika-sfx-d.mjs）');
+console.log('  ・⭐三本目の腕は絵も音も全部確定。⏳残る回答待ち＝左右で脈をずらすか／走る脈／割れ目の奥の機械（0921/５）／月牙の三つの顔／皆既の縁が灼ける／月牙を収めた姿を標準に（どれも催促しない）');
+console.log('  ・⭐次の作業＝**月牙の飛び方**（六枚が同じ向きで同時に出るのを直す。ユーザーへ宣言済みの三つの手＝①行き先ごとに向きを変える②射出の順番と間をずらして波にする③装甲が開いた瞬間だけ輪の炎を大きくする）→ 採用時の宿題（全身の横幅を画面へ・月牙の発射と帰還・昇る蝕の高さを動かす口）→ 行動設計（骸華＋名無し二体／腐蝕の玉座・左肩の鍵と胸の炉心の当たり円・レーザーの狙い方と照射 1.00 秒）');
+console.log('\n=== 4. 候補の引数（1〜125）。左肩は 63（跳ね上げ・金）で決着・鍵の案は 87・⭐最終形態は 120（撃っていない姿＝GAIKA2_FINAL）／125（撃つ瞬間＝GAIKA2_FIRING） ===');
 for (const [k, c] of Object.entries(CANDS)) console.log('  ' + k + '＝' + c.jp + '  ' + JSON.stringify(c.o));
 
 const pick = process.argv.slice(2).map(Number).filter((n) => CANDS[n]).slice(0, 2), ids = pick.length ? pick : [63, 80];
@@ -276,5 +283,5 @@ writePng(out, resolve(here, 'gaika2-now.png'));
 console.log('\n=== 5. 全身（等倍）を書き出した ===');
 console.log('  vortex/scratchpad/gaika2-now.png  ' + W + 'x' + PH + '  左から ' + ids.map((id) => id + '＝' + CANDS[id].jp).join(' ／ '));
 console.log('\n次にやること・各稿の FB と数字は メモリの MEMORY.md 1行目 と project_vortex_god_visuals_20260915.md（全文 Read 禁止・grep -n "炉心の作り直し\|左肩の肩当て（棘の形と色）\\|一番下の座の練り直し\\|引継ぎ（2026-09-20 21" → sed -n）');
-console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／左肩以外が不変か node check-gaika2-shoulder-diff.mjs／色の目立ち方の実測 node measure-gaika2-shoulder-pop.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／炉心の案で変わる場所の検査 node check-gaika2-core-diff.mjs／弱点の検証図 node render-gaika2-weak-diagram.mjs／前回の一式の作り方 build-gaika2-folder28.sh（0921/３＝炉心・胸の炉の扉・左肩の三色・弱点・その前は -folder27.sh＝0921/２）');
+console.log('道具＝候補の画素一致 node check-gaika2-cands.mjs／左肩以外が不変か node check-gaika2-shoulder-diff.mjs／色の目立ち方の実測 node measure-gaika2-shoulder-pop.mjs／写真 bash shot-gaika2.sh／ページの巡回 node check-click-viewer.mjs <フォルダ>／炉心の案で変わる場所の検査 node check-gaika2-core-diff.mjs／弱点の検証図 node render-gaika2-weak-diagram.mjs／効果音の貼り付け用コードの検査 node check-gaika-sfx-d.mjs／前回の一式の作り方 build-gaika2-folder40.sh（0923/２＝撃つ瞬間の確定・その前は -folder39.sh＝0923/１・-folder38.sh＝0922/８）');
 }
