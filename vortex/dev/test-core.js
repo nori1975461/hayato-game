@@ -6182,6 +6182,9 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
       `R73: ${g.name} の一瞬見せる窓は**身体のちょうど4分の1**（いまは ${(rv[2] * rv[3] * 100).toFixed(0)}%）`);
     assert(rv[0] >= 0 && rv[1] >= 0 && rv[0] + rv[2] <= 1 + 1e-9 && rv[1] + rv[3] <= 1 + 1e-9,
       `R73: ${g.name} の窓が体の外へ出ていない`);
+    // ★2026-09-23 ユーザー指示「上半身 特に顔ではなく**下半身**をみせて。顔は黒のシルエットで」＝
+    //   窓は体の下半分から始まる。顔の縦位置は scratchpad/probe-god-parts-y.mjs で測ってある。
+    assert(rv[1] >= 0.5 - 1e-9, `R73: ${g.name} の窓は体の下半分から（顔は黒のまま・いまは上端 ${rv[1]}）`);
   }
   assert(/手で書き換えない/.test(gj) && /emit-god-pillars\.mjs/.test(gj),
     'R73: gods.js は設計から機械で焼いたものだと自分で名乗る（手写しの禁止）');
