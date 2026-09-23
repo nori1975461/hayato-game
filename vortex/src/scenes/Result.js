@@ -8,7 +8,6 @@ import { BALANCE } from '../data/balance.js';
 import { CAUSES, STAGE_NAMES, VERDICTS, TIERS, tierOf, byRank, keyHint, clearHint } from '../data/verdict.js';
 import { Sound } from '../audio/sound.js';
 import { BUILD } from '../data/version.js';
-import { getFlag, setFlag } from '../systems/record.js';
 
 const Phaser = window.Phaser;
 const int = (c) => parseInt(c.slice(1), 16);
@@ -202,10 +201,17 @@ export class ResultScene extends Phaser.Scene {
     //   自分の裁きが全体のどこにいるかが数字と色の両方で分かる。
     const tier = tierOf(v.rank || VERDICTS.length);
     // 2026-09-14 超越者（1位）だけ「〜の裁き」を付けない＝帯の名前そのものが称号の上に立つ
-    const rankTxt = this.add.text(W / 2 + 10, 32, `第${v.rank}位 ／ ${VERDICTS.length}　${tier.name}${tier.id === 'one' ? '' : 'の裁き'}`, {
+    // ★2026-09-23 ユーザー指示「自分が何位だったか視覚的にはっきり」。順位の数字を階位色で出すと鉄（灰）の回は沈むので、
+    //   数字はいつも白・一回り大きく（15px）し、階位の名前だけ階位色にする。印は数字の左。
+    const rankNum = this.add.text(0, 32, `第${v.rank}位 ／ ${VERDICTS.length}`, {
+      fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+    const rankTier = this.add.text(0, 32, `${tier.name}${tier.id === 'one' ? '' : 'の裁き'}`, {
       fontFamily: 'monospace', fontSize: '13px', color: tier.color, fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.drawRankIcon(rankTxt.x - rankTxt.width / 2 - 14, 32, tier.id, 1.15);
+    }).setOrigin(0, 0.5);
+    const rx0 = W / 2 - (22 + rankNum.width + 10 + rankTier.width) / 2;
+    this.drawRankIcon(rx0 + 8, 32, tier.id, 1.15);
+    rankNum.setX(rx0 + 22); rankTier.setX(rx0 + 22 + rankNum.width + 10);
     const above = (v.rank || VERDICTS.length) - 1;
     if (above > 0) this.add.text(W - 24, 32, `上に あと${above}つ`, { fontFamily: 'monospace', fontSize: '10px', color: '#8a90a8' }).setOrigin(1, 0.5);
     // ★2026-09-15 ユーザー決定（案B）：大きく出すのはいつも最高位。まだ見ていなかった裁きは右上に小さく添える（その位の階位の色）
@@ -350,31 +356,39 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 一行の呼びかけ（コメント欄はゲームの外にある＝書く一文を手渡した直後に頼む。押しつけないよう一行・小さく）
-    this.add.text(W / 2, 293, 'あなたの裁きをコメントで教えてください', {
+    // ⚠️ y は 292 より上げない＝撃破の画面は仲間の帯（226〜282・名前の縁取りは 286 まで）が真上にある
+    this.add.text(W / 2, 292, 'あなたの裁きをコメントで教えてください', {
       fontFamily: 'monospace', fontSize: '12px', color: '#ffd6a0',
     }).setOrigin(0.5);
 
     this.drawFooter(d);
 
-    // ★2026-09-21 実プレイFB「息子はプレイ後のランキングを初見では理解できず、横で『Vを押して』と
-    //   教えて初めて一覧に入った」。原因は入口が3つ並んだ1行の文字の中に埋もれていたこと。
-    //   直し方は「教える」ではなく「隠さない」＝①V だけを金の枠で独立させる ②残り何種あるかを書く
-    //   ③**初めての人には勝手に開く**（一度見たら二度と自動では開かない＝慣れた人の邪魔をしない）。
-    const rest = VERDICTS.length - seenN;
-    const bw = 316, bx = W / 2 - bw / 2, byy = 305;
+    // ★2026-09-21 実プレイFB「息子はプレイ後のランキングを初見では理解できず、横で『Vを押して』と教えて初めて
+    //   一覧に入った」→ R71 は初回だけ自動で開いた。★2026-09-23 ユーザー指示「一時的でなく恒常的に。自動でなく
+    //   **V を押して移動すること**が unity1week の初見者にも一目で分かるように」→ 自動で開くのはやめ、入口を**ボタン**にする：
+    //   ①キーの絵（キーキャップ）＝「これは押す鍵」と文字を読まずに分かる ②言葉は「ランキング」（unityroom の人が知っている語。
+    //   「裁きの一覧」は中の見出しに残す）③キーが周期的に沈む＝押す動作そのものを見せる ④マウスで押しても開く
+    //   （unity1week の人はブラウザ＝マウスの手がある。従来は画面のどこを押しても再挑戦＝ボタンを押したつもりで再開する事故）。
+    //   幅は 320 まで＝左下の「ひだん」行（親向け 10px・x≦160）と重ねない。縦は 299〜329＝上の呼びかけ（292）と
+    //   下のキーの行（340・左下の「ばん」の版番号 350〜 と重ねない）の間。
+    const bw = 320, bx = W / 2 - bw / 2, byy = 299, bh = 30;
     const galBox = this.add.graphics();
-    galBox.fillStyle(0x2c2108, 0.9); galBox.fillRoundedRect(bx, byy, bw, 22, 6);
-    galBox.lineStyle(1, 0xffd23f, 0.95); galBox.strokeRoundedRect(bx, byy, bw, 22, 6);
-    const galHint = this.add.text(W / 2, byy + 11,
-      rest > 0 ? `V キー ▶ 裁きの一覧　${seenN} ／ ${VERDICTS.length}（あと ${rest}）` : `V キー ▶ 裁きの一覧　${seenN} ／ ${VERDICTS.length} 　ぜんぶ みた`, {
-        fontFamily: 'monospace', fontSize: '13px', color: '#ffd23f', fontStyle: 'bold',
-      }).setOrigin(0.5);
-    this.tweens.add({ targets: [galBox, galHint], alpha: 0.45, duration: 750, yoyo: true, repeat: -1 });
+    galBox.fillStyle(0x2c2108, 0.95); galBox.fillRoundedRect(bx, byy, bw, bh, 7);
+    galBox.lineStyle(2, 0xffd23f, 1); galBox.strokeRoundedRect(bx, byy, bw, bh, 7);
+    const vcap = this.drawKeycap(bx + 12, byy + bh / 2, 'V', 20);
+    this.add.text(bx + 12 + vcap.capW + 12, byy + bh / 2, 'ランキングを見る ▶', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ffd23f', fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+    this.add.text(bx + bw - 12, byy + bh / 2, `見た ${seenN} ／ ${VERDICTS.length}`, {
+      fontFamily: 'monospace', fontSize: '11px', color: '#c9a84a',
+    }).setOrigin(1, 0.5);
+    // キーが沈む（約1.2秒ごと）＝「押せ」の合図。枠の明滅は控えめに（文字の読みやすさを落とさない）
+    this.tweens.add({ targets: vcap, y: vcap.y + 2, duration: 90, yoyo: true, repeat: -1, repeatDelay: 1150, ease: 'Quad.easeIn' });
+    this.tweens.add({ targets: galBox, alpha: 0.7, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const galZone = this.add.zone(W / 2, byy + bh / 2, bw, bh).setInteractive({ useHandCursor: true });
 
-    const prompt = this.add.text(W / 2, 337, 'SPACE で もう一度 裁きを　／　R で タイトル', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#ffffff',
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: prompt, alpha: 0.3, duration: 650, yoyo: true, repeat: -1 });
+    const prompt = this.drawKeyLine(W / 2, 340, [{ k: 'SPACE' }, ' もう一度 裁きを　／　', { k: 'R' }, ' タイトル'], 12, '#ffffff', false);
+    this.tweens.add({ targets: prompt, alpha: 0.4, duration: 650, yoyo: true, repeat: -1 });
 
     // 裁きの一覧（V で切替）。見たものだけ点灯、まだのものは「？？？」＝空欄が見える（集めきる）。
     // ★2026-09-13 実プレイFB「ごちゃごちゃ・黒地に白文字は味気ない」→ 3列の羅列をやめ、**階位ごとの4つの帯**に整理。
@@ -387,9 +401,19 @@ export class ResultScene extends Phaser.Scene {
     bgG.fillGradientStyle(0x10123a, 0x10123a, 0x040412, 0x040412, 1);
     bgG.fillRect(0, 0, W, H);
     gal.add(bgG);
-    gal.add(this.add.text(W / 2, 13, `裁きの一覧　${seenN} ／ ${VERDICTS.length}`, {
-      fontFamily: 'monospace', fontSize: '14px', color: '#ffd23f', fontStyle: 'bold',
-    }).setOrigin(0.5));
+    // ★2026-09-23 見出しの左＝入口と同じ「ランキング」の語（押した先がここだと分かる）。右＝**あなたの順位**を水色で。
+    //   水色は一覧の中で「あなた」だけに使う色（階位の金・銀・灰と混ざらない）＝下の帯で光っている行と同じ色なので
+    //   見出し→行と目が結べる。
+    const YOU = 0x5cf5ff, YOU_HEX = '#5cf5ff';
+    const youObjs = [];
+    gal.add(this.add.text(20, 13, `ランキング　裁きの一覧　${seenN} ／ ${VERDICTS.length}`, {
+      fontFamily: 'monospace', fontSize: '13px', color: '#ffd23f', fontStyle: 'bold',
+    }).setOrigin(0, 0.5));
+    const youTxt = this.add.text(W - 20, 13, `あなたは 第${v.rank}位 ／ ${VERDICTS.length}`, {
+      fontFamily: 'monospace', fontSize: '14px', color: YOU_HEX, fontStyle: 'bold',
+    }).setOrigin(1, 0.5);
+    const youIcon = this.drawRankIcon(youTxt.x - youTxt.width - 12, 13, tier.id, 1.1);
+    gal.add(youIcon); gal.add(youTxt);
     const rule = this.add.graphics();
     rule.lineStyle(1, 0xffd23f, 0.45); rule.lineBetween(40, 24, W - 40, 24);
     gal.add(rule);
@@ -444,37 +468,57 @@ export class ResultScene extends Phaser.Scene {
         const x = one ? 186 : 24 + col * COLW, yy = one ? hy : by + 14 + row * ROWH + ROWH / 2;
         const n = (J.seen || {})[vv.id];
         const cur = vv.id === v.id;
+        const hw = one ? 210 : COLW - 6, hh = one ? 26 : 16;
         if (cur) {
+          // ★2026-09-23 今回の裁き＝**水色**（見出しの「あなたは 第n位」と同じ色）。金の枠は金・王冠の帯の中で見分けが
+          //   つかなかった。後ろに水色の光（glow・ADD）を敷き、枠は 2px で脈打たせる＝一覧のどこにいても最初に目が行く。
+          //   行の間に空きが無い（列 152px・行 17px）ので「あなた」の札は付けず、色と光で示す。
+          if (this.textures.exists('glow')) {
+            const gl = this.add.image(x - 4 + hw / 2, yy, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(YOU)
+              .setScale(hw / 32 * 1.15, hh / 32 * 2.4).setAlpha(0.5);
+            gal.add(gl); youObjs.push(gl);
+            this.tweens.add({ targets: gl, alpha: 0.85, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          }
           const hl = this.add.graphics();
-          const hw = one ? 210 : COLW - 6, hh = one ? 26 : 16;
-          hl.fillStyle(tc, 0.18); hl.fillRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
-          hl.lineStyle(1, 0xffe066, 1); hl.strokeRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
-          gal.add(hl);
+          hl.fillStyle(YOU, 0.16); hl.fillRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
+          hl.lineStyle(2, YOU, 1); hl.strokeRoundedRect(x - 4, yy - hh / 2, hw, hh, 4);
+          gal.add(hl); youObjs.push(hl);
+          this.tweens.add({ targets: hl, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         }
         const badge = this.add.graphics();
         const bw2 = one ? 26 : 24, bh2 = one ? 16 : 13;
-        if (n) { badge.fillStyle(tc, 1); badge.fillRoundedRect(x, yy - bh2 / 2, bw2, bh2, 3); }
+        if (n) { badge.fillStyle(cur ? YOU : tc, 1); badge.fillRoundedRect(x, yy - bh2 / 2, bw2, bh2, 3); }
         else { badge.lineStyle(1, tc, 0.35); badge.strokeRoundedRect(x, yy - bh2 / 2, bw2, bh2, 3); }
         gal.add(badge);
-        gal.add(this.add.text(x + bw2 / 2, yy, String(vv.rank), {
+        const numT = this.add.text(x + bw2 / 2, yy, String(vv.rank), {
           fontFamily: 'monospace', fontSize: one ? '12px' : '10px', color: n ? '#1a1206' : t.color, fontStyle: 'bold',
-        }).setOrigin(0.5).setAlpha(n ? 1 : 0.5));
-        gal.add(this.add.text(x + bw2 + 8, yy, n ? vv.title : '？？？', {
+        }).setOrigin(0.5).setAlpha(n ? 1 : 0.5);
+        gal.add(numT);
+        // 超越者の称号は白熱＋金の縁が正典なので、今回の裁きでも色は変えない（光と枠だけで示す）
+        const ttl = this.add.text(x + bw2 + 8, yy, n ? vv.title : '？？？', {
           fontFamily: 'monospace', fontSize: one ? '18px' : '12px',
-          color: n ? (cur ? '#ffe066' : '#ffffff') : '#4a4f66',
+          color: n ? (cur && !one ? YOU_HEX : '#ffffff') : '#4a4f66',
           fontStyle: (cur || one) ? 'bold' : 'normal',
           stroke: one && n ? '#c9971f' : undefined, strokeThickness: one && n ? 4 : 0,
-        }).setOrigin(0, 0.5));
+        }).setOrigin(0, 0.5);
+        gal.add(ttl);
+        if (cur) youObjs.push(badge, numT, ttl);
       });
       by += bh + 4;
     });
-    // ★初見の人はこの一覧が勝手に開くので、戻り方だけでなく「続け方」もここに要る
-    //   （一覧を出している間 SPACE の案内は隠れているため）
-    const galFoot = this.add.text(W / 2, H - 11, '金の枠＝今回の裁き　／　V で もどる　／　SPACE で もう一度', {
-      fontFamily: 'monospace', fontSize: '12px', color: '#ffd23f', fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: galFoot, alpha: 0.4, duration: 750, yoyo: true, repeat: -1 });
+    // 足元＝戻り方と続け方（入口と同じキーの絵で）。「水色の光＝あなた」は見出しと行が同じ色なので読まなくても
+    //   分かるが、念のため一言だけ添える。
+    const galFoot = this.drawKeyLine(W / 2, H - 11,
+      ['水色の光＝あなたの今回の裁き　／　', { k: 'V' }, ' もどる　／　', { k: 'SPACE' }, ' もう一度'], 12, '#ffd23f', true);
+    this.tweens.add({ targets: galFoot, alpha: 0.5, duration: 750, yoyo: true, repeat: -1 });
     gal.add(galFoot);
+    // ★2026-09-23 開いた瞬間の「当てる光」＝一覧全体を一度暗くし（0.62）、あなたの行と見出しの順位だけ明るいまま残す。
+    //   0.45 秒おいて 0.9 秒で明けるので読む邪魔はしない。33 行の中から自分の行を探す手間をなくす（行の空きが要らない）。
+    const dim = this.add.graphics();
+    dim.fillStyle(0x000000, 1); dim.fillRect(0, 0, W, H); dim.setAlpha(0);
+    gal.add(dim);
+    youObjs.forEach((o) => gal.bringToTop(o));
+    gal.bringToTop(youIcon); gal.bringToTop(youTxt);
     this._gal = gal;
 
     const retry = () => {
@@ -489,17 +533,65 @@ export class ResultScene extends Phaser.Scene {
       Sound.stopBgm();
       this.scene.start('Title');
     };
+    // ★2026-09-23 一覧は右から滑り込む（0.26 秒）＝「別の画面へ移った」が目で分かる。閉じるときは右へ戻る。
+    //   滑っている間の V は無視（途中で反転させない）。入口の案内は一覧（不透明）の下に隠れるので消さなくてよい。
+    this._galOpen = false;
+    let galBusy = false;
     const openGal = (on) => {
-      gal.setVisible(on);
-      galBox.setVisible(!on); galHint.setVisible(!on); prompt.setVisible(!on);   // 一覧の中では入口の案内を隠す
-      if (on) setFlag('galSeen');
+      if (galBusy || on === this._galOpen) return;
+      galBusy = true; this._galOpen = on;
+      this.tweens.killTweensOf(gal); this.tweens.killTweensOf(dim);
+      if (on) {
+        Sound.sfx('select');
+        gal.x = W; gal.setVisible(true); dim.setAlpha(0.62);
+        this.tweens.add({ targets: gal, x: 0, duration: 260, ease: 'Cubic.easeOut', onComplete: () => {
+          galBusy = false;
+          this.tweens.add({ targets: dim, alpha: 0, delay: 450, duration: 900 });
+        } });
+      } else {
+        Sound.sfx('tick');
+        this.tweens.add({ targets: gal, x: W, duration: 200, ease: 'Cubic.easeIn', onComplete: () => { galBusy = false; gal.setVisible(false); } });
+      }
     };
-    this.input.keyboard.on('keydown-V', () => { if (!this._done) openGal(!gal.visible); });
-    // 初めて結果画面に来た人には、一覧のほうから開く（「V を押して」と教えなくても存在が分かる）
-    if (!getFlag('galSeen')) this.time.delayedCall(1500, () => { if (!this._done && !gal.visible) openGal(true); });
+    this.input.keyboard.on('keydown-V', () => { if (!this._done) openGal(!this._galOpen); });
+    galZone.on('pointerdown', (p, lx, ly, ev) => { ev.stopPropagation(); if (!this._done) openGal(!this._galOpen); });
     this.input.keyboard.on('keydown-SPACE', retry);
     this.input.keyboard.on('keydown-R', toTitle);
-    this.time.delayedCall(450, () => { this.input.on('pointerdown', retry); });
+    // 画面のどこを押しても再挑戦（2分ループの距離を最短に）。ただし一覧を開いている間は「閉じる」＝押した拍子に再開しない
+    this.time.delayedCall(450, () => { this.input.on('pointerdown', () => { if (this._galOpen) openGal(false); else retry(); }); });
+  }
+
+  // キーの絵（キーキャップ）。(x, y) は左端の中心。size は文字の px。戻り値はコンテナ（.capW に幅）＝動かせる・並べられる。
+  //   ⚠️ 幅は .w に入れない＝Phaser の GameObject は全部 Transform の w（第4座標・0）を持つので、文字と見分けがつかなくなる。
+  //   面（明るい象牙色）の下に厚み（濃い金）を 3px 敷く＝「押せる物」に見える。文字は絵の一部なので濃い色で太く。
+  //   ★2026-09-23 「V キー」と文字で書くより、鍵の絵が 1 つある方が初見の人に「押す物」だと伝わる（unity1week 向け）。
+  //   slim＝文の中に並べる小さい鍵（面の余白 4px・厚み 2px）。画面の下端は 10px の脚注が詰まっているので背を抑える。
+  drawKeycap(x, y, label, size, slim) {
+    const c = this.add.container(x, y);
+    const t = this.add.text(0, 0, label, { fontFamily: 'monospace', fontSize: size + 'px', color: '#2c2108', fontStyle: 'bold' }).setOrigin(0.5);
+    const pad = slim ? 4 : 8, th = slim ? 2 : 3;
+    const w = Math.max(size + pad, t.width + 10), h = size + pad;
+    const g = this.add.graphics();
+    g.fillStyle(0x9a6a10, 1); g.fillRoundedRect(0, -h / 2 + th, w, h, 5);
+    g.fillStyle(0xfff1c4, 1); g.fillRoundedRect(0, -h / 2, w, h - 1, 5);
+    g.lineStyle(1, 0x5a3c08, 0.9); g.strokeRoundedRect(0, -h / 2, w, h - 1, 5);
+    t.setPosition(w / 2, -1);
+    c.add([g, t]);
+    c.capW = w;
+    return c;
+  }
+
+  // キーの絵と文を一列に並べて中央に置く（parts＝文字列か { k: 'V' }）。戻り値はコンテナ＝まとめて明滅できる。
+  drawKeyLine(cx, y, parts, size, color, bold) {
+    const c = this.add.container(cx, y);
+    const items = parts.map((p) => (typeof p === 'string'
+      ? this.add.text(0, 0, p, { fontFamily: 'monospace', fontSize: size + 'px', color, fontStyle: bold ? 'bold' : 'normal' }).setOrigin(0, 0.5)
+      : this.drawKeycap(0, 0, p.k, size - 2, true)));
+    const wOf = (o) => (o.capW != null ? o.capW : o.width);
+    const total = items.reduce((a, o) => a + wOf(o), 0);
+    let x = -total / 2;
+    items.forEach((o) => { o.x = x; x += wOf(o); c.add(o); });
+    return c;
   }
 
   // 階位の印（絵）。crown＝金の王冠（3つの尖り）／gold・silver・iron＝宝石（菱形＋白い照り）。

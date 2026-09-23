@@ -1385,7 +1385,7 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
         'JAM16: 配線の鞭は大聖堂だけ振り香炉（鉄拳のテクスチャを作らない）');
       assert(!(BALANCE.boss.tiers || []).some((t) => t.wirearm && t.wirearm.style),
         'JAM16: 本編マオウレクスの wirearm は従来の鉄拳のまま（style を持たない）');
-      assert(/金の枠＝今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを金の枠で示し、×n は出さない');
+      assert(/水色の光＝あなたの今回の裁き/.test(rs) && !/`×\$\{n\}`/.test(rs), 'JAM5: 一覧は今回の裁きを水色の光で示し（2026-09-23 金の枠→水色）、×n は出さない');
       assert(/const py = Math\.min\(262, y \+ 3 \* 18 \+ 10\);/.test(rs), 'JAM5: 仲間の行は表の下から決める（固定 y の重なり再発防止）');
       assert(/大聖堂を覆した モビットたち/.test(rs) && /ease: 'Back\.easeOut'/.test(rs) && /Sound\.sfx\('pickup', 1, 1 \+ i \* 0\.08\)/.test(rs),
         'JAM5: 撃破の裁きは仲間が主役の帯（1体ずつ跳ねて登場・名前はその子の色）');
@@ -6134,15 +6134,24 @@ assert(!('levelupFlow' in BALANCE), 'balance: levelupFlow が廃止されてい�
     'R71: 本体（billiard）はテストと同じ式を使う＝刻みの計算を二重に書かない');
   assert(/!st\.held/.test(bl), 'R71: 刻みで回るのは掴んでいる間だけ＝歩いているときの狙いは従来どおり');
   assert(/aimStepSec/.test(read('data/balance.js')), 'R71: 刻みの間隔は balance で調整できる');
-  // ②入口＝V を独立させ、初めての人には自分から開く
-  assert(/getFlag, setFlag/.test(rs) && /getFlag\('galSeen'\)/.test(rs)
-    && /delayedCall\(\d+, \(\) => \{ if \(!this\._done && !gal\.visible\) openGal\(true\)/.test(rs),
-    'R71: 初めて結果画面に来た人には裁きの一覧が自分から開く');
-  assert(/setFlag\('galSeen'\)/.test(rs), 'R71: 一度開いたら覚える＝二度目からは自動で開かない（慣れた人の邪魔をしない）');
-  assert(/V キー ▶ 裁きの一覧/.test(rs) && /あと \$\{rest\}/.test(rs),
-    'R71: 入口は金の枠で独立し、あと何種あるかが書いてある');
-  assert(/galBox\.setVisible\(!on\); galHint\.setVisible\(!on\)/.test(rs),
-    'R71: 一覧を開いている間は入口の案内を隠す（二重に出さない）');
+  // ②入口＝V をボタンにする。★2026-09-23 ユーザー指示（R72）「一時的でなく恒常的に・自動でなく V を押して移動することが
+  //   初見でも一目で分かるように」＝R71 の「初回だけ自動で開く」は撤去。恒常の入口（キーの絵＋ランキングの語）で分からせる。
+  assert(!/getFlag\('galSeen'\)/.test(rs) && !/delayedCall\(1500/.test(rs),
+    'R72: 一覧は自動で開かない（初回だけの仕掛けは置かない＝恒常の入口で分かるようにする）');
+  assert(/drawKeycap\(bx \+ 12, byy \+ bh \/ 2, 'V', 20\)/.test(rs) && /ランキングを見る ▶/.test(rs),
+    'R72: 入口はキーの絵（V のキーキャップ）＋「ランキングを見る」＝押す鍵と行き先が文字を読まずに分かる');
+  assert(/repeatDelay: 1150/.test(rs), 'R72: V のキーが周期的に沈む＝押す動作そのものを見せる');
+  assert(/galZone\.on\('pointerdown', \(p, lx, ly, ev\) => \{ ev\.stopPropagation\(\)/.test(rs),
+    'R72: ボタンはマウスでも押せる＝押しても再挑戦にならない（stopPropagation）');
+  assert(/if \(this\._galOpen\) openGal\(false\); else retry\(\)/.test(rs),
+    'R72: 一覧を開いている間の画面クリックは「閉じる」＝押した拍子に再開しない');
+  assert(/あなたは 第\$\{v\.rank\}位 ／ \$\{VERDICTS\.length\}/.test(rs) && /const YOU = 0x5cf5ff/.test(rs),
+    'R72: 一覧の見出しに「あなたは 第n位」を水色で＝行と同じ色で結ぶ');
+  assert(/dim\.setAlpha\(0\.62\)/.test(rs) && /youObjs\.forEach\(\(o\) => gal\.bringToTop\(o\)\)/.test(rs),
+    'R72: 開いた瞬間はあなたの行と順位だけ明るい（当てる光）');
+  assert(/targets: gal, x: 0, duration: 260/.test(rs), 'R72: 一覧は右から滑り込む＝別の画面へ移ったと分かる');
+  assert(/color: '#ffffff', fontStyle: 'bold',\n    \}\)\.setOrigin\(0, 0\.5\);\n    const rankTier/.test(rs),
+    'R72: 結果画面の「第n位 ／ 33」はいつも白（階位色の灰で沈ませない）');
   assert(/export function getFlag/.test(rc) && /catch \(e\) \{ return false; \}/.test(rc),
     'R71: 覚え書きは localStorage が使えなくても遊びに影響しない');
 }

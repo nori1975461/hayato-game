@@ -118,8 +118,10 @@ async function main() {
   const ok1 = await waitScene('Result', 25000);
   console.log('  1回目 Result =', ok1, 'cause =', await ev(`(function(){var s=window.__vortexGame.scene.getScene('Result');return s&&s.scene.settings.data&&s.scene.settings.data.jam&&JSON.stringify({v:s.scene.settings.data.jam.verdict.id,c:s.scene.settings.data.jam.stat.deathCause,r:s.scene.settings.data.jam.stat.remainPct,st:s.scene.settings.data.jam.stat.stage,imp:s.scene.settings.data.jam.improved});})()`));
   await sleep(2600); await shot('01-result-death');
+  // 2026-09-23 R72：V の直後（0.3秒）＝滑り込み完了＋「当てる光」で自分の行だけ明るい／1.9秒後＝明けて全部読める
   await key('KeyV', 'v'); await sleep(300); await shot('02-result-gallery');
-  await key('KeyV', 'v'); await sleep(200);
+  await sleep(1600); await shot('03-result-gallery-settled');
+  await key('KeyV', 'v'); await sleep(300);
   console.log('  localStorage vortex.jam =', await ev("window.localStorage.getItem('vortex.jam')"));
   await key('Space', ' ');
   const back = await waitRun(15000);
@@ -185,7 +187,8 @@ async function main() {
   //   一覧は seen にある id だけ名前が出るので、ここで見えている行＝この回に到達した裁き。
   await ev(`(function(){var s=window.__vortexGame.scene.getScene('Result');var j=s.scene.settings.data.jam;
     return JSON.stringify({hits:j.stat?j.stat.hits:null, v:j.verdict.id, seen:Object.keys(j.seen)});})()`).then((r) => console.log('  一覧の前提:', r));
-  await key('KeyV', 'v'); await sleep(900); await shot('31-gallery-theone');
+  await key('KeyV', 'v'); await sleep(300); await shot('31-gallery-theone');
+  await sleep(1600); await shot('32-gallery-theone-settled');
   console.log('  EXCEPTIONS=', exceptions);
   console.log(exceptions ? 'JAMRESULT_EXC' : 'JAMRESULT_DONE');
   process.exit(0);
