@@ -36,6 +36,7 @@ const rows = [
   ['back_idle', 'back_walk1', 'back_walk2', 'back_r_stand', 'back_r_knee3', 'back_r_step', 'back_r_lift', 'back_l_knee3'],
   ['side_r_idle', 'side_r_walk1', 'side_r_walk2', 'side_r_stand', 'side_r_knee3', 'side_r_step', 'side_r_lift', 'side_r_knee1'],
   ['side_l_idle', 'side_l_walk1', 'side_l_walk2', 'side_l_stand', 'side_l_knee3', 'side_l_step', 'side_l_lift', 'side_l_knee1'],
+  ['side_r_stride', 'side_r_kick', 'side_l_stride', 'side_l_kick', 'side_r_knee3', 'side_r_idle', 'idle', 'back_idle'],
 ];
 const cv = canvas(CW * 8 + 9, CH * rows.length + 9);
 rows.forEach((r, j) => r.forEach((k, i) => { if (!HERO_FRAMES[k]) throw new Error('no frame ' + k); blit(cv, HERO_FRAMES[k], 9 + i * CW, 9 + j * CH, S); }));
