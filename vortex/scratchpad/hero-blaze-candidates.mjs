@@ -182,6 +182,27 @@ export function humanSprite(cl) {
   return { palette: { ...PAL, ...CLOTHES[cl] }, rows: HUMAN_BODY };
 }
 
+// ---- 2026-10-12 16:07 ユーザー決定「基本服の色は青（完全版では HAYATO のように着せ替え）」「概ねいいが、ワンアクセントほしい。
+//   ドラグスティチューノスも繋がるなにか」。アクセント 3 案（体と服は同じ・変えるのはアクセントだけ）
+export const BLUE = { s: '#2f6fe4', p: '#6b7280', u: '#d8dde6' };
+export const ACCENTS = {
+  // ① 胸の四芒の刻印：黒い四芒（意思は 4 つに分かれた）・中心に蒼。ブレイズの封印と同じ印が体にもある＝封じられているのは本人
+  '刻印': { 6: { 9: 'm' }, 7: { 8: 'm', 9: 'c', 10: 'm' }, 8: { 9: 'm' } },
+  // ② 漆黒のマフラー：記憶を失って現れたとき持っていた唯一の物。首に蒼の結び目・左へ垂れて先が蒼。動くとなびく（実装で）
+  'マフラー': { 5: { 7: 'm', 8: 'm', 9: 'c', 10: 'm', 11: 'm', 12: 'm' }, 6: { 6: 'm', 7: 'm' }, 7: { 5: 'm', 6: 'm' }, 8: { 5: 'm', 6: 'c' } },
+  // ③ 前髪の一房が漆黒：中の意思が髪に漏れている。段が上がると黒が広がる（Lv10 で半分）
+  '一房': { 0: { 8: 'm' }, 1: { 7: 'm', 8: 'm' }, 2: { 7: 'm' } },
+};
+export function accentSprite(key) {
+  const rows = HUMAN_BODY.map((r, y) => {
+    const cells = r.split('');
+    const ov = key && ACCENTS[key][y];
+    if (ov) for (const [x, ch] of Object.entries(ov)) cells[+x] = ch;
+    return cells.join('');
+  });
+  return { palette: { ...PAL, ...BLUE }, rows };
+}
+
 export function compose(armKey) {
   const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
@@ -304,6 +325,26 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_人間比_拡大_2026-10-12.png'));
   }
   for (const [cl, c] of Object.entries(CLOTHES)) console.log(`服 ${cl}: 上着 ${c.s} 輝度 ${luma(hex(c.s)).toFixed(1)}・ズボン ${c.p} 輝度 ${luma(hex(c.p)).toFixed(1)}`);
+  // アクセント（16:07）：青・無し／刻印／マフラー／一房／チビット／スターパピー
+  const accItems = [
+    { name: '無し', sp: accentSprite(null), scale: 3 },
+    ...Object.keys(ACCENTS).map((k) => ({ name: k, sp: accentSprite(k), scale: 3 })),
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const cv = canvas(24 + accItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 24, 0), 54 + 48);
+    let x = 24;
+    for (const it of accItems) { x += blit(cv, it.sp, x, 24 + (54 - Math.round(it.sp.rows.length * it.scale)), it.scale) + 24; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_アクセント_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 8;
+    const cv = canvas(16 + accItems.reduce((s, it) => s + it.sp.rows[0].length * S + 16, 0), 18 * S + 32);
+    let x = 16;
+    for (const it of accItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_アクセント_拡大_2026-10-12.png'));
+  }
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
   console.log('背景 輝度', luma(BG).toFixed(1));
