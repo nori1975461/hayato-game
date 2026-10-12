@@ -115,8 +115,40 @@ export const ARMS = {
   ],
 };
 
+
+// ---- 段階（2026-10-12 15:03 ユーザー採用＝ブレイズは「意思を封じたまま力だけを引き出す変換器」。
+//   段が上がるたびに封印（蒼の輪）が 1 つずつ外れ、割れ目から脈が漏れて禍々しさが増す＝成長と物語が同じ絵）。
+//   高さ 18 と少年の画素は 3 段とも同じ（従来の原則）。変わるのは腕だけ
+export const STAGES = {
+  // Lv1〜4：封印 2 本とも無傷（＝候補 A）。爪は閉じている
+  1: ARMS.A,
+  // Lv5〜9：手首側の封印が割れ、割れ目から脈が手まで漏れる。外縁に棘が 1 つ。爪が開き始める
+  2: [
+    '.........',
+    '.........',
+    '.........',
+    '.........',
+    '.........',
+    '.........',
+    '.........',
+    '....ggggg',
+    '...gmmmmm',
+    '..gmmmmmg',
+    '..gccccmg',
+    '.ggmmmmmg',
+    '..gmmmmmg',
+    '..gcmmccg',
+    '...gmcg..',
+    '.gmmmcmg.',
+    '.gmmhmmg.',
+    '..m.mnm..',
+  ],
+  // Lv10 以上：封印は 2 本とも無い。脈が前腕を貫き、棘が並び、手が大きく爪が開く（＝候補 B）
+  3: ARMS.B,
+};
+
 export function compose(armKey) {
-  const arm = ARMS[armKey];
+  const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
   return BODY.map((row, y) => {
     const cells = row.split('');
@@ -194,6 +226,27 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     let x = 16;
     for (const it of items) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ候補_拡大_2026-10-12.png'));
+  }
+  // 段階（Lv1〜4／Lv5〜9／Lv10 以上）＝等倍と拡大
+  const stageItems = [
+    { name: 'Lv1-4', sp: { palette: PAL, rows: compose(1) }, scale: 3 },
+    { name: 'Lv5-9', sp: { palette: PAL, rows: compose(2) }, scale: 3 },
+    { name: 'Lv10+', sp: { palette: PAL, rows: compose(3) }, scale: 3 },
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const cv = canvas(24 + stageItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 24, 0), 54 + 48);
+    let x = 24;
+    for (const it of stageItems) { x += blit(cv, it.sp, x, 24 + (54 - Math.round(it.sp.rows.length * it.scale)), it.scale) + 24; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ段階_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 8;
+    const cv = canvas(16 + stageItems.reduce((s, it) => s + it.sp.rows[0].length * S + 16, 0), 18 * S + 32);
+    let x = 16;
+    for (const it of stageItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ段階_拡大_2026-10-12.png'));
   }
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
