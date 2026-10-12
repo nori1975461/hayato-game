@@ -88,10 +88,86 @@ function rightPose(pose) {
   }
   return G;
 }
-// 左右反転は「腕と脚の領域」（行 9 以降と、行 6〜8 の二の腕の列）だけ。頭・マフラー・胴はそのまま
-function mirrorLimbs(G) {
+
+// ---- 向き（2026-10-12 22:50 ユーザー「右へ動いたら右向き・左なら左・上なら上・下なら下。顔も体も移動した方向を向く」）
+//   down＝正面（上の絵）／up＝背中／side_r＝右向きの横顔／side_l＝その左右反転（前髪の一房は額の前・マフラーの尾は背中側＝反転しても正しい）
+// 背中（上を向く）。後ろ頭は白髪（一房は額の右＝背中から見て画面の右に 1 画素のぞく）・首にマフラーの帯・尾は背中の真ん中に垂れる（行 9 は中央＝腕と脚の反転で動かない）。腕と脚は正面と同じ
+const BACK_TOP = [
+  '........kkkk........',
+  '.......kkkkkm.......',
+  '.......kkkkkk.......',
+  '.......kkkkkk.......',
+  '........ffff........',
+  '......smmmmmms......',
+  '.....fsssmmsssf.....',
+  '.....f.sssmms.f.....',
+  '.....f.sssmms.f.....',
+  '...gmg.ssmmss.gmg...',
+  '...ccc.pppppp.ccc...',
+  '...gmg.pppppp.gmg...',
+];
+function backBase(legs) {
+  const rows = BACK_TOP.map((r) => r.split(''));
+  for (let i = 0; i < 6; i++) {
+    const cells = ARMS_LOW[i].split('');
+    const f = FEET[legs][i];
+    for (let x = 0; x < 8; x++) if (f[x] !== '.') cells[6 + x] = f[x];
+    rows.push(cells);
+  }
+  return rows;
+}
+// 背中で右腕（画面の右）を使う姿勢。正面の rightPose と同じ作り
+function backPose(pose) {
+  const G = backBase('stand');
+  clear(G, 14, 9, 16, 14);
+  clear(G, 14, 6, 14, 8);
+  if (pose.startsWith('knee')) {
+    const k = Number(pose.slice(4));
+    clear(G, 11, 12, 13, 17); stamp(G, 11, 12 - k, RIGHT_LEG);
+  } else if (pose === 'step') {
+    clear(G, 11, 12, 13, 17); stamp(G, 13, 12, RIGHT_LEG);
+  } else if (pose === 'lift') {
+    clear(G, 6, 12, 8, 17); stamp(G, 6, 11, LEFT_LEG);
+  }
+  return G;
+}
+// 横顔（右向き）。胴は 4 画素・手前の腕（左腕）が胴の上に垂れる・前髪の一房は額の前・マフラーの尾は背中へ
+const SIDE_TOP = [
+  '.........kkk........',
+  '........kkkkm.......',
+  '........kkkfm.......',
+  '........kkfef.......',
+  '.........kfff.......',
+  '........mmmm........',
+  '......mmmssss.......',
+  '.....mm..ssss.......',
+  '.....m...ssss.......',
+  '.........ssss.......',
+  '.........pppp.......',
+  '.........pppp.......',
+];
+const SIDE_LEG = ['pp.', 'pp.', 'pp.', 'dd.', 'uu.', 'uuu'];   // 横から見た脚（つま先は右）
+const SIDE_ARM = { x: 9, y: 6, art: ['.f.', '.f.', '.f.', 'gmg', 'ccc', 'gmg', 'gmg', 'mhm', 'm.m'] };   // 手前の腕（肩は列 10・行 6）
+function sideBase() {
+  const G = SIDE_TOP.map((r) => r.split(''));
+  for (let i = 0; i < 6; i++) G.push('....................'.split(''));
+  return G;
+}
+// legs: stand＝脚がそろう／walk1＝前脚が前・後ろ脚が後ろ（歩幅）／knee1〜3＝前脚の膝を上げる／step＝前脚を踏み込む／lift＝後ろ脚が浮く
+function sideFrame(legs, withArm) {
+  const G = sideBase();
+  const back = { stand: [9, 12], walk1: [8, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11] }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
+  const front = { stand: [10, 12], walk1: [12, 12], knee1: [11, 11], knee2: [11, 10], knee3: [11, 9], step: [13, 12], lift: [13, 12] }[legs];
+  stamp(G, back[0], back[1], SIDE_LEG);
+  stamp(G, front[0], front[1], SIDE_LEG);
+  if (withArm) stamp(G, SIDE_ARM.x, SIDE_ARM.y, SIDE_ARM.art);
+  return G;
+}
+const mirror = (G) => G.map((r) => r.slice().reverse());
+// 正面・背中の左腕を使う姿勢＝腕と脚の領域（行 9 以降）だけを左右反転する。頭とマフラーは反転しない（髪の一房とマフラーは左のまま）
+//   src＝反転しない部分の正しい絵（base('stand') か backBase('stand')）
+function mirrorLimbs(G, src) {
   const W = G[0].length;
-  const src = base('stand');   // 反転しない部分の正しい絵
   const out = src.map((r) => r.slice());
   for (let y = 9; y < G.length; y++) for (let x = 0; x < W; x++) out[y][x] = G[y][W - 1 - x];
   // 行 9 以降の胴（上着とズボン）は左右対称なので反転しても同じ。行 6〜8 の二の腕：右の肌が消えていたら左の肌を消す
@@ -104,13 +180,24 @@ function mirrorLimbs(G) {
 
 const sprite = (G) => ({ palette: HERO_PAL, rows: G.map((r) => r.join('')) });
 
-// 書き出す絵の一覧（ファイル名の末尾 → 絵）
+// 書き出す絵の一覧（ファイル名の末尾 → 絵）。正面＝idle・walk1・walk2・r_*（腕を使う姿勢＝画面の右の腕を抜いた体）
 export const HERO_FRAMES = (() => {
   const out = { idle: sprite(base('stand')), walk1: sprite(base('walk1')), walk2: sprite(base('walk2')) };
+  out.back_idle = sprite(backBase('stand'));
+  out.back_walk1 = sprite(backBase('walk1'));
+  out.back_walk2 = sprite(backBase('walk2'));
+  const sr = { idle: sideFrame('stand', true), walk1: sideFrame('walk1', true), walk2: sideFrame('stand', true) };
+  for (const [k, G] of Object.entries(sr)) { out[`side_r_${k}`] = sprite(G); out[`side_l_${k}`] = sprite(mirror(G)); }
   for (const pose of ['stand', 'knee1', 'knee2', 'knee3', 'step', 'lift']) {
     const R = rightPose(pose);
     out[`r_${pose}`] = sprite(R);
-    out[`l_${pose}`] = sprite(mirrorLimbs(R));
+    out[`l_${pose}`] = sprite(mirrorLimbs(R, base('stand')));
+    const B = backPose(pose);
+    out[`back_r_${pose}`] = sprite(B);
+    out[`back_l_${pose}`] = sprite(mirrorLimbs(B, backBase('stand')));
+    const G = sideFrame(pose, false);   // 横顔で腕を使う姿勢＝手前の腕を抜く（腕は hand.gd が肩から描く）
+    out[`side_r_${pose}`] = sprite(G);
+    out[`side_l_${pose}`] = sprite(mirror(G));
   }
   return out;
 })();
