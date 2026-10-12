@@ -232,6 +232,90 @@ export function scarfSprite(key) {
   return { palette: { ...PAL, ...BLUE, ...SCARF_PAL }, rows: rows.map((r) => r.join('')) };
 }
 
+// ---- 2026-10-12 21:30 ユーザー決定「マフラーは黒のみ（首の右端がはみ出すので少し切る）」「③も入れる＝基本白髪で一房が漆黒」
+//   「足がレゴみたい。靴の表現かもっとよい案を」。レゴの正体＝左右対称の真っ直ぐな 2 本の脚＋脚より幅広の白い四角い靴。
+//   行 0〜11 は共通（白髪・黒の一房・黒いマフラー＝首は列 7〜11 に 1 画素詰めた・尾は左へ垂れる）。行 12〜17 の脚と靴を 3 通り
+export const V3_PAL = { k: '#e6e9f0', u: '#c9d0da', d: '#232c3d' };   // 白髪・靴（明るい灰）・靴底と靴下（暗）
+export const V3_TOP = [
+  '........mkkk........',
+  '.......mmkkkk.......',
+  '.......mffffk.......',
+  '.......feffef.......',
+  '........ffff........',
+  '......smmmmmss......',
+  '.....fmmssssssf.....',
+  '.....mmssssss.f.....',
+  '.....mmssssss.f.....',
+  '...gmg.ssssss.gmg...',
+  '...ccc.pppppp.ccc...',
+  '...gmg.pppppp.gmg...',
+];
+// 行 12〜17 の腕（列 3〜5・14〜16）。脚は列 6〜13 に差し込む
+const V3_ARMS = [
+  '...gmg........gmg...',
+  '...mhm........mhm...',
+  '...m.m........m.m...',
+  '....................',
+  '....................',
+  '....................',
+];
+export const FEET = {
+  // A 八の字：脚 2 画素・足首に暗い靴下の線・靴は脚の下 2 画素＋つま先だけ外へ 1 画素（L 字）。白い四角を無くす
+  '八の字': [
+    '.pp..pp.',
+    '.pp..pp.',
+    '.pp..pp.',
+    '.dd..dd.',
+    '.uu..uu.',
+    'uuu..uuu',
+  ],
+  // B 片足重心：右脚は真っ直ぐ・左脚は膝から外へ 1 画素（体重が片足に乗る）。対称を崩す
+  '片足重心': [
+    '.pp..pp.',
+    'pp...pp.',
+    'pp...pp.',
+    'dd...dd.',
+    'uu...uu.',
+    'uu..uuuu',
+  ],
+  // C 短いブーツ：暗い口（d）＋明るい靴 2 段＋つま先。脚は 1 画素短く見える
+  'ブーツ': [
+    '.pp..pp.',
+    '.pp..pp.',
+    '.dd..dd.',
+    '.uu..uu.',
+    '.uu..uu.',
+    'uuu..uuu',
+  ],
+  // 歩き（八の字の 2 コマ）：左脚を 1 画素持ち上げ、右脚はそのまま → 次のコマで入れ替える。止まった脚が「レゴ」の本当の原因
+  '歩き1': [
+    '.pp..pp.',
+    '.pp..pp.',
+    '.dd..pp.',
+    '.uu..dd.',
+    'uuu..uu.',
+    '.....uuu',
+  ],
+  '歩き2': [
+    '.pp..pp.',
+    '.pp..pp.',
+    '.pp..dd.',
+    '.dd..uu.',
+    '.uu..uuu',
+    'uuu.....',
+  ],
+};
+export function v3Sprite(feetKey) {
+  const rows = V3_TOP.slice();
+  for (let i = 0; i < 6; i++) {
+    const cells = V3_ARMS[i].split('');
+    const f = FEET[feetKey][i];
+    for (let x = 0; x < 8; x++) if (f[x] !== '.') cells[6 + x] = f[x];
+    rows.push(cells.join(''));
+  }
+  return { palette: { ...PAL, ...BLUE, ...V3_PAL }, rows };
+}
+
 export function compose(armKey) {
   const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
@@ -394,6 +478,25 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_マフラーの色_拡大_2026-10-12.png'));
   }
   for (const [k, v] of Object.entries(SCARF_PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
+  // 足（21:30）：八の字／片足重心／ブーツ／チビット／スターパピー（白髪＋一房・黒のマフラー入り）
+  const ftItems = [
+    ...Object.keys(FEET).map((k) => ({ name: k, sp: v3Sprite(k), scale: 3 })),
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const cv = canvas(24 + ftItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 24, 0), 54 + 48);
+    let x = 24;
+    for (const it of ftItems) { x += blit(cv, it.sp, x, 24 + (54 - Math.round(it.sp.rows.length * it.scale)), it.scale) + 24; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_足_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 8;
+    const cv = canvas(16 + ftItems.reduce((s, it) => s + it.sp.rows[0].length * S + 16, 0), 18 * S + 32);
+    let x = 16;
+    for (const it of ftItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_足_拡大_2026-10-12.png'));
+  }
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
   console.log('背景 輝度', luma(BG).toFixed(1));
