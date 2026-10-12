@@ -147,6 +147,41 @@ export const STAGES = {
   3: ARMS.B,
 };
 
+// ---- 2026-10-12 15:53 ユーザー指摘「腕のサイズが全くあっていない。主人公は外見は普通の人間で、腕につけているブレイズが
+//   異彩（不純物）を放っている」「服は白でないほうがいい。マキナは作り直すので主人公の色を残り物に限定しなくてよい」
+//   ＝参考画像から「方向だけ借りる」と決めていたのに大きさまで借りていた。腕は人間の比率（2 画素）に戻し、
+//   ブレイズは前腕に着けた 3 画素幅の道具にする。異彩は大きさでなく「黒＋蒼の光」の質で出す
+//   体は 20×18・胴 6 画素・腕 1 画素（肌）・前腕のブレイズ 3 画素・手は腿の高さまで（人間の腕の長さ）
+export const HUMAN_BODY = [
+  '........kkkk........',
+  '.......kkkkkk.......',
+  '.......kffffk.......',
+  '.......feffef.......',
+  '........ffff........',
+  '......ssssssss......',
+  '.....fssssssssf.....',
+  '.....f.ssssss.f.....',
+  '.....f.ssssss.f.....',
+  '...gmg.ssssss.gmg...',
+  '...ccc.pppppp.ccc...',
+  '...gmg.pppppp.gmg...',
+  '...gmg.pp..pp.gmg...',
+  '...mhm.pp..pp.mhm...',
+  '...m.m.pp..pp.m.m...',
+  '.......pp..pp.......',
+  '......uuu..uuu......',
+  '......uuu..uuu......',
+];
+// 服の色（白以外・3 案）。s＝上着・p＝ズボン・u＝靴
+export const CLOTHES = {
+  '紺': { s: '#2f4a9e', p: '#6b7280', u: '#d8dde6' },
+  'カーキ': { s: '#7a8a3c', p: '#4a3a2a', u: '#d8dde6' },
+  'えんじ': { s: '#a0303c', p: '#2f3f6e', u: '#d8dde6' },
+};
+export function humanSprite(cl) {
+  return { palette: { ...PAL, ...CLOTHES[cl] }, rows: HUMAN_BODY };
+}
+
 export function compose(armKey) {
   const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
@@ -248,6 +283,27 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     for (const it of stageItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ段階_拡大_2026-10-12.png'));
   }
+  // 人間の比率（15:53 の直し）：いま／紺／カーキ／えんじ／チビット／スターパピー
+  const humanItems = [
+    { name: 'いま', sp: cur, scale: 3 },
+    ...Object.keys(CLOTHES).map((cl) => ({ name: cl, sp: humanSprite(cl), scale: 3 })),
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const cv = canvas(24 + humanItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 24, 0), 54 + 48);
+    let x = 24;
+    for (const it of humanItems) { x += blit(cv, it.sp, x, 24 + (54 - Math.round(it.sp.rows.length * it.scale)), it.scale) + 24; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_人間比_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 8;
+    const cv = canvas(16 + humanItems.reduce((s, it) => s + it.sp.rows[0].length * S + 16, 0), 18 * S + 32);
+    let x = 16;
+    for (const it of humanItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_人間比_拡大_2026-10-12.png'));
+  }
+  for (const [cl, c] of Object.entries(CLOTHES)) console.log(`服 ${cl}: 上着 ${c.s} 輝度 ${luma(hex(c.s)).toFixed(1)}・ズボン ${c.p} 輝度 ${luma(hex(c.p)).toFixed(1)}`);
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
   console.log('背景 輝度', luma(BG).toFixed(1));
