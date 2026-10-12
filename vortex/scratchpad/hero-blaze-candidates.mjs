@@ -203,6 +203,35 @@ export function accentSprite(key) {
   return { palette: { ...PAL, ...BLUE }, rows };
 }
 
+// ---- 2026-10-12 21:16 ユーザー「②マフラー採用。ただし黒だと背景と同化する。漆黒を変えるか？」
+//   体の外へなびいた状態（右へ走っている場面＝尾が左へ 6 画素）で 4 通りを並べる。
+//   黒のまま＝縁に光を走らせる（四神柱の黒が鈍い金の縁で読めているのと同じ手）／布の色を変える（深紅＝四神柱の 3 色目）
+export const SCARF_PAL = { o: '#c9971f', r: '#c81736', R: '#ff3355' };
+export const SCARFS = {
+  // 対照：黒だけ（ユーザー指摘の再現＝背景に沈む）
+  '黒のみ': { band: 'm', knot: 'm', rim: null, core: 'm', tip: 'm' },
+  // 黒＋蒼の縁：封印の光が布の縁を走る（ブレイズと同じ語彙）
+  '蒼の縁': { band: 'm', knot: 'c', rim: 'c', core: 'm', tip: 'c' },
+  // 黒＋鈍い金の縁：四神柱の縁の色（光輪の欠片の金 #ffd23f と近い＝取り違えの恐れ）
+  '金の縁': { band: 'm', knot: 'o', rim: 'o', core: 'm', tip: 'o' },
+  // 深紅の布：四神柱の 3 色目（堕天の硝子と同じ系統＝主人公と大聖堂が同じ色を持つ）。赤は被弾・手遅れの信号でもある
+  '深紅': { band: 'r', knot: 'R', rim: null, core: 'r', tip: 'R' },
+};
+export function scarfSprite(key) {
+  const d = SCARFS[key];
+  const rows = HUMAN_BODY.map((r) => r.split(''));
+  for (let x = 7; x <= 12; x++) rows[5][x] = d.band;   // 首
+  rows[5][9] = d.knot;
+  if (d.rim) {                                          // 尾：縁・芯・縁（3 画素厚）
+    for (let x = 1; x <= 6; x++) { rows[5][x] = d.rim; rows[6][x] = d.core; rows[7][x] = d.rim; }
+    rows[5][1] = d.tip; rows[6][1] = d.tip; rows[7][1] = d.tip;
+  } else {                                              // 尾：2 画素厚
+    for (let x = 1; x <= 6; x++) { rows[5][x] = d.core; rows[6][x] = d.core; }
+    rows[5][1] = d.tip; rows[6][1] = d.tip;
+  }
+  return { palette: { ...PAL, ...BLUE, ...SCARF_PAL }, rows: rows.map((r) => r.join('')) };
+}
+
 export function compose(armKey) {
   const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
@@ -345,6 +374,26 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     for (const it of accItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_アクセント_拡大_2026-10-12.png'));
   }
+  // マフラーの色（21:16）：黒のみ／蒼の縁／金の縁／深紅／チビット／スターパピー（右へ走っている＝尾が左へなびく）
+  const scItems = [
+    ...Object.keys(SCARFS).map((k) => ({ name: k, sp: scarfSprite(k), scale: 3 })),
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const cv = canvas(24 + scItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 24, 0), 54 + 48);
+    let x = 24;
+    for (const it of scItems) { x += blit(cv, it.sp, x, 24 + (54 - Math.round(it.sp.rows.length * it.scale)), it.scale) + 24; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_マフラーの色_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 8;
+    const cv = canvas(16 + scItems.reduce((s, it) => s + it.sp.rows[0].length * S + 16, 0), 18 * S + 32);
+    let x = 16;
+    for (const it of scItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_マフラーの色_拡大_2026-10-12.png'));
+  }
+  for (const [k, v] of Object.entries(SCARF_PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
   console.log('背景 輝度', luma(BG).toFixed(1));
