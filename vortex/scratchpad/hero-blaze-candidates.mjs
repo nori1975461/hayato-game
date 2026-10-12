@@ -316,6 +316,62 @@ export function v3Sprite(feetKey) {
   return { palette: { ...PAL, ...BLUE, ...V3_PAL }, rows };
 }
 
+// ---- 2026-10-12 21:42 ユーザー注文「胸からハンドが出るのを絶対にやめる＝右手 or 左手で掴む動きをコマで」「投げは投手の
+//   ストレートを参考に振りかぶって投げつける」。右へ投げる場合（右腕）の 6 コマ。左へ投げるときは左右反転して左腕。
+//   時間は既存のまま（掴み 0.12 秒・溜め 0〜0.85 秒・振り MOTION_SEC・RELEASE_AT で離す）＝コマを既存の時間に割り当てる
+const FR_W = 32, FR_H = 30, FX = 6, FY = 11;   // 枠と、体（20×18）を置く位置
+const RIGHT_LEG = ['pp.', 'pp.', 'pp.', 'dd.', 'uu.', 'uuu'];   // 八の字の右脚（体の列 11〜13・行 12〜17）
+const LEFT_LEG = ['.pp', '.pp', '.pp', '.dd', '.uu', 'uuu'];    // 左脚（列 6〜8）
+const BALL = ['.cc.', 'chhc', 'chhc', '.cc.'];                   // 玉の仮の絵（実装では掴んだ敵の絵＋光）
+const GAUNT_H = ['gcgggg', 'mcmmhm', 'gcgggg'];                  // 横に伸びた前腕（手は右）
+const GAUNT_UP = ['m.m', 'mhm', 'gmg', 'gmg', 'ccc', 'gmg'];     // 上へ上げた前腕（手は上・爪が開く）
+const GAUNT_DR = ['gm....', 'mcm...', '.gmg..', '..gmhm', '...m.m'];   // 右下へ振り下ろす前腕
+const GAUNT_DL = ['....gm', '...mcm', '..gmg.', '.mhm..', 'm.m...'];   // 左下へ振り抜いた前腕（体の前を横切る）
+function frameBase(removeRight) {
+  const body = v3Sprite('八の字').rows.map((r) => r.split(''));
+  if (removeRight) {
+    for (let y = 9; y <= 14; y++) for (let x = 14; x <= 16; x++) body[y][x] = '.';
+    for (let y = 6; y <= 8; y++) body[y][14] = '.';
+  }
+  const G = Array.from({ length: FR_H }, () => Array(FR_W).fill('.'));
+  body.forEach((r, y) => r.forEach((c, x) => { if (c !== '.') G[FY + y][FX + x] = c; }));
+  return G;
+}
+function stamp(G, x0, y0, art) {
+  art.forEach((r, j) => [...r].forEach((c, i) => {
+    if (c === '.') return;
+    const X = FX + x0 + i, Y = FY + y0 + j;
+    if (Y >= 0 && Y < FR_H && X >= 0 && X < FR_W) G[Y][X] = c;
+  }));
+}
+function clearRect(G, x0, y0, x1, y1) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G[FY + y][FX + x] = '.';
+}
+export const THROW_FRAMES = {
+  // 0 立ち
+  '立ち': () => frameBase(false),
+  // 1 掴み：右腕が肩から敵へ伸びる（実装では hand.gd が敵の位置まで伸ばす）。爪が開いている
+  '掴み': (G = frameBase(true)) => { stamp(G, 14, 6, ['fff']); stamp(G, 17, 5, GAUNT_H); stamp(G, 23, 5, ['m']); stamp(G, 23, 7, ['m']); return G; },
+  // 2 引き寄せ（溜め 0）：玉を右肩の上へ。投手のセット
+  '引き寄せ': (G = frameBase(true)) => { stamp(G, 14, 6, ['ff']); stamp(G, 15, 0, GAUNT_UP); stamp(G, 14, -4, BALL); return G; },
+  // 3 振りかぶり（溜め切り）：腕を頭上へ高く・玉はさらに上・右膝を 3 画素上げる（脚の高さ＝溜めの量が読める）
+  '振りかぶり': (G = frameBase(true)) => {
+    stamp(G, 14, 1, ['f', 'f', 'f', 'f', 'f']); stamp(G, 13, -5, GAUNT_UP); stamp(G, 12, -9, BALL);
+    clearRect(G, 11, 12, 13, 17); stamp(G, 11, 9, RIGHT_LEG); return G; },
+  // 4 リリース：右足を 2 画素踏み込み・腕を右下へ振り下ろし・玉が手を離れる（RELEASE_REACH・やや下）
+  'リリース': (G = frameBase(true)) => {
+    stamp(G, 14, 6, ['ff']); stamp(G, 16, 6, GAUNT_DR); stamp(G, 23, 8, BALL);
+    clearRect(G, 11, 12, 13, 17); stamp(G, 13, 12, RIGHT_LEG); return G; },
+  // 5 フォロースルー：腕が体の前を横切って左下へ・後ろ足（左）が 1 画素浮く
+  'フォロースルー': (G = frameBase(true)) => {
+    stamp(G, 14, 6, ['f']); stamp(G, 13, 7, ['f']); stamp(G, 8, 8, GAUNT_DL);
+    clearRect(G, 6, 12, 8, 17); stamp(G, 6, 11, LEFT_LEG); return G; },
+};
+export function throwSprite(key) {
+  const G = THROW_FRAMES[key]();
+  return { palette: { ...PAL, ...BLUE, ...V3_PAL }, rows: G.map((r) => r.join('')) };
+}
+
 export function compose(armKey) {
   const arm = typeof armKey === 'string' ? ARMS[armKey] : STAGES[armKey];
   const W = BODY[0].length;
@@ -496,6 +552,26 @@ if (process.argv[1] && process.argv[1].endsWith('hero-blaze-candidates.mjs')) {
     let x = 16;
     for (const it of ftItems) { x += blit(cv, it.sp, x, 16 + (18 - it.sp.rows.length) * S, S) + 16; }
     writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_足_拡大_2026-10-12.png'));
+  }
+  // 掴み・投げ（21:42）：立ち／掴み／引き寄せ／振りかぶり／リリース／フォロースルー／チビット／スターパピー
+  const thItems = [
+    ...Object.keys(THROW_FRAMES).map((k) => ({ name: k, sp: throwSprite(k), scale: 3 })),
+    { name: 'チビット', sp: chibit, scale: 2 },
+    { name: 'スターパピー', sp: puppy, scale: 2.5 },
+  ];
+  {
+    const H = FR_H * 3;
+    const cv = canvas(16 + thItems.reduce((s, it) => s + Math.round(it.sp.rows[0].length * it.scale) + 16, 0), H + 32);
+    let x = 16;
+    for (const it of thItems) { x += blit(cv, it.sp, x, 16 + (H - Math.round(it.sp.rows.length * it.scale)), it.scale) + 16; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_掴み投げ_等倍_2026-10-12.png'));
+  }
+  {
+    const S = 6;
+    const cv = canvas(12 + thItems.reduce((s, it) => s + it.sp.rows[0].length * S + 12, 0), FR_H * S + 24);
+    let x = 12;
+    for (const it of thItems) { x += blit(cv, it.sp, x, 12 + (FR_H - it.sp.rows.length) * S, S) + 12; }
+    writePng(cv, path.join(OUT_DIR, '主人公ブレイズ_掴み投げ_拡大_2026-10-12.png'));
   }
   // 数字：輝度（背景 12.3 に対して）と幅
   for (const [k, v] of Object.entries(PAL)) console.log(`${k} ${v} 輝度 ${luma(hex(v)).toFixed(1)}`);
