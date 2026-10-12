@@ -153,13 +153,17 @@ function sideBase() {
   for (let i = 0; i < 6; i++) G.push('....................'.split(''));
   return G;
 }
+// 投手のフォロースルー＝後ろ脚を腰の高さまで蹴り上げる（腰＝列 9・行 10 から後ろへほぼ水平・足先が上がる）。2026-10-12 23:32 ユーザー貼付の投球フォーム 6 段階
+const SIDE_KICK = { x: 3, y: 8, art: ['uu.....', 'uddpp..', '....ppp'] };
 // legs: stand＝脚がそろう／walk1＝前脚が前・後ろ脚が後ろ（歩幅）／knee1〜3＝前脚の膝を上げる／step＝前脚を踏み込む／lift＝後ろ脚が浮く
+//   stride＝投手の踏み込み（前脚を大きく前へ・後ろ脚は後ろ＝コッキング後期〜加速期）／kick＝フォロースルー（前脚は着いたまま・後ろ脚を高く蹴り上げる）
 function sideFrame(legs, withArm) {
   const G = sideBase();
-  const back = { stand: [9, 12], walk1: [8, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11] }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
-  const front = { stand: [10, 12], walk1: [12, 12], knee1: [11, 11], knee2: [11, 10], knee3: [11, 9], step: [13, 12], lift: [13, 12] }[legs];
-  stamp(G, back[0], back[1], SIDE_LEG);
+  const back = { stand: [9, 12], walk1: [8, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11], stride: [8, 12], kick: null }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
+  const front = { stand: [10, 12], walk1: [12, 12], knee1: [11, 11], knee2: [11, 10], knee3: [11, 9], step: [13, 12], lift: [13, 12], stride: [14, 12], kick: [13, 12] }[legs];
+  if (back) stamp(G, back[0], back[1], SIDE_LEG);
   stamp(G, front[0], front[1], SIDE_LEG);
+  if (legs === 'kick') stamp(G, SIDE_KICK.x, SIDE_KICK.y, SIDE_KICK.art);
   if (withArm) stamp(G, SIDE_ARM.x, SIDE_ARM.y, SIDE_ARM.art);
   return G;
 }
@@ -195,7 +199,9 @@ export const HERO_FRAMES = (() => {
     const B = backPose(pose);
     out[`back_r_${pose}`] = sprite(B);
     out[`back_l_${pose}`] = sprite(mirrorLimbs(B, backBase('stand')));
-    const G = sideFrame(pose, false);   // 横顔で腕を使う姿勢＝手前の腕を抜く（腕は hand.gd が肩から描く）
+  }
+  for (const pose of ['stand', 'knee1', 'knee2', 'knee3', 'step', 'lift', 'stride', 'kick']) {
+    const G = sideFrame(pose, false);   // 横顔で腕を使う姿勢＝手前の腕を抜く（腕は hand.gd が肩から描く）。stride・kick は投手のフォーム（横顔だけ）
     out[`side_r_${pose}`] = sprite(G);
     out[`side_l_${pose}`] = sprite(mirror(G));
   }
