@@ -1,10 +1,8 @@
-// 投手のフォームの絵（第 2 版）の比較シート。使い方: node pitch-sheet.mjs <out.png> <旧 hero.js> [倍率]
-//   行＝旧 横顔（膝 1〜3・踏み込み・蹴り上げ）／新 横顔 右・左（lift1〜3・stride1・2・release・kick・settle）／旧 背中／新 背中 右腕・左腕／旧 正面／新 正面 右腕・左腕
+// 投げの絵の一覧＝旧（頭上から振り下ろすだけ）と 思いっきり（第 3 版・上体を倒す専用の絵）を向きごとに並べる
+//   node vortex/scratchpad/pitch-sheet.mjs out.png [scale]   （旧の絵は同じ hero.js の knee／step／lift・思いっきりは kick／follow）
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { pathToFileURL } from 'node:url';
 import { HERO_FRAMES } from '../src/data/hero.js';
-const OLD = process.argv[3] ? (await import(pathToFileURL(process.argv[3]).href)).HERO_FRAMES : null;
 const BG = [0x0a, 0x0a, 0x1e];
 const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
 function canvas(w, h) { const px = new Uint8Array(w * h * 3); for (let i = 0; i < w * h; i++) px.set(BG, i * 3); return { w, h, px }; }
@@ -25,19 +23,19 @@ function writePng(cv, file) {
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(cv.w, 0); ihdr.writeUInt32BE(cv.h, 4); ihdr[8] = 8; ihdr[9] = 2;
   fs.writeFileSync(file, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
 }
-const S = Number(process.argv[4] || 3), CW = 20 * S + 9, CH = 18 * S + 9, N = 8;
-const P = ['lift1', 'lift2', 'lift3', 'stride1', 'stride2', 'release', 'kick', 'settle'];
-const rows = [];
-if (OLD) rows.push(['side_r_knee1', 'side_r_knee2', 'side_r_knee3', 'side_r_stride', 'side_r_stride', 'side_r_stride', 'side_r_kick', 'side_r_stand'].map((k) => OLD[k]));
-rows.push(P.map((p) => HERO_FRAMES[`side_r_${p}`]));
-rows.push(P.map((p) => HERO_FRAMES[`side_l_${p}`]));
-if (OLD) rows.push(['back_r_knee1', 'back_r_knee2', 'back_r_knee3', 'back_r_knee3', 'back_r_step', 'back_r_step', 'back_r_lift', 'back_r_stand'].map((k) => OLD[k]));
-rows.push(P.map((p) => HERO_FRAMES[`back_r_${p}`]));
-rows.push(P.map((p) => HERO_FRAMES[`back_l_${p}`]));
-if (OLD) rows.push(['r_knee1', 'r_knee2', 'r_knee3', 'r_knee3', 'r_step', 'r_step', 'r_lift', 'r_stand'].map((k) => OLD[k]));
-rows.push(P.map((p) => HERO_FRAMES[`r_${p}`]));
-rows.push(P.map((p) => HERO_FRAMES[`l_${p}`]));
+const S = Number(process.argv[3] || 3), CW = 20 * S + 9, CH = 18 * S + 9, N = 6;
+const rows = [
+  ['side_r_knee1', 'side_r_knee2', 'side_r_knee3', 'side_r_step', 'side_r_lift', 'side_r_stand'],   // 旧 横顔
+  ['side_r_knee1', 'side_r_knee2', 'side_r_knee3', 'side_r_step', 'side_r_kick', 'side_r_stand'],   // 思いっきり 横顔（右）
+  ['side_l_knee1', 'side_l_knee2', 'side_l_knee3', 'side_l_step', 'side_l_kick', 'side_l_stand'],   // 思いっきり 横顔（左）
+  ['back_r_knee1', 'back_r_knee2', 'back_r_knee3', 'back_r_step', 'back_r_lift', 'back_r_stand'],   // 旧 背中
+  ['back_r_knee1', 'back_r_knee2', 'back_r_knee3', 'back_r_step', 'back_r_follow', 'back_r_stand'], // 思いっきり 背中（右腕）
+  ['back_l_knee1', 'back_l_knee2', 'back_l_knee3', 'back_l_step', 'back_l_follow', 'back_l_stand'], // 思いっきり 背中（左腕）
+  ['r_knee1', 'r_knee2', 'r_knee3', 'r_step', 'r_lift', 'r_stand'],                                 // 旧 正面
+  ['r_knee1', 'r_knee2', 'r_knee3', 'r_step', 'r_follow', 'r_stand'],                               // 思いっきり 正面（右腕）
+  ['l_knee1', 'l_knee2', 'l_knee3', 'l_step', 'l_follow', 'l_stand'],                               // 思いっきり 正面（左腕）
+].map((r) => r.map((k) => { if (!HERO_FRAMES[k]) throw new Error('no frame ' + k); return HERO_FRAMES[k]; }));
 const cv = canvas(CW * N + 9, CH * rows.length + 9);
-rows.forEach((r, j) => { r.forEach((sp, i) => { if (sp) blit(cv, sp, 9 + i * CW, 9 + j * CH, S); }); line(cv, 9, 9 + j * CH + 18 * S, 9 + CW * N - 9, 9 + j * CH + 18 * S, [0x40, 0x40, 0x60]); });
+rows.forEach((r, j) => { r.forEach((sp, i) => blit(cv, sp, 9 + i * CW, 9 + j * CH, S)); line(cv, 9, 9 + j * CH + 18 * S, 9 + CW * N - 9, 9 + j * CH + 18 * S, [0x40, 0x40, 0x60]); });
 writePng(cv, process.argv[2]);
 console.log('wrote', process.argv[2], cv.w + 'x' + cv.h);

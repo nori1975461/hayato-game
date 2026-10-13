@@ -239,7 +239,7 @@ function sideBase() {
   return G;
 }
 // legs: stand＝脚がそろう／knee1〜3＝前脚の膝を上げる／step＝前脚を踏み込む／lift＝後ろ脚が浮く
-//   （投手のフォームの絵は下の sidePitch・fbPitch＝第 2 版）
+//   kick（横顔のフォロースルー）は下の SIDE_KICK
 function sideFrame(legs, withArm) {
   const G = sideBase();
   const back = { stand: [9, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11] }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
@@ -249,40 +249,11 @@ function sideFrame(legs, withArm) {
   if (withArm) stamp(G, SIDE_ARM.x, SIDE_ARM.y, SIDE_ARM.art);
   return G;
 }
-// ===== 投手のフォームの絵（第 2 版 2026-10-13 ユーザー貼付の見本動画＝今井達也の投球フォーム youtu.be/IcOxml2Inxo（スロー・斜め後ろ）／youtu.be/frxGEa4TUKA（室内・真横と捕手側））=====
-//   見本（真横・20 コマ毎秒で読んだ段階）＝①足上げ：膝を胸の高さまで・すねは垂らす・手は胸の前（ボールはグラブの中）
-//     ②踏み出し：上げた脚を相手へ伸ばしながら両手が離れ、投げる手は腰の後ろへ下がる・前の手は相手へ伸びる
-//     ③着地＝コッキング：前脚は伸びて着き（足の開きは身長の 0.5 倍）後ろ膝は曲がる・投げる手は後ろから頭の上へ上がる・胸は反る
-//     ④加速→離す：上体が前へ倒れながら頭の上から振り下ろす
-//     ⑤フォロースルー：上体を深く倒し（頭は身長の 0.2 下がる）後ろ脚を腰より高く蹴り上げ、前膝は曲がる・顔は相手を見る
-//     ⑥戻り：後ろ脚が下りる
-//   溜め 0.85 秒＝足上げ（〜40%・lift1〜3）→踏み出し（〜70%・stride1）→着地（stride2・ここから胸の反りと手の位置が溜めを語る）
-//   投げ 0.22 秒（×1.35）＝stride2 のまま打ち下ろし→release（離す・後ろ足のかかとが浮く）→kick（上体を倒して蹴り上げ）→settle（後ろ脚が下りる）
-//   横顔＝奥の脚（暗い q・w）が前脚（上げる・踏み出す脚）・手前の脚が軸足＝蹴り上げる脚。腕は hand.gd が肩から描く（投げる腕と前の手）
-//   正面・背中＝画面の左の脚を上げて踏み出し、画面の右の脚で蹴り上げる（r_＝画面の右の腕で投げる。l_ は脚だけ左右反転）。上体を倒す＝頭が下がる
-//   秒数（溜め 0.85・投げ 0.22・離す 0.30）と玉が生まれる場所は一切変えない
-const PITCH_POSES = ['lift1', 'lift2', 'lift3', 'stride1', 'stride2', 'release', 'kick', 'settle'];
-// 脚＝腰→膝→足首を 2 画素幅の線で。foot＝足の形：flat（地面に 3 画素・toe の向きへつま先）／air（足首の下に 2 画素＝垂らす・浮く）／
-//   tiptoe（かかとが浮いてつま先だけ地面）／out（横へ伸ばした脚の先＝つま先が外）
-function legXY(G, hx, hy, kx, ky, ax, ay, pants, shoe, foot, toe = 1) {
-  thick(G, hx, hy, kx, ky, () => pants);
-  thick(G, kx, ky, ax, ay, (k, n) => (k === n ? shoe : k === n - 1 ? 'd' : pants));
-  if (foot === 'flat') stamp(G, toe > 0 ? ax : ax - 1, ay + 1, [shoe + shoe + shoe]);
-  else if (foot === 'air') stamp(G, ax, ay + 1, [shoe + shoe]);
-  else if (foot === 'tiptoe') stamp(G, ax + (toe > 0 ? 1 : 0), ay + 1, [shoe]);
-  else if (foot === 'out') stamp(G, toe > 0 ? ax + 2 : ax - 1, ay, [shoe]);
-}
-// 横顔（右向き・右へ投げる）。far＝奥の脚（前脚）・near＝手前の脚（軸足）＝[腰, 膝, 足首, 足の形]
-const SIDE_PITCH = {
-  lift1: { far: [[9, 11], [12, 12], [12, 15], 'air'], near: [[10, 11], [10, 13], [10, 16], 'flat'] },
-  lift2: { far: [[9, 11], [13, 11], [13, 14], 'air'], near: [[10, 11], [10, 13], [10, 16], 'flat'] },
-  lift3: { far: [[9, 11], [13, 10], [13, 13], 'air'], near: [[10, 11], [10, 13], [10, 16], 'flat'] },
-  stride1: { far: [[9, 11], [12, 12], [14, 14], 'air'], near: [[10, 11], [11, 13], [10, 16], 'flat'] },
-  stride2: { far: [[9, 11], [11, 13], [13, 16], 'flat'], near: [[10, 11], [9, 13], [7, 16], 'flat'] },
-  release: { far: [[9, 11], [12, 13], [13, 16], 'flat'], near: [[10, 11], [8, 13], [6, 16], 'tiptoe'] },
-  settle: { far: [[9, 11], [12, 13], [13, 16], 'flat'], near: [[10, 11], [8, 12], [5, 13], 'air'] },
-};
-// フォロースルー（kick）＝上体 45°・顔は上げて相手を見る・後ろ脚を腰より高く蹴り上げる（10-13 00:50 確定の絵）。第 2 版＝前膝を曲げる（見本⑤）・前脚は奥の脚の色
+// ===== 思いっきり投げたあとの絵（2026-10-13 22:10 ユーザー「Shift+6 の旧を基に、オーバースローで思いっきり弾を投げつける描写で」）=====
+//   見本動画（今井達也）どおりに段階を積んだ第 2 版（足上げ→踏み出し→着地→離す→蹴り上げ→戻り・48 枚）は「動きや構えが多くて踊りながら投げてるように見える」で不採用（git 5c17bbb に残る）
+//   溜め＝旧のまま膝 1〜3（膝の高さが溜めのゲージ）・投げ＝旧の step（踏み込み）→フォロースルーだけ専用の絵：
+//   横顔 kick＝上体を 45°倒し、顔は上げて相手を見る、後ろ脚を腰より高く蹴り上げる、前膝は曲がる（10-13 00:50 確定の絵に前膝だけ足した・前脚＝奥の脚は暗い色）
+//   正面・背中 follow＝lift（後ろ足が浮く）の脚のまま頭を 2 行下げる＝体ごと前へ突っ込んだあと
 const SIDE_KICK = [
   '....................',
   '....................',
@@ -303,43 +274,11 @@ const SIDE_KICK = [
   '.............ww.....',
   '.............www....',
 ];
-function sidePitch(pose) {
-  if (pose === 'kick') return SIDE_KICK.map((r) => r.split(''));
-  const p = SIDE_PITCH[pose];
-  const G = [];
-  for (let y = 0; y < 18; y++) G.push('....................'.split(''));
-  legXY(G, ...p.far[0], ...p.far[1], ...p.far[2], 'q', 'w', p.far[3]);      // 奥の脚（前脚）
-  for (let y = 0; y < 12; y++) for (let x = 0; x < 20; x++) if (SIDE_TOP[y][x] !== '.') G[y][x] = SIDE_TOP[y][x];
-  legXY(G, ...p.near[0], ...p.near[1], ...p.near[2], 'p', 'u', p.near[3]);  // 手前の脚（軸足）
-  return G;
-}
-// 正面・背中（画面の右の腕で投げる r_）。L＝画面の左の脚（上げる・踏み出す）・R＝画面の右の脚（軸足・蹴り上げ）・drop＝上体を倒す（頭が下がる行数）
-const FB_PITCH = {
-  lift1: { L: [[7, 11], [5, 12], [5, 15], 'air'], R: [[11, 11], [11, 13], [11, 16], 'flat'], drop: 0 },
-  lift2: { L: [[7, 11], [4, 11], [4, 14], 'air'], R: [[11, 11], [11, 13], [11, 16], 'flat'], drop: 0 },
-  lift3: { L: [[7, 11], [4, 10], [4, 13], 'air'], R: [[11, 11], [11, 13], [11, 16], 'flat'], drop: 0 },
-  stride1: { L: [[7, 11], [5, 13], [3, 15], 'air'], R: [[11, 11], [12, 13], [11, 16], 'flat'], drop: 0 },
-  stride2: { L: [[7, 11], [5, 13], [3, 16], 'flat'], R: [[11, 11], [12, 13], [12, 16], 'flat'], drop: 0 },
-  release: { L: [[7, 11], [5, 13], [3, 16], 'flat'], R: [[11, 11], [12, 13], [12, 15], 'air'], drop: 2 },
-  kick: { L: [[7, 11], [6, 13], [6, 16], 'flat'], R: [[11, 11], [14, 10], [17, 9], 'out'], drop: 3 },
-  settle: { L: [[7, 11], [6, 13], [6, 16], 'flat'], R: [[11, 11], [13, 12], [15, 14], 'air'], drop: 1 },
-};
-function fbPitch(top, pose, leftArm) {
-  const p = FB_PITCH[pose];
-  const G = top.map((r) => r.split(''));
-  for (let i = 0; i < 6; i++) G.push(ARMS_LOW[i].split(''));
-  clear(G, 3, 9, 5, 14); clear(G, 14, 9, 16, 14); clear(G, 5, 6, 5, 8); clear(G, 14, 6, 14, 8);   // 両腕を抜く（投げる腕も前の手も hand.gd が描く）
-  if (p.drop > 0) {   // 上体を倒す＝頭（行 0〜4）を drop 行だけ下げて肩に重ねる
-    const head = G.slice(0, 5).map((r) => r.slice());
-    for (let y = 0; y < p.drop; y++) G[y] = '....................'.split('');
-    head.forEach((r, y) => r.forEach((c, x) => { if (c !== '.') G[y + p.drop][x] = c; }));
-  }
-  const L = [];
-  for (let y = 0; y < 18; y++) L.push('....................'.split(''));
-  legXY(L, ...p.L[0], ...p.L[1], ...p.L[2], 'p', 'u', p.L[3], -1);
-  legXY(L, ...p.R[0], ...p.R[1], ...p.R[2], 'p', 'u', p.R[3], 1);
-  const legs = leftArm ? mirror(L) : L;   // 左腕で投げる＝脚だけ左右反転（頭・マフラー・髪の一房はそのまま）
-  legs.forEach((r, y) => r.forEach((c, x) => { if (c !== '.') G[y][x] = c; }));
+// 頭（行 0〜4）を drop 行だけ下げて肩に重ねる＝上体を倒す（正面・背中）
+function headDrop(G, drop) {
+  const head = G.slice(0, 5).map((r) => r.slice());
+  for (let y = 0; y < drop; y++) G[y] = '....................'.split('');
+  head.forEach((r, y) => r.forEach((c, x) => { if (c !== '.') G[y + drop][x] = c; }));
   return G;
 }
 const mirror = (G) => G.map((r) => r.slice().reverse());
@@ -377,19 +316,16 @@ export const HERO_FRAMES = (() => {
     out[`back_l_${pose}`] = sprite(mirrorLimbs(B, backBase('stand')));
   }
   for (const pose of ['stand', 'knee1', 'knee2', 'knee3', 'step', 'lift']) {
-    const G = sideFrame(pose, false);   // 横顔で腕を使う姿勢＝手前の腕を抜く（腕は hand.gd が肩から描く）。投手の型なし（Shift+6）のときの動き
+    const G = sideFrame(pose, false);   // 横顔で腕を使う姿勢＝手前の腕を抜く（腕は hand.gd が肩から描く）
     out[`side_r_${pose}`] = sprite(G);
     out[`side_l_${pose}`] = sprite(mirror(G));
   }
-  for (const pose of PITCH_POSES) {   // 投手のフォーム（第 2 版）＝横顔・正面・背中の全部
-    const S = sidePitch(pose);
-    out[`side_r_${pose}`] = sprite(S);
-    out[`side_l_${pose}`] = sprite(mirror(S));
-    out[`r_${pose}`] = sprite(fbPitch(TOP, pose, false));
-    out[`l_${pose}`] = sprite(fbPitch(TOP, pose, true));
-    out[`back_r_${pose}`] = sprite(fbPitch(BACK_TOP, pose, false));
-    out[`back_l_${pose}`] = sprite(fbPitch(BACK_TOP, pose, true));
-  }
+  out.side_r_kick = sprite(SIDE_KICK.map((r) => r.split('')));   // 思いっきり投げたあと（横顔）
+  out.side_l_kick = sprite(mirror(SIDE_KICK.map((r) => r.split(''))));
+  out.r_follow = sprite(headDrop(rightPose('lift'), 2));            // 思いっきり投げたあと（正面・背中）＝後ろ足が浮いて頭が下がる
+  out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
+  out.back_r_follow = sprite(headDrop(backPose('lift'), 2));
+  out.back_l_follow = sprite(headDrop(mirrorLimbs(backPose('lift'), backBase('stand')), 2));
   return out;
 })();
 
