@@ -148,6 +148,34 @@ const SIDE_TOP = [
 ];
 const SIDE_LEG = ['pp.', 'pp.', 'pp.', 'dd.', 'uu.', 'uuu'];   // 横から見た脚（つま先は右）
 const SIDE_ARM = { x: 9, y: 6, art: ['.f.', '.f.', '.f.', 'gmg', 'ccc', 'gmg', 'gmg', 'mhm', 'm.m'] };   // 手前の腕（肩は列 10・行 6）
+// 横顔の歩き（2026-10-13 ユーザー「左右に歩く姿に妙な違和感・背筋が伸びすぎ」・貼付＝横から見た歩きの 3 コマ）
+//   旧＝脚が縦の棒のまま開く／閉じるだけ・腕は垂れたまま・上体は直立＝同じ脚がいつも前で「すり足」に見えた
+//   新＝1 かかとから着く前脚と つま先で蹴る後ろ脚（どちらも斜め）・手前の腕は後ろへ（奥の手は描かない＝等倍では点のごみに見えた）
+//      2 通過＝軸脚は縦・振り脚は膝を前に曲げて足は床から 1 画素浮く・腕は下
+//      3 脚は 1 と同じ形（手前と奥が入れ替わる）・手前の腕は前へ
+//   上体の前傾＝頭（行 0〜4）と胸（行 5〜9）を前へずらす画素数 [頭, 胸]。ズボンと脚はそのまま＝腰から前へ傾く。既定は弱 [1,1]・Shift+9 で なし／強 [2,1] と比べる
+const SIDE_WALK = {
+  legBack: { x: 6, y: 12, art: ['...pp', '..pp.', '..pp.', '.dd..', '.uu..', '...u.'] },      // 後ろ脚＝かかとが浮いてつま先で蹴る
+  legFront: { x: 10, y: 12, art: ['pp....', '.pp...', '.pp...', '..dd..', '..uu..', '...uuu'] },   // 前脚＝かかとから着く
+  legStance: { x: 10, y: 12, art: SIDE_LEG },                                              // 通過の軸脚
+  legSwing: { x: 7, y: 12, art: ['.pp', '.pp', 'pp.', 'dd.', 'uu.', '...'] },             // 通過の振り脚＝膝を前に・すねは軸脚から 1 画素離す・足は浮く
+  armBack: { x: 7, y: 6, art: ['...f', '..f.', '..f.', '.gmg', '.ccc', '.gmg', 'gmg.', 'mhm.', 'm.m.'] },        // 手前の腕を後ろへ
+  armFore: { x: 10, y: 6, art: ['f....', '.f...', '.f...', '.gmg.', '.ccc.', '.gmg.', '..gmg', '..mhm', '..m.m'] }, // 手前の腕を前へ
+};
+export const SIDE_WALK_LEANS = { lean1: [1, 1], lean2: [2, 1], lean0: [0, 0] };   // 既定＝lean1
+function sideWalk(frame, lean) {
+  const G = sideBase();
+  const [head, chest] = lean;
+  for (let y = 0; y < 10; y++) {
+    const sh = y < 5 ? head : chest;
+    if (sh > 0) G[y] = [...Array(sh).fill('.'), ...G[y].slice(0, 20 - sh)];
+  }
+  const st = (p, dx = 0) => stamp(G, p.x + dx, p.y, p.art);
+  if (frame === 1) { st(SIDE_WALK.legBack); st(SIDE_WALK.legFront); st(SIDE_WALK.armBack, chest); }
+  else if (frame === 2) { st(SIDE_WALK.legSwing); st(SIDE_WALK.legStance); st(SIDE_ARM, chest); }
+  else { st(SIDE_WALK.legFront); st(SIDE_WALK.legBack); st(SIDE_WALK.armFore, chest); }
+  return G;
+}
 function sideBase() {
   const G = SIDE_TOP.map((r) => r.split(''));
   for (let i = 0; i < 6; i++) G.push('....................'.split(''));
@@ -177,13 +205,13 @@ const SIDE_BEND = [
   '.............uu.....',
   '.............uuu....',
 ];
-// legs: stand＝脚がそろう／walk1＝前脚が前・後ろ脚が後ろ（歩幅）／knee1〜3＝前脚の膝を上げる／step＝前脚を踏み込む／lift＝後ろ脚が浮く
+// legs: stand＝脚がそろう／knee1〜3＝前脚の膝を上げる／step＝前脚を踏み込む／lift＝後ろ脚が浮く
 //   stride＝投手の踏み込み（前脚を大きく前へ・後ろ脚は後ろ＝コッキング後期〜加速期）／kick＝フォロースルー（上の SIDE_BEND＝上体を倒して後ろ脚を蹴り上げる）
 function sideFrame(legs, withArm) {
   if (legs === 'kick') return SIDE_BEND.map((r) => r.split(''));
   const G = sideBase();
-  const back = { stand: [9, 12], walk1: [8, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11], stride: [8, 12] }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
-  const front = { stand: [10, 12], walk1: [12, 12], knee1: [11, 11], knee2: [11, 10], knee3: [11, 9], step: [13, 12], lift: [13, 12], stride: [14, 12] }[legs];
+  const back = { stand: [9, 12], knee1: [9, 12], knee2: [9, 12], knee3: [9, 12], step: [9, 12], lift: [8, 11], stride: [8, 12] }[legs];   // 立ち姿は後ろ脚を 1 画素ずらす（脚が 1 本に見えないように）
+  const front = { stand: [10, 12], knee1: [11, 11], knee2: [11, 10], knee3: [11, 9], step: [13, 12], lift: [13, 12], stride: [14, 12] }[legs];
   stamp(G, back[0], back[1], SIDE_LEG);
   stamp(G, front[0], front[1], SIDE_LEG);
   if (withArm) stamp(G, SIDE_ARM.x, SIDE_ARM.y, SIDE_ARM.art);
@@ -212,7 +240,8 @@ export const HERO_FRAMES = (() => {
   out.back_idle = sprite(backBase('stand'));
   out.back_walk1 = sprite(backBase('walk1'));
   out.back_walk2 = sprite(backBase('walk2'));
-  const sr = { idle: sideFrame('stand', true), walk1: sideFrame('walk1', true), walk2: sideFrame('stand', true) };
+  const sr = { idle: sideFrame('stand', true) };
+  for (const [ln, lean] of Object.entries(SIDE_WALK_LEANS)) for (const f of [1, 2, 3]) sr[(ln === 'lean1' ? '' : ln + '_') + 'walk' + f] = sideWalk(f, lean);   // 横顔の歩き 3 コマ（1→2→3→2 で回す）・前傾の 3 段
   for (const [k, G] of Object.entries(sr)) { out[`side_r_${k}`] = sprite(G); out[`side_l_${k}`] = sprite(mirror(G)); }
   for (const pose of ['stand', 'knee1', 'knee2', 'knee3', 'step', 'lift']) {
     const R = rightPose(pose);
