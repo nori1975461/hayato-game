@@ -50,6 +50,7 @@ const FEET = {
   stand: ['.pp..pp.', '.pp..pp.', '.pp..pp.', '.dd..dd.', '.uu..uu.', 'uuu..uuu'],
   walk1: ['.pp..pp.', '.pp..pp.', '.dd..pp.', '.uu..dd.', 'uuu..uu.', '.....uuu'],
   walk2: ['.pp..pp.', '.pp..pp.', '.pp..dd.', '.dd..uu.', '.uu..uuu', 'uuu.....'],
+  followR: ['.pp..pp.', '.pp.uuu.', '.pp.uuu.', '.dd.....', '.uu.....', 'uuu.....'],   // 投げたあと（背中・画面の右の腕で投げた）＝投げた側の脚を後ろへ蹴り上げ靴の裏が見える・反対の脚は着地
 };
 const RIGHT_LEG = ['pp.', 'pp.', 'pp.', 'dd.', 'uu.', 'uuu'];   // 右脚（体の列 11〜13・行 12〜17）
 const LEFT_LEG = ['.pp', '.pp', '.pp', '.dd', '.uu', 'uuu'];    // 左脚（列 6〜8）
@@ -276,6 +277,41 @@ const SIDE_KICK = [
   '.............www....',
 ];
 // 頭（行 0〜4）を drop 行だけ下げて肩に重ねる＝上体を倒す（正面・背中）
+// 背中で画面の右の腕を抜いた体（脚は FEET の鍵で選ぶ）＝投げたあとの絵（follow）に使う
+function backArmless(legs) {
+  const G = backBase(legs);
+  clear(G, 14, 9, 16, 14);
+  clear(G, 14, 6, 14, 8);
+  return G;
+}
+// 正面・背中の小走り 4 コマ（2026-10-13 23:08 ユーザー「上下小走りも着手して」）＝横顔の走りと同じく進んだ距離で回す（1 周 24 画素・4 コマ＝歩数は横顔の走りと同じ）
+//   0＝左膝上げ／1＝通過（体が 1 画素沈む）／2＝右膝上げ／3＝通過。膝上げ＝その脚が短く見え靴が 2 画素浮く
+//   腕の振り＝カメラ側へ振る腕の拳が胸の高さに上がる（正面＝上げた膝と反対の腕が前へ・背中＝上げた膝と同じ側の腕が後ろ＝カメラ側へ）
+const RUN_FEET = {
+  kneeL: ['.pp..pp.', '.dd..pp.', '.uu..pp.', 'uuu..dd.', '.....uu.', '.....uuu'],
+  kneeR: ['.pp..pp.', '.pp..dd.', '.pp..uu.', '.dd..uuu', '.uu.....', 'uuu.....'],
+  pass: ['.pp..pp.', '.pp..pp.', '.dd..dd.', '.uu..uu.', 'uuu..uuu'],
+};
+const RUN_FIST = ['ccc', 'mhm', 'gmg'];   // 胸の高さに上がった拳（前腕を真正面から見た形＝封印の帯・拳・縁）
+function fbRun(top, i, isBack) {
+  const sink = i % 2 === 1 ? 1 : 0;
+  const G = [];
+  for (let y = 0; y < sink; y++) G.push('....................'.split(''));
+  top.forEach((r) => G.push(r.split('')));
+  for (let k = 0; k < 6 - sink; k++) G.push(ARMS_LOW[k].split(''));
+  const legs = i === 0 ? RUN_FEET.kneeL : i === 2 ? RUN_FEET.kneeR : RUN_FEET.pass;
+  legs.forEach((row, k) => [...row].forEach((c, x) => { if (c !== '.') G[12 + sink + k][6 + x] = c; }));
+  if (sink === 0) {
+    const kneeLeft = i === 0;
+    const raiseLeft = isBack ? kneeLeft : !kneeLeft;
+    const x0 = raiseLeft ? 3 : 14;
+    clear(G, x0, 9, x0 + 2, 14);                                  // 垂れた前腕と手を消す
+    const ux = raiseLeft ? 5 : 14;
+    if (G[8][ux] === 'f') G[8][ux] = '.';                         // 二の腕は 2 画素に（肘が上がる）
+    stamp(G, x0, 8, RUN_FIST);
+  }
+  return G;
+}
 function headDrop(G, drop) {
   const head = G.slice(0, 5).map((r) => r.slice());
   for (let y = 0; y < drop; y++) G[y] = '....................'.split('');
@@ -305,6 +341,10 @@ export const HERO_FRAMES = (() => {
   out.back_idle = sprite(backBase('stand'));
   out.back_walk1 = sprite(backBase('walk1'));
   out.back_walk2 = sprite(backBase('walk2'));
+  for (let i = 0; i < 4; i++) {   // 正面・背中の小走り（進んだ距離で回す 4 コマ）
+    out['run' + (i + 1)] = sprite(fbRun(TOP, i, false));
+    out['back_run' + (i + 1)] = sprite(fbRun(BACK_TOP, i, true));
+  }
   const sr = { idle: sideFrame('stand', true) };
   for (const gait of Object.keys(GAITS)) for (let i = 0; i < GAIT_N; i++) sr[gait + (i + 1)] = gaitFrame(gait, i);   // 横顔の走り run1〜8・早歩き walk1〜8（player.gd が進んだ距離で回す）
   for (const [k, G] of Object.entries(sr)) { out[`side_r_${k}`] = sprite(G); out[`side_l_${k}`] = sprite(mirror(G)); }
@@ -325,8 +365,8 @@ export const HERO_FRAMES = (() => {
   out.side_l_kick = sprite(mirror(SIDE_KICK.map((r) => r.split(''))));
   out.r_follow = sprite(headDrop(rightPose('lift'), 2));            // 思いっきり投げたあと（正面・背中）＝後ろ足が浮いて頭が下がる
   out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
-  out.back_r_follow = sprite(headDrop(backPose('lift'), 2));
-  out.back_l_follow = sprite(headDrop(mirrorLimbs(backPose('lift'), backBase('stand')), 2));
+  out.back_r_follow = sprite(headDrop(backArmless('followR'), 3));   // 背中＝上体を深く倒し（頭が 3 行下がる）投げた側の脚を後ろへ蹴り上げる（23:07 ユーザー「上投げのフォロースルーが変」・貼付の投球 6 段階）
+  out.back_l_follow = sprite(headDrop(mirrorLimbs(backArmless('followR'), backBase('stand')), 3));
   return out;
 })();
 
