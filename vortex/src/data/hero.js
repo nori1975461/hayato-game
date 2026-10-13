@@ -17,6 +17,8 @@ export const HERO_PAL = {
   p: '#6b7280', // ズボン
   u: '#c9d0da', // 靴
   d: '#232c3d', // 靴下の線
+  q: '#4a505f', // 奥の脚のズボン（横顔の歩き・走り＝どちらの脚が前か読めるように暗く）
+  w: '#8f98a6', // 奥の脚の靴
 };
 
 // 行 0〜11（頭・マフラー・胴・前腕の上半分）
@@ -148,34 +150,89 @@ const SIDE_TOP = [
 ];
 const SIDE_LEG = ['pp.', 'pp.', 'pp.', 'dd.', 'uu.', 'uuu'];   // 横から見た脚（つま先は右）
 const SIDE_ARM = { x: 9, y: 6, art: ['.f.', '.f.', '.f.', 'gmg', 'ccc', 'gmg', 'gmg', 'mhm', 'm.m'] };   // 手前の腕（肩は列 10・行 6）
-// 横顔の歩き（2026-10-13 ユーザー「左右に歩く姿に妙な違和感・背筋が伸びすぎ」・貼付＝横から見た歩きの 3 コマ）
-//   旧＝脚が縦の棒のまま開く／閉じるだけ・腕は垂れたまま・上体は直立＝同じ脚がいつも前で「すり足」に見えた
-//   新＝1 かかとから着く前脚と つま先で蹴る後ろ脚（どちらも斜め）・手前の腕は後ろへ（奥の手は描かない＝等倍では点のごみに見えた）
-//      2 通過＝軸脚は縦・振り脚は膝を前に曲げて足は床から 1 画素浮く・腕は下
-//      3 脚は 1 と同じ形（手前と奥が入れ替わる）・手前の腕は前へ
-//   上体の前傾＝頭（行 0〜4）と胸（行 5〜9）を前へずらす画素数 [頭, 胸]。ズボンと脚はそのまま＝腰から前へ傾く。既定は弱 [1,1]・Shift+9 で なし／強 [2,1] と比べる
-const SIDE_WALK = {
-  legBack: { x: 6, y: 12, art: ['...pp', '..pp.', '..pp.', '.dd..', '.uu..', '...u.'] },      // 後ろ脚＝かかとが浮いてつま先で蹴る
-  legFront: { x: 10, y: 12, art: ['pp....', '.pp...', '.pp...', '..dd..', '..uu..', '...uuu'] },   // 前脚＝かかとから着く
-  legStance: { x: 10, y: 12, art: SIDE_LEG },                                              // 通過の軸脚
-  legSwing: { x: 7, y: 12, art: ['.pp', '.pp', 'pp.', 'dd.', 'uu.', '...'] },             // 通過の振り脚＝膝を前に・すねは軸脚から 1 画素離す・足は浮く
-  armBack: { x: 7, y: 6, art: ['...f', '..f.', '..f.', '.gmg', '.ccc', '.gmg', 'gmg.', 'mhm.', 'm.m.'] },        // 手前の腕を後ろへ
-  armFore: { x: 10, y: 6, art: ['f....', '.f...', '.f...', '.gmg.', '.ccc.', '.gmg.', '..gmg', '..mhm', '..m.m'] }, // 手前の腕を前へ
+// ===== 横顔の歩き・走り（第 2 版 2026-10-13 ユーザー「完全に摺り足」＋見本動画『正しい歩き方のポイント』中日新聞 youtu.be/6WhLyA3-wE4）=====
+//   摺り足の正体＝体の速さ 148px/秒（身長 18 画素の 2.7 倍/秒）に対して足が地面に止まっていないこと。コマを時間で回す限りどんな絵でも滑る
+//   動画の人（30 コマ/秒で追跡）＝1 秒に 2 歩・歩幅は身長の 0.40・速さは身長の 0.73 倍/秒＝主人公はその 3.7 倍の速さで動いている（人間なら走る速さ）
+//   直し＝①player.gd がコマを「進んだ距離」で回す（1 周 cycle 画素）＝着いた足は体が進む分だけ絵の中で後ろへ下がる＝原理的に滑らない
+//        ②1 周 8 コマを骨（腰→膝→足首・脚の長さ 5）から機械で描く＝着地（かかと・つま先上げ）→体が足の上を通る（腰が 1 画素沈む）→かかとが浮いて蹴る→膝を上げて振り出す
+//        ③奥の脚は暗い色（q・w）・腰の 1 画素後ろ＝どちらの脚が前か読める。腕は手前だけ＝脚と逆に振る（手描きの 3 姿勢）
+//   走り（既定）＝1 周 24 画素・接地 3 コマ＋空中・膝 2・前傾 [頭 2, 胸 1]・肘を曲げて振る＝148px/秒で 1 秒に 4.1 歩
+//   早歩き（比較用 Shift+9）＝1 周 12 画素・常にどちらかの足が地面・膝 2・前傾 [1, 1]・腕を伸ばして振る＝1 秒に 8.2 歩（この速さでは歩きは成立しない、の実証）
+const GAITS = {
+  run: { cycle: 24, contact: 3, spread: 3, lift: 2, lean: [2, 1], arm: 'bent' },
+  walk: { cycle: 12, contact: 5, spread: 3, lift: 2, lean: [1, 1], arm: 'straight' },
 };
-export const SIDE_WALK_LEANS = { lean1: [1, 1], lean2: [2, 1], lean0: [0, 0] };   // 既定＝lean1
-function sideWalk(frame, lean) {
-  const G = sideBase();
-  const [head, chest] = lean;
-  for (let y = 0; y < 10; y++) {
-    const sh = y < 5 ? head : chest;
-    if (sh > 0) G[y] = [...Array(sh).fill('.'), ...G[y].slice(0, 20 - sh)];
+const GAIT_N = 8;               // 1 周のコマ数
+const HIP = { x: 10, y: 11 };   // 腰の関節（立ち姿の行 11・足首は行 16・足は行 17）
+const LEG = 5;                  // 脚の長さ（股関節→足首）＝太もも 2.5＋すね 2.5
+function footOf(g, i) {         // コマ i（0〜7）の片脚＝足首の x（腰から）・持ち上げ・足の形
+  const perFrame = g.cycle / GAIT_N;                        // 1 コマで体が進む画素
+  if (i < g.contact) {                                      // 接地＝体が進む分だけ後ろへ（滑らない）
+    const x = g.spread - i * perFrame;
+    const style = i === 0 ? 'heel' : i === g.contact - 1 ? 'toe' : 'flat';
+    return { x: Math.round(x), lift: 0, style };
   }
-  const st = (p, dx = 0) => stamp(G, p.x + dx, p.y, p.art);
-  if (frame === 1) { st(SIDE_WALK.legBack); st(SIDE_WALK.legFront); st(SIDE_WALK.armBack, chest); }
-  else if (frame === 2) { st(SIDE_WALK.legSwing); st(SIDE_WALK.legStance); st(SIDE_ARM, chest); }
-  else { st(SIDE_WALK.legFront); st(SIDE_WALK.legBack); st(SIDE_WALK.armFore, chest); }
+  const k = (i - g.contact + 1) / (GAIT_N - g.contact + 1);   // 振り出し 0→1
+  const xs = -g.spread + (2 * g.spread) * (k * k * (3 - 2 * k));
+  const lk = g.arm === 'bent' ? 0.2 + 0.8 * k : k;                                     // 走り＝蹴った直後が最も高い（かかとが尻へ）・歩き＝真ん中が最も高い
+  return { x: Math.round(xs), lift: Math.round(g.lift * Math.sin(Math.PI * lk)), style: 'air' };
+}
+// 2 画素幅の線（x0,y0）→（x1,y1）。ch は (k, n)→文字
+function thick(G, x0, y0, x1, y1, chAt) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  for (let k = 0; k <= n; k++) {
+    const x = Math.round(x0 + (x1 - x0) * k / n), y = Math.round(y0 + (y1 - y0) * k / n);
+    stamp(G, x, y, [chAt(k, n, y).repeat(2)]);
+  }
+}
+// 脚＝腰 (hx,hy)→膝→足首。膝は「前へ出す量」で置く（着いた脚＝腰と足首を結ぶ線の上・振る脚＝持ち上げるほど前へ）。足首の上 1 行が靴下の線・足首の行が靴
+function drawLeg(G, hx, hy, foot, pants, shoe) {
+  const ax = hx + foot.x, ay = 16 - foot.lift;
+  const kneeFwd = foot.lift > 0 ? 1 + 0.5 * foot.lift : (ax - hx) / 2 + (foot.style === 'flat' ? 0.5 : 0);   // 振る脚＝持ち上げるほど膝が前へ・着いた脚＝腰と足首を結ぶ線の上（真下なら少し前）
+  const kx = hx + kneeFwd, ky = Math.min(hy + 2, ay);
+  thick(G, hx, hy, kx, ky, () => pants);                                                   // 太もも
+  thick(G, kx, ky, ax, ay, (k, n) => (k === n ? shoe : k === n - 1 ? 'd' : pants));        // すね＝足首の 1 歩手前が靴下の線・足首が靴
+  const fy = ay + 1;                                             // 足（地面の行 17。浮いていればその分上）
+  if (foot.style === 'heel') { stamp(G, ax, fy, [shoe + shoe]); stamp(G, ax + 2, ay, [shoe]); }        // かかとから着く＝つま先が上がる
+  else if (foot.style === 'toe') { stamp(G, ax - 1, ay, [shoe + shoe]); stamp(G, ax + 1, fy, [shoe]); }   // 蹴り出し＝かかとが浮く
+  else if (foot.style === 'air') stamp(G, ax, fy, [shoe + shoe]);
+  else stamp(G, ax, fy, [shoe + shoe + shoe]);
+}
+// 手前の腕（肩は列 10・行 6 を基準に、胸のずれ chest と沈み bob を足す）。脚と逆に振る
+const GAIT_ARMS = {
+  straight: {   // 伸ばして振る（早歩き）
+    back: { x: 7, art: ['...f', '..f.', '..f.', '.gmg', '.ccc', '.gmg', 'gmg.', 'mhm.', 'm.m.'] },
+    mid: { x: 9, art: ['.f.', '.f.', '.f.', 'gmg', 'ccc', 'gmg', 'gmg', 'mhm', 'm.m'] },
+    fore: { x: 10, art: ['f....', '.f...', '.f...', '.gmg.', '.ccc.', '.gmg.', '..gmg', '..mhm', '..m.m'] },
+  },
+  bent: {       // 肘を曲げて振る（走り）＝前腕は前へ水平・肘が前後 2 画素動く
+    back: { x: 7, art: ['...f..', '..f...', '.f....', '.gggg.', 'gcmmmh', '.gggg.'] },
+    mid: { x: 9, art: ['.f....', '.f....', '.f....', '.gggg.', 'gcmmmh', '.gggg.'] },
+    fore: { x: 10, art: ['f.....', '.f....', '..f...', '..gggg', '.gcmmm', '..gggg'] },
+  },
+};
+function gaitFrame(gait, i) {
+  const g = GAITS[gait];
+  const near = footOf(g, i), far = footOf(g, (i + GAIT_N / 2) % GAIT_N);
+  const onGround = [near, far].filter((f) => f.style !== 'air');
+  const hipY = onGround.length ? Math.round(16 - Math.sqrt(Math.max(0, LEG * LEG - Math.max(...onGround.map((f) => f.x * f.x))))) : HIP.y;   // 着いた足が前後にあるほど腰が沈む
+  const bob = Math.max(0, hipY - HIP.y);                        // 体の沈み（0 か 1）
+  const G = [];
+  for (let y = 0; y < 18; y++) G.push('....................'.split(''));
+  // 奥の脚（暗い色・腰の 1 画素後ろ）→体→手前の脚→手前の腕
+  drawLeg(G, HIP.x - 1, hipY, far, 'q', 'w');
+  const [head, chest] = g.lean;
+  for (let y = 0; y < 12; y++) {                                 // 体＝SIDE_TOP の行 0〜11 を沈み bob と前傾でずらして写す
+    const sh = y < 5 ? head : y < 10 ? chest : 0;
+    for (let x = 0; x < 20; x++) { const c = SIDE_TOP[y][x]; if (c !== '.' && x + sh < 20) G[y + bob][x + sh] = c; }
+  }
+  drawLeg(G, HIP.x, hipY, near, 'p', 'u');
+  const a = -near.x / g.spread;                                 // 手前の腕は手前の脚と逆（−1 後ろ〜+1 前）
+  const arm = GAIT_ARMS[g.arm][a < -0.34 ? 'back' : a > 0.34 ? 'fore' : 'mid'];
+  stamp(G, arm.x + chest, 6 + bob, arm.art);
   return G;
 }
+export const GAIT_INFO = Object.fromEntries(Object.entries(GAITS).map(([k, g]) => [k, { cycle: g.cycle, chest: g.lean[1], bob: Array.from({ length: GAIT_N }, (_, i) => (gaitFrame(k, i)[0].join('').includes('k') ? 0 : 1)) }]));   // player.gd が写す値（1 周の画素・胸のずれ・コマごとの沈み）
 function sideBase() {
   const G = SIDE_TOP.map((r) => r.split(''));
   for (let i = 0; i < 6; i++) G.push('....................'.split(''));
@@ -241,7 +298,7 @@ export const HERO_FRAMES = (() => {
   out.back_walk1 = sprite(backBase('walk1'));
   out.back_walk2 = sprite(backBase('walk2'));
   const sr = { idle: sideFrame('stand', true) };
-  for (const [ln, lean] of Object.entries(SIDE_WALK_LEANS)) for (const f of [1, 2, 3]) sr[(ln === 'lean1' ? '' : ln + '_') + 'walk' + f] = sideWalk(f, lean);   // 横顔の歩き 3 コマ（1→2→3→2 で回す）・前傾の 3 段
+  for (const gait of Object.keys(GAITS)) for (let i = 0; i < GAIT_N; i++) sr[gait + (i + 1)] = gaitFrame(gait, i);   // 横顔の走り run1〜8・早歩き walk1〜8（player.gd が進んだ距離で回す）
   for (const [k, G] of Object.entries(sr)) { out[`side_r_${k}`] = sprite(G); out[`side_l_${k}`] = sprite(mirror(G)); }
   for (const pose of ['stand', 'knee1', 'knee2', 'knee3', 'step', 'lift']) {
     const R = rightPose(pose);
