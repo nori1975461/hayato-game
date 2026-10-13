@@ -284,6 +284,14 @@ function backArmless(legs) {
   clear(G, 14, 6, 14, 8);
   return G;
 }
+// 背中・両脚を 1 画素ずつ外へ開いて踏ん張る（上投げのサイド「横薙ぎ」の投げたあと）
+function backWide() {
+  const G = backArmless('stand');
+  clear(G, 6, 12, 13, 17);
+  stamp(G, 5, 12, LEFT_LEG);
+  stamp(G, 12, 12, RIGHT_LEG);
+  return G;
+}
 // 正面・背中の小走り 4 コマ（2026-10-13 23:08 ユーザー「上下小走りも着手して」）＝横顔の走りと同じく進んだ距離で回す（1 周 24 画素・4 コマ＝歩数は横顔の走りと同じ）
 //   0＝左膝上げ／1＝通過（体が 1 画素沈む）／2＝右膝上げ／3＝通過。膝上げ＝その脚が短く見え靴が 2 画素浮く
 //   腕の振り＝カメラ側へ振る腕の拳が胸の高さに上がる（正面＝上げた膝と反対の腕が前へ・背中＝上げた膝と同じ側の腕が後ろ＝カメラ側へ）
@@ -367,6 +375,12 @@ export const HERO_FRAMES = (() => {
   out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
   out.back_r_follow = sprite(headDrop(backArmless('followR'), 3));   // 背中＝上体を深く倒し（頭が 3 行下がる）投げた側の脚を後ろへ蹴り上げる（23:07 ユーザー「上投げのフォロースルーが変」・貼付の投球 6 段階）
   out.back_l_follow = sprite(headDrop(mirrorLimbs(backArmless('followR'), backBase('stand')), 3));
+  // 上投げの型の絵（2026-10-14 ユーザー「上投げは投げた瞬間に頭が後ろにのけぞって見える」＝背中はカメラが後ろ上なので頭を下げると「手前（後ろ）へ倒れる」に読める）
+  //   reach＝頭は下げない・投げた側の足だけ蹴り上がる（オーバー改・アンダー）／wide＝両脚を外へ開いて踏ん張る（サイド）
+  out.back_r_reach = sprite(backArmless('followR'));
+  out.back_l_reach = sprite(mirrorLimbs(backArmless('followR'), backBase('stand')));
+  out.back_r_wide = sprite(backWide());
+  out.back_l_wide = sprite(mirrorLimbs(backWide(), backBase('stand')));
   return out;
 })();
 
