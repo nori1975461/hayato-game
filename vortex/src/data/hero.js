@@ -389,3 +389,51 @@ export const BLAZE_HANDS = {
   fist: { palette: HERO_PAL, rows: ['gmm.', 'mmhm', 'mmhm', 'gmm.'] },
   claw: { palette: HERO_PAL, rows: ['gm.m', 'mmh.', 'mmh.', 'gm.m'] },
 };
+
+// ===== 段階の絵（ジャム版の変化は 1 回「第一の封印が砕ける」2026-10-15 ユーザー決定）=====
+//   候補の設計＝scratchpad/hero-stage-candidates.mjs（B＋藍2・T 字・髪 3 分の 2 で合格）。全部の絵に同じ規則を当てて覚醒版を作る（player.gd が覚醒後に差し替える）
+//   ①髪＝髪の画素の 3 分の 2 を漆黒に（一房の側から広げる・目の真上の 1 画素は肌のまま）＝頭のいちばん上の行の左端を起点に k だけを m へ
+//   ②蒼が T 字＝帯（ccc）は横一文字のまま・その下 2 行の前腕の芯（gmg）を蒼（gcg）に＝脈が拳の芯 h へつながる
+//   ③二の腕に漆黒の筋 1 本（帯の 3 行上の肌）④爪が開く＝拳（mhm）の下の爪（m?m）を外へ 1 画素ずつ（3→5 画素）
+const AWAKE_HAIR = {   // 起点からの [行, 列のずれ…]
+  front: [[0, [0, 1, 2]], [1, [-1, 0, 1, 2]]],                                    // 8/12
+  back: [[0, [1, 2, 3]], [1, [1, 2, 3, 4]], [2, [1, 2, 3, 4]], [3, [1, 2, 3, 4]]],   // 15/22
+  side: [[0, [0, 1, 2]], [1, [0, 1, 2, 3]], [2, [0, 1]]],                          // 10/15
+};
+function awaken(rows, kind) {
+  const G = rows.map((r) => r.split(''));
+  const top = G.findIndex((r) => r.some((c) => c === 'k' || c === 'm'));
+  const ax = G[top].findIndex((c) => c !== '.');
+  for (const [dy, dxs] of AWAKE_HAIR[kind]) for (const dx of dxs) if (G[top + dy]?.[ax + dx] === 'k') G[top + dy][ax + dx] = 'm';
+  const W = G[0].length;
+  for (let y = 0; y < G.length; y++) for (let x = 0; x + 2 < W; x++) {
+    if (G[y][x] + G[y][x + 1] + G[y][x + 2] !== 'ccc') continue;
+    for (const d of [1, 2]) if (G[y + d] && G[y + d].slice(x, x + 3).join('') === 'gmg') G[y + d][x + 1] = 'c';
+    for (let i = x; i <= x + 2; i++) if (G[y - 3]?.[i] === 'f') { G[y - 3][i] = 'm'; break; }
+    for (let d = 3; d <= 4; d++) {
+      if (!G[y + d] || G[y + d].slice(x, x + 3).join('') !== 'mhm') continue;
+      const c = G[y + d + 1];
+      if (c && c[x] === 'm' && c[x + 2] === 'm') {
+        c[x] = '.'; c[x + 2] = '.';
+        if (c[x - 1] === '.') c[x - 1] = 'm';
+        if (c[x + 3] === '.') c[x + 3] = 'm';
+      }
+    }
+  }
+  // 横へ曲げた前腕（横顔の走り）＝帯は縦の 1 画素（上下が縁 g）・芯は横に並ぶ m＝帯から拳の側の 2 画素を蒼に
+  for (let y = 1; y + 1 < G.length; y++) for (let x = 1; x + 2 < W; x++) {
+    if (G[y][x] !== 'c' || G[y - 1][x] !== 'g' || G[y + 1][x] !== 'g') continue;
+    if (G[y][x - 1] === 'g' && G[y][x + 1] === 'm' && G[y][x + 2] === 'm') { G[y][x + 1] = 'c'; G[y][x + 2] = 'c'; }
+    else if (G[y][x + 1] === 'g' && G[y][x - 1] === 'm' && G[y][x - 2] === 'm') { G[y][x - 1] = 'c'; G[y][x - 2] = 'c'; }
+  }
+  return G.map((r) => r.join(''));
+}
+const flipRows = (rows) => rows.map((r) => [...r].reverse().join(''));
+export const HERO_FRAMES_AWAKE = Object.fromEntries(Object.entries(HERO_FRAMES).map(([k, sp]) => {
+  let rows;
+  if (k.startsWith('side_l_')) rows = flipRows(awaken(flipRows(sp.rows), 'side'));
+  else rows = awaken(sp.rows, k.startsWith('side_r_') ? 'side' : k.startsWith('back_') ? 'back' : 'front');
+  return [k, { palette: HERO_PAL, rows }];
+}));
+// 開いた爪（覚醒後の掴み・投げ）＝3 本の爪が外へ割れる
+BLAZE_HANDS.claw_open = { palette: HERO_PAL, rows: ['gm..m', 'mmhm.', 'mmhm.', 'gm..m'] };
