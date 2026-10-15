@@ -405,8 +405,11 @@ const AWAKE_HAIR = {   // 起点からの [行, 列のずれ…]
 //   蒼は変化前の帯 1 つのまま。動き回る前提で読めるのは輪郭の変化だけなので、突起（とがる）か膨らみ（太くなる）を肘・手首・爪に置く
 //   H 肘がとがる（後ろ上へ斜め 1 画素）／I 手首が張り出す（外へ 1 画素）／J 爪と拳がとがる（爪が 1 画素長い・拳の前に棘）／K＝H＋I
 //   L 肘が横へ張り出す（肘当て）／M 肘の角（上へ 2 画素の突起＝H の強い版）／R 爪が鉤爪（開いた爪の先が内へ曲がる）
-export const AWAKE_STYLES = ['H', 'I', 'J', 'K', 'L', 'M', 'R'];
-function awaken(rows, kind, style) {
+//   Z＝L＋M＋R（2026-10-16 00:02 ユーザー「L,M,R で作って」）＝肘の外側に縦 3 画素の肘当て（角つき）と鉤爪
+export const AWAKE_STYLES = ['Z', 'H', 'I', 'J', 'K', 'L', 'M', 'R'];
+function awaken(rows, kind, style0) {
+  const style = style0 === 'Z' ? 'LMR' : style0;   // 合わせ技は文字を並べる＝has() で見る
+  const has = (c) => style.includes(c);
   const G = rows.map((r) => r.split(''));
   const top = G.findIndex((r) => r.some((c) => c === 'k' || c === 'm'));
   const ax = G[top].findIndex((c) => c !== '.');
@@ -432,12 +435,12 @@ function awaken(rows, kind, style) {
         tips = { y: y + d + 1, xs };
       }
     }
-    if (style === 'H' || style === 'K') edge(y - 2, ox);
-    if (style === 'M') { edge(y - 2, ox); edge(y - 3, ox); }
-    if (style === 'I' || style === 'K') edge(y + 2, ox);
-    if (style === 'L') edge(y - 1, ox);
-    if (style === 'J' && tips) for (const tx of tips.xs) if (G[tips.y + 1]?.[tx] === '.') G[tips.y + 1][tx] = 'm';
-    if (style === 'R' && tips) for (const tx of tips.xs) {   // 鉤爪＝先が内へ曲がる（奥の脚の靴下 d の上に重なってよい＝腕は脚の手前）
+    if (has('H') || has('K')) edge(y - 2, ox);
+    if (has('M')) { edge(y - 2, ox); edge(y - 3, ox); }
+    if (has('I') || has('K')) edge(y + 2, ox);
+    if (has('L')) edge(y - 1, ox);
+    if (has('J') && tips) for (const tx of tips.xs) if (G[tips.y + 1]?.[tx] === '.') G[tips.y + 1][tx] = 'm';
+    if (has('R') && tips) for (const tx of tips.xs) {   // 鉤爪＝先が内へ曲がる（奥の脚の靴下 d の上に重なってよい＝腕は脚の手前）
       const ix = tx < x ? x : x + 2, c = G[tips.y + 1];
       if (c && (c[ix] === '.' || c[ix] === 'd')) c[ix] = 'm';
     }
@@ -449,10 +452,10 @@ function awaken(rows, kind, style) {
     if (!dir) continue;
     let end = x;
     while (G[y][end + dir] === 'm') end += dir;
-    if (style === 'H' || style === 'K' || style === 'M') edge(y - 2, x - 2 * dir);
-    if (style === 'M') edge(y - 3, x - 2 * dir);
-    if (style === 'L') edge(y - 2, x - dir);
-    if (style === 'I' || style === 'K') { if (G[y - 2]?.[end] === '.') G[y - 2][end] = 'g'; else edge(y + 2, end); }
+    if (has('H') || has('K') || has('M')) edge(y - 2, x - 2 * dir);
+    if (has('M')) edge(y - 3, x - 2 * dir);
+    if (has('L')) edge(y - 2, x - dir);
+    if (has('I') || has('K')) { if (G[y - 2]?.[end] === '.') G[y - 2][end] = 'g'; else edge(y + 2, end); }
     x += 3;
   }
   return G.map((r) => r.join(''));
