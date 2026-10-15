@@ -31,7 +31,7 @@ function after(f, vein) {
   for (const [y, x, s] of f.streak) put(G, y, x, s);
   for (const a of f.arms) {
     // 帯は横一文字のまま＝脈と合わせて蒼が T 字（10-15 21:56 ユーザー指示・黒い割れ目 cmc はやめた）
-    put(G, 11, a, 'gcg');                 // 割れ目から蒼の脈
+    if (vein >= 0) put(G, 11, a, 'gcg');  // 割れ目から蒼の脈
     if (vein >= 1) put(G, 12, a, 'gcg');  // B＝拳（h）までつながる
     if (vein >= 2) put(G, 13, a, 'chc');  // C＝拳の黒も蒼に
     const leg = G[14][a + 1] === 'p';     // 横顔＝爪の間に奥の脚が見えている
@@ -39,6 +39,47 @@ function after(f, vein) {
   }
   return G;
 }
+// ===== 10-15 22:32 T 字は否決（「非常に目につく・変化前のワンアクセントの方がよかった」）=====
+//   新しい軸＝蒼のアクセントは 1 つのまま、その「ひとつの帯」をどう変えて漏れを見せるか（足さない・形か位置だけ変える）
+//   共通（動かさない）＝髪 3 分の 2・二の腕の筋・爪が開く・リバの目は藍2
+const ACCENTS = {
+  A: '帯が斜めに裂ける',       // 輪が断ち切られた＝同じ 3 画素を斜めに
+  B: '帯が手首へ滑る',         // 封印が拳の側へずれた＝拳の芯とつながって 1 つの光になる
+  C: '帯が消え 爪の先に蒼',    // 封印は消え 光は腕の先（開いた爪）から漏れる
+  E: '帯が外へはみ出す',       // 輪が開いて光が腕の外へ 1 画素こぼれる
+};
+function accent(f, kind) {
+  const G = after(f, -1);   // 帯だけ（脈なし）＋共通の差分
+  for (const a of f.arms) {
+    const out = f.arms.length === 1 ? -1 : (a === f.arms[0] ? -1 : 1);   // 体の外側（横顔は体の前＝左）
+    if (kind === 'A') {
+      put(G, 10, a, 'gmg');
+      const xs = out < 0 ? [a, a + 1, a + 2] : [a + 2, a + 1, a];
+      G[10][xs[0]] = 'c'; G[11][xs[1]] = 'c'; G[12][xs[2]] = 'c';
+    } else if (kind === 'B') {
+      put(G, 10, a, 'gmg'); put(G, 12, a, 'ccc');
+    } else if (kind === 'C') {
+      put(G, 10, a, 'gmg'); G[14][a - 1] = 'c'; G[14][a + 3] = 'c';
+    } else if (kind === 'E') {
+      G[10][out < 0 ? a - 1 : a + 3] = 'c';
+    }
+  }
+  return G;
+}
+// 攻撃中の腕（hand.gd のまね）＝候補ごとに 1 つのアクセント
+function armAccent(kind, hand) {
+  const G = armMock(-1, hand);                 // 変化前の腕（帯 col 6）
+  if (kind === '今') return G;
+  G[2][1] = 'm';                               // 二の腕の筋
+  const unband = () => { G[1][6] = 'g'; G[2][6] = 'm'; G[3][6] = 'g'; };
+  if (kind === 'A') { unband(); G[1][5] = 'c'; G[2][6] = 'c'; G[3][7] = 'c'; }
+  else if (kind === 'B') { unband(); G[1][8] = G[2][8] = G[3][8] = 'c'; }
+  else if (kind === 'C') { unband(); for (let j = 0; j < 4; j++) for (let i = 13; i >= 9; i--) if (G[j][i] === 'm') { G[j][i] = 'c'; break; } }
+  else if (kind === 'E') { G[0][6] = 'c'; }
+  return G;
+}
+const ONLY = process.argv[2];
+
 const VARIANTS = [
   { id: '今', make: (f) => rowsOf(f.key) },
   { id: 'A', make: (f) => after(f, 0) },
@@ -147,8 +188,40 @@ function sheet(file, w, h, draw) {
   console.log('wrote', file, `${w}x${h}`);
 }
 
+// 07 蒼のワンアクセント＝今／A／B／C／E × 立ち姿 3 向き（3 倍・6 倍）＋攻撃中の腕（拳・爪 6 倍）
+if (ONLY === 'accent') {
+  const facings = ['down', 'up', 'right'];
+  const names = { down: '正面', up: '背中', right: '横顔' };
+  const kinds = ['今', 'A', 'B', 'C', 'E'];
+  const L = 150, T = 30;
+  const c3 = 20 * 3 + 10, c6 = 20 * 6 + 16, ca = 15 * 6 + 16;
+  const x3 = L, x6 = x3 + 3 * c3 + 14, xa = x6 + 3 * c6 + 14;
+  const rh = 18 * 6 + 16;
+  const W = xa + 2 * ca + 10, H = T + kinds.length * rh + 10;
+  sheet('07_蒼のワンアクセント_候補（今・A・B・C・E）.png', W, H, (cv, label) => {
+    facings.forEach((f, ci) => { label(x3 + ci * c3, T - 22, names[f], 9); label(x6 + ci * c6 + 2, T - 22, names[f] + ' 2 倍', 9); });
+    label(xa, T - 22, '突き（拳）', 9); label(xa + ca, T - 22, '掴み（爪）', 9);
+    kinds.forEach((k, ki) => {
+      const y = T + ki * rh;
+      label(8, y + rh / 2 - 20, k === '今' ? '今（変化前）' : k, 10);
+      if (k !== '今') label(8, y + rh / 2 - 4, ACCENTS[k], 9);
+      const eye = k === '今' ? EYES.E0 : EYES.E2;
+      facings.forEach((f, ci) => {
+        const rows = k === '今' ? rowsOf(FACINGS[f].key) : accent(FACINGS[f], k);
+        for (const [x, scale] of [[x3 + ci * c3, 3], [x6 + ci * c6, 6]]) {
+          const { G, eyes } = withRiba(rows.map((r) => r.slice()), f);
+          blit(cv, G, { ...PAL, E: eye }, x, y + (18 * 6 - 18 * scale) / 2, scale);
+          for (const [ex, ey] of eyes) glow(cv, x + (ex + 0.5) * scale, y + (18 * 6 - 18 * scale) / 2 + (ey + 0.5) * scale, 2 * scale / 3, eye, 0.35);
+        }
+      });
+      blit(cv, armAccent(k, FIST), PAL, xa, y + 30, 6);
+      blit(cv, armAccent(k, k === '今' ? CLAW : CLAW_OPEN), PAL, xa + ca, y + 30, 6);
+    });
+  });
+}
+
 // 01 立ち姿＝正面・背中・横顔 × 今・A・B・C（上＝3 倍＝実プレイの等倍・下＝6 倍）。リバ（目は今の蒼）も乗せる
-{
+if (!ONLY) {
   const facings = ['down', 'up', 'right'];
   const names = { down: '正面', up: '背中', right: '横顔' };
   const vnames = { '今': '今（変化前）', A: 'A 控えめ＝脈は 1 画素', B: 'B 本命＝脈が拳の芯まで', C: 'C 強＝拳の黒も蒼に' };
@@ -174,7 +247,7 @@ function sheet(file, w, h, draw) {
 }
 
 // 02 攻撃中の腕（hand.gd のまね）＝拳（突き）と爪（掴み・投げ）× 今・A・B・C。6 倍と 12 倍
-{
+if (!ONLY) {
   const hands = [['拳（突き）', FIST, FIST], ['爪（掴み）', CLAW, CLAW_OPEN]];
   const vnames = { '今': '今', A: 'A', B: 'B', C: 'C' };
   const L = 110, T = 30;
@@ -197,7 +270,7 @@ function sheet(file, w, h, draw) {
 }
 
 // 03 リバの目＝今の蒼と藍 4 段 × 正面・横顔（3 倍・6 倍）＋頭だけ 12 倍。にじみの光も同じ色
-{
+if (!ONLY) {
   const keys = Object.keys(EYES);
   const L = 70, T = 30;
   const cw = 20 * 6 + 20;
@@ -230,7 +303,7 @@ function sheet(file, w, h, draw) {
 }
 
 // 04 確定案＝今（蒼の目）と B＋藍2 を並べる（10-15 21:49 ユーザー決定）
-{
+if (!ONLY) {
   const facings = ['down', 'up', 'right'];
   const names = { down: '正面', up: '背中', right: '横顔' };
   const pairs = [['今（変化前）', (f) => rowsOf(f.key), EYES.E0], ['変化後 B＋藍2', (f) => after(f, 1), EYES.E2]];
