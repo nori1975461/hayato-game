@@ -30,7 +30,7 @@ function after(f, vein) {
   for (const [y, x, s] of f.hair) put(G, y, x, s);
   for (const [y, x, s] of f.streak) put(G, y, x, s);
   for (const a of f.arms) {
-    put(G, 10, a, 'cmc');                 // 帯が砕ける＝真ん中が黒い割れ目
+    // 帯は横一文字のまま＝脈と合わせて蒼が T 字（10-15 21:56 ユーザー指示・黒い割れ目 cmc はやめた）
     put(G, 11, a, 'gcg');                 // 割れ目から蒼の脈
     if (vein >= 1) put(G, 12, a, 'gcg');  // B＝拳（h）までつながる
     if (vein >= 2) put(G, 13, a, 'chc');  // C＝拳の黒も蒼に
@@ -82,7 +82,7 @@ function armMock(vein, hand) {
   G[1][6] = G[2][6] = G[3][6] = 'c';            // 封印の帯
   if (vein >= 0) {                              // 変化後
     G[2][1] = 'm';                              // 二の腕の筋
-    G[2][6] = 'm';                              // 帯の割れ目
+    // 帯は割らない＝脈と T 字
     G[2][7] = 'c';                              // 脈
     if (vein >= 1) G[2][8] = G[2][9] = 'c';     // 拳まで
   }
@@ -237,7 +237,7 @@ function sheet(file, w, h, draw) {
   const L = 120, T = 30, cw = 20 * 6 + 16;
   const blocks = [[3, 0], [6, 2 * (18 * 3 + 16) + 10]];
   const W = L + 3 * cw + 10, H = T + blocks[1][1] + 2 * (18 * 6 + 16) + 10;
-  sheet('04_確定案_今とB＋藍2（上は実プレイの等倍・下は2倍）.png', W, H, (cv, label) => {
+  sheet('05_確定案_T字_今とB＋藍2（上は実プレイの等倍・下は2倍）.png', W, H, (cv, label) => {
     for (const [scale, y0] of blocks) {
       label(8, T + y0 - 22, scale === 3 ? '実プレイの等倍' : '2 倍', 10);
       facings.forEach((f, ci) => label(L + ci * cw + 2, T + y0 - 22, names[f], 10));
