@@ -406,7 +406,8 @@ const AWAKE_HAIR = {   // 起点からの [行, 列のずれ…]
 //   H 肘がとがる（後ろ上へ斜め 1 画素）／I 手首が張り出す（外へ 1 画素）／J 爪と拳がとがる（爪が 1 画素長い・拳の前に棘）／K＝H＋I
 //   L 肘が横へ張り出す（肘当て）／M 肘の角（上へ 2 画素の突起＝H の強い版）／R 爪が鉤爪（開いた爪の先が内へ曲がる）
 //   Z＝L＋M＋R（2026-10-16 00:02 ユーザー「L,M,R で作って」）＝肘の外側に縦 3 画素の肘当て（角つき）と鉤爪
-export const AWAKE_STYLES = ['Z', 'H', 'I', 'J', 'K', 'L', 'M', 'R'];
+//   10-16 00:08 ユーザー「L,M,R,Z で作って 4 つでくらべたい」＝H・I・J・K は撤去（has() の条件は残してある＝文字を足せば戻る）
+export const AWAKE_STYLES = ['Z', 'L', 'M', 'R'];
 function awaken(rows, kind, style0) {
   const style = style0 === 'Z' ? 'LMR' : style0;   // 合わせ技は文字を並べる＝has() で見る
   const has = (c) => style.includes(c);
@@ -470,8 +471,5 @@ export const HERO_FRAMES_AWAKE = Object.fromEntries(AWAKE_STYLES.map((st) => [st
 }))]));
 // 開いた爪（覚醒後の掴み・投げ）＝3 本の爪が外へ割れる
 BLAZE_HANDS.claw_open = { palette: HERO_PAL, rows: ['gm..m', 'mmhm.', 'mmhm.', 'gm..m'] };
-// J 爪と拳がとがる＝開いた爪が 1 画素長く・拳の前（上の拳骨）に縁の棘 1 画素
-BLAZE_HANDS.claw_long = { palette: HERO_PAL, rows: ['gm...m', 'mmhm..', 'mmhm..', 'gm...m'] };
-BLAZE_HANDS.fist_spike = { palette: HERO_PAL, rows: ['gmm..', 'mmhmg', 'mmhm.', 'gmm..'] };
 // R 爪が鉤爪＝開いた爪の先が内へ曲がる（掴むための爪）
 BLAZE_HANDS.claw_talon = { palette: HERO_PAL, rows: ['gm..m.', 'mmhm.m', 'mmhm.m', 'gm..m.'] };
