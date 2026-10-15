@@ -403,7 +403,10 @@ const AWAKE_HAIR = {   // 起点からの [行, 列のずれ…]
 // 蒼の漏れ方（10-15 22:32 T 字は否決「非常に目につく・変化前のワンアクセントの方がよかった」→ 4 通りをテストプレイで比べる）
 //   どれも蒼は 1 つのまま＝ひとつの帯の形か位置だけ変える。T＝前の案（比べる用）
 //   A 帯が斜めに裂ける／B 帯が手首へ滑る（拳の芯と 1 つの光）／C 帯が消え爪の先に蒼／E 帯が腕の外へ 1 画素はみ出す
-export const AWAKE_STYLES = ['A', 'B', 'C', 'E', 'T'];
+//   F＝B＋E（手首へ滑って外へはみ出す＝留め具が外れかけた輪）／G＝E＋ゆらぎ（はみ出した 1 画素を専用の色 L で描く＝hero_outfit.gdshader が時々消す）
+//   （10-15 23:05 ユーザー「E か B で迷っている」→ F と G を足して比べる）
+export const AWAKE_STYLES = ['A', 'B', 'C', 'E', 'T', 'F', 'G'];
+export const LEAK_PAL = { L: '#2ad0f0' };   // G のゆらぐ 1 画素（蒼 c と見分けがつかない近さ・シェーダーが色で拾える遠さ）
 function awaken(rows, kind, style) {
   const G = rows.map((r) => r.split(''));
   const top = G.findIndex((r) => r.some((c) => c === 'k' || c === 'm'));
@@ -440,9 +443,15 @@ function awaken(rows, kind, style) {
       if (row3(y + 2, x) === 'gmg') { G[y][x] = 'g'; G[y][x + 1] = 'm'; G[y][x + 2] = 'g'; G[y + 2][x] = G[y + 2][x + 1] = G[y + 2][x + 2] = 'c'; }
     } else if (style === 'C') {
       if (tips && tips.xs.length) { G[y][x] = 'g'; G[y][x + 1] = 'm'; G[y][x + 2] = 'g'; for (const tx of tips.xs) G[tips.y][tx] = 'c'; }
-    } else if (style === 'E') {
+    } else if (style === 'E' || style === 'G') {
       const ex = out < 0 ? x - 1 : x + 3;
-      if (G[y][ex] === '.') G[y][ex] = 'c';
+      if (G[y][ex] === '.') G[y][ex] = style === 'G' ? 'L' : 'c';
+    } else if (style === 'F') {
+      if (row3(y + 2, x) === 'gmg') {
+        G[y][x] = 'g'; G[y][x + 1] = 'm'; G[y][x + 2] = 'g'; G[y + 2][x] = G[y + 2][x + 1] = G[y + 2][x + 2] = 'c';
+        const ex = out < 0 ? x - 1 : x + 3;
+        if (G[y + 2][ex] === '.') G[y + 2][ex] = 'c';
+      }
     }
   }
   // 横へ曲げた前腕（横顔の走り）＝帯は縦の 1 画素（上下が縁 g）・芯は横に並ぶ m
@@ -456,7 +465,8 @@ function awaken(rows, kind, style) {
     else if (style === 'A') { G[y][x] = 'm'; G[y - 1][x - dir] = 'c'; G[y][x] = 'c'; G[y + 1][x + dir] = 'c'; }
     else if (style === 'B') { if (end !== x) { G[y][x] = 'm'; G[y][end] = 'c'; } }
     else if (style === 'C') { G[y][x] = 'm'; if (G[y][end + dir] === 'h') G[y][end + dir] = 'c'; }
-    else if (style === 'E') { if (G[y - 2]?.[x] === '.') G[y - 2][x] = 'c'; else if (G[y + 2]?.[x] === '.') G[y + 2][x] = 'c'; }   // 縁の外（上が塞がっていれば下）へ 1 画素
+    else if (style === 'E' || style === 'G') { const ch = style === 'G' ? 'L' : 'c'; if (G[y - 2]?.[x] === '.') G[y - 2][x] = ch; else if (G[y + 2]?.[x] === '.') G[y + 2][x] = ch; }
+    else if (style === 'F') { if (end !== x) { G[y][x] = 'm'; G[y][end] = 'c'; if (G[y + 2]?.[end] === '.') G[y + 2][end] = 'c'; else if (G[y - 2]?.[end] === '.') G[y - 2][end] = 'c'; } }   // 縁の外（上が塞がっていれば下）へ 1 画素
     x += 3;
   }
   return G.map((r) => r.join(''));
@@ -467,7 +477,7 @@ export const HERO_FRAMES_AWAKE = Object.fromEntries(AWAKE_STYLES.map((st) => [st
   let rows;
   if (k.startsWith('side_l_')) rows = flipRows(awaken(flipRows(sp.rows), 'side', st));
   else rows = awaken(sp.rows, k.startsWith('side_r_') ? 'side' : k.startsWith('back_') ? 'back' : 'front', st);
-  return [k, { palette: HERO_PAL, rows }];
+  return [k, { palette: st === 'G' ? { ...HERO_PAL, ...LEAK_PAL } : HERO_PAL, rows }];
 }))]));
 // 開いた爪（覚醒後の掴み・投げ）＝3 本の爪が外へ割れる
 BLAZE_HANDS.claw_open = { palette: HERO_PAL, rows: ['gm..m', 'mmhm.', 'mmhm.', 'gm..m'] };
