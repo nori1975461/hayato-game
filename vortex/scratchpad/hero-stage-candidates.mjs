@@ -20,9 +20,10 @@ function put(G, y, x, s) { for (let i = 0; i < s.length; i++) G[y][x + i] = s[i]
 
 // ---- 変化後（第一の封印が砕ける）
 const FACINGS = {
-  down: { key: 'idle', arms: [3, 14], hair: [[0, 8, 'mm'], [1, 7, 'mmm'], [2, 7, 'mm']], streak: [[7, 14, 'm']] },          // 画面左の二の腕はリバの尾に隠れている＝筋は右だけ
-  up: { key: 'back_idle', arms: [3, 14], hair: [[1, 11, 'mm'], [2, 12, 'm']], streak: [[7, 5, 'm'], [7, 14, 'm']] },
-  right: { key: 'side_r_idle', arms: [9], hair: [[1, 11, 'mm']], streak: [[7, 10, 'm']] },
+  // 髪＝髪の画素の 3 分の 2 を漆黒に（10-15 21:49 ユーザー「半分では目立たない」）・目の真上の 1 画素は肌のまま（「髪と目が黒でつながっておかしい」）
+  down: { key: 'idle', arms: [3, 14], hair: [[0, 8, 'mmm'], [1, 7, 'mmmm']], streak: [[7, 14, 'm']] },          // 8/12。画面左の二の腕はリバの尾に隠れている＝筋は右だけ
+  up: { key: 'back_idle', arms: [3, 14], hair: [[0, 9, 'mmm'], [1, 9, 'mmmm'], [2, 9, 'mmmm'], [3, 9, 'mmmm']], streak: [[7, 5, 'm'], [7, 14, 'm']] },   // 15/22＝一房の側から後ろ頭へ
+  right: { key: 'side_r_idle', arms: [9], hair: [[0, 9, 'mmm'], [1, 9, 'mmmm'], [2, 9, 'mm']], streak: [[7, 10, 'm']] },   // 10/15＝額の側から後ろへ
 };
 function after(f, vein) {
   const G = rowsOf(f.key);
@@ -226,6 +227,32 @@ function sheet(file, w, h, draw) {
   });
   console.log('目の輝度（体の漆黒 m＝%s・照り r＝%s）', luma(hex(PAL.m)).toFixed(0), luma(hex(RIM)).toFixed(0));
   for (const [k, v] of Object.entries(EYES)) console.log(`  ${k} ${v} 輝度 ${luma(hex(v)).toFixed(0)}（体の ${(luma(hex(v)) / luma(hex(PAL.m))).toFixed(1)} 倍）`);
+}
+
+// 04 確定案＝今（蒼の目）と B＋藍2 を並べる（10-15 21:49 ユーザー決定）
+{
+  const facings = ['down', 'up', 'right'];
+  const names = { down: '正面', up: '背中', right: '横顔' };
+  const pairs = [['今（変化前）', (f) => rowsOf(f.key), EYES.E0], ['変化後 B＋藍2', (f) => after(f, 1), EYES.E2]];
+  const L = 120, T = 30, cw = 20 * 6 + 16;
+  const blocks = [[3, 0], [6, 2 * (18 * 3 + 16) + 10]];
+  const W = L + 3 * cw + 10, H = T + blocks[1][1] + 2 * (18 * 6 + 16) + 10;
+  sheet('04_確定案_今とB＋藍2（上は実プレイの等倍・下は2倍）.png', W, H, (cv, label) => {
+    for (const [scale, y0] of blocks) {
+      label(8, T + y0 - 22, scale === 3 ? '実プレイの等倍' : '2 倍', 10);
+      facings.forEach((f, ci) => label(L + ci * cw + 2, T + y0 - 22, names[f], 10));
+      pairs.forEach(([pn, make, eye], pi) => {
+        const y = T + y0 + pi * (18 * scale + 16);
+        label(8, y + 18 * scale / 2 - 9, pn, 10);
+        facings.forEach((f, ci) => {
+          const x = L + ci * cw;
+          const { G, eyes } = withRiba(make(FACINGS[f]), f);
+          blit(cv, G, { ...PAL, E: eye }, x, y, scale);
+          for (const [ex, ey] of eyes) glow(cv, x + (ex + 0.5) * scale, y + (ey + 0.5) * scale, 2 * scale / 3, eye, 0.35);
+        });
+      });
+    }
+  });
 }
 
 fs.writeFileSync(new URL('./.labels.json', import.meta.url), JSON.stringify(labels));   // ASCII の場所＝日本語のパスは PowerShell の引数で化ける
