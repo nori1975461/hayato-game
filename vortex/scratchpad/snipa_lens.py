@@ -281,7 +281,7 @@ def reticle2(open_):
 
 # 10-17 08:39 ユーザー「J5 は蓋が開いて眼が光る仕様に」＝蓋が照準の十字の継ぎ目で 4 つに割れ外へ滑る（t＝0〜1）。
 # 開ききるまで眼は暗い（d）・開ききった瞬間に光る（open の絵＋enemy.gd の閃き）
-LID_T = (0.2, 0.45, 0.7)
+LID_T = (0.1, 0.22, 0.36, 0.5, 0.65, 0.82)   # 10-17 08:52 ユーザー「開く瞬間が早すぎて伝わりにくい」＝3 コマ→6 コマ
 
 
 def j5_lid(t):
@@ -356,6 +356,6 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
-        lid_sheet(os.path.join(sys.argv[1], '04_スナイパ_J5 の蓋が開く_拡大（左から 閉じる→割れて開く 3 コマ→暗い眼→光る）.png'))
+        lid_sheet(os.path.join(sys.argv[1], '05_スナイパ_J5 の蓋が開く 6 コマ_拡大（左から 閉じる→割れて開く 6 コマ→暗い眼→光る）.png'))
         sheet(os.path.join(sys.argv[1], '03_スナイパ_長砲身と距離計_拡大（左から I2・I3 長砲身・J4・J5 距離計／上 開く 下 閉じる）.png'))
         print('OK')
