@@ -13,14 +13,15 @@ N = 18
 C = (N - 1) / 2.0
 
 
-def paint(fn):
-    im = Image.new('RGBA', (N, N), (0, 0, 0, 0))
-    for py in range(N):
-        for px in range(N):
+def paint(fn, h=N, w=N):   # h＝縦の画素（I3 だけ縦長）・w＝横の画素（J5 だけ横長）
+    im = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    for py in range(h):
+        for px in range(w):
             votes = {}
             for sy in range(4):
                 for sx in range(4):
-                    c = fn(px + (sx + 0.5) / 4 - 0.5 - C, py + (sy + 0.5) / 4 - 0.5 - C)
+                    c = fn(px + (sx + 0.5) / 4 - 0.5 - cx, py + (sy + 0.5) / 4 - 0.5 - cy)
                     votes[c] = votes.get(c, 0) + 1
             if votes.get(None, 0) >= 8:
                 continue
@@ -216,27 +217,93 @@ def reticle(open_):
     return fn
 
 
+
+# 10-17 08:25 ユーザー「J4 か I（I2）・I は懐中電灯っぽさはなくなった・砲身をもう少し長く（スタイリッシュに）・J4 はもうひとひねり」
+# I3＝I2 の砲身を延ばす（縦 26 画素）・輪は 4 つ（y＝3.5／0.5／-2.5／-5.5）
+H_I3 = 26
+RINGS_I3 = (3.5, 0.5, -2.5, -5.5)
+
+
+def rail_long(open_):
+    def fn(x, y):
+        ax = abs(x)
+        if open_:
+            if -12.6 < y < -8.4 and 1.0 < ax < 3.0:
+                if y < -11.6:
+                    return 'w'
+                return 'k' if ax > 2.2 and y > -10.4 else ('s' if x < 0 else 'f')
+            if -10.4 < y < -8.4 and ax <= 1.0:
+                return 'm'
+        else:
+            if -11.6 < y < -8.4 and ax < 2.0:
+                return 'k' if ax < 0.45 else ('s' if x < 0 else 'f')
+        if -8.4 <= y < 5.6 and ax < 2.0:
+            for yc in RINGS_I3:
+                if abs(y - yc) < 0.5:
+                    return 'e'
+            return steel(x, 2.0)
+        if -6.4 < y < 0.6 and -5.0 < x < -3.0:          # 照準器（左だけ）
+            if y < -5.4:
+                return 'm' if open_ else 'k'
+            return steel(x + 4.0, 1.0)
+        if abs(y + 1.5) < 0.5 and -3.0 <= x < -2.0:
+            return 'k'
+        if 5.6 <= y < 12.6 and ax < 4.0 - max(0.0, 6.6 - y):   # 後ろの機関部
+            if abs(y - 8.5) < 0.5:
+                return 'k'
+            if 9.6 < y and ax < 1.0:
+                return 'd'
+            return steel(x, 4.0)
+        return None
+    return fn
+
+
+# J5＝J4＋右に距離計の副眼（左右対称を崩す）。横 22 画素で眼は 2 画素左＝Godot は offset で眼を回転の中心へ戻す
+# 鋲 3 つが予告で順に灯る・十字が外から絞られるのは enemy.gd
+W_J5 = 22
+
+
+def reticle2(open_):
+    base = reticle(open_)
+    def fn(x, y):
+        x += 2.0
+        if 8.0 < x < 10.6 and -6.6 < y < 3.6:             # 距離計の副眼（砲と同じ向きの細い筒）
+            if y < -5.6:
+                return 'm' if open_ else 'k'
+            if abs(y + 1.5) < 0.5:
+                return 'e'
+            return steel(x - 9.3, 1.3)
+        if 6.8 < x <= 8.0 and (abs(y + 3.5) < 0.5 or abs(y - 1.5) < 0.5):
+            return 'k'                                   # 留め金
+        return base(x, y)
+    return fn
+
+
 LOOKS_ALL = {'I': ('望遠鏡筒', tube, (0, -7.0)), 'J': ('絞りの眼', iris, (0, 0)), 'K': ('絞りの眼＋長いフード', dome, (0, -2.0)),
              'J1': ('絞りの眼 直線の羽根', iris_s(1), (0, 0)), 'J2': ('絞りの眼 レンズの蓋', iris_s(2), (0, 0)), 'J3': ('絞りの眼 十字の扉', iris_s(3), (0, 0)),
-             'I2': ('ソーラ・レイ', rail, (0, -6.0)), 'J4': ('照準の眼', reticle, (0, 0))}
-LOOKS = {k: LOOKS_ALL[k] for k in ('I', 'I2', 'J2', 'J4')}   # 10-17 08:05 の比較（最終候補 2 つと、ひとひねり）
-EXPORT = ('I', 'I2', 'J2', 'J4')   # K と渦の J は 10-17 00:40・J1 J3 は 10-17 08:05 に外した
+             'I2': ('ソーラ・レイ', rail, (0, -6.0)), 'J4': ('照準の眼', reticle, (0, 0)),
+             'I3': ('ソーラ・レイ 長砲身', rail_long, (0, -9.5)), 'J5': ('照準の眼＋距離計', reticle2, (0, 0))}
+TALL = {'I3': H_I3}
+WIDE = {'J5': W_J5}
+LOOKS = {k: LOOKS_ALL[k] for k in ('I2', 'I3', 'J4', 'J5')}   # 10-17 08:25 の比較
+EXPORT = ('I2', 'I3', 'J4', 'J5')   # K と渦の J は 10-17 00:40・J1 J3 は 08:05・I J2 は 08:25 に外した
 
 
 def export_godot(art):
     for k in EXPORT:
         _, mk, _ = LOOKS_ALL[k]
-        paint(mk(True)).save(os.path.join(art, f'enemy_snipa_{k}_open.png'))
-        paint(mk(False)).save(os.path.join(art, f'enemy_snipa_{k}_shut.png'))
+        paint(mk(True), TALL.get(k, N), WIDE.get(k, N)).save(os.path.join(art, f'enemy_snipa_{k}_open.png'))
+        paint(mk(False), TALL.get(k, N), WIDE.get(k, N)).save(os.path.join(art, f'enemy_snipa_{k}_shut.png'))
 
 
 def sheet(path):
     S = 6
-    out = Image.new('RGBA', (640, 2 * (N * S + 14) + 8), (10, 10, 30, 255))
+    out = Image.new('RGBA', (640, 2 * (H_I3 * S + 14) + 8), (10, 10, 30, 255))
     for i, (k, (_, mk, _)) in enumerate(LOOKS.items()):
+        h, w = TALL.get(k, N), WIDE.get(k, N)
         for j, o in enumerate((True, False)):
-            im = paint(mk(o)).resize((N * S, N * S), Image.NEAREST)
-            out.alpha_composite(im, (6 + i * 158, 8 + j * (N * S + 14)))
+            im = paint(mk(o), h, w).resize((w * S, h * S), Image.NEAREST)
+            out.alpha_composite(im, (6 + i * 158, 8 + j * (H_I3 * S + 14) + (H_I3 - h) * S // 2))
     out.convert('RGB').save(path)
 
 
@@ -246,5 +313,5 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
-        sheet(os.path.join(sys.argv[1], '01_スナイパ_ひとひねり_拡大（左から I・I2 ソーラ・レイ・J2・J4 照準の眼／上 開く 下 閉じる）.png'))
+        sheet(os.path.join(sys.argv[1], '03_スナイパ_長砲身と距離計_拡大（左から I2・I3 長砲身・J4・J5 距離計／上 開く 下 閉じる）.png'))
         print('OK')
