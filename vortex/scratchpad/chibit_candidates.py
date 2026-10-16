@@ -182,8 +182,21 @@ def play_sheet(path, hero):
     out.convert('RGB').save(path)
 
 
+def export_godot(art):
+    # 試しキーで切り替えて動かすための等倍 PNG（kurutto-godot/art）。決まったら Phaser の正典（enemies.js）へ移して sprite2png で焼き直す
+    img(CANDS['A_ミサイル']).save(os.path.join(art, 'enemy_chibit_A.png'))
+    img(CANDS['C_鏃']).save(os.path.join(art, 'enemy_chibit_C.png'))
+    img(D_HEAD).save(os.path.join(art, 'enemy_chibit_D.png'))
+    for i, r in enumerate(D_SEGS):
+        img(r).save(os.path.join(art, f'enemy_chibit_D_seg{i + 1}.png'))
+
+
 if __name__ == '__main__':
     d = sys.argv[1]
+    if d == '--godot':
+        export_godot('C:/Users/siniz/kurutto-godot/art')
+        print('OK godot')
+        sys.exit()
     os.makedirs(d, exist_ok=True)
     hero = Image.open('C:/Users/siniz/kurutto-godot/art/hero_idle.png').convert('RGBA')
     zoom_sheet(os.path.join(d, '01_チビット_弾の候補3つ_拡大.png'))
