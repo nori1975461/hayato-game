@@ -279,6 +279,37 @@ def reticle2(open_):
     return fn
 
 
+# 10-17 08:39 ユーザー「J5 は蓋が開いて眼が光る仕様に」＝蓋が照準の十字の継ぎ目で 4 つに割れ外へ滑る（t＝0〜1）。
+# 開ききるまで眼は暗い（d）・開ききった瞬間に光る（open の絵＋enemy.gd の閃き）
+LID_T = (0.2, 0.45, 0.7)
+
+
+def j5_lid(t):
+    shut, opened = reticle2(False), reticle2(True)
+    def fn(x, y):
+        xe = x + 2.0
+        r = math.hypot(xe, y)
+        if r >= 3.9:
+            return shut(x, y)
+        d = t * 2.4
+        sx, sy = (1 if xe >= 0 else -1), (1 if y >= 0 else -1)
+        ux, uy = xe - sx * d * 0.7071, y - sy * d * 0.7071   # 蓋の破片は斜め外へ滑る
+        if (ux >= 0) == (sx > 0) and (uy >= 0) == (sy > 0) and math.hypot(ux, uy) < 3.4:
+            return shut(ux - 2.0, uy)
+        return 'k' if r > 3.2 else 'd'
+    return fn
+
+
+def j5_dark(open_):
+    opened = reticle2(True)
+    def fn(x, y):
+        c = opened(x, y)
+        if c in ('m', 'M'):
+            return 'd' if math.hypot(x + 2.0, y) < 3.3 else 'k'   # 距離計の副眼も眼と一緒に灯る
+        return c
+    return fn
+
+
 LOOKS_ALL = {'I': ('望遠鏡筒', tube, (0, -7.0)), 'J': ('絞りの眼', iris, (0, 0)), 'K': ('絞りの眼＋長いフード', dome, (0, -2.0)),
              'J1': ('絞りの眼 直線の羽根', iris_s(1), (0, 0)), 'J2': ('絞りの眼 レンズの蓋', iris_s(2), (0, 0)), 'J3': ('絞りの眼 十字の扉', iris_s(3), (0, 0)),
              'I2': ('ソーラ・レイ', rail, (0, -6.0)), 'J4': ('照準の眼', reticle, (0, 0)),
@@ -294,6 +325,18 @@ def export_godot(art):
         _, mk, _ = LOOKS_ALL[k]
         paint(mk(True), TALL.get(k, N), WIDE.get(k, N)).save(os.path.join(art, f'enemy_snipa_{k}_open.png'))
         paint(mk(False), TALL.get(k, N), WIDE.get(k, N)).save(os.path.join(art, f'enemy_snipa_{k}_shut.png'))
+    for i, t in enumerate(LID_T):
+        paint(j5_lid(t), N, W_J5).save(os.path.join(art, f'enemy_snipa_J5_lid{i + 1}.png'))
+    paint(j5_dark(True), N, W_J5).save(os.path.join(art, 'enemy_snipa_J5_dark.png'))
+
+
+def lid_sheet(path):
+    S = 8
+    fr = [reticle2(False)] + [j5_lid(t) for t in LID_T] + [j5_dark(True), reticle2(True)]
+    out = Image.new('RGBA', (len(fr) * (W_J5 * S + 8) + 8, N * S + 16), (10, 10, 30, 255))
+    for i, f in enumerate(fr):
+        out.alpha_composite(paint(f, N, W_J5).resize((W_J5 * S, N * S), Image.NEAREST), (8 + i * (W_J5 * S + 8), 8))
+    out.convert('RGB').save(path)
 
 
 def sheet(path):
@@ -313,5 +356,6 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
+        lid_sheet(os.path.join(sys.argv[1], '04_スナイパ_J5 の蓋が開く_拡大（左から 閉じる→割れて開く 3 コマ→暗い眼→光る）.png'))
         sheet(os.path.join(sys.argv[1], '03_スナイパ_長砲身と距離計_拡大（左から I2・I3 長砲身・J4・J5 距離計／上 開く 下 閉じる）.png'))
         print('OK')
