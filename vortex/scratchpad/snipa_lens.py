@@ -75,7 +75,8 @@ def tube(open_):   # I 望遠鏡筒（望遠レンズ・ピントリングの刻
     return fn
 
 
-def _iris(x, y, open_, cy=0.0):
+def _iris(x, y, open_, cy=0.0, style=0):
+    # style 0＝渦の羽根（第 1 稿・ユーザー「模様がイケていない」）／1＝直線の羽根 6 枚／2＝レンズの蓋／3＝十字の扉 4 枚
     dy = y - cy
     r, a = math.hypot(x, dy), math.atan2(dy, x)
     if r > 7.0:
@@ -87,10 +88,51 @@ def _iris(x, y, open_, cy=0.0):
         return 'M' if (x < -0.8 and dy < -0.8) else 'm'
     if open_ and r < hole + 0.7:
         return 'k'
+    if style == 1:   # 直線の羽根 3 枚：継ぎ目は中心から少しずれた直線（風車）
+        n = 3
+        for i in range(n):
+            th = i * 2 * math.pi / n - math.pi / 2
+            ux, uy = math.cos(th), math.sin(th)
+            d = -uy * x + ux * dy - 0.9
+            along = ux * x + uy * dy
+            if abs(d) < 0.55 and along > 0.0:
+                return 'k'
+        sec = int(((a + math.pi / 2) % (2 * math.pi)) / (2 * math.pi / 3)) % 3
+        return ['f', 's', 'g'][sec]
+    if style == 2:   # レンズの蓋：同心円の段・中心の金具・鋲 3 つ
+        if 3.4 < r < 4.0:
+            return 'k'
+        if r < 1.3:
+            return 'e'
+        for i in range(3):
+            th = i * 2 * math.pi / 3 - math.pi / 2
+            if math.hypot(x - 4.9 * math.cos(th), dy - 4.9 * math.sin(th)) < 0.75:
+                return 's'
+        if r < 3.4:
+            return 's' if (x < -0.5 and dy < -0.5) else 'g'
+        return 'g' if x < 0 else 'f'
+    if style == 3:   # 十字の扉：4 枚の三角が中心で合わさる（継ぎ目は斜め十字）
+        if abs(abs(x) - abs(dy)) < 0.5:
+            return 'k'
+        if abs(dy) > abs(x):
+            return 's' if dy < 0 else 'f'
+        return 'g' if x < 0 else 'f'
     k = ((a + 0.5 * r) / (2 * math.pi / 5)) % 1.0   # 5 枚の羽根（渦）
     if k < 0.14:
         return 'k'
     return 'g' if k < 0.62 else 'f'
+
+
+def iris_s(style):
+    def mk(open_):
+        def fn(x, y):
+            r = math.hypot(x, y)
+            if 7.0 < r < 8.6 and y < -4.6:     # 前の庇（向きを示す）
+                return 'w' if r > 7.9 else 's'
+            c = _iris(x, y, open_, style=style)
+            return None if c == '' else c
+        return fn
+    return mk
 
 
 def iris(open_):   # J 絞りの眼
@@ -117,22 +159,26 @@ def dome(open_):   # K 絞りの眼＋長いフード（眼が砲身の奥にあ
     return fn
 
 
-LOOKS = {'I': ('望遠鏡筒', tube, (0, -7.0)), 'J': ('絞りの眼', iris, (0, 0)), 'K': ('絞りの眼＋長いフード', dome, (0, -2.0))}
+LOOKS_ALL = {'I': ('望遠鏡筒', tube, (0, -7.0)), 'J': ('絞りの眼', iris, (0, 0)), 'K': ('絞りの眼＋長いフード', dome, (0, -2.0)),
+             'J1': ('絞りの眼 直線の羽根', iris_s(1), (0, 0)), 'J2': ('絞りの眼 レンズの蓋', iris_s(2), (0, 0)), 'J3': ('絞りの眼 十字の扉', iris_s(3), (0, 0))}
+LOOKS = {k: LOOKS_ALL[k] for k in ('J', 'J1', 'J2', 'J3')}   # 10-17 00:40 の比較（J の閉じた模様）
+EXPORT = ('I', 'J1', 'J2', 'J3')   # K と渦の J は 10-17 00:40 に外した
 
 
 def export_godot(art):
-    for k, (_, mk, _) in LOOKS.items():
+    for k in EXPORT:
+        _, mk, _ = LOOKS_ALL[k]
         paint(mk(True)).save(os.path.join(art, f'enemy_snipa_{k}_open.png'))
         paint(mk(False)).save(os.path.join(art, f'enemy_snipa_{k}_shut.png'))
 
 
 def sheet(path):
-    S = 7
+    S = 6
     out = Image.new('RGBA', (640, 2 * (N * S + 14) + 8), (10, 10, 30, 255))
     for i, (k, (_, mk, _)) in enumerate(LOOKS.items()):
         for j, o in enumerate((True, False)):
             im = paint(mk(o)).resize((N * S, N * S), Image.NEAREST)
-            out.alpha_composite(im, (14 + i * 210, 8 + j * (N * S + 14)))
+            out.alpha_composite(im, (6 + i * 158, 8 + j * (N * S + 14)))
     out.convert('RGB').save(path)
 
 
@@ -142,5 +188,5 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
-        sheet(os.path.join(sys.argv[1], '01_スナイパ_望遠眼の候補3つ_拡大（上＝開いた姿・下＝閉じた姿）.png'))
+        sheet(os.path.join(sys.argv[1], '02_スナイパ_J の閉じた模様3案_拡大（左から 第1稿 J・J1 直線の羽根・J2 レンズの蓋・J3 十字の扉）.png'))
         print('OK')
