@@ -159,10 +159,68 @@ def dome(open_):   # K 絞りの眼＋長いフード（眼が砲身の奥にあ
     return fn
 
 
+# 10-17 08:05 ユーザー「J2 と I が最終候補・もうひとひねり・I は懐中電灯にも見える・プレーヤーに印象付ける存在に」
+# I2＝細く長い砲身＋先は二本の放電レール（丸い頭をやめる）＋脇に照準器 1 本（左右対称を崩す）
+#     砲身の金の輪 3 つ（y＝0.5／-1.5／-3.5）は予告の間 enemy.gd が後ろから順に灯す
+RINGS_I2 = (0.5, -1.5, -3.5)
+
+
+def rail(open_):
+    def fn(x, y):
+        ax = abs(x)
+        if open_:
+            if -8.6 < y < -4.6 and 1.0 < ax < 3.0:      # 放電レール（開くと左右へ）
+                if y < -7.6:
+                    return 'w'
+                return 'k' if ax > 2.2 and y > -6.4 else ('s' if x < 0 else 'f')
+            if -6.6 < y < -4.6 and ax <= 1.0:
+                return 'm'                               # レールの間の光
+        else:
+            if -7.6 < y < -4.6 and ax < 2.0:
+                return 'k' if ax < 0.45 else ('s' if x < 0 else 'f')   # 閉じて一本に
+        if -4.6 <= y < 3.6 and ax < 2.0:                # 細い砲身
+            for yc in RINGS_I2:
+                if abs(y - yc) < 0.5:
+                    return 'e'
+            return steel(x, 2.0)
+        if -4.4 < y < 1.6 and -5.0 < x < -3.0:          # 照準器（左だけ）
+            if y < -3.4:
+                return 'm' if open_ else 'k'
+            return steel(x + 4.0, 1.0)
+        if abs(y + 0.5) < 0.5 and -3.0 <= x < -2.0:
+            return 'k'                                   # 照準器の留め金
+        if 3.6 <= y < 8.6 and ax < 4.0 - max(0.0, 4.6 - y):   # 後ろの機関部（肩は斜め）
+            if abs(y - 5.5) < 0.5:
+                return 'k'
+            if 6.6 < y and ax < 1.0:
+                return 'd'                               # 排気口
+            return steel(x, 4.0)
+        return None
+    return fn
+
+
+# J4＝J2 の蓋に照準の十字（レティクル）と外周の目盛り。目盛りの回転と開いたレンズの十字は enemy.gd が重ねる
+def reticle(open_):
+    def fn(x, y):
+        r = math.hypot(x, y)
+        if 7.0 < r < 8.6 and y < -4.6:
+            return 'w' if r > 7.9 else 's'
+        if 6.4 < r < 7.0:
+            a = (math.degrees(math.atan2(y, x)) + 90.0) % 60.0
+            if 26.0 < a < 34.0:
+                return 'k'                               # 距離計の目盛り
+        if not open_ and 1.3 < r < 3.4 and (abs(x) < 0.45 or abs(y) < 0.45):
+            return 'k'                                   # 蓋に刻んだ十字
+        c = _iris(x, y, open_, style=2)
+        return None if c == '' else c
+    return fn
+
+
 LOOKS_ALL = {'I': ('望遠鏡筒', tube, (0, -7.0)), 'J': ('絞りの眼', iris, (0, 0)), 'K': ('絞りの眼＋長いフード', dome, (0, -2.0)),
-             'J1': ('絞りの眼 直線の羽根', iris_s(1), (0, 0)), 'J2': ('絞りの眼 レンズの蓋', iris_s(2), (0, 0)), 'J3': ('絞りの眼 十字の扉', iris_s(3), (0, 0))}
-LOOKS = {k: LOOKS_ALL[k] for k in ('J', 'J1', 'J2', 'J3')}   # 10-17 00:40 の比較（J の閉じた模様）
-EXPORT = ('I', 'J1', 'J2', 'J3')   # K と渦の J は 10-17 00:40 に外した
+             'J1': ('絞りの眼 直線の羽根', iris_s(1), (0, 0)), 'J2': ('絞りの眼 レンズの蓋', iris_s(2), (0, 0)), 'J3': ('絞りの眼 十字の扉', iris_s(3), (0, 0)),
+             'I2': ('ソーラ・レイ', rail, (0, -6.0)), 'J4': ('照準の眼', reticle, (0, 0))}
+LOOKS = {k: LOOKS_ALL[k] for k in ('I', 'I2', 'J2', 'J4')}   # 10-17 08:05 の比較（最終候補 2 つと、ひとひねり）
+EXPORT = ('I', 'I2', 'J2', 'J4')   # K と渦の J は 10-17 00:40・J1 J3 は 10-17 08:05 に外した
 
 
 def export_godot(art):
@@ -188,5 +246,5 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
-        sheet(os.path.join(sys.argv[1], '02_スナイパ_J の閉じた模様3案_拡大（左から 第1稿 J・J1 直線の羽根・J2 レンズの蓋・J3 十字の扉）.png'))
+        sheet(os.path.join(sys.argv[1], '01_スナイパ_ひとひねり_拡大（左から I・I2 ソーラ・レイ・J2・J4 照準の眼／上 開く 下 閉じる）.png'))
         print('OK')
