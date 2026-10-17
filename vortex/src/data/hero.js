@@ -293,7 +293,9 @@ const STRIDE_LEGS = [
 function sideStride(arch, glove) {
   const G = sideBase();
   for (let y = 6; y <= 8; y++) for (let x = 5; x <= 8; x++) if (G[y][x] === 'm') G[y][x] = '.';   // 体の後ろに垂れた奥の腕を消す
-  if (glove === 'fwd') for (let x = 13; x <= 17; x++) G[6][x] = 'm';                            // 奥の腕＝相手へ伸ばす（胴の右の縁から肩の高さで）
+  // 奥の腕（グラブ側）＝肌色で前下 45°へ（10-17 19:59 ユーザー「サッカーのスローインの輪郭に見える 掴んでから投げ終わるまで全部」）
+  //   漆黒の線は背景に溶けて見えなかった（10-17 19:09「変化なし」）。玉を持つ腕と反対側に肌色の腕が見えることが「片手」の決め手
+  if (glove === 'down') { G[6][13] = 'f'; G[7][14] = 'f'; G[8][15] = 'f'; G[9][16] = 'f'; G[9][17] = 'f'; }
   for (let y = 0; y < 12; y++) {
     const s = Math.round(arch * (12 - y) / 12);
     if (s > 0) { const row = G[y].slice(); for (let x = 0; x < 20; x++) G[y][x] = x + s < 20 ? row[x + s] : '.'; }
@@ -396,11 +398,11 @@ export const HERO_FRAMES = (() => {
     out[`side_l_${pose}`] = sprite(mirror(G));
   }
   out.side_r_kick = sprite(SIDE_KICK.map((r) => r.split('')));   // 思いっきり投げたあと（横顔）
-  out.side_r_stride = sprite(sideStride(0, 'fwd'));   // 投手の 5 段階（横顔の型 3）＝踏み込んだ開脚（奥の腕は相手へ）・cock1〜3＝胸の反り（溜めのゲージ）・accel＝投げる間（奥の腕は胸にたたむ）
-  out.side_l_stride = sprite(mirror(sideStride(0, 'fwd')));
-  out.side_r_accel = sprite(sideStride(0, 'tuck'));
-  out.side_l_accel = sprite(mirror(sideStride(0, 'tuck')));
-  for (let a = 1; a <= 3; a++) { out[`side_r_cock${a}`] = sprite(sideStride(a, 'fwd')); out[`side_l_cock${a}`] = sprite(mirror(sideStride(a, 'fwd'))); }
+  out.side_r_stride = sprite(sideStride(0, 'down'));   // 投手の 5 段階（横顔の型 3）＝踏み込んだ開脚（奥の腕は相手へ）・cock1〜3＝胸の反り（溜めのゲージ）・accel＝投げる間（奥の腕は胸にたたむ）
+  out.side_l_stride = sprite(mirror(sideStride(0, 'down')));
+  out.side_r_accel = sprite(sideStride(0, 'down'));
+  out.side_l_accel = sprite(mirror(sideStride(0, 'down')));
+  for (let a = 1; a <= 3; a++) { out[`side_r_cock${a}`] = sprite(sideStride(a, 'down')); out[`side_l_cock${a}`] = sprite(mirror(sideStride(a, 'down'))); }
   out.side_l_kick = sprite(mirror(SIDE_KICK.map((r) => r.split(''))));
   out.r_follow = sprite(headDrop(rightPose('lift'), 2));            // 思いっきり投げたあと（正面・背中）＝後ろ足が浮いて頭が下がる
   out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
