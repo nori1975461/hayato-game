@@ -189,7 +189,86 @@ def claw(stage):
     return fn
 
 
-LOOKS = {'H1': ('炉心を抱く鉤爪', claw)}
+
+# ---------- H2 籠の火（2026-10-17 15:12 ユーザー「拳には見えないが浮遊爆弾・なかなかいいが『これだ！』が薄い・もうひとひねり」） ----------
+# 診断＝鉤爪は「爪」と「炉心」の二つの物の組み合わせで、火が窓の奥に隠れ、要素も多い。チビット（回る刃）・スナイパ（狙う眼）は一つの物。
+# ひねり＝火を主役にして線を減らす。大きな炉心がむき出しで、3 本の細い肋（あばら）の爪が籠のように囲むだけ。
+# ふだん＝暗い熾（おき）の炉心に小さな瞳・起動＝籠が外へ開いて火が燃え上がる。下の環は掴む所（投げる価値）
+CAGE_CORE, CAGE_R = (0.0, 0.0), 6.2
+CAGE_RING = (8.4, 10.4)
+
+
+def cage_core(x, y, lit):
+    d = math.hypot(x - CAGE_CORE[0], y - CAGE_CORE[1])
+    r = CAGE_R + (0.6 if lit else 0.0)
+    if d >= r + 0.8:
+        return None
+    if d >= r:
+        return 'k'
+    if not lit:
+        if d < 1.2:
+            return 'o'                                         # 瞳
+        return 'r' if d < 3.2 else 'q'                         # 暗い熾＝中心ほど熱い（まだらは木苺に見えた）
+    if x - CAGE_CORE[0] < -1.8 and y - CAGE_CORE[1] < -1.8:
+        return 'O'
+    return 'o' if d < r - 1.4 else 'r'
+
+
+def cage_ribs(x, y, stage):
+    # 3 本の肋＝左右は環から外へ膨らんで炉心の上で先が内へ向く。後ろの 1 本は先だけ炉心の上に見える。起動で外へ開く
+    lit = stage != 'shut'
+    spread = 1.0 if stage == 'open' else 0.0
+    def col(t, across, hw):
+        if t > 0.78:
+            return 'o' if lit else 'B'                         # 爪先（金・起動で灯る）
+        if abs(across) > hw - 0.9:
+            return 'k'
+        return 's' if across < -hw * 0.3 else 'g'
+    for sgn in (-1, 1):
+        base = (sgn * 5.0, CAGE_RING[0] - 0.4)
+        mid = (sgn * (9.0 + 2.0 * spread), 0.5 - 1.5 * spread)
+        tip = (sgn * (3.6 + 6.4 * spread), -10.8 - 0.4 * spread)
+        r = seg(x, y, base, mid, 2.6, 2.0)
+        if r:
+            return col(r[0] * 0.5, r[1] * sgn, r[2])
+        r = seg(x, y, mid, tip, 2.0, 0.7)
+        if r:
+            return col(0.5 + r[0] * 0.5, r[1] * sgn, r[2])
+    # 後ろの肋の先（炉心の真上）
+    r = seg(x, y, (0.0, -5.0 - 3.0 * spread), (0.0, -11.8 - 1.2 * spread), 1.6, 0.6)
+    if r and y < -CAGE_R - 0.4:
+        return col(0.8 + r[0] * 0.2, r[1], r[2])
+    return None
+
+
+def cage_ring(x, y):
+    ax = abs(x)
+    if CAGE_RING[0] <= y < CAGE_RING[1]:
+        hw = 5.6 if y < CAGE_RING[0] + 1.2 else 4.8
+        if ax >= hw:
+            return None
+        if ax > hw - 0.9:
+            return 'k'
+        return 'B' if x < -hw + 2.2 else ('n' if x > hw - 2.2 else 'b')
+    d = math.hypot(x, y - 12.2)                                 # 下の掴む輪
+    if 1.0 < d < 2.3 and y >= CAGE_RING[1] - 0.4:
+        return 'g' if x < 0 else 'f'
+    return None
+
+
+def cage(stage):
+    def fn(x, y):
+        c = cage_ribs(x, y, stage)
+        if c:
+            return c
+        c = cage_core(x, y, stage != 'shut')
+        if c:
+            return c
+        return cage_ring(x, y)
+    return fn
+
+
+LOOKS = {'H1': ('炉心を抱く鉤爪', claw), 'H2': ('籠の火', cage)}
 STAGES = ('shut', 'crack', 'open')
 
 
@@ -215,5 +294,5 @@ if __name__ == '__main__':
         print('OK godot')
     else:
         os.makedirs(sys.argv[1], exist_ok=True)
-        sheet(os.path.join(sys.argv[1], '01_ボンバ_炉心を抱く鉤爪_拡大（左から 閉じた蕾・起動の瞬間・爪が開いて炉心がむき出し）.png'))
+        sheet(os.path.join(sys.argv[1], '03_ボンバ_鉤爪と籠の火_拡大（上 H1 鉤爪・下 H2 籠の火／左から ふだん・起動の瞬間・開く）.png'))
         print('OK')
