@@ -268,7 +268,19 @@ def cage(stage):
     return fn
 
 
-LOOKS = {'H1': ('炉心を抱く鉤爪', claw), 'H2': ('籠の火', cage)}
+
+# ---------- H3 回る籠（2026-10-17 15:52 ユーザー「ボンバにも独自の動きがほしい＝チビットの回転する刃・スナイパの開閉する窓のように」） ----------
+# 籠（3 本の肋）は kurutto-godot の enemy.gd がコードで描き、炉心のまわりを縦軸で回る（前と後ろを横切る）。絵は炉心と環だけ
+def cage_bare(stage):
+    def fn(x, y):
+        c = cage_core(x, y, stage != 'shut')
+        if c:
+            return c
+        return cage_ring(x, y)
+    return fn
+
+
+LOOKS = {'H1': ('炉心を抱く鉤爪', claw), 'H2': ('籠の火', cage), 'H3': ('回る籠（肋はコード）', cage_bare)}
 STAGES = ('shut', 'crack', 'open')
 
 
