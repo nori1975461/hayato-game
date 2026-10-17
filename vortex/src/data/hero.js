@@ -288,8 +288,12 @@ const STRIDE_LEGS = [
   '.....uu......uu.....',
   '....uuu......uuu....',
 ];
-function sideStride(arch) {
+//   奥の腕（glove）＝18:54 ユーザー「両手でもって両手で投げているように見える」＝体の後ろに垂れた奥の腕と後ろへ伸びた投げ腕が 2 本並んで見えた
+//     → 奥の腕は図のグラブの腕＝引き寄せ・溜めは相手へ伸ばす（fwd・肩の高さで前へ 5 画素）・投げる間は胸にたたむ（tuck＝胴の陰で見えない）
+function sideStride(arch, glove) {
   const G = sideBase();
+  for (let y = 6; y <= 8; y++) for (let x = 5; x <= 8; x++) if (G[y][x] === 'm') G[y][x] = '.';   // 体の後ろに垂れた奥の腕を消す
+  if (glove === 'fwd') for (let x = 13; x <= 17; x++) G[6][x] = 'm';                            // 奥の腕＝相手へ伸ばす（胴の右の縁から肩の高さで）
   for (let y = 0; y < 12; y++) {
     const s = Math.round(arch * (12 - y) / 12);
     if (s > 0) { const row = G[y].slice(); for (let x = 0; x < 20; x++) G[y][x] = x + s < 20 ? row[x + s] : '.'; }
@@ -392,9 +396,11 @@ export const HERO_FRAMES = (() => {
     out[`side_l_${pose}`] = sprite(mirror(G));
   }
   out.side_r_kick = sprite(SIDE_KICK.map((r) => r.split('')));   // 思いっきり投げたあと（横顔）
-  out.side_r_stride = sprite(sideStride(0));   // 投手の 5 段階（横顔の型 3）＝踏み込んだ開脚・cock1〜3＝胸の反り（溜めのゲージ）
-  out.side_l_stride = sprite(mirror(sideStride(0)));
-  for (let a = 1; a <= 3; a++) { out[`side_r_cock${a}`] = sprite(sideStride(a)); out[`side_l_cock${a}`] = sprite(mirror(sideStride(a))); }
+  out.side_r_stride = sprite(sideStride(0, 'fwd'));   // 投手の 5 段階（横顔の型 3）＝踏み込んだ開脚（奥の腕は相手へ）・cock1〜3＝胸の反り（溜めのゲージ）・accel＝投げる間（奥の腕は胸にたたむ）
+  out.side_l_stride = sprite(mirror(sideStride(0, 'fwd')));
+  out.side_r_accel = sprite(sideStride(0, 'tuck'));
+  out.side_l_accel = sprite(mirror(sideStride(0, 'tuck')));
+  for (let a = 1; a <= 3; a++) { out[`side_r_cock${a}`] = sprite(sideStride(a, 'fwd')); out[`side_l_cock${a}`] = sprite(mirror(sideStride(a, 'fwd'))); }
   out.side_l_kick = sprite(mirror(SIDE_KICK.map((r) => r.split(''))));
   out.r_follow = sprite(headDrop(rightPose('lift'), 2));            // 思いっきり投げたあと（正面・背中）＝後ろ足が浮いて頭が下がる
   out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
