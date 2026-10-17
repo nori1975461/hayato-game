@@ -276,6 +276,28 @@ const SIDE_KICK = [
   '....uu.......ww.....',
   '.............www....',
 ];
+// ===== 投手の 5 段階（2026-10-17 18:31 ユーザー「貼付資料（コッキング初期→後期→加速期→減速期→フォロースルー）の動作をどうにかして入れられないか」＝横顔の投げの型 3）=====
+//   脚は全段「踏み込んだ開脚」stride（前膝を曲げて着地・後ろ脚は伸びる・両足とも地面）＝図のコッキング後期〜減速期の下半身。膝上げ（knee）は使わない
+//   胸の反り「ぐっと胸をそり」は体を回さず絵で出す＝頭と胴を上の行ほど後ろへずらす（arch 1〜3 画素＝溜めのゲージ cock1〜3）。足は 1 画素も動かない（回すと前足が浮く）
+//   腕（玉を持つ手）は hand.gd が描く＝player.gd の PT_*（腰の前→腰の後ろ→顔の後ろ→頭上→前上で離す→前下→前脚の前）
+const STRIDE_LEGS = [
+  '.........pp.p.......',
+  '........pp..pp......',
+  '.......pp....pp.....',
+  '......dd.....dd.....',
+  '.....uu......uu.....',
+  '....uuu......uuu....',
+];
+function sideStride(arch) {
+  const G = sideBase();
+  for (let y = 0; y < 12; y++) {
+    const s = Math.round(arch * (12 - y) / 12);
+    if (s > 0) { const row = G[y].slice(); for (let x = 0; x < 20; x++) G[y][x] = x + s < 20 ? row[x + s] : '.'; }
+  }
+  for (let i = 0; i < 6; i++) G[12 + i] = STRIDE_LEGS[i].split('');
+  return G;
+}
+export const COCK_SHIFT = [0, 1, 2, 3].map((a) => Math.round(a * (12 - 6) / 12));   // 肩の行（6）の後ろへのずれ（player.gd の shoulder_pos が写す）＝[0,1,1,2]
 // 頭（行 0〜4）を drop 行だけ下げて肩に重ねる＝上体を倒す（正面・背中）
 // 背中で画面の右の腕を抜いた体（脚は FEET の鍵で選ぶ）＝投げたあとの絵（follow）に使う
 function backArmless(legs) {
@@ -370,6 +392,9 @@ export const HERO_FRAMES = (() => {
     out[`side_l_${pose}`] = sprite(mirror(G));
   }
   out.side_r_kick = sprite(SIDE_KICK.map((r) => r.split('')));   // 思いっきり投げたあと（横顔）
+  out.side_r_stride = sprite(sideStride(0));   // 投手の 5 段階（横顔の型 3）＝踏み込んだ開脚・cock1〜3＝胸の反り（溜めのゲージ）
+  out.side_l_stride = sprite(mirror(sideStride(0)));
+  for (let a = 1; a <= 3; a++) { out[`side_r_cock${a}`] = sprite(sideStride(a)); out[`side_l_cock${a}`] = sprite(mirror(sideStride(a))); }
   out.side_l_kick = sprite(mirror(SIDE_KICK.map((r) => r.split(''))));
   out.r_follow = sprite(headDrop(rightPose('lift'), 2));            // 思いっきり投げたあと（正面・背中）＝後ろ足が浮いて頭が下がる
   out.l_follow = sprite(headDrop(mirrorLimbs(rightPose('lift'), base('stand')), 2));
