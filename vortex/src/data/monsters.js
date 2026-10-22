@@ -434,8 +434,7 @@ export const MONSTERS = [
     ],
     sprite: {
       palette: { a: '#8ef0a8', d: '#4fbf74', w: '#ffffff', k: '#1e4a32', p: '#ffb3d9', h: '#ff7fa8' },
-      rows: [
-        '................',
+      rows: [   // 10-23 手と足（ユーザー「ピンクが口に見える・手がなく巨大な顔に見える」＝白い手でハートを抱え 足を 2 つ）
         '.....wwwwww.....',
         '...wwaaaaaaww...',
         '..waaaaaaaaaaw..',
@@ -444,13 +443,14 @@ export const MONSTERS = [
         '.aawkaaaaaawkaa.',
         '.aakkaaaaaakkaa.',
         '.ppaaaakkaaaapp.',
-        '.aaaaahhhhaaaaa.',
-        '.aaaahhhhhhaaaa.',
-        '.aaaahhhhhhaaaa.',
-        '..aaaahhhhaaaa..',
-        '..aaaaahhaaaaa..',
-        '...aaaaaaaaaa...',
-        '....dddddddd....',
+        '.aaaaaaaaaaaaaa.',
+        '.aaaahhaahhaaaa.',
+        '.ddawhhhhhhwadd.',
+        '.aaaawhhhhwaaaa.',
+        '.aaaaaahhaaaaaa.',
+        '..aaaaaaaaaaaa..',
+        '...dddaaaaddd...',
+        '..aaaa....aaaa..',
       ],
     },
     // 綿毛が翼になり、頭上に光の輪をいただいた姿。回復量が上がる。
