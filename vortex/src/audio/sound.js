@@ -2951,6 +2951,57 @@ const MELODY_MAOU = [
   [NOTE.G5, NOTE.F5, NOTE.Ds5, NOTE.D5, NOTE.C5, H, NOTE.D5, NOTE.F5], // 元調へ駆け下り、そのまま振り出しへ
 ];
 
+// ★2026-10-25 マオウレクス戦の長い版（Godot 版クルット・モビットの雑魚戦の曲）。
+//   経緯：10-25 曲の入れ替えで雑魚戦をこの曲にしたらユーザー「ポップな曲調がむしろ合う・しかし短すぎる
+//   （ボスまで 85 秒＝21.6 秒を 4 周）・曲調を壊さずに長く」。
+//   形＝A（16 小節＝いまの曲そのまま・1 音も触らない）→ B（16 小節＝新しい応え）→ A'（A を聖歌隊つき・段を 1 つ上げて）
+//   ＝48 小節・1 周 64.7 秒。「同じ手」を保つ縛り：B の和音は A の語彙（Cm7 Bb7 Eb7 C7♭9 Fm7 Ab7 D7 F#dim7 G7 G7onB Ab Gm）
+//   から選ぶ・B1 の旋律は A の名乗りの動機（同音 2 つ→4 度上→短 3 度上）を下属調（Fm）で応える・
+//   ベースの 16 分とツーバスは B の間も走り続ける（疾走の背骨）。B1 の 4 小節だけギターの壁を外しオルガンが歌う（息）。
+const DM7B5 = { arp: [NOTE.D4, NOTE.F4, NOTE.Gs4, NOTE.C5], pad: [NOTE.D3, NOTE.Gs3, NOTE.F4], bass: NOTE.D3 };   // Dm7(♭5)＝Cm の ii
+const M = CHORDS_MAOU;   // 索引で A と同じ声部配置を借りる（0 Cm7・2 Bb7・4 Eb7・5 C7♭9・6 Fm7・12 Ab7・13 D7・14 F#dim7・15 G7・16 Cm・18 Gm・19 Eb・20 Ab・21 G7onB）
+const CHORDS_MAOU_B = [
+  M[6], M[6],   M[2], M[2],   M[19], M[19],  M[20], M[15],   // B1 息：Fm7 | Bb7 | Eb | Ab G7（下属調からの五度の連鎖）
+  M[16], M[16], M[20], M[2],  M[18], M[16],  DM7B5, M[15],   // B2 壁が戻る：Cm | Ab Bb7 | Gm Cm | Dm7♭5 G7
+  M[6], M[6],   M[12], M[12], M[13], M[13],  M[15], M[21],   // B3 呼びかけと応え：Fm7 | Ab7 | D7（4 度上行）| G7 G7onB
+  M[0], M[0],   M[4], M[5],   M[6], M[14],   M[15], M[15],   // B4 助走：Cm7 | Eb7 C7♭9 | Fm7 F#dim7 | G7 → A' の Cm7 へ
+];
+const MELODY_MAOU_B = [
+  [NOTE.Ds4, NOTE.Ds4, NOTE.Gs4, H, NOTE.C5, H, H, H],            // B1 応え：名乗りの動機を Fm で（ミ♭ミ♭ラ♭〜ド〜）
+  [NOTE.As4, H, NOTE.Gs4, H, NOTE.F4, H, H, H],
+  [NOTE.Ds4, NOTE.Ds4, NOTE.G4, H, NOTE.As4, H, H, H],
+  [NOTE.C5, H, NOTE.As4, NOTE.Gs4, NOTE.G4, H, H, H],             // G7 の上で G に着地
+  [NOTE.G4, H, H, H, NOTE.Ds5, H, NOTE.D5, H],                    // B2 歌：長い音で（壁が戻る）
+  [NOTE.C5, H, H, H, NOTE.As4, H, NOTE.Gs4, H],
+  [NOTE.G4, H, NOTE.As4, H, NOTE.D5, H, H, H],
+  [NOTE.F5, H, NOTE.Ds5, NOTE.D5, NOTE.C5, H, NOTE.B4, NOTE.D5],  // 導音 B で G7 へ
+  [NOTE.Gs5, NOTE.Gs5, NOTE.C6, H, NOTE.Gs5, H, H, H],            // B3 呼びかけ（高く）
+  [NOTE.Fs5, H, NOTE.F5, H, NOTE.Ds5, H, NOTE.C5, H],             // Ab7 の第 7 音 G♭ で色
+  [NOTE.Fs5, H, NOTE.A5, H, NOTE.C6, H, NOTE.A5, H],              // D7 の F# で異国の緊張（A と同じ色）
+  [NOTE.G5, H, NOTE.F5, NOTE.D5, NOTE.B4, H, H, H],
+  [NOTE.G4, NOTE.G4, NOTE.C5, H, NOTE.Ds5, H, NOTE.G5, H],        // B4 助走：名乗りの動機が元の高さで戻る
+  [NOTE.As5, H, NOTE.G5, H, NOTE.E5, H, H, H],                    // C7♭9 の E
+  [NOTE.Gs5, H, NOTE.G5, H, NOTE.Ds5, H, NOTE.C5, NOTE.Ds5],      // F#dim7 の上
+  [NOTE.F5, H, NOTE.D5, H, NOTE.B4, H, NOTE.D5, NOTE.F5],         // A と同じ振り出しの形で A' の G4 へ
+];
+const CHORDS_MAOU_LONG = [...CHORDS_MAOU, ...CHORDS_MAOU_B, ...CHORDS_MAOU];
+const MELODY_MAOU_LONG = [...MELODY_MAOU, ...MELODY_MAOU_B, ...MELODY_MAOU];
+// 段の表（4 小節ごと）：sec＝従来の段の番号（ハット・聖歌隊の既定に効く）・lift＝音量の持ち上げ・wall＝ギターの壁・clean＝主題をオルガンで・choir＝聖歌隊
+const SECT_MAOU_LONG = [
+  { sec: 0, lift: 0,    wall: true,  clean: false, choir: false },   // A  名乗り（従来どおり）
+  { sec: 1, lift: 0.10, wall: true,  clean: false, choir: false },   // A  追い立て
+  { sec: 2, lift: 0.20, wall: true,  clean: false, choir: true },    // A  主題
+  { sec: 3, lift: 0.36, wall: true,  clean: false, choir: true },    // A  頂点
+  { sec: 1, lift: 0,    wall: false, clean: true,  choir: false },   // B1 息（壁なし・オルガンが歌う・ベースとツーバスは走る）
+  { sec: 1, lift: 0.12, wall: true,  clean: false, choir: false },   // B2 壁が戻る
+  { sec: 2, lift: 0.22, wall: true,  clean: false, choir: true },    // B3 呼びかけと応え
+  { sec: 2, lift: 0.32, wall: true,  clean: false, choir: true },    // B4 助走
+  { sec: 2, lift: 0.26, wall: true,  clean: false, choir: true },    // A' 名乗り（聖歌隊が最初から）
+  { sec: 2, lift: 0.32, wall: true,  clean: false, choir: true },    // A' 追い立て
+  { sec: 3, lift: 0.42, wall: true,  clean: false, choir: true },    // A' 主題
+  { sec: 3, lift: 0.52, wall: true,  clean: false, choir: true },    // A' 頂点＝曲の頂点 → ループで A の名乗りへ落ちる（元の曲と同じ落差）
+];
+
 // ★R39 軌道神核だけの第2旋律「神核の主題」（オルガンの独立声部）。
 //   実プレイFB「オルガンをもう少し目立たせて」＋「軌道神核のBGM自体の個性を」。
 //   R38 までの maouTrue は**旋律も和音もマオウレクスと同一**で、違いはミックス（音量比）と
@@ -3102,6 +3153,9 @@ const SONGS = {
   // どれが選ばれるかで「音色が軸だったのか」が分かる（＝聞き比べを実験として設計している）。
   maou:      { bpm: 178, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
                variant: 'guitar', label: '① ギター（ひずみ）' },
+  // ★2026-10-25 長い版（A→B→A'・48 小節）＝Godot 版クルット・モビットの雑魚戦の曲（tools/bgm2wav.mjs が焼く）。Phaser 版では鳴らさない
+  maouLong:  { bpm: 178, bars: 48, chords: CHORDS_MAOU_LONG, melody: MELODY_MAOU_LONG, style: 'maou',
+               variant: 'guitar', sect: (bar) => SECT_MAOU_LONG[Math.floor(bar / 4)], label: '① ギター 長い版（A→B→A′）' },
   maouOrch:  { bpm: 168, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
                variant: 'orch',   label: '② オーケストラ' },
   maouSynth: { bpm: 190, bars: 16, chords: CHORDS_MAOU, melody: MELODY_MAOU, style: 'maou',
@@ -3670,8 +3724,13 @@ function playBgmStep(step) {
     //   orch   … ブラス／弦のトレモロ／合唱／ティンパニ（歪み無し・残響たっぷり）
     //   synth  … 矩形波と16分アルペジオの疾走（ファミコン〜SFC寄り）
     const ch = song.chords[bar * 2 + (inBar >= 8 ? 1 : 0)];
-    const sec = Math.floor(bar / 4);            // 0=名乗り 1=追い立て 2=主題 3=頂点（半音上へ転調）
-    const lift = [0, 0.10, 0.20, 0.36][sec];
+    // ★2026-10-25 長い版（maouLong・Godot 版の雑魚戦）のために、段の情報を曲ごとに差し替えられる口を開けた。
+    //   sect が無い曲（maou／maouOrch／maouSynth／maouTrue）は従来の式のまま＝音は 1 サンプルも変わらない（boss_maou.wav で検算）
+    const sx = song.sect ? song.sect(bar) : null;
+    const sec = sx ? sx.sec : Math.floor(bar / 4);            // 0=名乗り 1=追い立て 2=主題 3=頂点（半音上へ転調）
+    const lift = sx ? sx.lift : [0, 0.10, 0.20, 0.36][sec];
+    const WALL = sx ? sx.wall : true;         // ギターの壁（②）を鳴らすか
+    const CLEAN = sx ? sx.clean : false;      // 主題（⑥）を歪みでなくオルガンで歌うか（長い版の「息」）
     const beat = inBar % 4;
     const V = song.variant || 'guitar';
     const GT = V === 'guitar' || V === 'true';  // R36W2 軌道神核はギター編成が土台（採用版に足すだけ）
@@ -3710,7 +3769,7 @@ function playBgmStep(step) {
     }
 
     // ===== ② 中音：和音の受け持ち（ここが編成の性格をいちばん決める） =====
-    if (GT) {
+    if (GT && WALL) {
       // パワーコードのバッキング。**本物の歪み**を通すので、同時に鳴る音同士が
       // シェイパーの中で干渉して濁る＝実際のギターアンプと同じ「壁」ができる。
       if (inBar % 2 === 0) {
@@ -3767,12 +3826,12 @@ function playBgmStep(step) {
         noiseHit({ dur: 0.55, gain: 0.085 + lift * 0.05, hpFreq: 3000, lpFreq: 15000, dest: bgmGain });
       }
       // ドラムのフィルイン（段の変わり目に雪崩れ込む）
-      if ((bar === 3 || bar === 7 || bar === 11 || bar === 15) && inBar >= 12) {
+      if (bar % 4 === 3 && inBar >= 12) {   // 2026-10-25 長い版（48 小節）でも 4 小節ごと＝16 小節の曲では 3/7/11/15 で不変
         const k = inBar - 12;
         noiseHit({ dur: 0.045, gain: 0.028 + k * 0.014, hpFreq: 700, lpFreq: 9000, dest: bgmGain });
         tone({ type: 'triangle', freq: 300 - k * 42, freqEnd: 150 - k * 20, dur: 0.06,
                gain: 0.045 + k * 0.016, dest: bgmGain, attack: 0.001 });
-        if (bar === 15) {
+        if (bar === song.bars - 1) {
           tone({ type: 'sine', freq: 120, freqEnd: 54, dur: 0.13,
                  gain: 0.07 + k * 0.020, dest: bgmGain, attack: 0.002, verb: 0.25 });
         }
@@ -3819,7 +3878,8 @@ function playBgmStep(step) {
     // ===== ⑤ 荘厳：聖歌隊（第3段から。orch は第2段から厚く） =====
     // R36W2 軌道神核は聖歌隊が**最初の小節から**入る（神々しさは「あとから来る」ものではなく
     //   その姿の常態。段の高まりは音量 lift が引き受ける）。
-    if (inBar === 8 && (sec >= 2 || (V === 'orch' && sec >= 1) || V === 'true')) {
+    const CHOIR = sx ? sx.choir : (sec >= 2 || (V === 'orch' && sec >= 1) || V === 'true');
+    if (inBar === 8 && CHOIR) {
       ch.arp.forEach((n, i) => {
         const f = noteFreq(n);
         tone({ type: 'triangle', freq: f * 2, dur: stepSec * 7,
@@ -3849,7 +3909,16 @@ function playBgmStep(step) {
         const len = stepSec * 2 * hold;          // 1枡＝8分音符＝2ステップ
         const mf = noteFreq(m);
         const g = 0.105 * (1 + lift) * LEAD_DUCK;   // R39 神核の主題の段はギターが一歩下がる
-        if (GT) {
+        if (GT && CLEAN) {
+          // ★長い版の「息」：歪みを通さないオルガンの登録（プリンシパル 8'＋4'＋クイント＝⑥b と同じ指紋）で主題を歌う。
+          //   立ち上がり 0.05 はオルガンの「発語」＝同じ旋律でも刃ではなく声に聞こえる
+          tone({ type: 'sawtooth', freq: mf, dur: len * 0.96, gain: g * 0.58,
+                 dest: bgmGain, attack: 0.05, verb: 0.45 });
+          tone({ type: 'square', freq: mf * 2, dur: len * 0.92, gain: g * 0.22,
+                 dest: bgmGain, attack: 0.07, verb: 0.40 });
+          tone({ type: 'sine', freq: mf * 3, dur: len * 0.9, gain: g * 0.13,
+                 dest: bgmGain, attack: 0.06, verb: 0.45 });
+        } else if (GT) {
           // 歪みギターのリード。デチューン3枚を**同じシェイパーへ**送るので、
           // 足し算ではなく互いに潰し合って本当のひずみになる。
           for (const det of [-12, 0, 12]) {
