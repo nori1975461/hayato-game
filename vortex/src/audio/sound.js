@@ -2992,7 +2992,7 @@ const SECT_MAOU_LONG = [
   { sec: 1, lift: 0.10, wall: true,  clean: false, choir: false },   // A  追い立て
   { sec: 2, lift: 0.20, wall: true,  clean: false, choir: true },    // A  主題
   { sec: 3, lift: 0.36, wall: true,  clean: false, choir: true },    // A  頂点
-  { sec: 1, lift: 0,    wall: false, clean: true,  choir: false },   // B1 息（壁なし・オルガンが歌う・ベースとツーバスは走る）
+  { sec: 1, lift: 0,    wall: 0.5,   clean: true,  choir: false },   // B1 息（壁は半分・オルガンが歌う・ベースとツーバスは走る）10-25 壁なし（−9〜−11dB）はユーザー「静かすぎる」
   { sec: 1, lift: 0.12, wall: true,  clean: false, choir: false },   // B2 壁が戻る
   { sec: 2, lift: 0.22, wall: true,  clean: false, choir: true },    // B3 呼びかけと応え
   { sec: 2, lift: 0.32, wall: true,  clean: false, choir: true },    // B4 助走
@@ -3729,7 +3729,7 @@ function playBgmStep(step) {
     const sx = song.sect ? song.sect(bar) : null;
     const sec = sx ? sx.sec : Math.floor(bar / 4);            // 0=名乗り 1=追い立て 2=主題 3=頂点（半音上へ転調）
     const lift = sx ? sx.lift : [0, 0.10, 0.20, 0.36][sec];
-    const WALL = sx ? sx.wall : true;         // ギターの壁（②）を鳴らすか
+    const WALL = sx ? +sx.wall : 1;            // ギターの壁（②）の倍率（1＝従来・0＝無し・0.5＝半分＝長い版 B1 の「息」10-25 ユーザー「静かすぎる」で 0→0.5）
     const CLEAN = sx ? sx.clean : false;      // 主題（⑥）を歪みでなくオルガンで歌うか（長い版の「息」）
     const beat = inBar % 4;
     const V = song.variant || 'guitar';
@@ -3769,12 +3769,12 @@ function playBgmStep(step) {
     }
 
     // ===== ② 中音：和音の受け持ち（ここが編成の性格をいちばん決める） =====
-    if (GT && WALL) {
+    if (GT && WALL > 0) {
       // パワーコードのバッキング。**本物の歪み**を通すので、同時に鳴る音同士が
       // シェイパーの中で干渉して濁る＝実際のギターアンプと同じ「壁」ができる。
       if (inBar % 2 === 0) {
         const r = noteFreq(ch.arp[0]);
-        const g = 0.070 * (1 + lift) * GDIM;   // R38 軌道神核は壁を下げてオルガンに主役を譲る
+        const g = 0.070 * (1 + lift) * GDIM * WALL;   // R38 軌道神核は壁を下げてオルガンに主役を譲る
         for (const [mul, det] of [[1, -8], [1, 8], [1.4983, 0]]) {
           tone({ type: 'sawtooth', freq: r * mul, dur: stepSec * 1.6, gain: g,
                  dest: GTR, attack: 0.003, detune: det });
