@@ -291,3 +291,29 @@ export const MOBIT_VIEWS = {
     ],
   },
 };
+
+// ★2026-10-28 ユーザー指示「モビットたちが戦闘中に目を瞬きするように それだけでぐっと相棒としての臨場感がでる」
+//   閉じた目の絵＝目の枠 [x, y, 幅, 高さ] の上の段を肌の色（skin）で塗り 一番下の段だけ残す（2×2 の目は一本の線になる）
+//   1 画素の目（マモリン・ビリッコ）は肌で塗って消す。正面（monsters.js）と横顔（side_r）だけ＝背中は目が無い
+//   ネムッコは寝ている（目はずっと閉じている）ので無し。Godot 版は tools/sprite2png.mjs が art/mon_<id>[_side_r|_side_l]_blink.png を焼く
+export const MOBIT_BLINK = {
+  starpuppy: { skin: 'a', front: [[4, 6, 2, 2], [10, 6, 2, 2]], side_r: [[11, 6, 2, 2]] },
+  togeron: { skin: 'a', front: [[3, 5, 2, 2], [11, 5, 2, 2]], side_r: [[10, 5, 2, 2]] },
+  neonworm: { skin: 'a', front: [[4, 4, 2, 2], [10, 4, 2, 2]], side_r: [[10, 4, 2, 2]] },
+  aurajelly: { skin: 'a', front: [[3, 5, 2, 2], [11, 5, 2, 2]], side_r: [[11, 5, 2, 2]] },
+  mashumo: { skin: 'a', front: [[3, 5, 2, 2], [11, 5, 2, 2]], side_r: [[11, 5, 2, 2]] },
+  mamorin: { skin: 'w', front: [[5, 4, 1, 1], [10, 4, 1, 1]], side_r: [[10, 4, 1, 1]] },
+  biricco: { skin: 'c', front: [[3, 7, 1, 1], [13, 7, 1, 1]], side_r: [[13, 7, 1, 1]] },
+};
+
+// 閉じた目の rows を作る（rows は文字列の配列・eyes は上の枠）
+export function blinkRows(rows, eyes, skin) {
+  const g = rows.map((r) => [...r]);
+  for (const [x, y, w, h] of eyes) {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      if (h === 1 || j < h - 1) g[y + j][x + i] = skin;
+      else g[y + j][x + i] = 'k';
+    }
+  }
+  return g.map((r) => r.join(''));
+}
